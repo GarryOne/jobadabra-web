@@ -3,7 +3,7 @@
 // the phone camera frames around them (whole.mjs), and edgeCuts finds those the camera's view crosses at its left or right edge when the look is shown. A line of words is never cut; a card that would
 // fit in the view is shown whole. Used by media.mjs before it draws a copy. Pure but edgesScript. Guard: desktop/test/media-edges.test.js.
 import {cameraAt, cameraKeys} from './camera.mjs';
-import {edgeItems} from './whole.mjs';
+import {edgeItems, edgeItemsY} from './whole.mjs';
 
 // Runs in the page (page.evaluate): the visible lines of words and the cards (an element with a visible border and a rounded corner) inside the
 // window. -> [{k: 'text'|'card', x, y, w, h, text}] in CSS px.
@@ -26,9 +26,11 @@ export function edgesScript() {
 
 // What a view cuts: lines of words and cards (that would fit the widest view, maxW) its left or right edge crosses or touches (whole.mjs
 // edgeItems, the rule the phone camera frames by). Only what shows inside the view's height counts. -> [{k, side, text}]. Pure.
-export function cutsIn(view, edges, maxW = view.w, pageW = Infinity) {
+// pageH: the page's height, to check the top and bottom edges too (run 25), maxH the tallest view's height (without it, left and right only).
+export function cutsIn(view, edges, maxW = view.w, pageW = Infinity, pageH = null, maxH = Infinity) {
   const at = (x, side) => edgeItems(x, side, edges, view.y, view.y + view.h, maxW, pageW).map(item => ({k: item.k, side, text: item.text}));
-  return [...at(view.x, 'left'), ...at(view.x + view.w, 'right')];
+  const atY = (y, side) => (pageH === null ? [] : edgeItemsY(y, side, edges, view.x, view.x + view.w, maxH, pageH).map(item => ({k: item.k, side, text: item.text})));
+  return [...at(view.x, 'left'), ...at(view.x + view.w, 'right'), ...atY(view.y, 'top'), ...atY(view.y + view.h, 'bottom')];
 }
 
 const SAMPLES = 10;
@@ -40,10 +42,11 @@ export function edgeCuts(log, speed = 1, {steady = false, phone = null, keys = c
   return log.events.filter(event => event.type === 'hold' && event.edges && (event.box || event.phoneBox)).map(event => {
     // a cut is one most of the hold shows (SAMPLES points): the camera glides in and out at a hold's ends, and may arrive late in it (run 18: the
     // end of a hold was mid-glide; run 20: picture in picture arrived after the hold's middle), so one moment can read a passing edge as a cut
-    const seen = new Map();
+    // ... and only once it has arrived: a screen that opens wide glides in over the hold's first part (hold.mjs openWide)
+    const seen = new Map(), end = event.t + (event.s || 0), from = Math.max(event.t, ...keys.filter(key => key.t > event.t && key.t < end).map(key => key.t));
     for (let k = 0; k < SAMPLES; k++) {
-      const view = cameraAt(keys, event.t + (event.s || 0) * (k + 0.5) / SAMPLES, log.viewport, speed, phone);
-      const now = new Map(cutsIn(view, event.edges, log.viewport.w / least, log.viewport.w).map(cut => [`${cut.k} ${cut.side} ${cut.text}`, cut]));
+      const view = cameraAt(keys, from + (end - from) * (k + 0.5) / SAMPLES, log.viewport, speed, phone);
+      const now = new Map(cutsIn(view, event.edges, log.viewport.w / least, log.viewport.w, log.viewport.h, log.viewport.w / least / aspect).map(cut => [`${cut.k} ${cut.side} ${cut.text}`, cut]));
       for (const [key, cut] of now) seen.set(key, {cut, n: (seen.get(key)?.n || 0) + 1});   // once per moment (ten rows cut at once are one moment)
     }
     const cuts = [...seen.values()].filter(({n}) => n > SAMPLES / 2).map(({cut}) => cut);

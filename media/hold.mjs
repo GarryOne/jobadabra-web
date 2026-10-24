@@ -8,7 +8,7 @@ export const holdLeft = (hold, startedMs, nowMs) => Math.max(0.3, hold - (nowMs 
 export const leftPart = (box, width) => (box && width ? {...box, width: Math.min(box.width, width)} : box);
 export const holdEvent = (item, box, phoneBox = null, s = item.hold) => ({type: 'hold', look: item.look || null, box: leftPart(box, item.lookWidth), s, ...(item.zoom ? {zoom: item.zoom} : {}),
   ...(item.cut ? {cut: true} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {}), ...(phoneBox ? {phoneBox: leftPart(phoneBox, item.phoneLookWidth)} : {}), ...(item.poster ? {poster: true} : {}), ...(item.say ? {say: item.say} : {}), ...(item.tag ? {tag: item.tag} : {}),
-  ...(item.into ? {into: item.into} : {}), ...(item.lead ? {lead: true} : {}), ...(item.into === 'card' ? {card: {tag: item.tag || '', text: item.card || ''}} : {})});   // the transition into this look (transitions.mjs)
+  ...(item.into ? {into: item.into} : {}), ...(item.lead ? {lead: true} : {}), ...(item.opensWide ? {opensWide: true} : {}), ...(item.into === 'card' ? {card: {tag: item.tag || '', text: item.card || ''}} : {})});   // the transition into this look (transitions.mjs)
 // How much of a look's box is outside the window. A look measured off screen is framed on whatever sits at the window's
 // edge (round 5: the Applying page kept the Jobs page's scroll, her job's header was at y -308 and the camera showed the needs list): the recorders stop. Pure.
 // The share of a look's box outside the window, 0..1: a form a few px taller than the window (its bottom padding) is fine, a header above it is not.
@@ -51,6 +51,15 @@ export const stepMarks = (item, log) => {
 const wholeLook = ({lookWidth, phoneLookWidth, ...step}) => step;
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
   steps: piece.steps.map(step => (!step.hold ? step : {...wholeLook(step), fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook} : {})}))});
+
+// Every new screen opens on the whole app window, then glides in (owner, 25 Oct 2026, a general rule: "Let the user understand where is that zoomed
+// part placed in the app. Basically how to get there"): the first look and every cut look of a steady piece hold OPEN_WIDE + GLIDE_IN output seconds
+// longer, so the look still rests its own time after the camera arrives (camera.mjs). Pure. Guard: desktop/test/media-camera.test.js.
+export const OPEN_WIDE = 0.6;   // output seconds the whole window shows before the glide
+export const GLIDE_IN = 0.9;    // output seconds the glide in takes (a click's or a look's own move is ZOOM_IN, 0.55)
+export const opensWide = (steps, i) => Boolean(steps[i].hold && steps[i].look && steps[i].zoom !== 1 && (steps[i].cut || !steps.slice(0, i).some(step => step.hold)));
+export const openWide = piece => (piece.camera !== 'steady' ? piece : {...piece,
+  steps: piece.steps.map((step, i, steps) => (opensWide(steps, i) ? {...step, hold: Number((step.hold + (OPEN_WIDE + GLIDE_IN) * (piece.speed || 1)).toFixed(3)), opensWide: true} : step))});
 
 // Runs in the page on a click target: the other control (button, link, field) under its middle, or null when the click reaches the target itself.
 export function clickedControl(el) {

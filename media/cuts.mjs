@@ -104,14 +104,16 @@ export function strayFrames({log, thumb, frames, speed = 1, fps = 30, max = STRA
 // A cut look the phone take scrolled into its window (hold.mjs scrollLookIn, run 24): its box is measured after the scroll, so the page's change is
 // looked for in the previous look's box, where the camera still is (the frame just before the scroll is the new page there), and the scroll's frames
 // are cut out: the old look, then the new look already in place, never the new page sliding under the old look. -> the log. Pure.
-function scrolledCut(log, {prev, cut, seen, scroll, scrolled, thumb}) {
+function scrolledCut(log, {prev, cut, scroll, scrolled, thumb}) {
+  // the old look's first tenth is the old page: the new one can paint anywhere in that hold (run 25: Set up's proposal came mid-hold, the phone
+  // look's card a moment later, so 'ready' and its 90% beat were both late), so it is looked for from there, not from the beat
   let start = cut;
-  const old = log.frames[frameAt(log.frames, seen)], fresh = log.frames[frameAt(log.frames, scroll.t)];
+  const from = prev.t + prev.s * 0.1, old = log.frames[frameAt(log.frames, from)], fresh = log.frames[frameAt(log.frames, scroll.t)];
   const byAction = log.events.some(event => pageChange(event) && event.t > prev.t && event.t === cut);
   if (!byAction && old && fresh && old.file !== fresh.file) {
     const a = thumb(old.file, prev.box), b = thumb(fresh.file, prev.box);
     const looksNew = frame => 2 * meanDiff(thumb(frame.file, prev.box), b) < meanDiff(thumb(frame.file, prev.box), a);
-    const early = meanDiff(a, b) > STRAY_MAX && log.frames.find(frame => frame.t > seen && frame.t <= scroll.t && looksNew(frame));
+    const early = meanDiff(a, b) > STRAY_MAX && log.frames.find(frame => frame.t > from && frame.t <= scroll.t && looksNew(frame));
     if (early) start = Math.min(cut, round(early.t - 0.001));
   }
   if (start >= scrolled.t) return log;
@@ -133,7 +135,7 @@ export function frameCuts({log, thumb}) {
     const cut = cutTime(out, out.events.indexOf(hold)), seen = prev.t + prev.s * 0.9;
     const scroll = out.events.find(event => event.type === 'scroll' && event.t > prev.t && event.t < hold.t);
     const scrolled = scroll && out.events.find(event => event.type === 'scrolled' && event.t >= scroll.t && event.t <= hold.t);
-    if (scrolled) { out = scrolledCut(out, {prev, cut, seen, scroll, scrolled, thumb}); continue; }
+    if (scrolled) { out = scrolledCut(out, {prev, cut, scroll, scrolled, thumb}); continue; }
     const old = out.frames[frameAt(out.frames, seen)], fresh = out.frames[frameAt(out.frames, hold.t + hold.s * 0.9)];
     if (!old || !fresh || old.file === fresh.file) continue;
     const box = hold.box, a = thumb(old.file, box), b = thumb(fresh.file, box);

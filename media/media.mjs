@@ -24,7 +24,7 @@ import {recordExtensionVideo} from './record-extension.mjs';
 import {jpegWidth, loadPersona, parseArgs, planOf, withPlan} from './options.mjs';
 import {partsOf, SNIPS, STILLS, VIDEOS} from './scenes.mjs';
 import {rewordLog} from './words.mjs';
-import {phoneTake} from './hold.mjs';
+import {openWide, phoneTake} from './hold.mjs';
 import {limiter, RENDERS, runChild, TAKES} from './renders.mjs';
 import {KEY_FILE, keptTake, reuseTake, takeKey} from './takes.mjs';
 
@@ -107,7 +107,7 @@ async function takeOf(name, piece, persona, dir) {
 const noWords = ({say, sayAge, tag, ...frame}) => frame;
 
 async function recordClip(name, persona, work, {tune = piece => piece, layer = false} = {}) {
-  const piece = tune(openOnCard(withPlan(VIDEOS[name], planOf(name))));   // a part that comes in by a card opens on it (transitions.mjs)
+  const piece = openWide(tune(openOnCard(withPlan(VIDEOS[name], planOf(name)))));   // every new screen opens wide (hold.mjs)   // a part that comes in by a card opens on it (transitions.mjs)
   const stale = leftWords(`${piece.caption || ''} ${piece.shows} ${piece.alt || ''}`, persona.forbid);
   if (stale.length) throw new Error(`${name}: the plan's words name the default demo person (${stale.join(', ')}): run direct.mjs ${name} again`);
   const phoneShape = typeof piece.phone === 'object' ? piece.phone : null;

@@ -249,6 +249,13 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **Higher quality** ("Low resolution. Let it be higher quality"): phone copies 1080 x 810 (were 720), CRF ladders start at 22 for both copies and the
   budgets are ceilings; the app is recorded at `--force-device-scale-factor=2.5` (3600-px frames) so a zoomed look still has a pixel per output pixel.
   Old `-720` files are `git rm`-ed by `hero.sh --place`. A changed look or edges need a NEW recording; `--words` only redraws words.
+- **Every new screen opens on the whole app window, then glides in** (owner, 25 Oct 2026, a GENERAL rule for every clip and both copies: "too
+  zoomed, hard to understand what's it ... show a bigger part of the screen and slowly zoom in"; "let's start from a zoomed out position"; "This
+  should be I think a general rule"; "Let the user understand where is that zoomed part placed in the app. Basically how to get there. Like the
+  context/surroundings"). The first look and every cut look: the whole window (sidebar and page title in view) for `OPEN_WIDE`, then a slow glide
+  (`GLIDE_IN`) to the look; the hold is lengthened by both (hold.mjs `openWide`), so the look still rests its own time. Never open a screen already
+  zoomed. A click zoom is framed whole like a look, and no frame edge cuts a line or a card at the top or bottom either (the bottom edge cut Set
+  up's Back/Continue in run 25).
 ## When something is wrong: fix the mechanism, then the scene (owner, 24 Oct 2026: "did you fix the root causes permanently?")
 A bad crop, a missing step or a wrong frame is first a question about the tool: which camera/recorder/tool rule let it through? Fix that rule, add a test
 that loops over every hero look or scene (it fails on the old code), add a trap line below; only then tune the scene's numbers. A scene-only tweak

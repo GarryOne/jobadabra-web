@@ -19,6 +19,12 @@ test('a cut look the phone take scrolled into view: cut where the page changed, 
   assert.deepEqual(fixed.frames.filter(frame => frame.t >= cut).map(frame => frame.file).filter((file, i, all) => all.indexOf(file) === i), ['scrolled'],
     `after the cut only the scrolled page: ${fixed.frames.map(frame => `${frame.t}:${frame.file}`).join(' ')}`);
   assert.ok(fixed.frames.filter(frame => frame.t < cut).every(frame => frame.file === 'old'), 'before the cut only the old page');
+  // painted mid-way through the old hold (run 25: Set up's proposal at 0.5 s of a 1-s hold, its 90% beat already the new page)
+  const mid = [[0, 'old'], [0.2, 'old'], [0.5, 'unscrolled'], [1, 'unscrolled'], [1.5, 'unscrolled'], [2.1, 'scrolling'], [2.7, 'scrolled'], [3.5, 'scrolled']].map(([t, file]) => ({t, file}));
+  const early = frameCuts({log: {frames: mid, events: log.events}, thumb});
+  const at0 = cutTime(early, early.events.findIndex(event => event.cut));
+  assert.equal(at0, 0.499, 'cut where it painted, inside the old hold');
+  assert.ok(early.frames.filter(frame => frame.t >= at0).every(frame => frame.file === 'scrolled'), `${early.frames.map(frame => `${frame.t}:${frame.file}`).join(' ')}`);
   // a click caused the change: the cut stays at the click, the scroll is still cut out
   const clicked = frameCuts({log: {frames, events: [{type: 'hold', t: 0, s: 1, box: prevBox}, {type: 'press', t: 1.88}, ...log.events.slice(1)]}, thumb});
   const at = cutTime(clicked, clicked.events.findIndex(event => event.cut));

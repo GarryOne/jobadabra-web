@@ -11,7 +11,7 @@ export const ZOOM_IN = 0.55;       // output seconds a camera move takes (a sped
 export const SETTLE = 0.25;        // output seconds the camera stays on a click's target after the press, so the click is seen
 export const RING = 0.6;           // seconds a click ring grows and fades
 
-import {pageChange} from './hold.mjs';
+import {GLIDE_IN, OPEN_WIDE, pageChange} from './hold.mjs';
 import {blendAt, cutMoment, transitions} from './transitions.mjs';
 import {wholeFrame} from './whole.mjs';
 
@@ -36,7 +36,7 @@ export const fitWidth = (box, z, viewport) => Math.min(z, Math.max(1, viewport.w
 // A hero look whose zoom fitWidth had to lower by more than this share reads small: the recording names it (`onFit`) so a narrower look is picked.
 export const FIT_WARN = 0.85;
 
-// log: {viewport: {w, h}, events: [{t, type: 'click'|'press'|'hold'|'mark', box?, zoom?, cut?, phoneZoom?, phoneBox?}]} -> [{t, cx, cy, z}], time-ordered; a key is where
+// log: {viewport: {w, h}, events: [{t, type: 'click'|'press'|'hold'|'mark', box?, zoom?, cut?, phoneZoom?, phoneBox?, opensWide?}]} -> [{t, cx, cy, z, glide?}], time-ordered; a key is where
 // the camera has ARRIVED at t. Default: the whole screen shows only at the start (context); a click zooms onto its target while the cursor glides there; a hold
 // with a box zooms onto that box (its own zoom, else the box fitted). `steady` (the hero, owner 24 Oct 2026: "zoom toward the result, then hold"): the piece opens
 // already framed on its first look, a click moves nothing unless it carries a zoom, and a look marked `cut` switches at the page change (the first mark or
@@ -55,8 +55,11 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
   events.forEach((event, i) => {
     if (event.type === 'click' && event.box && (!steady || event.zoom)) {
       const press = events.slice(i + 1).find(next => next.type === 'press');
-      const fit = 0.6 * Math.min(viewport.w / event.box.width, viewport.h / event.box.height);
-      move(press ? press.t : event.t + 0.7, frame(event.box, zoomed(event, Math.max(1.4, Math.min(event.zoom ?? CLICK_ZOOM, fit))), viewport, aspect));
+      const fit = 0.6 * Math.min(viewport.w / event.box.width, viewport.h / event.box.height), z = zoomed(event, Math.max(1.4, Math.min(event.zoom ?? CLICK_ZOOM, fit)));
+      // a steady click zoom is framed whole like a look (run 25: Set up's zoom onto Save cut a line of words at the left), by the page's last edges
+      const edges = steady && events.slice(0, i).filter(prev => prev.type === 'hold' && prev.edges).at(-1)?.edges;
+      move(press ? press.t : event.t + 0.7, edges ? wholeFrame({frameAt: zoom => frame(event.box, zoom, viewport, aspect), z, least, look: padded(event.box), edges, viewport, aspect})
+        : frame(event.box, z, viewport, aspect));
     }
     if (event.type !== 'hold') return;
     const earlier = events.slice(0, i);
@@ -73,12 +76,18 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
       : frame(box, used, viewport, aspect);
     if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
-    if (steady && first) { keys[0] = {t: 0, ...target}; return; }
+    // every new screen opens on the whole window, then glides in (hold.mjs openWide; owner 25 Oct 2026: "how to get there ... the context")
+    const glideIn = state => ({...state, glide: GLIDE_IN * speed});
+    if (steady && first) {
+      if (event.opensWide) move(event.t + (OPEN_WIDE + GLIDE_IN) * speed, glideIn(target)); else keys[0] = {t: 0, ...target};
+      return;
+    }
     const lastLook = earlier.filter(prev => prev.type === 'hold').at(-1);
     if (event.cut) {
       const at = cutMoment(events, i);   // the first page change since the last look, else when the page changed by itself (transitions.mjs)
       move(at - 0.001, {cx: keys.at(-1).cx, cy: keys.at(-1).cy, z: keys.at(-1).z});
-      move(at, target);
+      move(at, event.opensWide ? full : target);
+      if (event.opensWide) { move(Math.max(at, event.t) + OPEN_WIDE * speed, full); move(Math.max(at, event.t) + (OPEN_WIDE + GLIDE_IN) * speed, glideIn(target)); }
       return;
     }
     const after = earlier.reverse().find(prev => prev.type === 'press');
@@ -94,7 +103,7 @@ export function cameraAt(keys, t, viewport, speed = 1, phone = null) {
   let i = 0;
   while (i + 1 < keys.length && keys[i + 1].t <= t) i++;
   const a = keys[i], b = keys[i + 1] || a;
-  const span = Math.max(0.0005, Math.min(ZOOM_IN * speed, b.t - a.t));
+  const span = Math.max(0.0005, Math.min(b.glide ?? ZOOM_IN * speed, b.t - a.t));   // a glide in (opensWide) takes its own, slower time
   const u = b === a ? 1 : ease((t - (b.t - span)) / span);
   const z = a.z * (b.z / a.z) ** u, cx = a.cx + (b.cx - a.cx) * u, cy = a.cy + (b.cy - a.cy) * u;
   const w = viewport.w / z, h = phone ? w / phone.aspect : viewport.h / z;
