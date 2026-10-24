@@ -82,7 +82,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
           box = await boxOf(item.look); phoneBox = await boxOf(item.phoneLook);
           out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
         }
-        if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
+        if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: ${item.fitScroll ? 'taller than the phone window: give the hold a shorter phoneLook' : 'scroll it into view first'} (scenes.mjs)`);
         const left = holdLeft(item.hold, started, Date.now());
         log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});   // edges.mjs
         await log.paint();   // a frame now, still page or not (check.mjs captureGaps)

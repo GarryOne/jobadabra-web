@@ -145,7 +145,7 @@ async function step(page, item, log, app = null) {
       box = await lookBox(page, item.look); phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
       out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
     }
-    if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
+    if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: ${item.fitScroll ? 'taller than the phone window: give the hold a shorter phoneLook' : 'scroll it into view first'} (scenes.mjs)`);
     await checkWords(page, item.look, box, item.lookWidth, 'look');
     await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook');
     const left = holdLeft(item.hold, started, Date.now());

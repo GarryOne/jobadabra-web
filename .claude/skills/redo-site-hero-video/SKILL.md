@@ -206,6 +206,8 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). **The desktop copy too** (owner, after the phone preview: "port
   this to desktop as well, because on desktop it was also cropped", with shots of the logo and cards cut): same camera rule, same stop.
   The phone take's short window (528 css) scrolls a look below it to the middle before measuring (`fitScroll`, hold.mjs scrollLookIn).
+  **Never run the site tests while hero.sh records** (run 17: `SITE_OVERLAY_FRESH=1 tools/site-run.sh` rebuilt `.overlay`, the app the recorder
+  runs from, and the take died on `page.reload: net::ERR_FILE_NOT_FOUND`): test before starting the recording, or after it ends.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
 - **The phone copy is its own take in a narrow window** (owner chose "Narrow window" of three): on the wide 1800-px layout, long lines (up to
   1500 px) left only near-whole-window phone frames (zoom 1.2, ~3-px text). Each hero clip is recorded twice: the desktop window, then
