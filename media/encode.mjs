@@ -45,7 +45,7 @@ export const COLOR_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', 
 export const videoFilter = scale => `${scale}:out_color_matrix=bt709:out_range=tv,format=yuv420p`;   // scale ends in its own options. Pure.
 
 // -> {mp4, webm, poster, phone?, gif?}: file names in outDir, plus the bytes of each.
-export function encodeVideo({master, phoneMaster = null, name, piece, outDir, posterAt = 0}) {
+export function encodeVideo({master, phoneMaster = null, name, piece, outDir, posterAt = 0, phonePosterAt = posterAt}) {
   const files = {mp4: `${name}.mp4`, webm: `${name}.webm`, poster: `${name}-poster.jpg`};
   const at = file => path.join(outDir, file);
   const fast = piece.speed > 1 ? `setpts=PTS/${piece.speed},fps=30,` : '';   // a sped-up clip: the whole flow in about 3 s
@@ -62,7 +62,7 @@ export function encodeVideo({master, phoneMaster = null, name, piece, outDir, po
       at(files.phone), piece.phone.budget, crfLadder(22, 34));   // round 9: as sharp as the desktop copy
     if (phoneMaster) {   // the phone's own first frame: the site shows it before the clip plays
       files.phonePoster = `${name}-${width}-poster.jpg`;
-      ff('-ss', String(posterAt), '-i', phoneMaster, '-vf', `scale=${width}:-2`, '-frames:v', '1', '-q:v', '3', at(files.phonePoster));
+      ff('-ss', String(phonePosterAt), '-i', phoneMaster, '-vf', `scale=${width}:-2`, '-frames:v', '1', '-q:v', '3', at(files.phonePoster));
     }
   }
   if (piece.gif) {   // emails and READMEs: 10 fps, one palette for the whole clip, only changed areas redrawn

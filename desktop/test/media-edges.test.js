@@ -93,7 +93,28 @@ test('both recorders note the edges at every look, and media.mjs checks each cop
     assert.match(source, /log\.add\(\{\.\.\.holdEvent\([^)]*\)[^\n]*edges: await page\.evaluate\(edgesScript\)/, file);
   }
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
-  assert.match(media, /const render = \(out, width, height, phone = null\) => \{\n\s+edgesOk\(name, log/);
-  assert.match(media, /const compose = \(out, width, height, phone = null\) => \{\n\s+for \(const rec of recs\) edgesOk\(/);
+  assert.match(media, /const render = \(take, out, width, height, phone = null\) => \{\n\s+edgesOk\(name, take\.log/);
+  assert.match(media, /const compose = \(out, width, height, phone = null\) => \{\n.*\n\s+for \(const rec of recs\) edgesOk\(/);
   assert.match(media, /if \(phone && process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/);
+});
+
+// Round 9 (owner, 24 Oct 2026, of three options: "Narrow window"): a wide app page has lines up to 1500 px, so no phone frame of it is both whole and
+// readable; the phone copy is its own take with the app in a narrow 4:3 window (one column), and its captions and poster come from that take.
+test('every hero clip\'s phone copy is its own narrow-window take, with its own captions, poster and stray-frame check', async () => {
+  const {VIDEOS} = await import('../../media/scenes.mjs');
+  const phones = Object.entries(VIDEOS).filter(([, piece]) => typeof piece.phone === 'object');
+  assert.ok(phones.length >= 4);
+  for (const [name, piece] of phones) {
+    const {width, height} = piece.phone.window || {};
+    assert.ok(width && Math.abs(width / height - piece.phone.width / piece.phone.height) < 0.01, `${name}: a window of the phone copy's shape`);
+    assert.ok(width < 1000, `${name}: narrow enough that the app lays out one column (style.css breakpoints at 1180 css px; the app zooms 1.25x)`);
+  }
+  const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
+  assert.match(media, /const narrow = phoneShape\?\.window \? await takeOf\(name, \{\.\.\.piece, window: phoneShape\.window\}/, 'recordClip records the phone take');
+  assert.match(media, /render\(narrow \|\| main, path\.join\(main\.dir, 'master-phone\.mp4'\)/, 'the phone master is drawn from it');
+  assert.match(media, /const recs = \[a, b\]\.map\(rec => \(\{\.\.\.\(phone \? rec\.phone : rec\)/, 'picture in picture composes the phone takes');
+  assert.match(media, /if \(phone\) said = sayTrack\(frames/, 'the captions under the phone copy are timed on the phone take');
+  assert.match(media, /strayIn\(files\.phone, phoneStarts/, 'the phone copy is checked for stray frames too');
+  assert.match(fs.readFileSync(new URL('../../media/record-app.mjs', import.meta.url), 'utf8'), /\.\.\.\(piece\.window \? \{window: piece\.window\} : \{\}\)/);
+  assert.match(fs.readFileSync(new URL('../../media/record-extension.mjs', import.meta.url), 'utf8'), /const view = piece\.window \|\| VIEW/);
 });

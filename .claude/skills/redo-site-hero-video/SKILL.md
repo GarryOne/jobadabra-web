@@ -197,6 +197,20 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **A dull colour: find which layer made it before fixing anything** ("is maybe the recording/rendering ... the problem?"): compare the app's CSS token
   (`desktop/renderer/tokens.css`) with the raw frame (`.work/<piece>/frames`) and the decoded clip. The ring green was the APP's bug (the dark theme
   had no `--good-bright`, so it drew the light theme's #2e9e6a): fixed in the app (jobadabra PR, merged first), then the hero recorded again.
+
+**Round 9: phones show whole frames, captions under the video, 1080** (owner, 24 Oct 2026)
+- **Nothing cut at a phone frame's edge** ("the video is stripped ... I don't see the full video frame"; chose "whole column, centred" over the whole
+  window, whose text is ~3 px on a phone): round 8 showed each LOOK whole, but its neighbours were still cut mid-word at the edges. The recorder now
+  notes the words and cards on screen at every look (`edges.mjs` edgesScript → `edges` in log.json); the phone camera picks, nearest its centred frame,
+  a view whose both edges fall in gaps, zooming out a step when none exists (`whole.mjs`); `edges.mjs` edgeCuts then STOPS the phone copy if a line or
+  a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). The desktop copy keeps its framing; its cuts are only logged.
+  A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
+- **Captions under the video on phones** ("they hide some buttons/actions"; "Phones only"): the phone copy is drawn with no caption or tag; the
+  desktop copy's captions go to `<piece>.vtt` (captions.mjs sayTrack/vttOf, played seconds), the page adds it as a hidden metadata `<track>` and
+  hero-stage.js writes the current cue under the video (`.stage-say`, one line, height kept). Title cards stay in the video.
+- **Higher quality** ("Low resolution. Let it be higher quality"): phone copies 1080 x 810 (were 720), CRF ladders start at 22 for both copies and the
+  budgets are ceilings; the app is recorded at `--force-device-scale-factor=2.5` (3600-px frames) so a zoomed look still has a pixel per output pixel.
+  Old `-720` files are `git rm`-ed by `hero.sh --place`. A changed look or edges need a NEW recording; `--words` only redraws words.
 ## When something is wrong: fix the mechanism, then the scene (owner, 24 Oct 2026: "did you fix the root causes permanently?")
 A bad crop, a missing step or a wrong frame is first a question about the tool: which camera/recorder/tool rule let it through? Fix that rule, add a test
 that loops over every hero look or scene (it fails on the old code), add a trap line below; only then tune the scene's numbers. A scene-only tweak

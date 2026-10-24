@@ -40,12 +40,13 @@ export async function recordExtensionVideo({persona, piece, dir}) {
     const {page, context} = ext;
     const host = formHost(persona.job);
     await context.route(`https://${host}/**`, route => route.fulfill({status: 200, contentType: 'text/html', body: formHtml(template, persona.job)}));
-    await page.setViewportSize(VIEW);
+    const view = piece.window || VIEW, density = piece.window ? 2.5 : 2;   // the phone take (round 9): a narrow page, captured sharper
+    await page.setViewportSize(view);
     // Playwright emulates light unless told: the form (form.html) and the extension's panel both follow it. A piece with motion 'reduce' (the hero, owner
     // 24 Oct 2026: "remove the large colour sweep") records the panel without its aurora and shimmer (panel-overlay-fx.js adds none under reduced motion).
     await page.emulateMedia({colorScheme: 'dark', ...(piece.motion === 'reduce' ? {reducedMotion: 'reduce'} : {})});
     const cdp = await context.newCDPSession(page);
-    await cdp.send('Emulation.setDeviceMetricsOverride', {width: VIEW.width, height: VIEW.height, deviceScaleFactor: 2, mobile: false});
+    await cdp.send('Emulation.setDeviceMetricsOverride', {width: view.width, height: view.height, deviceScaleFactor: density, mobile: false});
     await page.goto(`https://${host}/jobs/apply`);
     await ext.assertIsolated();
     const cast = await startScreencast(page, path.join(dir, 'frames'));

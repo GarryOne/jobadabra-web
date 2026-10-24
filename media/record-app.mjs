@@ -18,7 +18,7 @@ const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.j
 export const WINDOW = {width: 1440, height: 900};   // 16:10, the site's hero shape; the app's own zoom lays it out wider, Retina capture is 2x
 
 // The app on a temp copy of the persona (persona-copy.mjs); demo mode reads its data from there too (JOB_PILOTTO_DEMO_DIR, lib/demo.js).
-export async function launchApp({persona = {folder: path.join(desktop, 'demo')}, settings = null, moment = null, env = {}} = {}) {
+export async function launchApp({persona = {folder: path.join(desktop, 'demo')}, settings = null, moment = null, env = {}, window = WINDOW} = {}) {
   const data = personaCopy(persona, {demo: path.join(desktop, 'demo'), moment});
   if (settings) {   // a piece may start the app in another state (the first-run wizard: setupDone false), on the temp copy only
     const file = path.join(data, 'settings.json');
@@ -35,7 +35,7 @@ export async function launchApp({persona = {folder: path.join(desktop, 'demo')},
   });
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
-  await app.evaluate(({BrowserWindow}, size) => BrowserWindow.getAllWindows()[0].setContentSize(size.width, size.height), WINDOW);
+  await app.evaluate(({BrowserWindow}, size) => BrowserWindow.getAllWindows()[0].setContentSize(size.width, size.height), window);
   await page.emulateMedia({colorScheme: 'dark'});   // Playwright emulates light unless told; the app's own default is dark
   await page.evaluate(() => localStorage.setItem('jp.menu.tour', 'done'));   // the first-run tour bubble would cover every screen
   await page.reload();
@@ -152,7 +152,7 @@ async function step(page, item, log, app = null) {
 
 // A video piece: frames + log.json in `dir`. -> the log.
 export async function recordAppVideo({persona, piece, dir}) {
-  const {app, page, close} = await launchApp({persona, settings: piece.settings, moment: piece.moment, env: piece.env});
+  const {app, page, close} = await launchApp({persona, settings: piece.settings, moment: piece.moment, env: piece.env, ...(piece.window ? {window: piece.window} : {})});
   try {
     const cast = await startScreencast(page, path.join(dir, 'frames'));
     const log = stepLog(cast.clock, cast.paint);
