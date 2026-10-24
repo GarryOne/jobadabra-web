@@ -161,7 +161,7 @@ test('a look off the phone window is scrolled to its middle by both recorders, t
   assert.equal(centreDelta({y: -200, height: 100}, {w: 704, h: 528}), -414);
   for (const file of ['record-app.mjs', 'record-extension.mjs']) {
     const source = fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
-    assert.match(source, /if \(out > OFF_MAX && item\.fitScroll && await scrollLookIn\(page, item\.look, box, view\)\) \{/, file);
+    assert.match(source, /if \(out > OFF_MAX && item\.fitScroll && await scrollLookIn\(page, item\.look, box, view, log\)\) \{/, file);
   }
 });
 

@@ -77,8 +77,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
         let phoneBox = await boxOf(item.phoneLook);
         const view = await page.evaluate(() => ({w: innerWidth, h: innerHeight}));
         let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
-        if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view)) {   // the phone take's short window (hold.mjs)
-          await page.waitForTimeout(600);
+        if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view, log)) {   // the phone take's short window (hold.mjs)
           box = await boxOf(item.look); phoneBox = await boxOf(item.phoneLook);
           out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
         }

@@ -214,6 +214,21 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   **Never run the site tests while hero.sh records** (run 17: `SITE_OVERLAY_FRESH=1 tools/site-run.sh` rebuilt `.overlay`, the app the recorder
   runs from, and the take died on `page.reload: net::ERR_FILE_NOT_FOUND`): test before starting the recording, or after it ends.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
+  **Phone looks are whole looks** (run 20: Track's 460-px left part cut words mid-line): phoneTake drops `lookWidth`/`phoneLookWidth`; a look too
+  wide or tall for the phone window gets a shorter `phoneLook` (its title + the one block you mean), never a cropped part.
+  **The edge check samples each hold 10 times and counts a cut only when most samples show it, once per moment** (run 20: in picture in picture
+  the camera reaches its look late, one sample showed a cut that no viewer sees; a first fix counted 10 rows of one moment as 10 samples).
+  **A click must land on its own target** (run 21: in the one-column phone layout the insight head's middle was its confidence chip, the card never
+  opened and the next look timed out): record-app's `clickedControl` stops a click whose centre hits another control; click the toggle itself.
+  **Takes are reused while nothing they record changed** (`takes.mjs`: piece, recorder sources, app commit, persona files, today's date → `take-key`
+  in `.work/<take>/`; `HERO_FRESH=1` records all): a camera, check or caption fix re-renders only. **Two takes record at once** (`HERO_TAKES`),
+  each app on its own free port (never 47111), **apps start one at a time with one retry** (run 22: two Electron launches at once → Playwright
+  "Process failed to launch!" crashed node with no `media: FAILED`; stray errors now print it), and **a failed take is recorded once more**
+  (run 23: under two takes' load Find's list was not on screen yet at its look). Measured: 12 takes ~2:40 (was ~6 min); a reuse run ~30 s.
+  **A phone copy can fail the stray-frame check where the desktop copy passes** (run 24, 3 of 4 clips): the phone frame is the page's narrow column,
+  so a small change fills more of it. Causes found: (1) a cut hold's `fitScroll` scroll ran after the new page painted, so the early-cut search
+  (cuts.mjs frameCuts, which reads the new look's AFTER-scroll box) missed the change and the unscrolled new page played under the old look;
+  (2) a status line that hides by itself in the hold's last tenth (Track's "Last refresh") made the old page differ from its 90% beat.
 - **The phone copy is its own take in a narrow window** (owner chose "Narrow window" of three): on the wide 1800-px layout, long lines (up to
   1500 px) left only near-whole-window phone frames (zoom 1.2, ~3-px text). Each hero clip is recorded twice: the desktop window, then
   `PHONE.window` 880 x 660 (the app lays out 1100 x 825, one column; Jobs' sidebar folds to icons), and the phone master, its captions (.vtt),

@@ -62,11 +62,14 @@ export function clickedControl(el) {
 // The scroll that brings a look's box to the window's middle (CSS px, + = down). Pure.
 export const centreDelta = (box, view) => Math.round(box.y + box.height / 2 - view.h / 2);
 // A fitScroll hold whose look is off screen (round 9: Set up's strategy look was 43% below the phone window): scroll the look's nearest
-// scrolling ancestor (or the window) so the look sits in the middle, smoothly, as a person would. -> true when it scrolled. Takes a Playwright page.
-export async function scrollLookIn(page, look, box, view) {
+// scrolling ancestor (or the window) so the look sits in the middle, smoothly, as a person would, and wait for it to end. -> true when it scrolled.
+// The scroll is logged as 'scroll' (its start) and 'scrolled' (its end, as two events so every step that moves times moves both): its frames show
+// the new page sliding under the old look, so frameCuts cuts them out (run 24). Takes a Playwright page and the step log.
+export async function scrollLookIn(page, look, box, view, log) {
   const first = [look].flat().find(one => one !== 'panel');
   if (!first || !box) return false;
-  return page.locator(first).first().evaluate((el, dy) => {
+  log.add({type: 'scroll'});
+  const scrolled = await page.locator(first).first().evaluate((el, dy) => {
     for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
       const style = getComputedStyle(node);
       if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) { node.scrollBy({top: dy, behavior: 'smooth'}); return true; }
@@ -74,4 +77,8 @@ export async function scrollLookIn(page, look, box, view) {
     window.scrollBy({top: dy, behavior: 'smooth'});
     return true;
   }, centreDelta(box, view)).catch(() => false);
+  if (!scrolled) { log.events.splice(log.events.findLastIndex(event => event.type === 'scroll'), 1); return false; }
+  await page.waitForTimeout(600);   // a smooth scroll's end
+  log.add({type: 'scrolled'});
+  return true;
 }

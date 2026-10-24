@@ -162,8 +162,7 @@ async function step(page, item, log, app = null) {
     let phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
     const view = await viewportOf(page);
     let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
-    if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view)) {   // the phone take's short window (hold.mjs)
-      await page.waitForTimeout(600);
+    if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view, log)) {   // the phone take's short window (hold.mjs)
       box = await lookBox(page, item.look); phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
       out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
     }
