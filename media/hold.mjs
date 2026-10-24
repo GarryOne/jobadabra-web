@@ -46,8 +46,11 @@ export const stepMarks = (item, log) => {
 // window, whose rows stack on 3 lines, and stopped the take); the phone camera frames that look whole (whole.mjs). shape: the piece's phone
 // {window, zoom}: the app's text size in that window (its settings' zoom; the extension's page is the window shrunk by it). Pure.
 // Its holds may scroll (fitScroll): the phone window is 528 css px tall, so a look the desktop take shows in place can sit below it.
+// Every phone look is shown whole: no left part (lookWidth / phoneLookWidth, hand-picked for the wide layout; run 20: Track's 460-px part cut a
+// line of words in the one-column layout), the whole-frame camera (whole.mjs) keeps the edges clean.
+const wholeLook = ({lookWidth, phoneLookWidth, ...step}) => step;
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
-  steps: piece.steps.map(step => (!step.hold ? step : {...step, fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook, lookWidth: step.phoneLookWidth} : {})}))});
+  steps: piece.steps.map(step => (!step.hold ? step : {...wholeLook(step), fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook} : {})}))});
 
 // The scroll that brings a look's box to the window's middle (CSS px, + = down). Pure.
 export const centreDelta = (box, view) => Math.round(box.y + box.height / 2 - view.h / 2);

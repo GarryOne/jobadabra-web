@@ -135,7 +135,8 @@ test('the phone take frames each hold\'s phoneLook in the phone window; other st
   assert.deepEqual(take.steps[0], {go: 'jobs'});
   assert.ok(take.steps.filter(step => step.hold).every(step => step.fitScroll), 'every phone hold may scroll its look into the short window');
   assert.equal(take.steps[1].look, '#her .role');
-  assert.equal(take.steps[1].lookWidth, 300);
+  assert.equal(take.steps[1].lookWidth, undefined, 'shown whole: no hand-picked left part in the one-column layout');
+  assert.equal(take.steps[1].phoneLookWidth, undefined);
   assert.equal(take.steps[2].look, '#card');
   assert.equal(piece.steps[1].look[1], '#her', 'the desktop steps are not changed');
 });
@@ -164,12 +165,19 @@ test('a look off the phone window is scrolled to its middle by both recorders, t
   }
 });
 
-test('the check reads the view where the camera rests (the hold\'s middle), and the camera keeps a margin over the check', async () => {
+test('a cut is what most of a hold shows (the camera glides in late or out early), and the camera keeps a margin over the check', async () => {
   const {MARGIN} = await import('../../media/whole.mjs');
   assert.ok(MARGIN >= 1);
   // a card ending 0.04 px past the edge: a cut for the check, and the camera, framing with MARGIN, treats one 1 px inside the same way
   assert.deepEqual(cutsIn({x: 207, y: 0, w: 818, h: 528}, [card(12, 199.04, '.current', 100)]).map(cut => cut.text), ['.current']);
   assert.ok(cutsAt(208, 'left', [card(12, 199, '.current', 100)], 0, 528, 2000, 2000, MARGIN), 'the camera avoids an edge within the margin');
   assert.ok(!cutsAt(208, 'left', [card(12, 199, '.current', 100)], 0, 528, 2000, 2000), 'that the check alone lets pass');
-  assert.match(fs.readFileSync(new URL('../../media/edges.mjs', import.meta.url), 'utf8'), /cameraAt\(keys, event\.t \+ \(event\.s \|\| 0\) \/ 2,/);
+  // a camera that arrives late in the hold (picture in picture, run 20): the glide in crosses the sidebar, the rest of the hold is whole
+  const late = {viewport: {w: 1800, h: 1125}, frames: [{t: 0, file: 'a'}, {t: 12, file: 'b'}],
+    events: [{t: 8.1, type: 'hold', look: '#card', box: {x: 566, y: 360, width: 1184, height: 78}, s: 1.3, edges: [text(200, 100, 'Work', 300)]}]};
+  const glide = [{t: 0, cx: 1009, cy: 560, z: 1.15}, {t: 8.4, cx: 1009, cy: 560, z: 1.15}, {t: 8.5, cx: 900, cy: 562, z: 1}];
+  assert.deepEqual(edgeCuts(late, 1.5, {steady: true, keys: glide}), [], 'a passing edge is not a cut');
+  const rows = {...late, events: [{...late.events[0], edges: Array.from({length: 12}, (_, i) => text(200, 100, 'Work', 300 + i * 20))}]};
+  assert.deepEqual(edgeCuts(rows, 1.5, {steady: true, keys: glide}), [], 'twelve lines crossed in one moment of the glide are still one moment');
+  assert.equal(edgeCuts(late, 1.5, {steady: true, keys: [{t: 0, cx: 1009, cy: 560, z: 1.15}]}).length, 1, 'held all along: a cut');
 });
