@@ -210,6 +210,12 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   `PHONE.window` 880 x 660 (the app lays out 1100 x 825, one column; Jobs' sidebar folds to icons), and the phone master, its captions (.vtt),
   poster and stray-frame check come from that take (`media.mjs` takeOf/recordClip; picture in picture composes both phone takes). A redo takes ~2x
   as long; `<piece>-phone/` sits beside `<piece>/` in `.work`, and `--words` redraws both.
+  **The window alone is not narrow enough** (run 14): at the app's own zoom 0.8 the 880-px window lays out 1100 css, and Jobs' cards span 980 px
+  (< 92% of the page, so "show whole") → the phone frame was the whole window, ~4-px text. `PHONE.zoom` 1.25 sets the app's text size in the
+  phone take (settings `zoom`; the extension's page is the window / zoom): 704 x 528 css, the column readable. The window can't go below 640 x 640
+  (main-window.js minWidth/minHeight), so narrow by zoom, not by size. Probe a layout in seconds with a CDP shot (Playwright's own crops the
+  zoomed app) before a 25-min redo. The page's own border never counts as a cut, and the zoom-out step is 0.5%: a frame pinned at a border
+  moves its far edge only by zooming, and a clean spot in a 16-px gutter is ~8 px wide.
 - **A render can end short and say nothing** (round 9: the phone copy's renderer quit 17 of 572 frames in, exit 0, on a 16-GB Mac with ~60 MB
   free; only the missing poster stopped the run): `runRender` now counts the frames it got (`framesIn`), renders once more, then fails the piece;
   render.cjs exits 1 when its renderer is gone. A clip much shorter than its recording is this, not a scene bug.
