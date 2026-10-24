@@ -97,7 +97,7 @@ export const VIDEOS = {
       {go: 'jobs'},
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
       {click: '#find-card .magic-go', say: 'Find jobs: the search starts'},
-      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: ['#find-card .insight-head', '#find-card .chip-row'], phoneLookWidth: 560, cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: ['#find-card .find-title', '#find-card .find-steps'], phoneLookWidth: 560, cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
