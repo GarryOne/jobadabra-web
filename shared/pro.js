@@ -3,6 +3,7 @@
 // Guards: test/shared/pro-credit.test.js. Payments (Stripe) are the next PR: they call addCredit/refund/link here. Switch: env.PRO_PLAN = off | test | live.
 import {OFFERS, packageOf, rawToCredit} from './pro-packages.js';
 import {authorize, digestOf, flag} from './guard.js';
+import {promoActive} from './promo.js';
 
 // The key ai_calls.who has for an install (aicost.js digests the install's digest again, keeps 8 characters): join pro_devices.install to ai_calls through it.
 export const aiCallsKey = async install => (await digestOf(await digestOf(install))).slice(0, 8);
@@ -75,7 +76,11 @@ export async function status(request, env) {
   if (!access?.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
   const account = await accountOf(env, given.install);
   // The offers to show (ids, euro prices, the list price), so the app never hard-codes a number. A trial account is Free until it pays.
-  if (!account || account.status !== 'active' || account.plan !== 'pro') return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: OFFERS});
+  if (!account || account.status !== 'active' || account.plan !== 'pro') {
+    // Pro by a promo code (shared/promo.js): no credit, until the code's end date or its revoke.
+    if (await promoActive(env, given.install)) return Response.json({ok: true, plan: 'pro', package: 'pro', mode: env.PRO_PLAN, hasCredit: false, creditPercent: 0, warn: null, devices: DEVICES_PER_ACCOUNT, offers: OFFERS, source: 'promo'});
+    return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: OFFERS});
+  }
   // A Pro account that never had credit (the €9 package) has no bar and no "used up" warning.
   const hasCredit = account.credit_added_micro > 0, percent = percentOf(account);
   return Response.json({ok: true, plan: 'pro', package: await packageOf(env, account), mode: env.PRO_PLAN, hasCredit, creditPercent: percent, warn: hasCredit ? warnOf(percent) : null, devices: DEVICES_PER_ACCOUNT, offers: OFFERS});
