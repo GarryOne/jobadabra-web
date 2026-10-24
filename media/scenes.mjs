@@ -85,7 +85,7 @@ export const VIDEOS = {
     env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '2000'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV"
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
     caption: 'Add your CV. Shape your search.', alt: 'The Jobadabra setup: a CV added, a note on the job wanted, the AI reading the CV, then the proposed strategy with roles, level, work mode and an estimated salary, confirmed',
-    steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-head h1'], phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
+    steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-facts'], phoneLookWidth: 620, phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
       {tap: '#ai-save', then: jumpTo('cv')},
       {hold: 2.4, look: '.step[data-step=cv] .cv-drop', zoom: 1.9, phoneZoom: 2.8, cut: true, into: 'slide', tag: 'Set up 2/5', say: 'The CV, read for roles and places', beat: 'The CV added: the AI reads it for roles, places and salary'},
       {js: OPEN_BUILD}, {js: typeNote('Day shifts in cardiac care, around Lyon.')},
@@ -102,7 +102,7 @@ export const VIDEOS = {
       {go: 'jobs'},
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
       {click: '#find-card .magic-go', say: 'Find jobs: the search starts'},
-      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: ['#find-card .find-title', '#find-card .find-steps'], phoneLookWidth: 560, cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: '#find-card', cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
@@ -113,7 +113,7 @@ export const VIDEOS = {
   'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, phone: PHONE,
     shows: 'The job on Jobs, Apply pressed',
     steps: [{go: 'jobs'}, {js: scrollTo('Cardiac Care Unit')},
-      {hold: 1.8, look: [`${ROW} .company`, `${ROW} button.row-main`], zoom: 2.2, phoneZoom: 3, phoneLook: [`${ROW} .status-cell`, `${ROW} .row-actions`], tag: 'Jobs', say: 'Institut Cardio Rhône: Apply', beat: 'The job on Jobs: Apply'},
+      {hold: 1.8, look: [`${ROW} .company`, `${ROW} button.row-main`], zoom: 2.2, phoneZoom: 3, phoneLook: [`${ROW} .company`, `${ROW} .row-actions`], tag: 'Jobs', say: 'Institut Cardio Rhône: Apply', beat: 'The job on Jobs: Apply'},
       // round 6: the part ends on the press (`end`); the Applying card opens in the picture in picture by a slide (a fade over two framings of the
       // same card made a ghost: take 4 at 3.5 s)
       {tap: `${ROW} button.row-main`, end: true}]},
@@ -130,7 +130,7 @@ export const VIDEOS = {
       {review: {id: 'd1', url: 'https://jobs.example/institut-cardio-rhone/cardiac-care', fields: HER_FORM, every: 300}, sync: true},
       // then one move right to the pill (owner, 24 Oct 2026: "B, then pan to the pill"): close on the count while it ticks, the pill when it is ready
       // round 6: back to the main picture on the whole completion section (count, full bar, pill): the pill alone cut the row's words (take 4 at 8 s)
-      {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, phoneLook: '#ss-form-pill', lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
+      {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, phoneLook: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress'], phoneLookWidth: 520, lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
   'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 8.7e5, phone: {...PHONE, budget: 3.6e5},
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',

@@ -187,6 +187,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   look and read it from its left edge, so 18 of 24 phone shots lost 6-49% of their right side and showed the sidebar on the left. Each phone look is
   shown whole and centred (`camera.mjs` fitWidth for both copies; test "a phone look is never cut"); a wide look gets a narrower `phoneLook` (the score,
   title and tags, not the whole row) so the text stays big. `media: <piece>: look ... SMALL TEXT` on the phone copy = pick a narrower phoneLook.
+  A phone look narrower than the view shows its neighbours cut at the edges and, at a page's left, the sidebar: give it the content's left part
+  (`phoneLookWidth` from the content's left edge), not one heading. In picture in picture the phone inset (46% wide) covers the main's top right: a
+  phone look there sits on the left (round 8: the "Ready to submit" pill was hidden under Chrome). A list row's phone look keeps the company beside its button.
   Check the phone copies on the 4 contact sheets (or `ffmpeg ... tile=5x3` of each `-720.mp4`) before the preview: a cut right edge is visible there.
 - **High contrast, not washed** ("it looks washed. it doesn't have a high contrast"; chose option C of three on one frame): the recording is the app's
   exact pixels, so the grade is ours: deeper blacks, brighter grey text, a little more colour, sharper text (`media/grade.mjs`, an SVG filter render.cjs
