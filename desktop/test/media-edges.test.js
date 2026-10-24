@@ -118,7 +118,7 @@ test('every hero clip\'s phone copy is its own narrow-window take, with its own 
     assert.ok(css <= 800, `${name}: the app lays out ${css} css px: one column narrow enough that the whole column is readable on a phone (Jobs at 1100 css: 4-px text)`);
   }
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
-  assert.match(media, /const narrow = phoneShape\?\.window \? await takeOf\(name, phoneTake\(piece, phoneShape\)/, 'recordClip records the phone take');
+  assert.match(media, /phoneShape\?\.window \? takeOf\(name, phoneTake\(piece, phoneShape\), persona, path\.join\(work, `\$\{name\}-phone`\)\)/, 'recordClip records the phone take');
   assert.match(media, /render\(narrow \|\| main, path\.join\(main\.dir, 'master-phone\.mp4'\)/, 'the phone master is drawn from it');
   assert.match(media, /const recsOf = phone => \[a, b\]\.map\(rec => \(\{\.\.\.\(phone \? rec\.phone : rec\)/, 'picture in picture composes the phone takes');
   assert.match(media, /if \(phone\) said = sayTrack\(frames/, 'the captions under the phone copy are timed on the phone take');

@@ -48,7 +48,7 @@ test('every check runs before any render: a clip and picture in picture return a
   assert.ok(clip.indexOf('checked();\n  // -> finish()') > 0 && clip.indexOf('checked();\n  // -> finish()') < clip.indexOf('await Promise.all([render(main'), 'recordClip: checks, then renders');
   const pip = media.slice(media.indexOf('async function recordPip'), media.indexOf('function joined'));
   assert.ok(pip.indexOf('edgesOk(rec.name') < pip.indexOf('await Promise.all([compose('), 'recordPip: checks, then renders');
-  assert.match(media, /for \(const name of [^\n]*\) finishes\.push\(await makeVideo\(/);
-  assert.match(media, /const made = await Promise\.allSettled\(finishes\.map\(finish => finish\(\)\)\)/);
+  assert.match(media, /const finishes = await settled\(options\.pieces[^\n]*makeVideo\(/);
+  assert.match(media, /entries\.push\(\.\.\.await settled\(finishes\.map\(finish => finish\(\)\)\)\)/);
   assert.match(media, /return renderQueue\(async \(\) => \{ for \(let attempt = 1; ; attempt\+\+\) \{\n\s+const run = await runChild\(/, 'every render goes through the queue');
 });

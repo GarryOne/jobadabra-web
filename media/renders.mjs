@@ -5,6 +5,9 @@
 import {spawn} from 'node:child_process';
 
 export const RENDERS = Math.max(1, Number(process.env.HERO_RENDERS) || 3);
+// Takes recorded at once (HERO_TAKES, default 2): each its own app or Chrome, temp folder and port; a capture that stalls under the load is
+// recorded again (check.mjs captureGaps), so more at once is slower, not wrong.
+export const TAKES = Math.max(1, Number(process.env.HERO_TAKES) || 2);
 
 // At most n jobs at once: run(job) waits for a free slot, runs job(), frees the slot when it settles. -> run. Pure (no I/O).
 export function limiter(n) {

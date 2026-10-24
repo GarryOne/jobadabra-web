@@ -12,6 +12,7 @@ import {personaCopy} from './persona-copy.mjs';
 import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
+import {freePort} from '../desktop/e2e/lib/extension.mjs';
 
 const desktop = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'desktop');
 const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.json'))('playwright-core');
@@ -30,7 +31,9 @@ export async function launchApp({persona = {folder: path.join(desktop, 'demo')},
     // look still has a pixel for each of the 1080-wide phone copy's
     args: ['--force-device-scale-factor=2.5', desktop],
     env: {...process.env, ...env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_CONFIG_DIR: data, JOB_PILOTTO_DATA_DIR: data, JOB_PILOTTO_DEMO_DIR: data,
-      JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich'},
+      JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich',
+      // its own port, never 47111 (round 9): the owner's live app and its extension talk on that one, and two takes recorded at once would share it
+      JOB_PILOTTO_PORT: String(await freePort())},
     timeout: 240000,   // a busy Mac (load 60+, 21 Oct 2026) took over 90 s to start the window
   });
   const page = await app.firstWindow();

@@ -25,7 +25,8 @@ import {jpegWidth, loadPersona, parseArgs, planOf, withPlan} from './options.mjs
 import {partsOf, SNIPS, STILLS, VIDEOS} from './scenes.mjs';
 import {rewordLog} from './words.mjs';
 import {phoneTake} from './hold.mjs';
-import {limiter, RENDERS, runChild} from './renders.mjs';
+import {limiter, RENDERS, runChild, TAKES} from './renders.mjs';
+import {KEY_FILE, keptTake, reuseTake, takeKey} from './takes.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const desktop = path.resolve(here, '..', 'desktop');
@@ -50,6 +51,9 @@ async function runRender(job, name, tries = 2) {
 
 // Words only (media.mjs --words <set dir>, words.mjs): the set's kept recordings, redrawn with the scenes' current words; null = record.
 let wordsFrom = null;
+// What a take's key needs from the run (takes.mjs): the app's commit and the local date. Set by main.
+const run = {appSha: '', day: ''};
+const recordQueue = limiter(TAKES);   // takes recorded at once (renders.mjs)
 
 // One take of a clip: recorded (or, words only, the set's kept take redrawn with the scenes' words), cut at its looks and checked. The desktop take
 // uses the scene's window; the phone take (round 9) the phone shape's narrow window, where the app lays out one column. -> {log, dir, scale}
@@ -65,12 +69,20 @@ async function takeOf(name, piece, persona, dir) {
     recorded = rewordLog(JSON.parse(fs.readFileSync(path.join(kept, 'log.json'), 'utf8')), piece, label);
     fs.writeFileSync(path.join(dir, 'log.json'), JSON.stringify(recorded, null, 1));
     console.log(`media: ${label}: words only, redrawn from ${kept}`);
-  } else for (let attempt = 1; attempt <= 3; attempt++) {
-    fs.rmSync(dir, {recursive: true, force: true}); fs.mkdirSync(dir, {recursive: true});
-    recorded = await record({persona, piece, dir});
-    const gaps = captureGaps(recorded);
-    if (!gaps.length || attempt === 3) break;
-    console.log(`media: ${label}: the capture stalled (no frame at ${gaps.map(gap => `${gap.t.toFixed(1)} s`).join(', ')}): recording again (${attempt + 1} of 3)`);
+  } else {
+    // a take nothing it records changed since an earlier set is reused (takes.mjs; owner: "let's do all the optimizations possible")
+    const key = takeKey({label, piece, persona, ...run}), kept = process.env.HERO_FRESH ? null : keptTake(path.dirname(path.dirname(dir)), label, key);
+    if (kept) {
+      recorded = reuseTake(kept, dir);
+      console.log(`media: ${label}: nothing it records changed: the take from ${path.basename(path.dirname(path.dirname(kept)))} reused`);
+    } else for (let attempt = 1; attempt <= 3; attempt++) {
+      fs.rmSync(dir, {recursive: true, force: true}); fs.mkdirSync(dir, {recursive: true});
+      recorded = await recordQueue(() => record({persona, piece, dir}));
+      const gaps = captureGaps(recorded);
+      if (!gaps.length || attempt === 3) break;
+      console.log(`media: ${label}: the capture stalled (no frame at ${gaps.map(gap => `${gap.t.toFixed(1)} s`).join(', ')}): recording again (${attempt + 1} of 3)`);
+    }
+    fs.writeFileSync(path.join(dir, KEY_FILE), key);
   }
   // the hero starts at its first look (camera.mjs), each cut look when it shows, checked against its frames (cuts.mjs)
   const px = jpegWidth(fs.readFileSync(path.join(dir, 'frames', recorded.frames[0].file))) / recorded.viewport.w, thumbs = new Map();
@@ -94,10 +106,10 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   const stale = leftWords(`${piece.caption || ''} ${piece.shows} ${piece.alt || ''}`, persona.forbid);
   if (stale.length) throw new Error(`${name}: the plan's words name the default demo person (${stale.join(', ')}): run direct.mjs ${name} again`);
   const phoneShape = typeof piece.phone === 'object' ? piece.phone : null;
-  const main = await takeOf(name, piece, persona, path.join(work, name));
   // phones: the same steps again in a narrow window, the app in one column (round 9, owner 24 Oct 2026, of three options: "Narrow window"), so a
-  // phone frame shows whole cards with big text; the phone camera puts its edges in gaps (whole.mjs) and edgesOk proves it
-  const narrow = phoneShape?.window ? await takeOf(name, phoneTake(piece, phoneShape), persona, path.join(work, `${name}-phone`)) : null;
+  // phone frame shows whole cards with big text; the phone camera puts its edges in gaps (whole.mjs) and edgesOk proves it. Both takes at once.
+  const [main, narrow] = await Promise.all([takeOf(name, piece, persona, path.join(work, name)),
+    phoneShape?.window ? takeOf(name, phoneTake(piece, phoneShape), persona, path.join(work, `${name}-phone`)) : null]);
   const steady = piece.camera === 'steady';
   // a hero look too wide for its zoom is shown whole at a lower zoom (camera.mjs fitWidth); much lower reads small, so the log names it (round 2)
   const onFit = (event, asked, used) => console.log(`media: ${name}: look ${JSON.stringify(event.look)} shown whole at zoom ${used.toFixed(2)} (asked ${asked.toFixed(2)})${used < asked * FIT_WARN ? ': SMALL TEXT, pick a narrower look' : ''}`);
@@ -185,8 +197,7 @@ function joined(files, kinds, speed, out) {
 // A video piece with its parts (scenes.mjs partsOf): each recorded on its own app state, moment and steps, played in order.
 // Records and checks every part, -> finish(): renders them, joins, encodes and checks the played copies, -> the manifest entry.
 async function makeVideo(name, persona, work, out) {
-  const finishes = [];
-  for (const part of partsOf(name)) finishes.push(await (part === name && VIDEOS[name].pip ? recordPip(name, persona, work) : recordClip(part, persona, work)));
+  const finishes = await settled(partsOf(name).map(part => (part === name && VIDEOS[name].pip ? recordPip(name, persona, work) : recordClip(part, persona, work))));
   return async () => {
     const clips = await Promise.all(finishes.map(finish => finish()));
     const {piece} = clips.find(clip => clip.name === name), speed = piece.speed || 1, dir = path.join(work, name);
@@ -239,6 +250,14 @@ async function makeStills(kinds, persona, work, out) {
   });
 }
 
+// All of them to their end (a failure lets the others' recordings and renders finish), then every failure named at once. -> the values.
+async function settled(promises) {
+  const results = await Promise.allSettled(promises);
+  const failed = results.filter(result => result.status === 'rejected');
+  if (failed.length) throw new Error(failed.map(result => result.reason?.message || String(result.reason)).join('\n'));
+  return results.map(result => result.value);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const persona = loadPersona(options.persona);
@@ -252,13 +271,11 @@ async function main() {
   fs.mkdirSync(work, {recursive: true});
   execFileSync(process.execPath, [path.join(desktop, 'scripts', 'stage.mjs')], {cwd: desktop, stdio: 'ignore'});   // the app imports shared/ (npm start does the same)
   const entries = [];
-  // every take recorded and checked first (a bad scene stops in a minute), then every copy rendered, RENDERS at once (renders.mjs)
-  const finishes = [];
-  for (const name of options.pieces.filter(piece => VIDEOS[piece] && !VIDEOS[piece].part)) finishes.push(await makeVideo(name, persona, work, options.out));
-  const made = await Promise.allSettled(finishes.map(finish => finish()));   // a failed piece lets the others' renders end, then all failures are named
-  const failed = made.filter(result => result.status === 'rejected');
-  if (failed.length) throw new Error(failed.map(result => result.reason?.message || String(result.reason)).join('\n'));
-  entries.push(...made.map(result => result.value));
+  // every take of every piece recorded (TAKES at once) and checked first (a bad scene stops in a minute), then every copy rendered, RENDERS at once
+  run.appSha = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: desktop, encoding: 'utf8'}).trim();
+  run.day = new Date().toLocaleDateString('sv');   // YYYY-MM-DD, local: the demo's dates follow it
+  const finishes = await settled(options.pieces.filter(piece => VIDEOS[piece] && !VIDEOS[piece].part).map(name => makeVideo(name, persona, work, options.out)));
+  entries.push(...await settled(finishes.map(finish => finish())));
   const kinds = options.pieces.filter(piece => piece === 'stills' || piece === 'snips');
   if (kinds.length) entries.push(...await makeStills(kinds, persona, work, options.out));
   const file = path.join(options.out, 'manifest.json');
