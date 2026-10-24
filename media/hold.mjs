@@ -45,5 +45,23 @@ export const stepMarks = (item, log) => {
 // The phone take's steps: its own window, and each look its phoneLook (round 9: the desktop look "first row down to hers" did not fit the narrow
 // window, whose rows stack on 3 lines, and stopped the take); the phone camera frames that look whole (whole.mjs). shape: the piece's phone
 // {window, zoom}: the app's text size in that window (its settings' zoom; the extension's page is the window shrunk by it). Pure.
+// Its holds may scroll (fitScroll): the phone window is 528 css px tall, so a look the desktop take shows in place can sit below it.
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
-  steps: piece.steps.map(step => (step.hold && step.phoneLook ? {...step, look: step.phoneLook, lookWidth: step.phoneLookWidth} : step))});
+  steps: piece.steps.map(step => (!step.hold ? step : {...step, fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook, lookWidth: step.phoneLookWidth} : {})}))});
+
+// The scroll that brings a look's box to the window's middle (CSS px, + = down). Pure.
+export const centreDelta = (box, view) => Math.round(box.y + box.height / 2 - view.h / 2);
+// A fitScroll hold whose look is off screen (round 9: Set up's strategy look was 43% below the phone window): scroll the look's nearest
+// scrolling ancestor (or the window) so the look sits in the middle, smoothly, as a person would. -> true when it scrolled. Takes a Playwright page.
+export async function scrollLookIn(page, look, box, view) {
+  const first = [look].flat().find(one => one !== 'panel');
+  if (!first || !box) return false;
+  return page.locator(first).first().evaluate((el, dy) => {
+    for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) { node.scrollBy({top: dy, behavior: 'smooth'}); return true; }
+    }
+    window.scrollBy({top: dy, behavior: 'smooth'});
+    return true;
+  }, centreDelta(box, view)).catch(() => false);
+}

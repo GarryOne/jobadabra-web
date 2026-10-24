@@ -30,7 +30,12 @@ const log = (edges, box = {x: 200, y: 200, width: 500, height: 200}) => ({viewpo
 
 test('edgeCuts reads the view where the camera settles on each look: the look shown whole passes, a line it crosses is named', () => {
   assert.deepEqual(edgeCuts(log([card(200, 500), text(220, 300, 'words', 250)]), 1, {steady: true}), []);
-  const hits = edgeCuts(log([card(200, 500), text(560, 400, 'Languages', 250)]), 1, {steady: true});   // the desktop copy keeps its framing
+  assert.deepEqual(edgeCuts(log([card(200, 500), text(560, 400, 'Languages', 250)]), 1, {steady: true}), [], 'the desktop camera frames it whole too');
+  const recorded = log([card(200, 500), text(560, 400, 'Languages', 250)]);
+  for (const event of recorded.events) event.edges = undefined;   // a camera that did not see the edges, checked against them
+  const keys = cameraKeys({...recorded, speed: 1, steady: true});
+  const hits = edgeCuts({...recorded, events: recorded.events.map(event => ({...event, edges: [card(200, 500), text(560, 400, 'Languages', 250)]}))}, 1, {steady: true, keys});
+  assert.ok(keys.length);
   assert.equal(hits.length, 1);
   assert.equal(hits[0].look, '#a');
   assert.deepEqual(hits[0].cuts.map(cut => cut.side), ['right']);
@@ -97,7 +102,7 @@ test('both recorders note the edges at every look, and media.mjs checks each cop
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
   assert.match(media, /const render = \(take, out, width, height, phone = null\) => \{\n\s+edgesOk\(name, take\.log/);
   assert.match(media, /const compose = \(out, width, height, phone = null\) => \{\n.*\n\s+for \(const rec of recs\) edgesOk\(/);
-  assert.match(media, /if \(phone && process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/);
+  assert.match(media, /if \(process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/, 'a cut stops the desktop copy too');
 });
 
 // Round 9 (owner, 24 Oct 2026, of three options: "Narrow window"): a wide app page has lines up to 1500 px, so no phone frame of it is both whole and
@@ -128,6 +133,7 @@ test('the phone take frames each hold\'s phoneLook in the phone window; other st
   const take = phoneTake(piece, {window: {width: 880, height: 660}});
   assert.deepEqual(take.window, {width: 880, height: 660});
   assert.deepEqual(take.steps[0], {go: 'jobs'});
+  assert.ok(take.steps.filter(step => step.hold).every(step => step.fitScroll), 'every phone hold may scroll its look into the short window');
   assert.equal(take.steps[1].look, '#her .role');
   assert.equal(take.steps[1].lookWidth, 300);
   assert.equal(take.steps[2].look, '#card');
@@ -146,4 +152,14 @@ test('the page\'s own border cuts nothing: a frame of the whole window is whole'
   const page = 704, side = [card(12, 48, '.nav.active', 100), text(2, 40, 'icon', 300)], right = [card(560, 144, '.stat', 100)];
   assert.deepEqual(cutsIn({x: 0, y: 0, w: page, h: 528}, [...side, ...right], page, page), []);
   assert.deepEqual(cutsIn({x: 4, y: 0, w: 600, h: 528}, [...side, ...right], page, page).map(cut => cut.text), ['.nav.active', 'icon', '.stat'], 'inside the page the same items are cut');
+});
+
+test('a look off the phone window is scrolled to its middle by both recorders, then measured again', async () => {
+  const {centreDelta} = await import('../../media/hold.mjs');
+  assert.equal(centreDelta({y: 400, height: 300}, {w: 704, h: 528}), 286, 'a look 43% below the window comes up to the middle');
+  assert.equal(centreDelta({y: -200, height: 100}, {w: 704, h: 528}), -414);
+  for (const file of ['record-app.mjs', 'record-extension.mjs']) {
+    const source = fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /if \(out > OFF_MAX && item\.fitScroll && await scrollLookIn\(page, item\.look, box, view\)\) \{/, file);
+  }
 });

@@ -203,7 +203,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   window, whose text is ~3 px on a phone): round 8 showed each LOOK whole, but its neighbours were still cut mid-word at the edges. The recorder now
   notes the words and cards on screen at every look (`edges.mjs` edgesScript → `edges` in log.json); the phone camera picks, nearest its centred frame,
   a view whose both edges fall in gaps, zooming out a step when none exists (`whole.mjs`); `edges.mjs` edgeCuts then STOPS the phone copy if a line or
-  a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). The desktop copy keeps its framing; its cuts are only logged.
+  a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). **The desktop copy too** (owner, after the phone preview: "port
+  this to desktop as well, because on desktop it was also cropped", with shots of the logo and cards cut): same camera rule, same stop.
+  The phone take's short window (528 css) scrolls a look below it to the middle before measuring (`fitScroll`, hold.mjs scrollLookIn).
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
 - **The phone copy is its own take in a narrow window** (owner chose "Narrow window" of three): on the wide 1800-px layout, long lines (up to
   1500 px) left only near-whole-window phone frames (zoom 1.2, ~3-px text). Each hero clip is recorded twice: the desktop window, then

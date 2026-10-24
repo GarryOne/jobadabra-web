@@ -68,8 +68,9 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     const asked = zoomed(event, Math.max(1, event.zoom ?? fit));
     const used = steady ? Math.max(least, fitWidth(box, asked, viewport)) : asked;   // the phone copy too (round 8: its wide looks lost their right side)
     if (used < asked) onFit?.(event, asked, used);
-    // the phone copy's edges fall in gaps, never through words or a card (whole.mjs; round 9, owner 24 Oct 2026: "the video is stripped")
-    const target = phone && event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
+    // both copies' edges fall in gaps, never through words or a card (whole.mjs; round 9, owner 24 Oct 2026, phones: "the video is stripped";
+    // then of the desktop copy, with two shots of the logo and cards cut at its edges: "port this to desktop as well")
+    const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
       : frame(box, used, viewport, aspect);
     if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
     if (steady && first) { keys[0] = {t: 0, ...target}; return; }

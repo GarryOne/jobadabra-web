@@ -33,8 +33,8 @@ export function cutsIn(view, edges, maxW = view.w, pageW = Infinity) {
 
 // Each look of a recording whose view cuts something (the view at the end of its hold, where the camera has settled). opts: renderPlan's
 // {steady, phone}. -> [{look, say, cuts}] for the looks that cut, so the scenes can name a whole card (phoneLook) instead. Pure.
-export function edgeCuts(log, speed = 1, {steady = false, phone = null} = {}) {
-  const keys = cameraKeys({...log, speed, steady, phone});
+// keys: the camera's keys to check (default: the camera's own; a test passes a camera that did not see the edges).
+export function edgeCuts(log, speed = 1, {steady = false, phone = null, keys = cameraKeys({...log, speed, steady, phone})} = {}) {
   const aspect = phone ? phone.aspect : log.viewport.w / log.viewport.h, least = Math.max(1, log.viewport.w / aspect / log.viewport.h);   // as camera.mjs
   return log.events.filter(event => event.type === 'hold' && event.edges && (event.box || event.phoneBox)).map(event => {
     const view = cameraAt(keys, event.t + Math.max(0, (event.s || 0) - 0.05), log.viewport, speed, phone);

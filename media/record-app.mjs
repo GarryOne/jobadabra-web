@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, stepMarks, wordsCut} from './hold.mjs';
+import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 
@@ -135,10 +135,16 @@ async function step(page, item, log, app = null) {
     const started = Date.now();
     // a cut look not yet seen is watched for from here too (round 3: the proposal replaced "reading your CV" in this gap, cut 0.4 s late)
     if (log.self) { const after = log.next; log.next = log.self; await watch(page, 250, log); log.next = after; } else await page.waitForTimeout(250);
-    const box = item.look ? await lookBox(page, item.look) : null;
+    let box = item.look ? await lookBox(page, item.look) : null;
     if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
-    const phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
-    const view = await viewportOf(page), out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+    let phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
+    const view = await viewportOf(page);
+    let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+    if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view)) {   // the phone take's short window (hold.mjs)
+      await page.waitForTimeout(600);
+      box = await lookBox(page, item.look); phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
+      out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+    }
     if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
     await checkWords(page, item.look, box, item.lookWidth, 'look');
     await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook');

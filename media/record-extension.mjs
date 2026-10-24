@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {startRealExtension} from '../desktop/e2e/lib/real-extension.mjs';
 import {edgesScript} from './edges.mjs';
-import {holdEvent, holdLeft, OFF_MAX, offScreen, stepMarks} from './hold.mjs';
+import {holdEvent, holdLeft, OFF_MAX, offScreen, scrollLookIn, stepMarks} from './hold.mjs';
 import {unionBox} from './record-app.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {answerReply, formHost, formHtml} from './stand-in.mjs';
@@ -72,10 +72,16 @@ export async function recordExtensionVideo({persona, piece, dir}) {
         const started = Date.now();
         await page.waitForTimeout(250);
         const boxOf = async look => (look ? unionBox(await Promise.all([look].flat().map(one => (one === 'panel' ? panelBox(page) : page.locator(one).first().boundingBox())))) : null);
-        const box = await boxOf(item.look);
+        let box = await boxOf(item.look);
         if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
-        const phoneBox = await boxOf(item.phoneLook), view = await page.evaluate(() => ({w: innerWidth, h: innerHeight}));
-        const out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+        let phoneBox = await boxOf(item.phoneLook);
+        const view = await page.evaluate(() => ({w: innerWidth, h: innerHeight}));
+        let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+        if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view)) {   // the phone take's short window (hold.mjs)
+          await page.waitForTimeout(600);
+          box = await boxOf(item.look); phoneBox = await boxOf(item.phoneLook);
+          out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+        }
         if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
         const left = holdLeft(item.hold, started, Date.now());
         log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});   // edges.mjs
