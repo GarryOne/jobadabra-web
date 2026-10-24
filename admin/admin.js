@@ -12,6 +12,7 @@ export const PAGES = [
   {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
   {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
   {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
+  {path: '/admin/promo-codes', group: 'Growth', question: 'Which promo codes exist, who used them, and when do they end?', name: 'Promo codes', icon: '🎟️'},
   {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
   {path: '/admin/form-overview', group: 'Form filling', question: 'How is form filling doing: real users, our recorded sites, the benchmark and the learning loop?', name: 'Overview', icon: '🧭', overview: true},

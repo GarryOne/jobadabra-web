@@ -4,6 +4,7 @@
 import {report} from './overview.js';
 import {collect as signups} from './signups.js';
 import {collect as money} from './monetization-data.js';
+import {collect as promo, stateOf} from './promo-codes.js';
 
 const num = value => (Number(value) || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
 const memo = new WeakMap();
@@ -31,6 +32,12 @@ async function signupsTiles(env, now) {
     {label: 'Converted to Pro', value: num(data.converted), sub: 'trial accounts that paid', status: 'none'}];
 }
 
+async function promoTiles(env, now) {
+  if (!env.STATS) return [{label: 'Promo uses', value: '–', sub: 'no database', status: 'none'}];
+  const data = await promo(env, now), used = data.codes.reduce((sum, code) => sum + code.used, 0);
+  return [{label: 'Promo uses', value: num(used), sub: `${num(data.codes.filter(code => stateOf(code, code.used, data.now).text === 'Active').length)} active codes`, status: 'none'}];
+}
+
 // Monetization: the page's own verdict colour (green/yellow/red/grey from admin/monetization-data.js colourOf) on trial-to-Pro conversion, and the profit when sales exist.
 async function monetizationTiles(env, now) {
   if (!env.STATS) return [{label: 'Trials that bought Pro', value: '–', sub: 'no database', status: 'none'}];
@@ -41,5 +48,5 @@ async function monetizationTiles(env, now) {
       : {label: 'Profit, 30 days', value: 'No data', sub: 'no sale yet', status: 'none'}];
 }
 
-export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/signups': signupsTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
+export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/signups': signupsTiles, '/admin/promo-codes': promoTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
 export const INTELLIGENCE = {'/admin/insights': fromCards('insights'), '/admin/brain': fromCards('brain')};

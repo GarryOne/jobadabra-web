@@ -74,6 +74,8 @@ import * as mailSettings from '../../api/mail-settings.js';
 import * as accountEmail from '../../api/account-email.js';
 import {status as proStatus} from '../../shared/pro.js';
 import * as proSignin from '../../api/pro-signin.js';
+import {redeem as promoRedeem} from '../../shared/promo.js';
+import {view as promoCodesView} from '../../admin/promo-codes.js';
 import {status as trialStatus} from '../../shared/trial.js';
 import * as hosted from '../../shared/hosted.js';
 import * as hostedState from '../../api/hosted-state.js';
@@ -180,7 +182,7 @@ async function route(request, env, ctx) {
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (admin/test-mail.js)
   // The owner's admin pages (admin/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats, '/admin/app': telemetryView, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView, '/admin/installs': installsView,
-    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
+    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/promo-codes': promoCodesView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
     '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/benchmark-job-search': benchmarkSearchView, '/admin/brain': brainView, '/admin/sentry': sentryView, '/admin/reports': reportsView}[pathname];   // access: the super admin's only (admin/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (admin/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (admin/e2e-report.js)
@@ -253,6 +255,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/hosted/inbox') return hosted.inbox(request, env);   // the matches that arrived while the app was closed
   if (pathname === '/api/pro/checkout') return proCheckout(request, env);   // a one-time payment for Pro or a top-up (api/pro-pay.js)
   if (pathname === '/api/pro/webhook') return proWebhook(request, env);   // the payment provider's signed events
+  if (pathname === '/api/pro/redeem') return promoRedeem(request, env);   // a promo code gives Pro (shared/promo.js)
   if (pathname === '/api/pro/signin/start') return proSignin.start(request, env);   // "I have Pro": a 6-digit code by e-mail (api/pro-signin.js)
   if (pathname === '/api/pro/signin/verify') return proSignin.verify(request, env);   // the code adds this install to the Pro account
   if (pathname === '/api/pro/status') return proStatus(request, env);   // the Pro plan: plan and AI credit for the app (shared/pro.js)
