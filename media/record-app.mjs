@@ -19,13 +19,28 @@ const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.j
 export const WINDOW = {width: 1440, height: 900};   // 16:10, the site's hero shape; the app's own zoom lays it out wider, Retina capture is 2x
 
 // The app on a temp copy of the persona (persona-copy.mjs); demo mode reads its data from there too (JOB_PILOTTO_DEMO_DIR, lib/demo.js).
+// Apps start one at a time and a failed start is tried once more (run 22: two takes started at once, one app "failed to launch!" and Playwright
+// threw it outside any await, killing the run); the recordings themselves still overlap (media.mjs recordQueue).
+let starting = Promise.resolve();
+function startApp(options) {
+  const start = async () => {
+    try { return await electron.launch(options); } catch (error) {
+      console.log(`media: the app failed to start (${error.message.split('\n')[0]}): starting it again`);
+      return electron.launch(options);
+    }
+  };
+  const mine = starting.then(start);
+  starting = mine.catch(() => {});
+  return mine;
+}
+
 export async function launchApp({persona = {folder: path.join(desktop, 'demo')}, settings = null, moment = null, env = {}, window = WINDOW} = {}) {
   const data = personaCopy(persona, {demo: path.join(desktop, 'demo'), moment});
   if (settings) {   // a piece may start the app in another state (the first-run wizard: setupDone false), on the temp copy only
     const file = path.join(data, 'settings.json');
     fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...settings}, null, 1));
   }
-  const app = await electron.launch({
+  const app = await startApp({
     executablePath: path.join(desktop, 'node_modules', '.bin', 'electron'),   // a Mac (here or the CI runner): the site shows the Mac app
     // round 9 (owner, 24 Oct 2026: "low resolution"): frames 2.5x the window (3600 px, screencast.mjs's cap) instead of the Retina 2x, so a zoomed
     // look still has a pixel for each of the 1080-wide phone copy's

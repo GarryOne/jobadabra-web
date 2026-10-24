@@ -72,3 +72,10 @@ test('takeOf reuses a kept take unless HERO_FRESH, records through the take queu
   assert.match(source, /const finishes = await settled\(options\.pieces[^\n]*makeVideo\(/, 'every piece records at once (the queue bounds it), renders after');
   assert.match(fs.readFileSync(path.join(media, 'record-app.mjs'), 'utf8'), /JOB_PILOTTO_PORT: String\(await freePort\(\)\)/, 'each app on its own port, never the live 47111');
 });
+
+test('apps start one at a time, a failed start is tried again, and a stray library error still ends as media: FAILED', () => {
+  const app = fs.readFileSync(path.join(media, 'record-app.mjs'), 'utf8');
+  assert.match(app, /const app = await startApp\(\{/);
+  assert.match(app, /const mine = starting\.then\(start\);\n\s+starting = mine\.catch\(\(\) => \{\}\);/);
+  assert.match(fs.readFileSync(path.join(media, 'media.mjs'), 'utf8'), /for \(const event of \['uncaughtException', 'unhandledRejection'\]\) process\.on\(event,/);
+});

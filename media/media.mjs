@@ -286,4 +286,8 @@ async function main() {
   console.log(`media: DONE ${entries.length} piece(s) → ${options.out}`);
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) main().catch(error => { console.error(`media: FAILED ${error.message}`); process.exit(1); });
+if (process.argv[1] === new URL(import.meta.url).pathname) {
+  // an error a library throws outside our awaits (run 22: Playwright's "Process failed to launch!") still ends as a named failure
+  for (const event of ['uncaughtException', 'unhandledRejection']) process.on(event, error => { console.error(`media: FAILED ${error?.message || error} (${event})`); process.exit(1); });
+  main().catch(error => { console.error(`media: FAILED ${error.message}`); process.exit(1); });
+}
