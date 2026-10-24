@@ -42,7 +42,12 @@ const TO_HER_ROW = `new Promise(done => { const t0 = Date.now(); const tick = ()
   const row = [...document.querySelectorAll('.job-row')].find(each => each.textContent.includes('Cardiac Care Unit'));
   if (!row && Date.now() - t0 < 20000) return setTimeout(tick, 100);   // a slow search (round 4: > 8 s on a loaded Mac); the cut drops this wait
   const fold = [...document.querySelectorAll('details')].find(el => /In conversation/.test(el.querySelector('summary')?.textContent || '')); if (fold) fold.open = false;
-  row?.scrollIntoView({block: 'center', behavior: 'smooth'}); done(); }; tick(); })`;
+  // the look (the first row down to hers) centred, whatever sits above the list (round 8: the redesigned Find card and an open "In conversation"
+  // pushed the list down; centring her row alone left the first row 21% off screen)
+  const first = document.querySelector('.job-row');
+  if (row && first) { let box = first.parentElement; while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+    const mid = (first.getBoundingClientRect().top + row.getBoundingClientRect().bottom) / 2; (box || document.scrollingElement).scrollBy({top: mid - innerHeight / 2, behavior: 'smooth'}); }
+  done(); }; tick(); })`;
 // Apply (round 3, owner 24 Oct 2026: "We should start on the way how we press 'Apply' button on the Jobs screen, showing then 'Applying' screen/card, then
 // moving to the browser"): an app part (moment 'applying': her session as the row's Apply makes it) played before the extension's fill. Her session is
 // opened through its row on the Applying page's list, which opens the page on it (a plain page switch shows the session that needs you first).

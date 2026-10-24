@@ -208,6 +208,10 @@ comes back at the next redo.
 - Sizes from `tools/hero.sh --place` within budget; site tests green.
 
 ## Traps already hit
+- **A screen the hero shows was redesigned on main mid-round** (round 8, 24 Oct 2026: another session reworked the Find card at 19:55 and 20:10; the
+  new phoneLook `#find-card .insight-head` no longer existed, the run waited 30 s and failed after Set up). Before recording, read the app's recent
+  history of the screens in the scenes (`git -C ~/jobadabra log --since=<last recording> -- desktop/renderer/pages/<screen>*`) and check each new
+  look's selector in the app's current markup; re-record only the pieces after the failure (the finished ones are kept in their set).
 - **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.
 - **The panel moves**: during a fill it sits centred, then returns to its corner; `panelBox` waits for the corner. A union of the panel and a far field is wider than the zoomed view and gets framed from its left edge: look at `'panel'` alone.
