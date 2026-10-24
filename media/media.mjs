@@ -24,6 +24,7 @@ import {recordExtensionVideo} from './record-extension.mjs';
 import {jpegWidth, loadPersona, parseArgs, planOf, withPlan} from './options.mjs';
 import {partsOf, SNIPS, STILLS, VIDEOS} from './scenes.mjs';
 import {rewordLog} from './words.mjs';
+import {phoneTake} from './hold.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const desktop = path.resolve(here, '..', 'desktop');
@@ -94,7 +95,7 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   const main = await takeOf(name, piece, persona, path.join(work, name));
   // phones: the same steps again in a narrow window, the app in one column (round 9, owner 24 Oct 2026, of three options: "Narrow window"), so a
   // phone frame shows whole cards with big text; the phone camera puts its edges in gaps (whole.mjs) and edgesOk proves it
-  const narrow = phoneShape?.window ? await takeOf(name, {...piece, window: phoneShape.window}, persona, path.join(work, `${name}-phone`)) : null;
+  const narrow = phoneShape?.window ? await takeOf(name, phoneTake(piece, phoneShape.window), persona, path.join(work, `${name}-phone`)) : null;
   const steady = piece.camera === 'steady';
   // a hero look too wide for its zoom is shown whole at a lower zoom (camera.mjs fitWidth); much lower reads small, so the log names it (round 2)
   const onFit = (event, asked, used) => console.log(`media: ${name}: look ${JSON.stringify(event.look)} shown whole at zoom ${used.toFixed(2)} (asked ${asked.toFixed(2)})${used < asked * FIT_WARN ? ': SMALL TEXT, pick a narrower look' : ''}`);

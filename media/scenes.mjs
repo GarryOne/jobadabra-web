@@ -50,7 +50,9 @@ const TO_HER_ROW = `new Promise(done => { const t0 = Date.now(); const tick = ()
   // pushed the list down; centring her row alone left the first row 21% off screen)
   const first = document.querySelector('.job-row');
   if (row && first) { let box = first.parentElement; while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
-    const mid = (first.getBoundingClientRect().top + row.getBoundingClientRect().bottom) / 2; (box || document.scrollingElement).scrollBy({top: mid - innerHeight / 2, behavior: 'smooth'}); }
+    // ... unless that span is taller than the window (round 9: the phone take's narrow window stacks each row on 3 lines): then her row, centred
+    const top = first.getBoundingClientRect().top, bottom = row.getBoundingClientRect().bottom, fits = bottom - top < innerHeight * 0.9;
+    const mid = fits ? (top + bottom) / 2 : (row.getBoundingClientRect().top + bottom) / 2; (box || document.scrollingElement).scrollBy({top: mid - innerHeight / 2, behavior: 'smooth'}); }
   done(); }; tick(); })`;
 // Apply (round 3, owner 24 Oct 2026: "We should start on the way how we press 'Apply' button on the Jobs screen, showing then 'Applying' screen/card, then
 // moving to the browser"): an app part (moment 'applying': her session as the row's Apply makes it) played before the extension's fill. Her session is

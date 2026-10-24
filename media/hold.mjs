@@ -41,3 +41,8 @@ export const stepMarks = (item, log) => {
   if (item.sync && !item.fill) log.add({type: 'sync'});   // a fill syncs at its first filled field (record-extension.mjs)
   if (item.lead && !item.hold) log.add({type: 'lead'});
 };
+
+// The phone take's steps: its own window, and each look its phoneLook (round 9: the desktop look "first row down to hers" did not fit the narrow
+// window, whose rows stack on 3 lines, and stopped the take); the phone camera frames that look whole (whole.mjs). Pure.
+export const phoneTake = (piece, window) => ({...piece, window,
+  steps: piece.steps.map(step => (step.hold && step.phoneLook ? {...step, look: step.phoneLook, lookWidth: step.phoneLookWidth} : step))});
