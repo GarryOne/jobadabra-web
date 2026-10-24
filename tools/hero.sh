@@ -19,7 +19,9 @@ if [ "${1:-}" = --words ]; then words=(--words "${2:?--words needs a set dir mad
 if [ "${1:-}" = --place ]; then
   set_dir="${2:?--place needs a set dir}"
   for piece in "${HERO[@]}"; do
-    for file in "$set_dir/$piece".{mp4,webm} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-720.mp4 "$set_dir/$piece"-720-poster.jpg; do
+    # a phone copy of another width replaces the old one (round 9: 720 -> 1080), and the captions the phone copy leaves out go beside it (.vtt)
+    if compgen -G "$set_dir/$piece-[0-9]*.mp4" >/dev/null; then git rm -q --ignore-unmatch -- "web/public/media/$piece-[0-9]*.mp4" "web/public/media/$piece-[0-9]*-poster.jpg"; fi
+    for file in "$set_dir/$piece".{mp4,webm,vtt} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-[0-9]*.mp4 "$set_dir/$piece"-[0-9]*-poster.jpg; do
       [ -f "$file" ] && cp "$file" web/public/media/
     done
   done

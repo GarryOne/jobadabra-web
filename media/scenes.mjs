@@ -15,7 +15,9 @@ export const nav = view => `.nav[data-view=${view}]:not([data-settings])`;
 // 1440 screen): the result looks zoom ~2.2. The phone copy ({width, height}: 4:3) has its own tighter camera (PHONE_GAIN, or a step's phoneZoom / phoneLook).
 // Recorded at real speed, played `speed` times faster (encode.mjs). `slide` is the clip's place on the stage. Captions here are the manifest's; the site
 // writes its own words above the clip (web/public/index.html).
-const PHONE = {width: 720, height: 540, budget: 3.8e5};   // round 8: the grade's sharper text costs ~41% (owner chose it, 24 Oct 2026)
+// round 9 (owner, 24 Oct 2026: "the quality of the video is still pretty bad. Low resolution"): phones get 1080 x 810 (a 390-px phone at 3x is 1170
+// pixels wide) and every copy room for CRF 22; the budgets are ceilings, the bytes are what CRF 22 makes (round 8 was 720 x 540 at CRF ~28).
+const PHONE = {width: 1080, height: 810, budget: 1.5e6};
 const ROW = '.job-row:has-text("Cardiac Care Unit")';
 // Round 4 (owner, 24 Oct 2026: "we kind of need to highlight each of the steps", sketch https://claude.ai/artifact/UxHHtYTzUwUaEzAsjQjoz5, A + B): each
 // clip's steps carry a `tag` drawn in the caption band (where the frame is: SET UP 1/5, JOBS, CHROME), and Set up's looks include the app's own
@@ -80,7 +82,7 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 // comes in (`into`, transitions.mjs): slide = one screen to another, tiles = time passed, card (+ `card` words) = the flow needs explaining, fade =
 // the same screen changing. A part's `into` is its join (a card part opens on its card); a clip's `stageInto` is the site's switch into it.
 export const VIDEOS = {
-  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 8.7e5, phone: PHONE,
+  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
     env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '2000'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV"
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
@@ -94,7 +96,7 @@ export const VIDEOS = {
       {hold: 2.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
       {hold: 3, look: ['#draft-title', '#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], lookWidth: 1080, zoom: 1.64, phoneZoom: 2.6, cut: true, into: 'tiles', poster: true, say: 'The strategy: roles, level, salary', beat: 'The proposal: roles, level, on-site, an estimated salary'},
       {tap: '#draft-save', zoom: 2.4, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
-  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 9.4e5, phone: {...PHONE, budget: 3.9e5},
+  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.9e6, phone: PHONE,
     settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
@@ -131,12 +133,12 @@ export const VIDEOS = {
       // then one move right to the pill (owner, 24 Oct 2026: "B, then pan to the pill"): close on the count while it ticks, the pill when it is ready
       // round 6: back to the main picture on the whole completion section (count, full bar, pill): the pill alone cut the row's words (take 4 at 8 s)
       {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, phoneLook: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress'], phoneLookWidth: 520, lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
-  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 8.7e5, phone: {...PHONE, budget: 3.6e5},
+  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 1.8e6, phone: PHONE,
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',
     steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
       {hold: 3, look: 'panel', zoom: 1.8, phoneZoom: 2.6, poster: true, say: 'Filled from the profile: ready to review', beat: 'Filled from the profile: Ready to submit, to review'}]},
-  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 1.09e6, phone: {...PHONE, budget: 4.6e5},
+  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 2.2e6, phone: {...PHONE, budget: 1.8e6},
     shows: 'Two weeks later: the interview e-mail for that job, the call recorded and reviewed, what to practise, the next round on the calendar',
     caption: 'Your interviews and next steps, together.', alt: 'Jobadabra two weeks later: the Institut Cardio Rhône interview e-mail, the phone screen reviewed, interview patterns and practice, then the interview in the calendar',
     steps: [{go: 'focus'}, {js: MAIL_IN},

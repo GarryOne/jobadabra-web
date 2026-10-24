@@ -1,0 +1,99 @@
+// Nothing is cut at a hero frame's left or right edge (round 9, owner 24 Oct 2026: "on mobile, the video is stripped ... I don't see the full video
+// frame"): a line of words the view crosses is a cut, a card that would fit is shown whole, and the phone copy stops on one (media.mjs edgesOk).
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {test} from 'node:test';
+import {cameraKeys} from '../../media/camera.mjs';
+import {cutsIn, edgeCuts, edgeReport} from '../../media/edges.mjs';
+import {cutsAt, wholeFrame} from '../../media/whole.mjs';
+
+const view = {x: 100, y: 0, w: 400, h: 300};
+const text = (x, w, words = 'words', y = 50) => ({k: 'text', x, y, w, h: 16, text: words});
+const card = (x, w, name = '.card', y = 220) => ({k: 'card', x, y, w, h: 200, text: name});
+
+test('a line of words crossing the left or right edge is a cut; one inside, outside or within the slack is not', () => {
+  assert.deepEqual(cutsIn(view, [text(450, 100, 'Jobadabra’s AI tasks jus')]), [{k: 'text', side: 'right', text: 'Jobadabra’s AI tasks jus'}]);
+  assert.deepEqual(cutsIn(view, [text(60, 100, 'Languages')]), [{k: 'text', side: 'left', text: 'Languages'}]);
+  assert.deepEqual(cutsIn(view, [text(150, 200), text(520, 80), text(10, 80), text(110, 393)]), []);
+});
+
+test('a card that would fit is shown whole; a card wider than the view and anything above or below it do not count', () => {
+  assert.deepEqual(cutsIn(view, [card(300, 300, '.step-card')]), [{k: 'card', side: 'right', text: '.step-card'}]);
+  assert.deepEqual(cutsIn(view, [card(50, 600, '.page'), card(300, 300, '.below', 400), text(450, 100, 'under', -40)]), []);
+});
+
+// A phone copy (4:3) on a 1600x1000 page, one look: a card of 500 px at x 200 (zoom fits it whole), and words on its right outside the card.
+const log = (edges, box = {x: 200, y: 200, width: 500, height: 200}) => ({viewport: {w: 1600, h: 1000}, frames: [{t: 0, file: 'a'}, {t: 3, file: 'b'}],
+  events: [{t: 0.5, type: 'hold', look: '#a', phoneLook: '#a .head', box, phoneBox: box, s: 2, say: 'The CV', edges}]});
+
+test('edgeCuts reads the view where the camera settles on each look: the look shown whole passes, a line it crosses is named', () => {
+  assert.deepEqual(edgeCuts(log([card(200, 500), text(220, 300, 'words', 250)]), 1, {steady: true}), []);
+  const hits = edgeCuts(log([card(200, 500), text(560, 400, 'Languages', 250)]), 1, {steady: true});   // the desktop copy keeps its framing
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].look, '#a');
+  assert.deepEqual(hits[0].cuts.map(cut => cut.side), ['right']);
+  assert.match(edgeReport('hero-onboarding', hits, 'desktop'), /hero-onboarding \(desktop\): look "#a" \("The CV"\) cuts text "Languages" at the right: frame a whole card/);
+});
+
+test('the phone camera frames the same look so that line is whole: its edges fall in gaps', () => {
+  const phone = {aspect: 4 / 3}, recorded = log([card(200, 500), text(560, 400, 'Languages', 250)]);
+  assert.deepEqual(edgeCuts(recorded, 1, {steady: true, phone}), []);
+  const plain = cameraKeys({...log(undefined), steady: true, phone})[0], whole = cameraKeys({...recorded, steady: true, phone})[0];
+  assert.ok(whole.z < plain.z, `zoomed out to show the line whole (${whole.z.toFixed(2)} < ${plain.z.toFixed(2)})`);
+});
+
+test('wholeFrame keeps the zoom and slides the view when a gap is in reach; zooms out a step at a time when none is', () => {
+  const viewport = {w: 1600, h: 1000}, aspect = 4 / 3, look = {x: 600, y: 300, width: 300, height: 100};
+  const frameAt = z => ({cx: look.x + look.width / 2, cy: 350, z});   // centred on the look
+  // at zoom 4 the view is 400 px wide, 550..950; a line 900..1000 crosses its right edge, a gap is at 500..550 + the line moves out by sliding left
+  const slid = wholeFrame({frameAt, z: 4, least: 1, look, edges: [text(905, 120, 'right', 340)], viewport, aspect});
+  assert.equal(slid.z, 4);
+  assert.ok(slid.cx < 750 && slid.cx - 200 <= look.x && slid.cx + 200 >= look.x + look.width, 'slid left, the look still in view');
+  // a table: words every 120 px with 10-px gaps, no clean 400-px window near the look: it zooms out until both edges sit in gaps
+  const table = Array.from({length: 13}, (_, i) => text(i * 130, 120, `col ${i}`, 340));
+  const out = wholeFrame({frameAt, z: 4, least: 1, look, edges: table, viewport, aspect});
+  const w = viewport.w / out.z, left = Math.min(Math.max(out.cx - w / 2, 0), viewport.w - w), top = 0, bottom = viewport.h;
+  assert.ok(!cutsAt(left, table, top, bottom, w) && !cutsAt(left + w, table, top, bottom, w), 'no column cut');
+});
+
+// The class: whatever the layout, the phone copy's view at a look cuts no line of words and no card that would fit (owner: "I don't see the full frame").
+test('on any app-like layout (columns, gutters, cards, words), the phone camera\'s view at each look cuts nothing', () => {
+  let seed = 7, checked = 0;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let n = 0; n < 40; n++) {
+    // an app-like page: columns 120-260 px wide with 16-px gutters; cards span 1-3 columns, lines of words inside them
+    const cols = [];
+    for (let x = 0; x < 1600;) { const w = Math.min(1600 - x, 120 + rand() * 140); cols.push({x, w}); x += w + 16; }
+    const edges = [];
+    for (let i = 0; i < cols.length;) {
+      const span = Math.min(cols.length - i, 1 + Math.floor(rand() * 3)), x = cols[i].x, w = cols[i + span - 1].x + cols[i + span - 1].w - x, y = rand() * 700;
+      edges.push(card(x, w, '.c', y), ...Array.from({length: 3}, (_, k) => text(x + 8, (w - 16) * (0.4 + rand() * 0.6), 'w', y + 20 + k * 30)));
+      i += span;
+    }
+    const box = {x: 200 + rand() * 900, y: 100 + rand() * 600, width: 120 + rand() * 300, height: 60 + rand() * 120};
+    // a frame that cuts nothing over the page's whole height and holds the look exists (brute force): then the camera finds a clean one too
+    const pad = 40, exists = Array.from({length: 117}, (_, k) => 400 + k * 8).some(w => {
+      for (let left = Math.max(0, box.x + box.width + pad - w); left <= Math.min(1600 - w, box.x - pad); left += 2) if (!cutsAt(left, edges, 0, 1000, w) && !cutsAt(left + w, edges, 0, 1000, w)) return true;
+      return false;
+    });
+    if (exists) { checked++; assert.deepEqual(edgeCuts(log(edges, box), 1.5, {steady: true, phone: {aspect: 4 / 3}}), [], `layout ${n}`); }
+  }
+  assert.ok(checked >= 20, `most layouts have a clean frame (${checked} of 40)`);
+});
+
+test('a recording from before round 9 (no edges) has nothing to check', () => {
+  const old = log(undefined);
+  delete old.events[0].edges;
+  assert.deepEqual(edgeCuts(old, 1, {steady: true, phone: {aspect: 4 / 3}}), []);
+});
+
+test('both recorders note the edges at every look, and media.mjs checks each copy (a phone cut stops it) before drawing it', () => {
+  for (const file of ['record-app.mjs', 'record-extension.mjs']) {
+    const source = fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /log\.add\(\{\.\.\.holdEvent\([^)]*\)[^\n]*edges: await page\.evaluate\(edgesScript\)/, file);
+  }
+  const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
+  assert.match(media, /const render = \(out, width, height, phone = null\) => \{\n\s+edgesOk\(name, log/);
+  assert.match(media, /const compose = \(out, width, height, phone = null\) => \{\n\s+for \(const rec of recs\) edgesOk\(/);
+  assert.match(media, /if \(phone && process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/);
+});

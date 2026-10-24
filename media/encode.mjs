@@ -59,7 +59,7 @@ export function encodeVideo({master, phoneMaster = null, name, piece, outDir, po
     const width = typeof piece.phone === 'object' ? piece.phone.width : piece.phone;
     files.phone = `${name}-${width}.mp4`;
     withinBudget(crf => ff('-i', phoneMaster || master, '-vf', videoFilter(`${fast}scale=${width}:-2:flags=lanczos`), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.phone)),
-      at(files.phone), piece.phone.budget, crfLadder(24, 34));
+      at(files.phone), piece.phone.budget, crfLadder(22, 34));   // round 9: as sharp as the desktop copy
     if (phoneMaster) {   // the phone's own first frame: the site shows it before the clip plays
       files.phonePoster = `${name}-${width}-poster.jpg`;
       ff('-ss', String(posterAt), '-i', phoneMaster, '-vf', `scale=${width}:-2`, '-frames:v', '1', '-q:v', '3', at(files.phonePoster));

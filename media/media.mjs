@@ -13,9 +13,10 @@ import {beatTimes, FIT_WARN, fromFirstLook, posterTime, renderPlan, RING, untilE
 import {dropChanges, frameCuts, STRAY_MAX, strayFrames, THUMB} from './cuts.mjs';
 import {joinFilter, openOnCard, transitions, withCards} from './transitions.mjs';
 import {fillSeconds, pipPlan} from './pip.mjs';
-import {captionAt, captionSize, captionTimes, SAY_FADE} from './captions.mjs';
+import {captionAt, captionSize, captionTimes, SAY_FADE, sayTrack, vttOf} from './captions.mjs';
 import {captureGaps, leftWords, pieceProblems, realEmails} from './check.mjs';
 import {brightness, duration, encodeStill, encodeVideo, missingEncoders} from './encode.mjs';
+import {edgeCuts, edgeReport} from './edges.mjs';
 import {gradeSvg} from './grade.mjs';
 import {manifest, stillEntry, videoEntry} from './manifest.mjs';
 import {recordAppVideo, shootApp} from './record-app.mjs';
@@ -82,9 +83,12 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   // a hero look too wide for its zoom is shown whole at a lower zoom (camera.mjs fitWidth); much lower reads small, so the log names it (round 2)
   const onFit = (event, asked, used) => console.log(`media: ${name}: look ${JSON.stringify(event.look)} shown whole at zoom ${used.toFixed(2)} (asked ${asked.toFixed(2)})${used < asked * FIT_WARN ? ': SMALL TEXT, pick a narrower look' : ''}`);
   // The site's copy, and for a piece with a phone shape ({width, height}: the hero) a second master with its own tighter camera (camera.mjs PHONE_*).
+  let said = [];   // the desktop copy's captions in played seconds: the site shows them under the phone copy (captions.mjs sayTrack)
   const render = (out, width, height, phone = null) => {
-    const captions = captionTimes(log);   // the hero's step captions (captions.mjs), drawn by render.cjs
-    const frames = renderPlan(log, FPS, piece.speed || 1, {steady, phone, onFit}).map((frame, i) => ({...frame, ...captionAt(captions, i / FPS)}));
+    edgesOk(name, log, piece.speed || 1, steady, phone);
+    const captions = captionTimes(log);   // the hero's step captions (captions.mjs), drawn by render.cjs on the desktop copy only (round 9)
+    const frames = renderPlan(log, FPS, piece.speed || 1, {steady, phone, onFit}).map((frame, i) => (phone ? frame : {...frame, ...captionAt(captions, i / FPS)}));
+    if (!phone) said = sayTrack(frames, FPS, piece.speed || 1);
     return runRender({framesDir: path.join(dir, 'frames'), frames, scale, width, height, fps: FPS, ring: RING, captionSize: captionSize(width, Boolean(phone)), sayFade: SAY_FADE, out, ffmpeg: 'ffmpeg'}, name);
   };
   const problemsOf = () => pieceProblems({name, source: piece.source, log, posterBrightness: brightness(path.join(dir, 'frames', log.frames[0].file)), forbid: persona.forbid, quiet: piece.quiet});
@@ -94,7 +98,17 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   const phoneMaster = phoneShape ? render(path.join(dir, 'master-phone.mp4'), phoneShape.width, phoneShape.height, {aspect: phoneShape.width / phoneShape.height}) : null;
   const problems = problemsOf();
   if (problems.length) throw new Error(problems.join('\n'));
-  return {name, piece, log, master, phoneMaster, seconds: duration(master)};
+  return {name, piece, log, master, phoneMaster, said, seconds: duration(master)};
+}
+
+// A phone copy whose view cuts a line of words or a card at its left or right edge stops (edges.mjs; round 9, owner 24 Oct 2026: "the video is
+// stripped"); the desktop copy's cuts are named in the log. A kept recording from before round 9 has no edges: nothing to check.
+function edgesOk(name, log, speed, steady, phone) {
+  const hits = edgeCuts(log, speed, {steady, phone});
+  if (!hits.length) return;
+  const report = edgeReport(name, hits, phone ? 'phone' : 'desktop');
+  if (phone && process.env.HERO_EDGES !== 'warn') throw new Error(report);
+  console.log(report);
 }
 
 // A piece played picture in picture with another recording of the same moment (pip.mjs; owner, 24 Oct 2026, Apply: the Applying card and Chrome,
@@ -108,9 +122,12 @@ async function recordPip(name, persona, work) {
   const a = await recordClip(piece.pip, persona, work, {layer: true, tune: other => ({...other, steps: pace(other.steps)})});
   console.log(`media: ${name}: picture in picture with ${piece.pip}${fill ? `, the card paced on a ${fill.toFixed(1)} s fill` : ''}`);
   const dir = path.join(work, name), recs = [a, b].map(rec => ({name: rec.name, log: rec.log, dir: rec.dir, scale: rec.scale}));
+  let said = [];
   const compose = (out, width, height, phone = null) => {
+    for (const rec of recs) edgesOk(rec.name, rec.log, speed, true, phone);
     const plan = pipPlan({a: recs[0], b: recs[1], width, height, fps: FPS, speed, phone});
-    runRender({framesDir: dir, frames: plan.frames, scale: 1, width, height, fps: FPS, ring: RING, captionSize: captionSize(width, Boolean(phone)), sayFade: SAY_FADE, out, ffmpeg: 'ffmpeg'}, name);
+    if (!phone) said = sayTrack(plan.frames, FPS, speed);   // the phone copy: no captions on it (round 9)
+    runRender({framesDir: dir, frames: phone ? plan.frames.map(({say, sayAge, tag, ...frame}) => frame) : plan.frames, scale: 1, width, height, fps: FPS, ring: RING, captionSize: captionSize(width, Boolean(phone)), sayFade: SAY_FADE, out, ffmpeg: 'ffmpeg'}, name);
     return plan;
   };
   const plan = compose(path.join(dir, 'master.mp4'), piece.width, piece.height);
@@ -119,7 +136,7 @@ async function recordPip(name, persona, work) {
   const beats = [a, b].flatMap(rec => beatTimes(rec.log.events, rec.piece.steps, speed).map(beat => ({...beat, t: Number((plan.at(rec.name, beat.t * speed) / speed).toFixed(2))})))
     .filter(beat => beat.t >= 0).sort((x, y) => x.t - y.t);
   const master = path.join(dir, 'master.mp4');
-  return {name, piece, pip: true, beats, posterAt: Math.max(0, plan.seconds - 0.2 * speed), master, phoneMaster: phoneShape ? path.join(dir, 'master-phone.mp4') : null, seconds: duration(master)};
+  return {name, piece, pip: true, beats, posterAt: Math.max(0, plan.seconds - 0.2 * speed), master, phoneMaster: phoneShape ? path.join(dir, 'master-phone.mp4') : null, said, seconds: duration(master)};
 }
 
 // Masters of a piece's parts, one after the other (round 3, owner 24 Oct 2026: Apply starts in the app, then the browser), each coming in by its
@@ -155,8 +172,15 @@ async function makeVideo(name, persona, work, out) {
     });
     if (stray.length) throw new Error(stray.map(s => `media: ${name}: a frame of another page at ${s.at} s, ${s.side} the cut to ${JSON.stringify(s.look)} (differs ${s.diff} > ${STRAY_MAX}): record again; if it repeats, the cut's timing is wrong (cuts.mjs)`).join('\n'));
   }
+  const seconds = duration(path.join(out, files.mp4));
+  const said = clips.flatMap((clip, i) => (clip.said || []).map(cue => ({...cue, t: Number((cue.t + starts[i] / speed).toFixed(3))})));
+  if (said.some(cue => cue.say)) {   // the captions the phone copy leaves out, for the site to show under it (captions.mjs vttOf)
+    files.captions = `${name}.vtt`;
+    fs.writeFileSync(path.join(out, files.captions), vttOf(said, seconds));
+    bytes.captions = fs.statSync(path.join(out, files.captions)).size;
+  }
   const beats = clips.flatMap((clip, i) => (clip.pip ? clip.beats : beatTimes(clip.log.events, clip.piece.steps, speed)).map(b => ({...b, t: Number((b.t + starts[i] / speed).toFixed(2))})));
-  return videoEntry({name, piece, files, bytes, seconds: duration(path.join(out, files.mp4)), beats});
+  return videoEntry({name, piece, files, bytes, seconds, beats});
 }
 
 async function makeStills(kinds, persona, work, out) {

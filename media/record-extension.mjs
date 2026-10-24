@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {startRealExtension} from '../desktop/e2e/lib/real-extension.mjs';
+import {edgesScript} from './edges.mjs';
 import {holdEvent, holdLeft, OFF_MAX, offScreen, stepMarks} from './hold.mjs';
 import {unionBox} from './record-app.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
@@ -76,7 +77,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
         const out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
         if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
         const left = holdLeft(item.hold, started, Date.now());
-        log.add(holdEvent(item, box, phoneBox, left));
+        log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});   // edges.mjs
         await log.paint();   // a frame now, still page or not (check.mjs captureGaps)
         await page.waitForTimeout(Math.max(0, left * 1000 - 180));
       }

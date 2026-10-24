@@ -11,6 +11,7 @@ import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
 import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
+import {edgesScript} from './edges.mjs';
 
 const desktop = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'desktop');
 const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.json'))('playwright-core');
@@ -25,7 +26,9 @@ export async function launchApp({persona = {folder: path.join(desktop, 'demo')},
   }
   const app = await electron.launch({
     executablePath: path.join(desktop, 'node_modules', '.bin', 'electron'),   // a Mac (here or the CI runner): the site shows the Mac app
-    args: [desktop],
+    // round 9 (owner, 24 Oct 2026: "low resolution"): frames 2.5x the window (3600 px, screencast.mjs's cap) instead of the Retina 2x, so a zoomed
+    // look still has a pixel for each of the 1080-wide phone copy's
+    args: ['--force-device-scale-factor=2.5', desktop],
     env: {...process.env, ...env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_CONFIG_DIR: data, JOB_PILOTTO_DATA_DIR: data, JOB_PILOTTO_DEMO_DIR: data,
       JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich'},
     timeout: 240000,   // a busy Mac (load 60+, 21 Oct 2026) took over 90 s to start the window
@@ -140,7 +143,8 @@ async function step(page, item, log, app = null) {
     await checkWords(page, item.look, box, item.lookWidth, 'look');
     await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook');
     const left = holdLeft(item.hold, started, Date.now());
-    log.add(holdEvent(item, box, phoneBox, left));
+    // the words and cards on screen, so edges.mjs can prove no copy's view cuts one at its left or right edge (round 9)
+    log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});
     await log.paint();   // a frame now, still page or not (check.mjs captureGaps)
     await watch(page, Math.max(0, left * 1000 - 180), log);   // a page that changes by itself (the AI's proposal replacing "reading your CV") is cut when it shows
   }

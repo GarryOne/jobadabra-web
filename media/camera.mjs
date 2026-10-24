@@ -13,11 +13,12 @@ export const RING = 0.6;           // seconds a click ring grows and fades
 
 import {pageChange} from './hold.mjs';
 import {blendAt, cutMoment, transitions} from './transitions.mjs';
+import {wholeFrame} from './whole.mjs';
 
 export const ease = x => { const u = Math.max(0, Math.min(1, x)); return u * u * (3 - 2 * u); };
 
 export const PHONE_GAIN = 1.8;    // the phone copy zooms this much closer than the desktop one (owner, 24 Oct 2026: "a tighter mobile crop")
-export const PHONE_MAX = 4;       // ... up to here: the frames are captured at 1.6x the page, so a 4x crop still fills a 720-wide phone copy
+export const PHONE_MAX = 3.3;     // ... up to here: frames are 2x the page (round 9: 2.5x the window), so a 3.3x crop still fills the 1080-wide phone copy
 
 // The camera state that frames `box` at zoom z: centred on it, so a box in a corner puts the camera in that corner (cameraAt keeps the view on the page).
 // A box wider than the zoomed view is read from its left edge (names and scores first), not cropped on both sides. `aspect`: the output's (16:10, or the phone's).
@@ -67,7 +68,10 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     const asked = zoomed(event, Math.max(1, event.zoom ?? fit));
     const used = steady ? Math.max(least, fitWidth(box, asked, viewport)) : asked;   // the phone copy too (round 8: its wide looks lost their right side)
     if (used < asked) onFit?.(event, asked, used);
-    const target = frame(box, used, viewport, aspect);
+    // the phone copy's edges fall in gaps, never through words or a card (whole.mjs; round 9, owner 24 Oct 2026: "the video is stripped")
+    const target = phone && event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
+      : frame(box, used, viewport, aspect);
+    if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
     if (steady && first) { keys[0] = {t: 0, ...target}; return; }
     const lastLook = earlier.filter(prev => prev.type === 'hold').at(-1);
     if (event.cut) {

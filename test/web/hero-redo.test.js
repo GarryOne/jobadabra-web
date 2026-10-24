@@ -21,7 +21,11 @@ test('the stage shows every slide scene, in order, and every file it names is pl
   for (const file of new Set([...stage.matchAll(/"\/media\/([\w.-]+)"/g)].map(match => match[1]))) {
     assert.ok(existsSync(new URL(`web/public/media/${file}`, root)), `web/public/media/${file} is placed (tools/hero.sh --place)`);
   }
-  for (const name of slides) assert.ok(stage.includes(`/media/${name}-720-poster.jpg`) && VIDEOS[name].phone, `${name}: a phone copy and its poster`);
+  for (const name of slides) {
+    const width = VIDEOS[name].phone?.width;
+    assert.ok(width && stage.includes(`/media/${name}-${width}.mp4`) && stage.includes(`/media/${name}-${width}-poster.jpg`), `${name}: its ${width}-wide phone copy and poster`);
+    assert.ok(stage.includes(`data-captions="/media/${name}.vtt"`), `${name}: the captions its phone copy leaves out (round 9)`);
+  }
 });
 
 test('tools/hero.sh records exactly the slide scenes, and no plan overrides them', () => {
