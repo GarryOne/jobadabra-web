@@ -210,6 +210,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   `PHONE.window` 880 x 660 (the app lays out 1100 x 825, one column; Jobs' sidebar folds to icons), and the phone master, its captions (.vtt),
   poster and stray-frame check come from that take (`media.mjs` takeOf/recordClip; picture in picture composes both phone takes). A redo takes ~2x
   as long; `<piece>-phone/` sits beside `<piece>/` in `.work`, and `--words` redraws both.
+- **A render can end short and say nothing** (round 9: the phone copy's renderer quit 17 of 572 frames in, exit 0, on a 16-GB Mac with ~60 MB
+  free; only the missing poster stopped the run): `runRender` now counts the frames it got (`framesIn`), renders once more, then fails the piece;
+  render.cjs exits 1 when its renderer is gone. A clip much shorter than its recording is this, not a scene bug.
 - **Captions under the video on phones** ("they hide some buttons/actions"; "Phones only"): the phone copy is drawn with no caption or tag; the
   desktop copy's captions go to `<piece>.vtt` (captions.mjs sayTrack/vttOf, played seconds), the page adds it as a hidden metadata `<track>` and
   hero-stage.js writes the current cue under the video (`.stage-say`, one line, height kept). Title cards stay in the video.

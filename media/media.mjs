@@ -45,6 +45,9 @@ function runRender(job, name, tries = 2) {
   }
 }
 
+// Words only (media.mjs --words <set dir>, words.mjs): the set's kept recordings, redrawn with the scenes' current words; null = record.
+let wordsFrom = null;
+
 // One take of a clip: recorded (or, words only, the set's kept take redrawn with the scenes' words), cut at its looks and checked. The desktop take
 // uses the scene's window; the phone take (round 9) the phone shape's narrow window, where the app lays out one column. -> {log, dir, scale}
 async function takeOf(name, piece, persona, dir) {
