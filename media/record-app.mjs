@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 import {freePort} from '../desktop/e2e/lib/extension.mjs';
@@ -124,6 +124,10 @@ async function step(page, item, log, app = null) {
     const target = page.locator(item.click).first();
     const box = await target.boundingBox();
     if (!box) throw new Error(`media: nothing to click at ${item.click} (has the screen changed? update scenes.mjs)`);
+    // a click lands on the target's middle: another control there (run 21: the phone take's one column put the confidence chip under the insight
+    // head's middle, so the card never opened and the next look timed out) would get it instead
+    const under = await target.evaluate(clickedControl).catch(() => null);
+    if (under) throw new Error(`media: the click on ${item.click} would land on "${under}" inside it: click a part that is only the target (scenes.mjs)`);
     log.add({type: 'click', selector: item.click, box, ...say});
     await page.waitForTimeout(700);   // the cursor's glide, drawn by the renderer
     const wait = pressShow(log);

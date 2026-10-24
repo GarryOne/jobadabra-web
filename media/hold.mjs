@@ -52,6 +52,13 @@ const wholeLook = ({lookWidth, phoneLookWidth, ...step}) => step;
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
   steps: piece.steps.map(step => (!step.hold ? step : {...wholeLook(step), fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook} : {})}))});
 
+// Runs in the page on a click target: the other control (button, link, field) under its middle, or null when the click reaches the target itself.
+export function clickedControl(el) {
+  const r = el.getBoundingClientRect(), at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+  const control = at?.closest('button, a, input, select, textarea, [role=button]');
+  return control && control !== el && el.contains(control) ? `${control.tagName.toLowerCase()}.${[...control.classList].join('.')}` : null;
+}
+
 // The scroll that brings a look's box to the window's middle (CSS px, + = down). Pure.
 export const centreDelta = (box, view) => Math.round(box.y + box.height / 2 - view.h / 2);
 // A fitScroll hold whose look is off screen (round 9: Set up's strategy look was 43% below the phone window): scroll the look's nearest

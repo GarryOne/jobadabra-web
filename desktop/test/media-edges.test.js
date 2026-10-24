@@ -181,3 +181,19 @@ test('a cut is what most of a hold shows (the camera glides in late or out early
   assert.deepEqual(edgeCuts(rows, 1.5, {steady: true, keys: glide}), [], 'twelve lines crossed in one moment of the glide are still one moment');
   assert.equal(edgeCuts(late, 1.5, {steady: true, keys: [{t: 0, cx: 1009, cy: 560, z: 1.15}]}).length, 1, 'held all along: a cut');
 });
+
+test('a click whose middle lands on another control inside its target stops the take and names that control', async () => {
+  const {clickedControl} = await import('../../media/hold.mjs');
+  const control = {tagName: 'BUTTON', classList: ['iv-confidence'], closest: () => control};
+  const head = {getBoundingClientRect: () => ({x: 0, y: 0, width: 100, height: 40}), contains: () => true};
+  globalThis.document = {elementFromPoint: () => control};
+  try {
+    assert.equal(clickedControl(head), 'button.iv-confidence');
+    globalThis.document = {elementFromPoint: () => ({closest: () => null})};
+    assert.equal(clickedControl(head), null, 'plain text under the middle: the click reaches the target');
+    const button = {getBoundingClientRect: () => ({x: 0, y: 0, width: 40, height: 40}), contains: () => true};
+    globalThis.document = {elementFromPoint: () => ({closest: () => button})};
+    assert.equal(clickedControl(button), null, 'the target is the control itself (its icon under the middle)');
+  } finally { delete globalThis.document; }
+  assert.match(fs.readFileSync(new URL('../../media/record-app.mjs', import.meta.url), 'utf8'), /const under = await target\.evaluate\(clickedControl\)/);
+});

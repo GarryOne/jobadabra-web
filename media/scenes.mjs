@@ -156,7 +156,7 @@ export const VIDEOS = {
       {go: 'interviews'}, {hold: 1.7, look: '#iv-drafts .iv-draft', lookWidth: 800, zoom: 2.2, phoneZoom: 3.4, phoneLook: '#iv-drafts .iv-draft', phoneLookWidth: 510, cut: true, into: 'tiles', tag: 'Interviews', say: 'The phone screen, recorded on the Mac', beat: 'The phone screen with them, recorded on the Mac'},
       {click: '#iv-saved tr:has-text("Institut Cardio Rhône") button:has-text("Open review")'},
       {hold: 2.6, look: '#review-dialog', zoom: 2.3, phoneZoom: 3.2, cut: true, into: 'fade', say: 'Its review: next step, what to work on', beat: 'Its review: next step, what to work on, strengths'},
-      {press: 'Escape'}, {click: '#iv-insight .iv-insight-head'},
+      {press: 'Escape'}, {click: '#iv-insight .iv-insight-toggle'},   // the head's middle is the confidence chip in the phone take's one column
       {hold: 2.0, look: ['#iv-insight .iv-insight-title', '#iv-insight .iv-patterns'], lookWidth: 882, zoom: 2.2, phoneLook: '#iv-insight .iv-signal', phoneLookWidth: 560, phoneZoom: 3, cut: true, into: 'fade', say: 'Patterns across the interviews', beat: 'Patterns across the interviews'},
       {hold: 1.8, look: '#iv-insight .iv-practice', zoom: 2.4, phoneZoom: 3.4, say: 'What to practise before the next round', beat: 'What to practise before the next round'},
       {go: 'calendar'}, {hold: 3, look: '#cal-upcoming > :first-child', zoom: 2.4, phoneZoom: 3.8, cut: true, into: 'slide', poster: true, tag: 'Calendar', say: 'The next round, on the calendar', beat: 'The next round on the calendar: Wed 10:00'}]},
