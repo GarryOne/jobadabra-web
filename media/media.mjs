@@ -15,7 +15,7 @@ import {joinFilter, openOnCard, transitions, withCards} from './transitions.mjs'
 import {fillSeconds, pipPlan} from './pip.mjs';
 import {captionAt, captionSize, captionTimes, SAY_FADE, sayTrack, vttOf} from './captions.mjs';
 import {captureGaps, leftWords, pieceProblems, realEmails} from './check.mjs';
-import {brightness, duration, encodeStill, encodeVideo, missingEncoders} from './encode.mjs';
+import {brightness, duration, encodeStill, encodeVideo, framesIn, missingEncoders} from './encode.mjs';
 import {edgeCuts, edgeReport} from './edges.mjs';
 import {gradeSvg} from './grade.mjs';
 import {manifest, stillEntry, videoEntry} from './manifest.mjs';
@@ -29,20 +29,21 @@ const here = path.dirname(new URL(import.meta.url).pathname);
 const desktop = path.resolve(here, '..', 'desktop');
 const FPS = 30;
 
-// Writes a render job and runs render.cjs on it. -> out.
-function runRender(job, name) {
+// Writes a render job and runs render.cjs on it; a render that ends short (round 9: the phone copy's renderer quit 17 frames in, exit 0, on a Mac
+// low on memory, and the clip came out 0.4 s long) is run once more, then stops the piece. -> out.
+function runRender(job, name, tries = 2) {
   const file = path.join(path.dirname(job.out), `${path.basename(job.out, '.mp4')}.json`);
   fs.writeFileSync(file, JSON.stringify({...job, gradeSvg: gradeSvg()}));   // every clip graded the same way, the app's pixels only (grade.mjs)
-  const run = spawnSync(path.join(desktop, 'node_modules', '.bin', 'electron'), [path.join(here, 'render.cjs'), file], {stdio: 'inherit', timeout: 15 * 60000});
-  // run.error: it never started (24 Oct 2026, a Mac out of memory printed "failed (null)"): name the cause
-  if (run.status !== 0) throw new Error(`media: ${name}: the renderer failed (${run.error ? `could not start: ${run.error.message}` : run.status ?? run.signal})`);
-  return job.out;
+  for (let attempt = 1; ; attempt++) {
+    const run = spawnSync(path.join(desktop, 'node_modules', '.bin', 'electron'), [path.join(here, 'render.cjs'), file], {stdio: 'inherit', timeout: 15 * 60000});
+    // run.error: it never started (24 Oct 2026, a Mac out of memory printed "failed (null)"): name the cause
+    if (run.status !== 0) throw new Error(`media: ${name}: the renderer failed (${run.error ? `could not start: ${run.error.message}` : run.status ?? run.signal})`);
+    const made = fs.existsSync(job.out) ? framesIn(job.out) : 0;
+    if (made === job.frames.length) return job.out;
+    if (attempt >= tries) throw new Error(`media: ${name}: ${path.basename(job.out)} has ${made} of ${job.frames.length} frames: the renderer ended early twice (memory?)`);
+    console.log(`media: ${name}: ${path.basename(job.out)} has ${made} of ${job.frames.length} frames: rendering it again`);
+  }
 }
-
-// One recorded clip (a piece, or a part of one): frames, log, the masters (recorded time; encode.mjs plays them `speed` times faster). Checked here.
-// tune(piece): the steps as this recording needs them (a picture in picture's pace); layer: no masters (pip.mjs draws it inside another picture).
-// Words only (media.mjs --words <set dir>, words.mjs): the set's kept recordings, redrawn with the scenes' current words; null = record.
-let wordsFrom = null;
 
 // One take of a clip: recorded (or, words only, the set's kept take redrawn with the scenes' words), cut at its looks and checked. The desktop take
 // uses the scene's window; the phone take (round 9) the phone shape's narrow window, where the app lays out one column. -> {log, dir, scale}

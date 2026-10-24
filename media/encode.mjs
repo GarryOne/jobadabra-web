@@ -80,6 +80,9 @@ export function encodeStill({png, name, kind, outDir}) {
   return {file, bytes: size(path.join(outDir, file)), width, height};
 }
 
+// Frames in a video file (runRender's check that a render did not end short).
+export const framesIn = file => Number(execFileSync('ffprobe', ['-v', 'error', '-count_packets', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', file], {encoding: 'utf8'}).trim());
+
 // Seconds of a video file.
 export const duration = file => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], {encoding: 'utf8'}).trim());
 
