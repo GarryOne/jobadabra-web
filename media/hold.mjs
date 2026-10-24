@@ -43,6 +43,7 @@ export const stepMarks = (item, log) => {
 };
 
 // The phone take's steps: its own window, and each look its phoneLook (round 9: the desktop look "first row down to hers" did not fit the narrow
-// window, whose rows stack on 3 lines, and stopped the take); the phone camera frames that look whole (whole.mjs). Pure.
-export const phoneTake = (piece, window) => ({...piece, window,
+// window, whose rows stack on 3 lines, and stopped the take); the phone camera frames that look whole (whole.mjs). shape: the piece's phone
+// {window, zoom}: the app's text size in that window (its settings' zoom; the extension's page is the window shrunk by it). Pure.
+export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
   steps: piece.steps.map(step => (step.hold && step.phoneLook ? {...step, look: step.phoneLook, lookWidth: step.phoneLookWidth} : step))});

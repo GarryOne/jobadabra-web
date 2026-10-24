@@ -40,7 +40,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
     const {page, context} = ext;
     const host = formHost(persona.job);
     await context.route(`https://${host}/**`, route => route.fulfill({status: 200, contentType: 'text/html', body: formHtml(template, persona.job)}));
-    const view = piece.window || VIEW, density = piece.window ? 2.5 : 2;   // the phone take (round 9): a narrow page, captured sharper
+    const z = piece.zoom || 1, view = piece.window ? {width: Math.round(piece.window.width / z), height: Math.round(piece.window.height / z)} : VIEW, density = piece.window ? 2.5 * z : 2;   // the phone take (round 9): a narrow page, captured sharper
     await page.setViewportSize(view);
     // Playwright emulates light unless told: the form (form.html) and the extension's panel both follow it. A piece with motion 'reduce' (the hero, owner
     // 24 Oct 2026: "remove the large colour sweep") records the panel without its aurora and shimmer (panel-overlay-fx.js adds none under reduced motion).

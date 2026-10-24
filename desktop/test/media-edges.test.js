@@ -109,26 +109,41 @@ test('every hero clip\'s phone copy is its own narrow-window take, with its own 
   for (const [name, piece] of phones) {
     const {width, height} = piece.phone.window || {};
     assert.ok(width && Math.abs(width / height - piece.phone.width / piece.phone.height) < 0.01, `${name}: a window of the phone copy's shape`);
-    assert.ok(width < 1000, `${name}: narrow enough that the app lays out one column (style.css breakpoints at 1180 css px; the app zooms 1.25x)`);
+    const css = width / (piece.phone.zoom || 0.8);   // the app's own zoom in an 880-px window is 0.8
+    assert.ok(css <= 800, `${name}: the app lays out ${css} css px: one column narrow enough that the whole column is readable on a phone (Jobs at 1100 css: 4-px text)`);
   }
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
-  assert.match(media, /const narrow = phoneShape\?\.window \? await takeOf\(name, phoneTake\(piece, phoneShape\.window\)/, 'recordClip records the phone take');
+  assert.match(media, /const narrow = phoneShape\?\.window \? await takeOf\(name, phoneTake\(piece, phoneShape\)/, 'recordClip records the phone take');
   assert.match(media, /render\(narrow \|\| main, path\.join\(main\.dir, 'master-phone\.mp4'\)/, 'the phone master is drawn from it');
   assert.match(media, /const recs = \[a, b\]\.map\(rec => \(\{\.\.\.\(phone \? rec\.phone : rec\)/, 'picture in picture composes the phone takes');
   assert.match(media, /if \(phone\) said = sayTrack\(frames/, 'the captions under the phone copy are timed on the phone take');
   assert.match(media, /strayIn\(files\.phone, phoneStarts/, 'the phone copy is checked for stray frames too');
   assert.match(fs.readFileSync(new URL('../../media/record-app.mjs', import.meta.url), 'utf8'), /\.\.\.\(piece\.window \? \{window: piece\.window\} : \{\}\)/);
-  assert.match(fs.readFileSync(new URL('../../media/record-extension.mjs', import.meta.url), 'utf8'), /const view = piece\.window \|\| VIEW/);
+  assert.match(fs.readFileSync(new URL('../../media/record-extension.mjs', import.meta.url), 'utf8'), /view = piece\.window \? \{width: Math\.round\(piece\.window\.width \/ z\)/);
 });
 
 test('the phone take frames each hold\'s phoneLook in the phone window; other steps and looks stay as they are', async () => {
   const {phoneTake} = await import('../../media/hold.mjs');
   const piece = {speed: 1.5, steps: [{go: 'jobs'}, {hold: 2, look: ['.job-row >> nth=0', '#her'], lookWidth: 862, phoneLook: '#her .role', phoneLookWidth: 300}, {hold: 1, look: '#card'}]};
-  const take = phoneTake(piece, {width: 880, height: 660});
+  const take = phoneTake(piece, {window: {width: 880, height: 660}});
   assert.deepEqual(take.window, {width: 880, height: 660});
   assert.deepEqual(take.steps[0], {go: 'jobs'});
   assert.equal(take.steps[1].look, '#her .role');
   assert.equal(take.steps[1].lookWidth, 300);
   assert.equal(take.steps[2].look, '#card');
   assert.equal(piece.steps[1].look[1], '#her', 'the desktop steps are not changed');
+});
+
+test('the phone take sets the app\'s text size; the extension\'s page shrinks by it; a piece\'s own settings stay', async () => {
+  const {phoneTake} = await import('../../media/hold.mjs');
+  const take = phoneTake({settings: {setupDone: false}, steps: []}, {window: {width: 880, height: 660}, zoom: 1.25});
+  assert.deepEqual(take.settings, {setupDone: false, zoom: 1.25});
+  assert.equal(take.zoom, 1.25);
+  assert.equal(phoneTake({steps: []}, {window: {width: 880, height: 660}}).settings, undefined, 'no zoom: the app\'s own');
+});
+
+test('the page\'s own border cuts nothing: a frame of the whole window is whole', () => {
+  const page = 704, side = [card(12, 48, '.nav.active', 100), text(2, 40, 'icon', 300)], right = [card(560, 144, '.stat', 100)];
+  assert.deepEqual(cutsIn({x: 0, y: 0, w: page, h: 528}, [...side, ...right], page, page), []);
+  assert.deepEqual(cutsIn({x: 4, y: 0, w: 600, h: 528}, [...side, ...right], page, page).map(cut => cut.text), ['.nav.active', 'icon', '.stat'], 'inside the page the same items are cut');
 });

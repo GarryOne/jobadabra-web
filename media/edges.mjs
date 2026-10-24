@@ -26,8 +26,8 @@ export function edgesScript() {
 
 // What a view cuts: lines of words and cards (that would fit the widest view, maxW) its left or right edge crosses or touches (whole.mjs
 // edgeItems, the rule the phone camera frames by). Only what shows inside the view's height counts. -> [{k, side, text}]. Pure.
-export function cutsIn(view, edges, maxW = view.w) {
-  const at = (x, side) => edgeItems(x, side, edges, view.y, view.y + view.h, maxW).map(item => ({k: item.k, side, text: item.text}));
+export function cutsIn(view, edges, maxW = view.w, pageW = Infinity) {
+  const at = (x, side) => edgeItems(x, side, edges, view.y, view.y + view.h, maxW, pageW).map(item => ({k: item.k, side, text: item.text}));
   return [...at(view.x, 'left'), ...at(view.x + view.w, 'right')];
 }
 
@@ -38,7 +38,7 @@ export function edgeCuts(log, speed = 1, {steady = false, phone = null} = {}) {
   const aspect = phone ? phone.aspect : log.viewport.w / log.viewport.h, least = Math.max(1, log.viewport.w / aspect / log.viewport.h);   // as camera.mjs
   return log.events.filter(event => event.type === 'hold' && event.edges && (event.box || event.phoneBox)).map(event => {
     const view = cameraAt(keys, event.t + Math.max(0, (event.s || 0) - 0.05), log.viewport, speed, phone);
-    return {look: (phone && event.phoneBox ? event.phoneLook : null) || event.look, say: event.say, cuts: cutsIn(view, event.edges, log.viewport.w / least)};
+    return {look: (phone && event.phoneBox ? event.phoneLook : null) || event.look, say: event.say, cuts: cutsIn(view, event.edges, log.viewport.w / least, log.viewport.w)};
   }).filter(hit => hit.cuts.length);
 }
 

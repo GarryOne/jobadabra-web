@@ -17,9 +17,10 @@ export const nav = view => `.nav[data-view=${view}]:not([data-settings])`;
 // writes its own words above the clip (web/public/index.html).
 // round 9 (owner, 24 Oct 2026: "the quality of the video is still pretty bad. Low resolution"): phones get 1080 x 810 (a 390-px phone at 3x is 1170
 // pixels wide) and every copy room for CRF 22; the budgets are ceilings, the bytes are what CRF 22 makes (round 8 was 720 x 540 at CRF ~28).
-// round 9, owner chose "Narrow window": the phone copy is its own take in a 4:3 window of 880 x 660 (the app lays out 1100 x 825, one column),
-// so whole cards fit a phone frame with big text (record-app.mjs launchApp, record-extension.mjs view; media.mjs takeOf).
-const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 880, height: 660}};
+// round 9, owner chose "Narrow window": the phone copy is its own take in a 4:3 window of 880 x 660 at the app's text size 1.25, so the app
+// lays out 704 x 528 css px, one column, and the whole column fits a phone frame with readable text (at the app's own 0.8 it laid out 1100 css
+// wide: Jobs' cards spanned 980 px and the whole frame showed 4-px text). record-app.mjs launchApp, record-extension.mjs view; media.mjs takeOf.
+const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 880, height: 660}, zoom: 1.25};
 const ROW = '.job-row:has-text("Cardiac Care Unit")';
 // Round 4 (owner, 24 Oct 2026: "we kind of need to highlight each of the steps", sketch https://claude.ai/artifact/UxHHtYTzUwUaEzAsjQjoz5, A + B): each
 // clip's steps carry a `tag` drawn in the caption band (where the frame is: SET UP 1/5, JOBS, CHROME), and Set up's looks include the app's own
