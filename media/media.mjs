@@ -75,9 +75,14 @@ async function takeOf(name, piece, persona, dir) {
     if (kept) {
       recorded = reuseTake(kept, dir);
       console.log(`media: ${label}: nothing it records changed: the take from ${path.basename(path.dirname(path.dirname(kept)))} reused`);
-    } else for (let attempt = 1; attempt <= 3; attempt++) {
+    } else for (let attempt = 1, failed = 0; attempt <= 3; attempt++) {
       fs.rmSync(dir, {recursive: true, force: true}); fs.mkdirSync(dir, {recursive: true});
-      recorded = await recordQueue(() => record({persona, piece, dir}));
+      // a take that fails is recorded once more (run 23: with two takes at once, Find's list was not on screen yet at its look); twice: it stops
+      try { recorded = await recordQueue(() => record({persona, piece, dir})); } catch (error) {
+        if (++failed > 1) throw error;
+        console.log(`media: ${label}: ${error.message.split('\n')[0]}: recording again`);
+        continue;
+      }
       const gaps = captureGaps(recorded);
       if (!gaps.length || attempt === 3) break;
       console.log(`media: ${label}: the capture stalled (no frame at ${gaps.map(gap => `${gap.t.toFixed(1)} s`).join(', ')}): recording again (${attempt + 1} of 3)`);

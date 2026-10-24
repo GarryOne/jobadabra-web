@@ -79,3 +79,8 @@ test('apps start one at a time, a failed start is tried again, and a stray libra
   assert.match(app, /const mine = starting\.then\(start\);\n\s+starting = mine\.catch\(\(\) => \{\}\);/);
   assert.match(fs.readFileSync(path.join(media, 'media.mjs'), 'utf8'), /for \(const event of \['uncaughtException', 'unhandledRejection'\]\) process\.on\(event,/);
 });
+
+test('a take that fails is recorded once more before the run stops', () => {
+  const source = fs.readFileSync(path.join(media, 'media.mjs'), 'utf8');
+  assert.match(source, /try \{ recorded = await recordQueue\(\(\) => record\(\{persona, piece, dir\}\)\); \} catch \(error\) \{\n\s+if \(\+\+failed > 1\) throw error;/);
+});
