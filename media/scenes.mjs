@@ -15,7 +15,7 @@ export const nav = view => `.nav[data-view=${view}]:not([data-settings])`;
 // 1440 screen): the result looks zoom ~2.2. The phone copy ({width, height}: 4:3) has its own tighter camera (PHONE_GAIN, or a step's phoneZoom / phoneLook).
 // Recorded at real speed, played `speed` times faster (encode.mjs). `slide` is the clip's place on the stage. Captions here are the manifest's; the site
 // writes its own words above the clip (web/public/index.html).
-const PHONE = {width: 720, height: 540, budget: 2.6e5};
+const PHONE = {width: 720, height: 540, budget: 3.8e5};   // round 8: the grade's sharper text costs ~41% (owner chose it, 24 Oct 2026)
 const ROW = '.job-row:has-text("Cardiac Care Unit")';
 // Round 4 (owner, 24 Oct 2026: "we kind of need to highlight each of the steps", sketch https://claude.ai/artifact/UxHHtYTzUwUaEzAsjQjoz5, A + B): each
 // clip's steps carry a `tag` drawn in the caption band (where the frame is: SET UP 1/5, JOBS, CHROME), and Set up's looks include the app's own
@@ -42,7 +42,12 @@ const TO_HER_ROW = `new Promise(done => { const t0 = Date.now(); const tick = ()
   const row = [...document.querySelectorAll('.job-row')].find(each => each.textContent.includes('Cardiac Care Unit'));
   if (!row && Date.now() - t0 < 20000) return setTimeout(tick, 100);   // a slow search (round 4: > 8 s on a loaded Mac); the cut drops this wait
   const fold = [...document.querySelectorAll('details')].find(el => /In conversation/.test(el.querySelector('summary')?.textContent || '')); if (fold) fold.open = false;
-  row?.scrollIntoView({block: 'center', behavior: 'smooth'}); done(); }; tick(); })`;
+  // the look (the first row down to hers) centred, whatever sits above the list (round 8: the redesigned Find card and an open "In conversation"
+  // pushed the list down; centring her row alone left the first row 21% off screen)
+  const first = document.querySelector('.job-row');
+  if (row && first) { let box = first.parentElement; while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+    const mid = (first.getBoundingClientRect().top + row.getBoundingClientRect().bottom) / 2; (box || document.scrollingElement).scrollBy({top: mid - innerHeight / 2, behavior: 'smooth'}); }
+  done(); }; tick(); })`;
 // Apply (round 3, owner 24 Oct 2026: "We should start on the way how we press 'Apply' button on the Jobs screen, showing then 'Applying' screen/card, then
 // moving to the browser"): an app part (moment 'applying': her session as the row's Apply makes it) played before the extension's fill. Her session is
 // opened through its row on the Applying page's list, which opens the page on it (a plain page switch shows the session that needs you first).
@@ -75,21 +80,21 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 // comes in (`into`, transitions.mjs): slide = one screen to another, tiles = time passed, card (+ `card` words) = the flow needs explaining, fade =
 // the same screen changing. A part's `into` is its join (a card part opens on its card); a clip's `stageInto` is the site's switch into it.
 export const VIDEOS = {
-  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 6e5, phone: PHONE,
+  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 8.7e5, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
     env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '2000'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV"
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
     caption: 'Add your CV. Shape your search.', alt: 'The Jobadabra setup: a CV added, a note on the job wanted, the AI reading the CV, then the proposed strategy with roles, level, work mode and an estimated salary, confirmed',
-    steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-head h1'], phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
+    steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-facts'], phoneLookWidth: 620, phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
       {tap: '#ai-save', then: jumpTo('cv')},
       {hold: 2.4, look: '.step[data-step=cv] .cv-drop', zoom: 1.9, phoneZoom: 2.8, cut: true, into: 'slide', tag: 'Set up 2/5', say: 'The CV, read for roles and places', beat: 'The CV added: the AI reads it for roles, places and salary'},
       {js: OPEN_BUILD}, {js: typeNote('Day shifts in cardiac care, around Lyon.')},
-      {hold: 2.0, look: [HEAD('draft'), '#draft-intro .step-card'], lookWidth: 760, zoom: 2.2, phoneZoom: 3, cut: true, into: 'slide', tag: 'Set up 3/5', say: 'The job wanted, in one line', beat: 'The job wanted, in one line'},
+      {hold: 2.0, look: [HEAD('draft'), '#draft-intro .step-card'], lookWidth: 760, zoom: 2.2, phoneZoom: 3, phoneLook: [HEAD('draft'), '#draft-intro .step-card'], phoneLookWidth: 640, cut: true, into: 'slide', tag: 'Set up 3/5', say: 'The job wanted, in one line', beat: 'The job wanted, in one line'},
       {click: '#draft-build'},
       {hold: 2.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
       {hold: 3, look: ['#draft-title', '#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], lookWidth: 1080, zoom: 1.64, phoneZoom: 2.6, cut: true, into: 'tiles', poster: true, say: 'The strategy: roles, level, salary', beat: 'The proposal: roles, level, on-site, an estimated salary'},
       {tap: '#draft-save', zoom: 2.4, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
-  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 6.5e5, phone: {...PHONE, budget: 2.7e5},
+  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 9.4e5, phone: {...PHONE, budget: 3.9e5},
     settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
@@ -97,18 +102,18 @@ export const VIDEOS = {
       {go: 'jobs'},
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
       {click: '#find-card .magic-go', say: 'Find jobs: the search starts'},
-      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: '#find-card', cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
-      {hold: 1.8, look: ['#job-panel h2', '#job-panel .jd-tabs'], zoom: 2, phoneZoom: 3, tag: 'The job', say: 'It opens beside the list', beat: 'The job opens in a panel beside the list'},
+      {hold: 1.8, look: ['#job-panel h2', '#job-panel .jd-tabs'], zoom: 2, phoneZoom: 3, phoneLook: ['#job-panel .jd-top .fit-cell', '#job-panel .jd-title'], phoneLookWidth: 480, tag: 'The job', say: 'It opens beside the list', beat: 'The job opens in a panel beside the list'},
       {click: '#job-panel .jd-tabs button:has-text("Match")'},
       {hold: 3, look: ['#job-panel h2', '#job-panel .fit-detail'], zoom: 2.2, phoneLook: '#job-panel .fit-card.tone-good', phoneZoom: 3.8, cut: true, into: 'fade', poster: true, say: 'Match: why this job fits', beat: 'The job opened on Match: why it fits'},
     ]},
   'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, phone: PHONE,
     shows: 'The job on Jobs, Apply pressed',
     steps: [{go: 'jobs'}, {js: scrollTo('Cardiac Care Unit')},
-      {hold: 1.8, look: [`${ROW} .company`, `${ROW} button.row-main`], zoom: 2.2, phoneZoom: 3, tag: 'Jobs', say: 'Institut Cardio Rhône: Apply', beat: 'The job on Jobs: Apply'},
+      {hold: 1.8, look: [`${ROW} .company`, `${ROW} button.row-main`], zoom: 2.2, phoneZoom: 3, phoneLook: [`${ROW} .company`, `${ROW} .row-actions`], tag: 'Jobs', say: 'Institut Cardio Rhône: Apply', beat: 'The job on Jobs: Apply'},
       // round 6: the part ends on the press (`end`); the Applying card opens in the picture in picture by a slide (a fade over two framings of the
       // same card made a ghost: take 4 at 3.5 s)
       {tap: `${ROW} button.row-main`, end: true}]},
@@ -125,23 +130,23 @@ export const VIDEOS = {
       {review: {id: 'd1', url: 'https://jobs.example/institut-cardio-rhone/cardiac-care', fields: HER_FORM, every: 300}, sync: true},
       // then one move right to the pill (owner, 24 Oct 2026: "B, then pan to the pill"): close on the count while it ticks, the pill when it is ready
       // round 6: back to the main picture on the whole completion section (count, full bar, pill): the pill alone cut the row's words (take 4 at 8 s)
-      {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
-  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 6e5, phone: {...PHONE, budget: 2.5e5},
+      {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, phoneLook: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress'], phoneLookWidth: 520, lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
+  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 8.7e5, phone: {...PHONE, budget: 3.6e5},
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',
     steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
       {hold: 3, look: 'panel', zoom: 1.8, phoneZoom: 2.6, poster: true, say: 'Filled from the profile: ready to review', beat: 'Filled from the profile: Ready to submit, to review'}]},
-  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 7.5e5, phone: {...PHONE, budget: 3.2e5},
+  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 1.09e6, phone: {...PHONE, budget: 4.6e5},
     shows: 'Two weeks later: the interview e-mail for that job, the call recorded and reviewed, what to practise, the next round on the calendar',
     caption: 'Your interviews and next steps, together.', alt: 'Jobadabra two weeks later: the Institut Cardio Rhône interview e-mail, the phone screen reviewed, interview patterns and practice, then the interview in the calendar',
     steps: [{go: 'focus'}, {js: MAIL_IN},
       {hold: 3.6, look: '#hero-mail', zoom: 2.2, phoneZoom: 2.6, tag: 'Gmail', say: 'Two weeks later, an e-mail lands', beat: 'Two weeks later: a new e-mail from Institut Cardio Rhône'},
       {js: MAIL_WAIT}, {go: 'actions'},
-      {hold: 1.8, look: GMAIL_TASK, zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'card', card: 'Jobadabra checks the mail', tag: 'Actions', say: "In Jobadabra's Actions: Check Gmail", beat: 'Actions: the Check Gmail & Calendar card'},
+      {hold: 1.8, look: GMAIL_TASK, zoom: 2.2, phoneZoom: 3.2, phoneLook: GMAIL_TASK, phoneLookWidth: 380, cut: true, into: 'card', card: 'Jobadabra checks the mail', tag: 'Actions', say: "In Jobadabra's Actions: Check Gmail", beat: 'Actions: the Check Gmail & Calendar card'},
       {tap: `${GMAIL_TASK} [data-command=mail]`, then: MAIL_OPEN},
-      {hold: 2.6, look: '#activity-card .mail-email', zoom: 1.9, phoneZoom: 3.4, cut: true, into: 'fade', say: 'It reads it: interview scheduled', beat: 'The check reads it: the job moves to Interview scheduled'},
+      {hold: 2.6, look: '#activity-card .mail-email', zoom: 1.9, phoneZoom: 3.4, phoneLook: '#activity-card .mail-email', phoneLookWidth: 460, cut: true, into: 'fade', say: 'It reads it: interview scheduled', beat: 'The check reads it: the job moves to Interview scheduled'},
       {js: "document.getElementById('activity-toggle')?.click()"},   // the panel stays open across pages and covers the next one
-      {go: 'interviews'}, {hold: 1.7, look: '#iv-drafts .iv-draft', lookWidth: 800, zoom: 2.2, phoneZoom: 3.4, cut: true, into: 'tiles', tag: 'Interviews', say: 'The phone screen, recorded on the Mac', beat: 'The phone screen with them, recorded on the Mac'},
+      {go: 'interviews'}, {hold: 1.7, look: '#iv-drafts .iv-draft', lookWidth: 800, zoom: 2.2, phoneZoom: 3.4, phoneLook: '#iv-drafts .iv-draft', phoneLookWidth: 510, cut: true, into: 'tiles', tag: 'Interviews', say: 'The phone screen, recorded on the Mac', beat: 'The phone screen with them, recorded on the Mac'},
       {click: '#iv-saved tr:has-text("Institut Cardio Rhône") button:has-text("Open review")'},
       {hold: 2.6, look: '#review-dialog', zoom: 2.3, phoneZoom: 3.2, cut: true, into: 'fade', say: 'Its review: next step, what to work on', beat: 'Its review: next step, what to work on, strengths'},
       {press: 'Escape'}, {click: '#iv-insight .iv-insight-head'},

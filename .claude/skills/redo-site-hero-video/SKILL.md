@@ -94,7 +94,8 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **Something not in the app** (a new e-mail arriving): draw it in the page with a `js` step (plain, no brand), hold on it, remove it in the next step.
 - **The camera shows a hero look whole across** (`fitWidth`, round 2): a look wider than its zoomed view gets a lower zoom, never a cut edge; the log says
   `media: <piece>: look ... shown whole at zoom X (asked Y)` and adds `SMALL TEXT, pick a narrower look` when it dropped below 85%: then look at a part
-  (a row's cells, a card's column), never raise the zoom back. The phone copy keeps its tighter crop unless it names its own `phoneLook`.
+  (a row's cells, a card's column), never raise the zoom back. **The phone copy too** (round 8): it is never cut either; a tighter phone shot comes
+  from a narrower `phoneLook`, never from zooming past the look.
 - **Measure before choosing a look** (a probe printing `getBoundingClientRect` of the look and its children, CSS px on the 1800-px page): a look fits
   zoom z when its width ≤ 1800/z − 24 (z 2.2 → 794, 2 → 876, 1.64 → 1073). A wider card: name its left part with `lookWidth`, ending in a gap between
   columns (the job row's fit/role/company = 862); ask a zoom at or above the fit so the view hugs the look. Known limit: a look narrower than the view at
@@ -180,6 +181,22 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **No "she", "he", "her" or "his"** in anything a viewer reads (owner, 24 Oct 2026: "Let's not put 'She' or 'He'. Let it be impersonal", on the card
   "She opens Jobadabra to check her mail"): captions, cards, tags, the site caption and alt, and the beats on the preview name the thing (the CV,
   the job, the form, the calendar) or the action ("Strategy confirmed", "Find jobs: the search starts"). Test: media-captions.test.js.
+
+**Round 8: phones and contrast** (owner, 24 Oct 2026)
+- **Phone copies centred and whole** ("On mobile ... the content overflows a bit, the videos are not centered"): the phone camera zoomed 1.8x past each
+  look and read it from its left edge, so 18 of 24 phone shots lost 6-49% of their right side and showed the sidebar on the left. Each phone look is
+  shown whole and centred (`camera.mjs` fitWidth for both copies; test "a phone look is never cut"); a wide look gets a narrower `phoneLook` (the score,
+  title and tags, not the whole row) so the text stays big. `media: <piece>: look ... SMALL TEXT` on the phone copy = pick a narrower phoneLook.
+  A phone look narrower than the view shows its neighbours cut at the edges and, at a page's left, the sidebar: give it the content's left part
+  (`phoneLookWidth` from the content's left edge), not one heading. In picture in picture the phone inset (46% wide) covers the main's top right: a
+  phone look there sits on the left (round 8: the "Ready to submit" pill was hidden under Chrome). A list row's phone look keeps the company beside its button.
+  Check the phone copies on the 4 contact sheets (or `ffmpeg ... tile=5x3` of each `-720.mp4`) before the preview: a cut right edge is visible there.
+- **High contrast, not washed** ("it looks washed. it doesn't have a high contrast"; chose option C of three on one frame): the recording is the app's
+  exact pixels, so the grade is ours: deeper blacks, brighter grey text, a little more colour, sharper text (`media/grade.mjs`, an SVG filter render.cjs
+  applies to the APP's pixels only). Captions, tags, title cards and the cursor are drawn after it: a whole-frame grade turned the brand amber yellow.
+- **A dull colour: find which layer made it before fixing anything** ("is maybe the recording/rendering ... the problem?"): compare the app's CSS token
+  (`desktop/renderer/tokens.css`) with the raw frame (`.work/<piece>/frames`) and the decoded clip. The ring green was the APP's bug (the dark theme
+  had no `--good-bright`, so it drew the light theme's #2e9e6a): fixed in the app (jobadabra PR, merged first), then the hero recorded again.
 ## When something is wrong: fix the mechanism, then the scene (owner, 24 Oct 2026: "did you fix the root causes permanently?")
 A bad crop, a missing step or a wrong frame is first a question about the tool: which camera/recorder/tool rule let it through? Fix that rule, add a test
 that loops over every hero look or scene (it fails on the old code), add a trap line below; only then tune the scene's numbers. A scene-only tweak
@@ -194,6 +211,10 @@ comes back at the next redo.
 - Sizes from `tools/hero.sh --place` within budget; site tests green.
 
 ## Traps already hit
+- **A screen the hero shows was redesigned on main mid-round** (round 8, 24 Oct 2026: another session reworked the Find card at 19:55 and 20:10; the
+  new phoneLook `#find-card .insight-head` no longer existed, the run waited 30 s and failed after Set up). Before recording, read the app's recent
+  history of the screens in the scenes (`git -C ~/jobadabra log --since=<last recording> -- desktop/renderer/pages/<screen>*`) and check each new
+  look's selector in the app's current markup; re-record only the pieces after the failure (the finished ones are kept in their set).
 - **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.
 - **The panel moves**: during a fill it sits centred, then returns to its corner; `panelBox` waits for the corner. A union of the panel and a far field is wider than the zoomed view and gets framed from its left edge: look at `'panel'` alone.

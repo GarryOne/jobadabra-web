@@ -16,6 +16,7 @@ import {fillSeconds, pipPlan} from './pip.mjs';
 import {captionAt, captionSize, captionTimes, SAY_FADE} from './captions.mjs';
 import {captureGaps, leftWords, pieceProblems, realEmails} from './check.mjs';
 import {brightness, duration, encodeStill, encodeVideo, missingEncoders} from './encode.mjs';
+import {gradeSvg} from './grade.mjs';
 import {manifest, stillEntry, videoEntry} from './manifest.mjs';
 import {recordAppVideo, shootApp} from './record-app.mjs';
 import {recordExtensionVideo} from './record-extension.mjs';
@@ -30,7 +31,7 @@ const FPS = 30;
 // Writes a render job and runs render.cjs on it. -> out.
 function runRender(job, name) {
   const file = path.join(path.dirname(job.out), `${path.basename(job.out, '.mp4')}.json`);
-  fs.writeFileSync(file, JSON.stringify(job));
+  fs.writeFileSync(file, JSON.stringify({...job, gradeSvg: gradeSvg()}));   // every clip graded the same way, the app's pixels only (grade.mjs)
   const run = spawnSync(path.join(desktop, 'node_modules', '.bin', 'electron'), [path.join(here, 'render.cjs'), file], {stdio: 'inherit', timeout: 15 * 60000});
   // run.error: it never started (24 Oct 2026, a Mac out of memory printed "failed (null)"): name the cause
   if (run.status !== 0) throw new Error(`media: ${name}: the renderer failed (${run.error ? `could not start: ${run.error.message}` : run.status ?? run.signal})`);
