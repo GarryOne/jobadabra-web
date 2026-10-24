@@ -16,6 +16,14 @@ export function newCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return [...bytes].map(b => ALPHABET[b % 32]).join('').replace(/(.{4})(?=.)/g, '$1-');
 }
+// A code the owner types himself (owner, 25 Oct 2026): letters, digits and dashes, at least 8 of them once normalised (so "ab-cd" and "AB CD" are one code). -> an error text, or null when it is fine.
+export const MIN_CODE = 8;
+export function customError(code) {
+  const text = String(code || '').trim();
+  if (!/^[A-Za-z0-9-]+$/.test(text)) return 'A code can only have letters, digits and dashes.';
+  if (normalize(text).length < MIN_CODE) return `A code needs at least ${MIN_CODE} letters or digits.`;
+  return null;
+}
 // The code for the owner's page: AES-GCM under a key derived from the Worker secret PROMO_CODE_KEY. No key (or a wrong one) -> nothing is stored / shown, never a plain code.
 const aesKey = async env => env.PROMO_CODE_KEY ? crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`promo:${env.PROMO_CODE_KEY}`)), 'AES-GCM', false, ['encrypt', 'decrypt']) : null;
 const b64 = bytes => btoa(String.fromCharCode(...bytes)), unb64 = text => Uint8Array.from(atob(text), c => c.charCodeAt(0));
