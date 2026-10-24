@@ -2,7 +2,7 @@
 // Draws a product video from recorded frames (media): each output frame is a recorded frame moved and scaled through the camera
 // (a float transform, so pans are smooth), plus a cursor and a click ring. The app's pixels are never redrawn, only graded (grade.mjs). Electron's canvas does the drawing in a
 // hidden window; raw pixels go to ffmpeg, which writes one high-quality master (encode.mjs makes the site's files from it).
-// Run by media.mjs: electron render.cjs <job.json>. job: {framesDir, frames: [{file, x, y, w, h, cx, cy, press, say, sayAge, tag, from?, kind?, mix?, card?, cardAlpha?, layers?}], scale, width, height, fps, captionSize, sayFade, out, ffmpeg, gradeSvg (grade.mjs)};
+// Run by media.mjs: electron render.cjs <job.json>. job: {framesDir, encoder? (ffmpeg's video codec args, renders.mjs masterEncoder), frames: [{file, x, y, w, h, cx, cy, press, say, sayAge, tag, from?, kind?, mix?, card?, cardAlpha?, layers?}], scale, width, height, fps, captionSize, sayFade, out, ffmpeg, gradeSvg (grade.mjs)};
 // a frame's `say` is drawn as a caption band at the bottom (captions.mjs), fading in over sayFade seconds of sayAge; a transition (transitions.mjs)
 // mixes `from` (the old screen) by `kind` and `mix` (fade, slide, tiles), or lays a title `card` over the frame at `cardAlpha`
 const {app, BrowserWindow} = require('electron');
@@ -18,7 +18,7 @@ async function draw(job) {
   const ctx = canvas.getContext('2d', {willReadFrequently: true});
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const ffmpeg = spawn(job.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${job.width}x${job.height}`,
-    '-r', String(job.fps), '-i', 'pipe:0', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '12', '-pix_fmt', 'yuv420p', job.out], {stdio: ['pipe', 'ignore', 'pipe']});
+    '-r', String(job.fps), '-i', 'pipe:0', '-an', ...(job.encoder || ['-c:v', 'libx264', '-preset', 'medium', '-crf', '12']), '-pix_fmt', 'yuv420p', job.out], {stdio: ['pipe', 'ignore', 'pipe']});
   let error = '';
   ffmpeg.stderr.on('data', chunk => { error += chunk; });
   const done = new Promise(resolve => ffmpeg.on('close', resolve));

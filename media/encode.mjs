@@ -1,10 +1,13 @@
 // The site's files from a rendered master (media): MP4 (H.264, every browser) and WebM (VP9) within the piece's byte budget,
 // a phone copy, a GIF, a poster (the first frame, or the scene's poster hold), and WebP stills. ffmpeg from PATH (brew on the CI runner).
-import {execFileSync} from 'node:child_process';
+import {execFile, execFileSync} from 'node:child_process';
+import {promisify} from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const ff = (...args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], {stdio: ['ignore', 'ignore', 'pipe']});
+const run = promisify(execFile);
+const ffAsync = (...args) => run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], {maxBuffer: 1 << 24});
 const size = file => fs.statSync(file).size;
 
 // The first quality (CRF) whose file fits the budget: from sharp to small, two steps at a time. Pure.
@@ -12,27 +15,27 @@ export const crfLadder = (from, to) => Array.from({length: Math.floor((to - from
 
 // The sharpest quality (lowest CRF) whose file fits: a binary search over the ladder (the file shrinks as CRF rises), so about 4 encodes instead of up
 // to 9 (owner, 24 Oct 2026, "why it takes you so much time?": Track's WebM walked 8 slow encodes). fits(crf) encodes at crf and says whether it fits.
-// -> {crf, tries}, or null when even the last fails (its file is the last one tried). Pure.
-export function sharpestFit(ladder, fits) {
+// fits may be async (the ladders of one clip run side by side, round 9). -> {crf, tries}, or null when even the last fails (its file is the last one
+// tried). Pure.
+export async function sharpestFit(ladder, fits) {
   let lo = 0, hi = ladder.length - 1, best = null;
   const tries = [];
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
     tries.push(ladder[mid]);
-    if (fits(ladder[mid])) { best = mid; hi = mid - 1; } else lo = mid + 1;
+    if (await fits(ladder[mid])) { best = mid; hi = mid - 1; } else lo = mid + 1;
   }
   return best === null ? null : {crf: ladder[best], tries};
 }
 
-function withinBudget(make, file, budget, ladder) {
-  if (!budget) { make(ladder[0]); return ladder[0]; }
-  const found = sharpestFit(ladder, crf => { make(crf); return size(file) <= budget; });
+async function withinBudget(make, file, budget, ladder) {
+  if (!budget) { await make(ladder[0]); return ladder[0]; }
+  const found = await sharpestFit(ladder, async crf => { await make(crf); return size(file) <= budget; });
   if (!found) throw new Error(`media: ${path.basename(file)} is ${(size(file) / 1e6).toFixed(2)} MB at the lowest quality, over its ${(budget / 1e6).toFixed(2)} MB budget (shorten the scene)`);
-  if (found.tries.at(-1) !== found.crf) make(found.crf);   // the file left on disk is the chosen quality's
+  if (found.tries.at(-1) !== found.crf) await make(found.crf);   // the file left on disk is the chosen quality's
   return found.crf;
 }
 
-// The encoders every piece needs; a missing one stops the run before any recording (an ffmpeg built without WebP, run 39451422713).
 export const ENCODERS = ['libx264', 'libvpx-vp9', 'libwebp'];
 export function missingEncoders(list = execFileSync('ffmpeg', ['-hide_banner', '-encoders'], {encoding: 'utf8'})) {
   return ENCODERS.filter(name => !new RegExp(`\\s${name}\\s`).test(list));   // whole names: libwebp_anim is not libwebp
@@ -44,31 +47,34 @@ export function missingEncoders(list = execFileSync('ffmpeg', ['-hide_banner', '
 export const COLOR_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'iec61966-2-1', '-color_range', 'tv'];
 export const videoFilter = scale => `${scale}:out_color_matrix=bt709:out_range=tv,format=yuv420p`;   // scale ends in its own options. Pure.
 
-// -> {mp4, webm, poster, phone?, gif?}: file names in outDir, plus the bytes of each.
-export function encodeVideo({master, phoneMaster = null, name, piece, outDir, posterAt = 0, phonePosterAt = posterAt}) {
+// -> {mp4, webm, poster, phone?, gif?}: file names in outDir, plus the bytes of each. The MP4, WebM and phone ladders run side by side (owner 25 Oct
+// 2026: "let's do all the optimizations possible"; one after another they were minutes per clip, x264 and VP9 each leaving cores idle).
+export async function encodeVideo({master, phoneMaster = null, name, piece, outDir, posterAt = 0, phonePosterAt = posterAt}) {
   const files = {mp4: `${name}.mp4`, webm: `${name}.webm`, poster: `${name}-poster.jpg`};
   const at = file => path.join(outDir, file);
   const fast = piece.speed > 1 ? `setpts=PTS/${piece.speed},fps=30,` : '';   // a sped-up clip: the whole flow in about 3 s
   const scale = `${fast}scale=${piece.width}:${piece.height}:flags=lanczos`;
-  withinBudget(crf => ff('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.mp4)),
-    at(files.mp4), piece.budget, crfLadder(22, 34));
-  withinBudget(crf => ff('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', String(crf), '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', '-an', at(files.webm)),
-    at(files.webm), piece.budget, crfLadder(34, 50));
-  ff('-ss', String(posterAt), '-i', master, '-vf', scale, '-frames:v', '1', '-q:v', '3', at(files.poster));
+  const jobs = [
+    withinBudget(crf => ffAsync('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.mp4)),
+      at(files.mp4), piece.budget, crfLadder(22, 34)),
+    withinBudget(crf => ffAsync('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', String(crf), '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', '-an', at(files.webm)),
+      at(files.webm), piece.budget, crfLadder(34, 50)),
+    ffAsync('-ss', String(posterAt), '-i', master, '-vf', scale, '-frames:v', '1', '-q:v', '3', at(files.poster))];
   if (piece.phone) {   // a width (the desktop master made smaller), or {width, height, budget} with its own tighter master (the hero, owner 24 Oct 2026)
     const width = typeof piece.phone === 'object' ? piece.phone.width : piece.phone;
     files.phone = `${name}-${width}.mp4`;
-    withinBudget(crf => ff('-i', phoneMaster || master, '-vf', videoFilter(`${fast}scale=${width}:-2:flags=lanczos`), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.phone)),
-      at(files.phone), piece.phone.budget, crfLadder(22, 34));   // round 9: as sharp as the desktop copy
+    jobs.push(withinBudget(crf => ffAsync('-i', phoneMaster || master, '-vf', videoFilter(`${fast}scale=${width}:-2:flags=lanczos`), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.phone)),
+      at(files.phone), piece.phone.budget, crfLadder(22, 34)));   // round 9: as sharp as the desktop copy
     if (phoneMaster) {   // the phone's own first frame: the site shows it before the clip plays
       files.phonePoster = `${name}-${width}-poster.jpg`;
-      ff('-ss', String(phonePosterAt), '-i', phoneMaster, '-vf', `scale=${width}:-2`, '-frames:v', '1', '-q:v', '3', at(files.phonePoster));
+      jobs.push(ffAsync('-ss', String(phonePosterAt), '-i', phoneMaster, '-vf', `scale=${width}:-2`, '-frames:v', '1', '-q:v', '3', at(files.phonePoster)));
     }
   }
   if (piece.gif) {   // emails and READMEs: 10 fps, one palette for the whole clip, only changed areas redrawn
     files.gif = `${name}.gif`;
-    ff('-i', master, '-vf', `fps=10,scale=${piece.gif}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`, at(files.gif));
+    jobs.push(ffAsync('-i', master, '-vf', `fps=10,scale=${piece.gif}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`, at(files.gif)));
   }
+  await Promise.all(jobs);
   return {files, bytes: Object.fromEntries(Object.entries(files).map(([kind, file]) => [kind, size(at(file))]))};
 }
 
