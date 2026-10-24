@@ -141,7 +141,7 @@ export const VIDEOS = {
   'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 1.8e6, phone: PHONE,
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',
-    steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
+    steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, phoneLook: ['#application > h2 >> nth=0', '#location'], tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
       {hold: 3, look: 'panel', zoom: 1.8, phoneZoom: 2.6, poster: true, say: 'Filled from the profile: ready to review', beat: 'Filled from the profile: Ready to submit, to review'}]},
   'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 2.2e6, phone: {...PHONE, budget: 1.8e6},
     shows: 'Two weeks later: the interview e-mail for that job, the call recorded and reviewed, what to practise, the next round on the calendar',
@@ -163,7 +163,7 @@ export const VIDEOS = {
   'extension-fill': {kind: 'video', source: 'extension', width: 1600, height: 1000, budget: 1e6, phone: 720, gif: 720,
     shows: 'The Jobadabra extension filling an application form in the browser',
     caption: 'The extension fills the form', alt: 'An application form being filled by the Jobadabra extension, with its panel on the right',
-    steps: [{hold: 1}, {fill: true}, {hold: 3.4, look: '#application', zoom: 1.7, poster: true}, {hold: 2.2, look: '#why', zoom: 2.2}, {hold: 2.4, look: 'panel', zoom: 2.2}]},
+    steps: [{hold: 1}, {fill: true}, {hold: 3.4, look: '#application', zoom: 1.7, phoneLook: ['#application > h2 >> nth=0', '#resume'], poster: true}, {hold: 2.2, look: '#why', zoom: 2.2}, {hold: 2.4, look: 'panel', zoom: 2.2}]},
 };
 // A video piece and its parts, in play order: `before`, the piece, `after` (each recorded on its own app state). Pure.
 export const partsOf = name => [VIDEOS[name].before, name, VIDEOS[name].after].filter(Boolean);
