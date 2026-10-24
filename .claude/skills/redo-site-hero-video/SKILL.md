@@ -205,6 +205,11 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   a view whose both edges fall in gaps, zooming out a step when none exists (`whole.mjs`); `edges.mjs` edgeCuts then STOPS the phone copy if a line or
   a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). The desktop copy keeps its framing; its cuts are only logged.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
+- **The phone copy is its own take in a narrow window** (owner chose "Narrow window" of three): on the wide 1800-px layout, long lines (up to
+  1500 px) left only near-whole-window phone frames (zoom 1.2, ~3-px text). Each hero clip is recorded twice: the desktop window, then
+  `PHONE.window` 880 x 660 (the app lays out 1100 x 825, one column; Jobs' sidebar folds to icons), and the phone master, its captions (.vtt),
+  poster and stray-frame check come from that take (`media.mjs` takeOf/recordClip; picture in picture composes both phone takes). A redo takes ~2x
+  as long; `<piece>-phone/` sits beside `<piece>/` in `.work`, and `--words` redraws both.
 - **Captions under the video on phones** ("they hide some buttons/actions"; "Phones only"): the phone copy is drawn with no caption or tag; the
   desktop copy's captions go to `<piece>.vtt` (captions.mjs sayTrack/vttOf, played seconds), the page adds it as a hidden metadata `<track>` and
   hero-stage.js writes the current cue under the video (`.stage-say`, one line, height kept). Title cards stay in the video.

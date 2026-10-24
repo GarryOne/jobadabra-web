@@ -14,10 +14,12 @@ const card = (x, w, name = '.card', y = 220) => ({k: 'card', x, y, w, h: 200, te
 test('a line of words crossing the left or right edge is a cut; one inside, outside or within the slack is not', () => {
   assert.deepEqual(cutsIn(view, [text(450, 100, 'Jobadabra’s AI tasks jus')]), [{k: 'text', side: 'right', text: 'Jobadabra’s AI tasks jus'}]);
   assert.deepEqual(cutsIn(view, [text(60, 100, 'Languages')]), [{k: 'text', side: 'left', text: 'Languages'}]);
-  assert.deepEqual(cutsIn(view, [text(150, 200), text(520, 80), text(10, 80), text(110, 393)]), []);
+  assert.deepEqual(cutsIn(view, [text(150, 200), text(520, 80), text(10, 80), text(115, 370)]), []);
+  assert.deepEqual(cutsIn(view, [text(104, 200, 'touches')]).map(cut => cut.side), ['left'], 'a line 4 px from the edge touches it: not whole');
 });
 
-test('a card that would fit is shown whole; a card wider than the view and anything above or below it do not count', () => {
+test('a card that would fit the widest view is shown whole, even when wider than this one; one wider than any view and anything above or below do not count', () => {
+  assert.deepEqual(cutsIn(view, [card(300, 420, '.free')], 1600).map(cut => cut.text), ['.free'], 'the Free card: wider than this view, not than the widest');
   assert.deepEqual(cutsIn(view, [card(300, 300, '.step-card')]), [{k: 'card', side: 'right', text: '.step-card'}]);
   assert.deepEqual(cutsIn(view, [card(50, 600, '.page'), card(300, 300, '.below', 400), text(450, 100, 'under', -40)]), []);
 });
@@ -49,11 +51,11 @@ test('wholeFrame keeps the zoom and slides the view when a gap is in reach; zoom
   const slid = wholeFrame({frameAt, z: 4, least: 1, look, edges: [text(905, 120, 'right', 340)], viewport, aspect});
   assert.equal(slid.z, 4);
   assert.ok(slid.cx < 750 && slid.cx - 200 <= look.x && slid.cx + 200 >= look.x + look.width, 'slid left, the look still in view');
-  // a table: words every 120 px with 10-px gaps, no clean 400-px window near the look: it zooms out until both edges sit in gaps
-  const table = Array.from({length: 13}, (_, i) => text(i * 130, 120, `col ${i}`, 340));
+  // a table: words every 150 px, no clean 400-px window near the look: it zooms out until both edges sit in gaps
+  const table = Array.from({length: 11}, (_, i) => text(i * 150, 120, `col ${i}`, 340));   // 30-px gutters: room for the edge and its clearance
   const out = wholeFrame({frameAt, z: 4, least: 1, look, edges: table, viewport, aspect});
   const w = viewport.w / out.z, left = Math.min(Math.max(out.cx - w / 2, 0), viewport.w - w), top = 0, bottom = viewport.h;
-  assert.ok(!cutsAt(left, table, top, bottom, w) && !cutsAt(left + w, table, top, bottom, w), 'no column cut');
+  assert.ok(!cutsAt(left, 'left', table, top, bottom, 1600) && !cutsAt(left + w, 'right', table, top, bottom, 1600), 'no column cut');
 });
 
 // The class: whatever the layout, the phone copy's view at a look cuts no line of words and no card that would fit (owner: "I don't see the full frame").
@@ -73,7 +75,7 @@ test('on any app-like layout (columns, gutters, cards, words), the phone camera\
     const box = {x: 200 + rand() * 900, y: 100 + rand() * 600, width: 120 + rand() * 300, height: 60 + rand() * 120};
     // a frame that cuts nothing over the page's whole height and holds the look exists (brute force): then the camera finds a clean one too
     const pad = 40, exists = Array.from({length: 117}, (_, k) => 400 + k * 8).some(w => {
-      for (let left = Math.max(0, box.x + box.width + pad - w); left <= Math.min(1600 - w, box.x - pad); left += 2) if (!cutsAt(left, edges, 0, 1000, w) && !cutsAt(left + w, edges, 0, 1000, w)) return true;
+      for (let left = Math.max(0, box.x + box.width + pad - w); left <= Math.min(1600 - w, box.x - pad); left += 2) if (!cutsAt(left, 'left', edges, 0, 1000, 1600 / 1.2) && !cutsAt(left + w, 'right', edges, 0, 1000, 1600 / 1.2)) return true;
       return false;
     });
     if (exists) { checked++; assert.deepEqual(edgeCuts(log(edges, box), 1.5, {steady: true, phone: {aspect: 4 / 3}}), [], `layout ${n}`); }

@@ -3,7 +3,7 @@
 // the phone camera frames around them (whole.mjs), and edgeCuts finds those the camera's view crosses at its left or right edge when the look is shown. A line of words is never cut; a card that would
 // fit in the view is shown whole. Used by media.mjs before it draws a copy. Pure but edgesScript. Guard: desktop/test/media-edges.test.js.
 import {cameraAt, cameraKeys} from './camera.mjs';
-import {CARD_FIT, EDGE_SLACK} from './whole.mjs';
+import {edgeItems} from './whole.mjs';
 
 // Runs in the page (page.evaluate): the visible lines of words and the cards (an element with a visible border and a rounded corner) inside the
 // window. -> [{k: 'text'|'card', x, y, w, h, text}] in CSS px.
@@ -24,27 +24,21 @@ export function edgesScript() {
   return out;
 }
 
-// What a view cuts: lines of words it crosses at its left or right edge, and cards that would fit but are crossed. Only what shows inside the view's
-// height counts. -> [{k, side, text}]. Pure.
-export function cutsIn(view, edges) {
-  const right = view.x + view.w, cuts = [];
-  for (const item of edges) {
-    if (item.y + item.h <= view.y + EDGE_SLACK || item.y >= view.y + view.h - EDGE_SLACK) continue;   // above or below the view
-    if (item.x + item.w <= view.x + EDGE_SLACK || item.x >= right - EDGE_SLACK) continue;           // outside it, left or right: not shown at all
-    const side = item.x < view.x - EDGE_SLACK ? 'left' : item.x + item.w > right + EDGE_SLACK ? 'right' : null;
-    if (!side || (item.k === 'card' && item.w > view.w * CARD_FIT)) continue;
-    cuts.push({k: item.k, side, text: item.text});
-  }
-  return cuts;
+// What a view cuts: lines of words and cards (that would fit the widest view, maxW) its left or right edge crosses or touches (whole.mjs
+// edgeItems, the rule the phone camera frames by). Only what shows inside the view's height counts. -> [{k, side, text}]. Pure.
+export function cutsIn(view, edges, maxW = view.w) {
+  const at = (x, side) => edgeItems(x, side, edges, view.y, view.y + view.h, maxW).map(item => ({k: item.k, side, text: item.text}));
+  return [...at(view.x, 'left'), ...at(view.x + view.w, 'right')];
 }
 
 // Each look of a recording whose view cuts something (the view at the end of its hold, where the camera has settled). opts: renderPlan's
 // {steady, phone}. -> [{look, say, cuts}] for the looks that cut, so the scenes can name a whole card (phoneLook) instead. Pure.
 export function edgeCuts(log, speed = 1, {steady = false, phone = null} = {}) {
   const keys = cameraKeys({...log, speed, steady, phone});
+  const aspect = phone ? phone.aspect : log.viewport.w / log.viewport.h, least = Math.max(1, log.viewport.w / aspect / log.viewport.h);   // as camera.mjs
   return log.events.filter(event => event.type === 'hold' && event.edges && (event.box || event.phoneBox)).map(event => {
     const view = cameraAt(keys, event.t + Math.max(0, (event.s || 0) - 0.05), log.viewport, speed, phone);
-    return {look: (phone && event.phoneBox ? event.phoneLook : null) || event.look, say: event.say, cuts: cutsIn(view, event.edges)};
+    return {look: (phone && event.phoneBox ? event.phoneLook : null) || event.look, say: event.say, cuts: cutsIn(view, event.edges, log.viewport.w / least)};
   }).filter(hit => hit.cuts.length);
 }
 
