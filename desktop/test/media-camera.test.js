@@ -104,7 +104,7 @@ test('a look marked cut switches at the page change, not with a glide', () => {
 
 test('the phone copy: its own aspect, a tighter zoom (gain or its own), capped, inside the page', () => {
   const phone = {aspect: 4 / 3};
-  const events = [{t: 0, type: 'hold', box: {x: 860, y: 360, width: 450, height: 130}, zoom: 2.2}, {t: 3, type: 'hold', box: {x: 260, y: 750, width: 400, height: 60}, zoom: 2, phoneZoom: 3.2}];
+  const events = [{t: 0, type: 'hold', box: {x: 860, y: 360, width: 300, height: 130}, zoom: 2.2}, {t: 3, type: 'hold', box: {x: 260, y: 750, width: 400, height: 60}, zoom: 2, phoneZoom: 3.2}];
   const keys = cameraKeys({viewport, events, steady: true, phone});
   assert.equal(keys[0].z, Math.min(PHONE_MAX, 2.2 * PHONE_GAIN));
   assert.equal(keys.at(-1).z, 3.2, 'a step may set its own phone zoom');
@@ -145,13 +145,27 @@ test('a hero look is never cut left or right: its zoom is lowered to fit the box
   assert.ok(FIT_WARN < 1);
 });
 
-test('the phone copy keeps its tighter crop unless it names its own look; outside the hero a wide box still reads from its left edge', () => {
-  const wide = {x: 200, y: 600, width: 900, height: 60};
+// Round 8 (owner, 24 Oct 2026: "On mobile ... the content overflows a bit, the videos are not centered"): the phone copy zoomed PHONE_GAIN past
+// each look and read a wide one from its left edge, so 18 of 24 phone shots lost 6-49% of their right side and showed the sidebar on the left.
+// Now the phone copy, like the desktop one, shows every look whole and centred; a narrower phoneLook is how a phone shot gets tighter.
+test('a phone look is never cut left or right either: centred, its zoom lowered to fit, the lowered zoom reported', () => {
   const phone = {aspect: 4 / 3};
-  const tight = cameraAt(cameraKeys({viewport, events: [{t: 0, type: 'hold', box: wide, zoom: 2}], steady: true, phone}), 1, viewport, 1, phone);
-  assert.ok(tight.w < wide.width, 'the phone copy still zooms past the box (its point is a tighter crop)');
-  const own = cameraAt(cameraKeys({viewport, events: [{t: 0, type: 'hold', box: wide, phoneBox: wide, zoom: 2}], steady: true, phone}), 1, viewport, 1, phone);
-  assert.ok(own.w >= wide.width, 'a phoneLook is shown whole');
+  for (const width of [200, 450, 700, 900, 1200, 1400]) {   // up to the widest a 4:3 view of this page shows (1500 px, less the margins)
+    for (const [zoom, phoneZoom] of [[1.5], [2], [2.4], [2, 3.2], [1.4, 4]]) {
+      const look = {x: 1800 - width - 60 > 0 ? 60 : 0, y: 300, width, height: 120};
+      for (const event of [{box: look, zoom, phoneZoom}, {box: {x: 0, y: 0, width: 1800, height: 900}, phoneBox: look, zoom, phoneZoom}]) {
+        const heard = [];
+        const keys = cameraKeys({viewport, events: [{t: 0, type: 'hold', look: 'x', ...event}], steady: true, phone, onFit: (e, asked, used) => heard.push(used / asked)});
+        const view = cameraAt(keys, 1, viewport, 1, phone);
+        const name = `width ${width} at zoom ${zoom}/${phoneZoom ?? 'gain'}${event.phoneBox ? ' (phoneLook)' : ''}`;
+        assert.ok(view.x <= look.x + 0.5 && view.x + view.w >= look.x + look.width - 0.5, `${name}: the view ${view.x.toFixed(0)}+${view.w.toFixed(0)} holds the box`);
+        const centre = look.x + look.width / 2, middle = view.x + view.w / 2;
+        if (view.x > 0.5 && view.x + view.w < viewport.w - 0.5) assert.ok(Math.abs(middle - centre) < 1, `${name}: centred on the look (${middle.toFixed(0)} vs ${centre.toFixed(0)})`);
+        const asked = Math.min(PHONE_MAX, phoneZoom ?? zoom * PHONE_GAIN);
+        if (look.width + 2 * LOOK_MARGIN > viewport.w / asked) assert.equal(heard.length, 1, `${name}: the lowered zoom is reported`);
+      }
+    }
+  }
 });
 
 // Round 2 (owner: Find "starts on the list already full"): the hero's clip begins at its first look, not at the app's launch.

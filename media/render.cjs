@@ -1,8 +1,8 @@
 /* global document, createImageBitmap, Path2D, Blob */
 // Draws a product video from recorded frames (media): each output frame is a recorded frame moved and scaled through the camera
-// (a float transform, so pans are smooth), plus a cursor and a click ring. The app's pixels are never redrawn. Electron's canvas does the drawing in a
+// (a float transform, so pans are smooth), plus a cursor and a click ring. The app's pixels are never redrawn, only graded (grade.mjs). Electron's canvas does the drawing in a
 // hidden window; raw pixels go to ffmpeg, which writes one high-quality master (encode.mjs makes the site's files from it).
-// Run by media.mjs: electron render.cjs <job.json>. job: {framesDir, frames: [{file, x, y, w, h, cx, cy, press, say, sayAge, tag, from?, kind?, mix?, card?, cardAlpha?, layers?}], scale, width, height, fps, captionSize, sayFade, out, ffmpeg};
+// Run by media.mjs: electron render.cjs <job.json>. job: {framesDir, frames: [{file, x, y, w, h, cx, cy, press, say, sayAge, tag, from?, kind?, mix?, card?, cardAlpha?, layers?}], scale, width, height, fps, captionSize, sayFade, out, ffmpeg, gradeSvg (grade.mjs)};
 // a frame's `say` is drawn as a caption band at the bottom (captions.mjs), fading in over sayFade seconds of sayAge; a transition (transitions.mjs)
 // mixes `from` (the old screen) by `kind` and `mix` (fade, slide, tiles), or lays a title `card` over the frame at `cardAlpha`
 const {app, BrowserWindow} = require('electron');
@@ -57,6 +57,15 @@ async function draw(job) {
     tctx.imageSmoothingEnabled = true; tctx.drawImage(bitmap, v.x * s, v.y * s, v.w * s, v.h * s, 0, 0, tiny.width, tiny.height);
     ctx.save(); ctx.globalAlpha = alpha; ctx.imageSmoothingEnabled = false; ctx.drawImage(tiny, 0, 0, job.width, job.height); ctx.restore();
   };
+  // the demo's grade (grade.mjs): the app's pixels drawn so far go through the SVG filter; captions, tags, cards and the cursor come after, ungraded
+  const graded = document.createElement('canvas'); graded.width = job.width; graded.height = job.height;
+  const gctx = graded.getContext('2d');
+  if (job.gradeSvg) document.body.insertAdjacentHTML('beforeend', job.gradeSvg);
+  const grade = () => {
+    if (!job.gradeSvg) return;
+    gctx.clearRect(0, 0, job.width, job.height); gctx.drawImage(canvas, 0, 0);
+    ctx.save(); ctx.clearRect(0, 0, job.width, job.height); ctx.filter = 'url(#grade)'; ctx.drawImage(graded, 0, 0); ctx.restore();
+  };
   for (const frame of job.frames) {
     const bitmap = frame.layers ? null : await load(frame.file);
     if (frame.layers) await layers(frame.layers);
@@ -78,6 +87,7 @@ async function draw(job) {
         } else { ctx.save(); ctx.globalAlpha = m; ctx.drawImage(layer, 0, 0); ctx.restore(); }   // fade
       }
     } else view(ctx, bitmap, frame);
+    grade();
     const px = (frame.cx - frame.x) * job.width / frame.w, py = (frame.cy - frame.y) * job.height / frame.h;
     if (frame.press != null && frame.press < job.ring) {   // the click ring: grows and fades
       const k = frame.press / job.ring;

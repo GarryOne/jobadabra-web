@@ -41,7 +41,8 @@ export const FIT_WARN = 0.85;
 // already framed on its first look, a click moves nothing unless it carries a zoom, and a look marked `cut` switches at the page change (the first mark or
 // press since the previous look) instead of gliding. `phone` ({aspect}): the phone copy's camera, each zoom PHONE_GAIN closer (or the step's phoneZoom),
 // up to PHONE_MAX and never so wide that the view leaves the page. `speed`: the clip is played faster, so moves are stretched in recorded time.
-// `steady` looks fit their box's width (fitWidth; the phone copy only for its own phoneLook, a tighter crop is its point); onFit(event, asked, used) hears each lowered zoom.
+// `steady` looks fit their box's width (fitWidth), the phone copy's too (round 8, owner 24 Oct 2026: "on mobile ... the videos are not centered"): a tighter
+// phone shot comes from a narrower phoneLook, never from cutting the look; onFit(event, asked, used) hears each lowered zoom.
 export function cameraKeys({viewport, events, speed = 1, steady = false, phone = null, onFit = null}) {
   const aspect = phone ? phone.aspect : viewport.w / viewport.h;
   const least = Math.max(1, viewport.w / aspect / viewport.h);   // the widest view that still fits the page's height
@@ -64,7 +65,7 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     const box = {...look, height: Math.min(look.height, viewport.h * LOOK_HEIGHT)};
     const fit = FILL * Math.min(viewport.w / box.width, viewport.h / box.height);
     const asked = zoomed(event, Math.max(1, event.zoom ?? fit));
-    const used = steady && (!phone || event.phoneBox) ? Math.max(least, fitWidth(box, asked, viewport)) : asked;
+    const used = steady ? Math.max(least, fitWidth(box, asked, viewport)) : asked;   // the phone copy too (round 8: its wide looks lost their right side)
     if (used < asked) onFit?.(event, asked, used);
     const target = frame(box, used, viewport, aspect);
     if (steady && first) { keys[0] = {t: 0, ...target}; return; }
