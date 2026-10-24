@@ -93,17 +93,25 @@ test('nothing exists while PRO_PLAN is off, and the route needs the install key'
 });
 
 test('the admin page is the owner\'s: others get 404; a made code is shown once, only its hash is kept', async () => {
-  const env = site();
+  const env = site({PROMO_CODE_KEY: 'test-key'});
   assert.equal((await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`), env, {})).status, 404);
   const made = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({action: 'generate', label: 'friends', count: '2', cap: '5', ends: '2999-12-31'})}), env, {});
   const text = await made.text();
   const codes = [...text.matchAll(/\b([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})\b/g)].map(m => m[1]);
-  assert.equal(new Set(codes).size, 2);
+  assert.equal(new Set(codes).size, 1, 'one Generate makes one code, even if a count is sent');
+  assert.ok(!/name="count"/.test(text) && /People who can use it/.test(text) && !/How many|Uses each/.test(text), 'the form has no count field, only the people cap');
   assert.equal((await redeem(env, A, codes[0])).status, 200);
   const stored = JSON.stringify((await env.STATS.prepare('SELECT * FROM pro_promo_codes').all()).results);
-  for (const code of codes) assert.ok(!stored.includes(code), 'the code itself is not stored');
+  for (const code of codes) assert.ok(!stored.includes(code), 'the code is not stored in plain text');
+  assert.ok(/"code_enc":"[^"]+"/.test(stored), 'but it is stored encrypted');
   const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
-  assert.ok(list.includes('1 of 5') && !codes.some(code => list.includes(code)), 'the list shows counts, never the code');
+  assert.ok(list.includes('1 of 5 people') && codes.every(code => list.includes(code)), 'the owner sees the full code in the list');
+  const other = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: {Authorization: 'Bearer wrong'}}), env, {});
+  assert.equal(other.status, 404, 'anyone else gets nothing');
+  const keyless = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: undefined}, {})).text();
+  assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('stored before full codes'), 'without the key the code cannot be shown');
+  const wrongKey = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: 'other'}, {})).text();
+  assert.ok(!codes.some(code => wrongKey.includes(code)), 'a wrong key fails closed');
   assert.match(newCode(), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 });

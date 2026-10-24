@@ -1,5 +1,5 @@
 // Pro promo codes (owner, 25 Oct 2026): POST /api/pro/redeem checks the typed code against the hashes of the codes made on /admin/promo-codes, counts the use against that code's cap and end
-// date, and from then on /api/pro/status says Pro for that install while the code is neither revoked nor past its end date. No account, no e-mail, no AI credit. The code itself is never stored.
+// date, and from then on /api/pro/status says Pro for that install while the code is neither revoked nor past its end date. No account, no e-mail, no AI credit. Only a hash of the code is checked; the code is also kept encrypted (PROMO_CODE_KEY) for the owner's page, never in plain text.
 // Hidden (404) while PRO_PLAN is off. Guards: test/shared/promo.test.js.
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {accountOf, planOn} from './pro.js';
@@ -15,6 +15,21 @@ export const hashOf = async (env, code) => digestOf(`${env.STATS_SALT || env.STA
 export function newCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return [...bytes].map(b => ALPHABET[b % 32]).join('').replace(/(.{4})(?=.)/g, '$1-');
+}
+// The code for the owner's page: AES-GCM under a key derived from the Worker secret PROMO_CODE_KEY. No key (or a wrong one) -> nothing is stored / shown, never a plain code.
+const aesKey = async env => env.PROMO_CODE_KEY ? crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`promo:${env.PROMO_CODE_KEY}`)), 'AES-GCM', false, ['encrypt', 'decrypt']) : null;
+const b64 = bytes => btoa(String.fromCharCode(...bytes)), unb64 = text => Uint8Array.from(atob(text), c => c.charCodeAt(0));
+export async function sealCode(env, code) {
+  const key = await aesKey(env);
+  if (!key) return null;
+  const iv = crypto.getRandomValues(new Uint8Array(12)), data = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv}, key, new TextEncoder().encode(code)));
+  return `${b64(iv)}.${b64(data)}`;
+}
+export async function openCode(env, sealed) {
+  try {
+    const key = await aesKey(env), [iv, data] = String(sealed || '').split('.');
+    return key && iv && data ? new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64(iv)}, key, unb64(data))) : null;
+  } catch { return null; }
 }
 export const endOfDay = date => `${date}T23:59:59.999Z`;
 const live = (code, now) => !code.revoked_at && Date.parse(code.ends_at) > now.getTime();
