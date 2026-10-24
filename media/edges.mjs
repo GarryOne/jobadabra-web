@@ -31,13 +31,14 @@ export function cutsIn(view, edges, maxW = view.w, pageW = Infinity) {
   return [...at(view.x, 'left'), ...at(view.x + view.w, 'right')];
 }
 
-// Each look of a recording whose view cuts something (the view at the end of its hold, where the camera has settled). opts: renderPlan's
+// Each look of a recording whose view cuts something (the view in the middle of its hold, where the camera rests). opts: renderPlan's
 // {steady, phone}. -> [{look, say, cuts}] for the looks that cut, so the scenes can name a whole card (phoneLook) instead. Pure.
 // keys: the camera's keys to check (default: the camera's own; a test passes a camera that did not see the edges).
 export function edgeCuts(log, speed = 1, {steady = false, phone = null, keys = cameraKeys({...log, speed, steady, phone})} = {}) {
   const aspect = phone ? phone.aspect : log.viewport.w / log.viewport.h, least = Math.max(1, log.viewport.w / aspect / log.viewport.h);   // as camera.mjs
   return log.events.filter(event => event.type === 'hold' && event.edges && (event.box || event.phoneBox)).map(event => {
-    const view = cameraAt(keys, event.t + Math.max(0, (event.s || 0) - 0.05), log.viewport, speed, phone);
+    // the middle of the hold, where the camera rests (run 18: at its end the camera had begun its glide to the next look, a false cut)
+    const view = cameraAt(keys, event.t + (event.s || 0) / 2, log.viewport, speed, phone);
     return {look: (phone && event.phoneBox ? event.phoneLook : null) || event.look, say: event.say, cuts: cutsIn(view, event.edges, log.viewport.w / least, log.viewport.w)};
   }).filter(hit => hit.cuts.length);
 }

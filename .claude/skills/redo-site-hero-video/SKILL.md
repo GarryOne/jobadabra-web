@@ -206,6 +206,11 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). **The desktop copy too** (owner, after the phone preview: "port
   this to desktop as well, because on desktop it was also cropped", with shots of the logo and cards cut): same camera rule, same stop.
   The phone take's short window (528 css) scrolls a look below it to the middle before measuring (`fitScroll`, hold.mjs scrollLookIn).
+  **Faster redo** (owner: "Is there anyway we can speed up the recording process? ... can we parallelize it more?"; measured: renders ~80% of a
+  redo, one copy at a time on 1 of 8 cores): every take is recorded and checked first (edges, page problems: a bad scene stops ~1 min in), then
+  every copy renders through `renders.mjs`, `HERO_RENDERS` at once (default 3; memory). The edge check reads the hold's middle, where the camera
+  rests (at its end the camera is already gliding on: false cuts), and the camera frames with `MARGIN` 2 px over the check (float rounding).
+  A camera or check change needs no new recording: re-check a kept take's `log.json` with edgeCuts in seconds, or `--words` to redraw.
   **Never run the site tests while hero.sh records** (run 17: `SITE_OVERLAY_FRESH=1 tools/site-run.sh` rebuilt `.overlay`, the app the recorder
   runs from, and the take died on `page.reload: net::ERR_FILE_NOT_FOUND`): test before starting the recording, or after it ends.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.

@@ -27,3 +27,28 @@ test('framesIn counts a video\'s frames', async () => {
     assert.equal(framesIn(file), 12);
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });
+
+// Speed (round 9, owner: "Is there anyway we can speed up the recording process? ... can we parallelize it more?"): renders were ~80% of a redo,
+// one copy at a time on one core. Every take is recorded and checked first, then every copy renders, a few at once.
+test('the render queue runs at most n jobs at once and every job ends', async () => {
+  const {limiter} = await import('../../media/renders.mjs');
+  const run = limiter(3);
+  let now = 0, most = 0;
+  const job = ms => run(async () => { now++; most = Math.max(most, now); await new Promise(resolve => setTimeout(resolve, ms)); now--; return ms; });
+  const done = await Promise.all([30, 10, 20, 5, 15, 25, 10, 5].map(job));
+  assert.deepEqual(done, [30, 10, 20, 5, 15, 25, 10, 5]);
+  assert.equal(most, 3);
+  await assert.rejects(run(async () => { throw new Error('bad'); }), /bad/);
+  assert.equal(await job(1), 1, 'a failed job frees its slot');
+});
+
+test('every check runs before any render: a clip and picture in picture return a finish(), main renders all pieces after all takes', () => {
+  const media = read('media.mjs');
+  const clip = media.slice(media.indexOf('async function recordClip'), media.indexOf('function edgesOk'));
+  assert.ok(clip.indexOf('checked();\n  // -> finish()') > 0 && clip.indexOf('checked();\n  // -> finish()') < clip.indexOf('await Promise.all([render(main'), 'recordClip: checks, then renders');
+  const pip = media.slice(media.indexOf('async function recordPip'), media.indexOf('function joined'));
+  assert.ok(pip.indexOf('edgesOk(rec.name') < pip.indexOf('await Promise.all([compose('), 'recordPip: checks, then renders');
+  assert.match(media, /for \(const name of [^\n]*\) finishes\.push\(await makeVideo\(/);
+  assert.match(media, /const made = await Promise\.allSettled\(finishes\.map\(finish => finish\(\)\)\)/);
+  assert.match(media, /return renderQueue\(async \(\) => \{ for \(let attempt = 1; ; attempt\+\+\) \{\n\s+const run = await runChild\(/, 'every render goes through the queue');
+});

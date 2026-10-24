@@ -100,8 +100,8 @@ test('both recorders note the edges at every look, and media.mjs checks each cop
     assert.match(source, /log\.add\(\{\.\.\.holdEvent\([^)]*\)[^\n]*edges: await page\.evaluate\(edgesScript\)/, file);
   }
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
-  assert.match(media, /const render = \(take, out, width, height, phone = null\) => \{\n\s+edgesOk\(name, take\.log/);
-  assert.match(media, /const compose = \(out, width, height, phone = null\) => \{\n.*\n\s+for \(const rec of recs\) edgesOk\(/);
+  assert.match(media, /edgesOk\(name, main\.log, piece\.speed \|\| 1, steady, null\);\n\s+if \(phone\) edgesOk\(name, \(narrow \|\| main\)\.log/, 'both copies of a clip');
+  assert.match(media, /for \(const copy of \[null, \.\.\.\(phone \? \[phone\] : \[\]\)\]\) for \(const rec of recsOf\(copy\)\) edgesOk\(/, 'both copies of picture in picture');
   assert.match(media, /if \(process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/, 'a cut stops the desktop copy too');
 });
 
@@ -120,7 +120,7 @@ test('every hero clip\'s phone copy is its own narrow-window take, with its own 
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
   assert.match(media, /const narrow = phoneShape\?\.window \? await takeOf\(name, phoneTake\(piece, phoneShape\)/, 'recordClip records the phone take');
   assert.match(media, /render\(narrow \|\| main, path\.join\(main\.dir, 'master-phone\.mp4'\)/, 'the phone master is drawn from it');
-  assert.match(media, /const recs = \[a, b\]\.map\(rec => \(\{\.\.\.\(phone \? rec\.phone : rec\)/, 'picture in picture composes the phone takes');
+  assert.match(media, /const recsOf = phone => \[a, b\]\.map\(rec => \(\{\.\.\.\(phone \? rec\.phone : rec\)/, 'picture in picture composes the phone takes');
   assert.match(media, /if \(phone\) said = sayTrack\(frames/, 'the captions under the phone copy are timed on the phone take');
   assert.match(media, /strayIn\(files\.phone, phoneStarts/, 'the phone copy is checked for stray frames too');
   assert.match(fs.readFileSync(new URL('../../media/record-app.mjs', import.meta.url), 'utf8'), /\.\.\.\(piece\.window \? \{window: piece\.window\} : \{\}\)/);
@@ -162,4 +162,14 @@ test('a look off the phone window is scrolled to its middle by both recorders, t
     const source = fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
     assert.match(source, /if \(out > OFF_MAX && item\.fitScroll && await scrollLookIn\(page, item\.look, box, view\)\) \{/, file);
   }
+});
+
+test('the check reads the view where the camera rests (the hold\'s middle), and the camera keeps a margin over the check', async () => {
+  const {MARGIN} = await import('../../media/whole.mjs');
+  assert.ok(MARGIN >= 1);
+  // a card ending 0.04 px past the edge: a cut for the check, and the camera, framing with MARGIN, treats one 1 px inside the same way
+  assert.deepEqual(cutsIn({x: 207, y: 0, w: 818, h: 528}, [card(12, 199.04, '.current', 100)]).map(cut => cut.text), ['.current']);
+  assert.ok(cutsAt(208, 'left', [card(12, 199, '.current', 100)], 0, 528, 2000, 2000, MARGIN), 'the camera avoids an edge within the margin');
+  assert.ok(!cutsAt(208, 'left', [card(12, 199, '.current', 100)], 0, 528, 2000, 2000), 'that the check alone lets pass');
+  assert.match(fs.readFileSync(new URL('../../media/edges.mjs', import.meta.url), 'utf8'), /cameraAt\(keys, event\.t \+ \(event\.s \|\| 0\) \/ 2,/);
 });

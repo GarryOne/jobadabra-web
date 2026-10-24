@@ -14,12 +14,16 @@ export const EDGE_CLEAR = 12;  // CSS px a shown line or card keeps from the fra
 // What a frame edge at x (side 'left': the view starts there; 'right': it ends there) cuts or touches between top and bottom: a line of words, or a
 // card narrower than CARD_FIT of the widest view the camera can show (maxW: the page width at the least zoom). -> the items. Pure.
 // An edge on the page's own border (x <= 0 or >= pageW) cuts nothing: nothing lies beyond it (round 9: the whole window read as cut at its sidebar).
-export function edgeItems(x, side, edges, top, bottom, maxW, pageW = Infinity) {
+// margin: CSS px stricter than the check (the camera frames with MARGIN, so float rounding between its frame and the played view never reads as a cut;
+// run 18: a sidebar card 0.04 px past the edge).
+export function edgeItems(x, side, edges, top, bottom, maxW, pageW = Infinity, margin = 0) {
   if (side === 'left' ? x <= 0.5 : x >= pageW - 0.5) return [];
-  return edges.filter(item => item.y + item.h > top + EDGE_SLACK && item.y < bottom - EDGE_SLACK && !(item.k === 'card' && item.w > maxW * CARD_FIT)
-    && (side === 'left' ? item.x + item.w > x + EDGE_SLACK && item.x < x + EDGE_CLEAR : item.x < x - EDGE_SLACK && item.x + item.w > x - EDGE_CLEAR));
+  const slack = EDGE_SLACK - margin, clear = EDGE_CLEAR + margin;
+  return edges.filter(item => item.y + item.h > top + slack && item.y < bottom - slack && !(item.k === 'card' && item.w > maxW * CARD_FIT)
+    && (side === 'left' ? item.x + item.w > x + slack && item.x < x + clear : item.x < x - slack && item.x + item.w > x - clear));
 }
-export const cutsAt = (x, side, edges, top, bottom, maxW, pageW) => edgeItems(x, side, edges, top, bottom, maxW, pageW).length > 0;
+export const MARGIN = 2;
+export const cutsAt = (x, side, edges, top, bottom, maxW, pageW, margin = 0) => edgeItems(x, side, edges, top, bottom, maxW, pageW, margin).length > 0;
 
 // frameAt(z) -> {cx, cy, z}: the camera's own centred frame at zoom z (camera.mjs). look: the box that must stay in view (padded).
 // -> the frame nearest frameAt(z) whose edges cut nothing, at the highest zoom from z down to `least` that has one; frameAt(least) if none. Pure.
@@ -29,7 +33,7 @@ export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect}) {
     const top = Math.min(Math.max(base.cy - h / 2, 0), viewport.h - h), bottom = top + h;
     const lo = Math.max(0, look.x + look.width - w), hi = Math.min(viewport.w - w, look.x);   // left edges that keep the look in view, on the page
     const want = Math.min(Math.max(base.cx - w / 2, 0), viewport.w - w);
-    const maxW = viewport.w / least, clean = left => !cutsAt(left, 'left', edges, top, bottom, maxW, viewport.w) && !cutsAt(left + w, 'right', edges, top, bottom, maxW, viewport.w);
+    const maxW = viewport.w / least, clean = left => !cutsAt(left, 'left', edges, top, bottom, maxW, viewport.w, MARGIN) && !cutsAt(left + w, 'right', edges, top, bottom, maxW, viewport.w, MARGIN);
     if (clean(want)) return base;
     let best = null;
     for (let left = Math.floor(lo); left <= hi; left += 2) if (clean(left) && (best === null || Math.abs(left - want) < Math.abs(best - want))) best = left;
