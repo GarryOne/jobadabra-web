@@ -110,8 +110,46 @@ test('the admin page is the owner\'s: others get 404; a made code is shown once,
   const other = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: {Authorization: 'Bearer wrong'}}), env, {});
   assert.equal(other.status, 404, 'anyone else gets nothing');
   const keyless = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: undefined}, {})).text();
-  assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('stored before full codes'), 'without the key the code cannot be shown');
+  assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('made before full codes: re-make it with the Code field to see it') && keyless.includes("Full codes can't be shown"), 'without the key the code cannot be shown, and the page says why');
   const wrongKey = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: 'other'}, {})).text();
   assert.ok(!codes.some(code => wrongKey.includes(code)), 'a wrong key fails closed');
   assert.match(newCode(), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+});
+
+const make = (env, fields) => worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
+  body: new URLSearchParams({action: 'generate', label: 'mine', cap: '3', ends: '2999-12-31', ...fields})}), env, {});
+
+test('the owner can type his own code: saved, redeemable in any case or spacing, shown in the list', async () => {
+  const env = site({PROMO_CODE_KEY: 'test-key'}), mine = 'Test-Own-Code7';
+  const made = await make(env, {code: ` ${mine} `});
+  assert.equal(made.status, 200);
+  const text = await made.text();
+  assert.ok(text.includes(mine) && text.includes('It also stays in the list below'));
+  assert.equal((await redeem(env, A, 'test own code7')).status, 200, 'normalised like the redeem check');
+  const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
+  assert.ok(list.includes(mine), 'full code in the list');
+  assert.ok(!JSON.stringify((await env.STATS.prepare('SELECT * FROM pro_promo_codes').all()).results).includes(mine), 'not stored in plain text');
+});
+
+test('a typed code that is too short, has other characters, or already exists is refused and makes nothing', async () => {
+  const env = site({PROMO_CODE_KEY: 'test-key'}), count = async () => (await env.STATS.prepare('SELECT COUNT(*) AS n FROM pro_promo_codes').first()).n;
+  for (const [code, message] of [['short7-', 'at least 8'], ['has space!!ok', 'letters, digits and dashes'], ['emoji-code-🎟', 'letters, digits and dashes'], ['--ab--cd--', 'at least 8']]) {
+    const res = await make(env, {code});
+    assert.equal(res.status, 400, code); assert.ok((await res.text()).includes(message), code);
+  }
+  assert.equal(await count(), 0);
+  assert.equal((await make(env, {code: 'Own-Code-1234'})).status, 200);
+  const twice = await make(env, {code: 'own code 1234'.replace(/ /g, '-').toLowerCase()});
+  assert.equal(twice.status, 400); assert.ok((await twice.text()).includes('That code already exists'));
+  assert.equal(await count(), 1);
+});
+
+test('empty Code still makes a random one; with no key the page says so and fails closed', async () => {
+  const env = site();
+  const text = await (await make(env, {code: ''})).text();
+  assert.match(text, /\b[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}\b/);
+  assert.ok(text.includes("Full codes can't be shown: the site's PROMO_CODE_KEY is not set") && !text.includes('It also stays in the list below'));
+  assert.ok(text.includes('made before full codes: re-make it with the Code field to see it'), 'a row without its copy says how to get it');
+  const keyed = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), site({PROMO_CODE_KEY: 'k', STATS: env.STATS}), {})).text();
+  assert.ok(!keyed.includes("Full codes can't be shown"), 'no notice when the key is set');
 });
