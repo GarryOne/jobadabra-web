@@ -44,6 +44,9 @@ jobs:
         working-directory: desktop
       - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Electron and a display for the hero render test   # #100: media-render.test.js draws frames with media/render.cjs; the job skips the binary above
+        working-directory: desktop
+        run: sudo apt-get install -y -qq --no-install-recommends xvfb && ELECTRON_SKIP_BINARY_DOWNLOAD='' node node_modules/electron/install.js
       - name: PR description laid out
         if: github.event_name == 'pull_request'
         env:
@@ -55,4 +58,4 @@ jobs:
           SITE_ROUTES_STRICT: ${{ github.event_name == 'schedule' && '1' || '' }}   # a route the Worker has but public never listed fails the daily run, not a pair in flight
         run: bash tools/check.sh --area site
       - name: Tests that read site files, and the tests of this repo
-        run: bash .private/tools/site-guards.sh . .private
+        run: xvfb-run -a bash .private/tools/site-guards.sh . .private   # a display for Electron (the render test)

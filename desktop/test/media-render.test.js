@@ -9,6 +9,8 @@ import {test} from 'node:test';
 
 const read = file => fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
 const ELECTRON = process.env.ELECTRON_BIN || path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', '.bin', 'electron');
+// The binary itself, not the npm shim: the site CI installs with ELECTRON_SKIP_BINARY_DOWNLOAD=1, so .bin/electron is there and runs nothing (#100 red).
+const HAS_ELECTRON = process.env.ELECTRON_BIN ? fs.existsSync(process.env.ELECTRON_BIN) : fs.existsSync(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', 'electron', 'path.txt'));
 
 test('runRender checks the frame count of what it made against the job, renders once more, then stops the piece', () => {
   const media = read('media.mjs');
@@ -88,7 +90,8 @@ test('the master uses the Mac\'s video chip where ffmpeg has it, x264 elsewhere 
   assert.match(media, /'-map', '\[v\]', \.\.\.masterEncoder\(\), '-pix_fmt'/, 'joined parts use the same encoder');
 });
 
-test('pieces of a render draw the same frames as the whole render, joined (render.cjs + the concat join)', {skip: !fs.existsSync(ELECTRON) && 'no Electron here (the site test run has none; ELECTRON_BIN=<path> runs it)'}, async () => {
+test('pieces of a render draw the same frames as the whole render, joined (render.cjs + the concat join)', {skip: !HAS_ELECTRON && !process.env.CI && 'no Electron binary here (a fresh overlay installs without it); CI installs it (tests.yml), or ELECTRON_BIN=<path>'}, async () => {
+  assert.ok(HAS_ELECTRON, 'CI must install the Electron binary for this test (tests.yml: "Electron and a display")');
   const {chunksOf} = await import('../../media/renders.mjs');
   const {framesIn} = await import('../../media/encode.mjs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pieces-')), frames = path.join(dir, 'frames');
@@ -100,7 +103,7 @@ test('pieces of a render draw the same frames as the whole render, joined (rende
   const outs = chunksOf(all.length, 4, 50).map(([from, to], i) => {
     const out = path.join(dir, `part${i}.mp4`), file = path.join(dir, `part${i}.json`);
     fs.writeFileSync(file, JSON.stringify({...job, frames: all.slice(from, to), out}));
-    execFileSync(electron, [render, file], {stdio: 'ignore'});
+    execFileSync(electron, [...(process.platform === 'linux' ? ['--no-sandbox'] : []), render, file], {stdio: 'pipe'});   // Linux CI: no setuid sandbox; stderr kept for the error
     return out;
   });
   const list = path.join(dir, 'parts.txt'), joined = path.join(dir, 'joined.mp4');
