@@ -15,12 +15,20 @@ const cap = root?.querySelector('.stage-cap');
 const later = root?.querySelector('.stage-later');
 const say = root?.querySelector('.stage-say');
 const PAUSE = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 3h3v10H4zm5 0h3v10H9z"/></svg>';
-const PLAY = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3l8 5-8 5z"/></svg>';
+const SPEED = 1.5;
+const PLAY ='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3l8 5-8 5z"/></svg>';
 
 if (root && clips.length) {
   const phone = matchMedia('(max-width: 720px)').matches;
   if (phone) clips.forEach(clip => { if (clip.dataset.phonePoster) clip.poster = clip.dataset.phonePoster; });
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Every clip plays at SPEED (owner, 25 Oct 2026: "impose a 1.5x speed for all the clips"); the captions follow, they are timed on the clip's own clock.
+  clips.forEach(clip => { clip.defaultPlaybackRate = SPEED; clip.playbackRate = SPEED; });
+  // A browser that refuses to start a clip by itself (iOS in Low Power Mode, owner's phone 25 Oct 2026: stuck on the poster) shows the play mark; a tap starts it.
+  const start = clip => {
+    clip.playbackRate = SPEED;
+    clip.play().catch(error => { if (error.name === 'NotAllowedError' && clip === clips[on]) setPaused(true); });
+  };
   // Phones: each clip's captions as a hidden metadata track (loaded with the page, read as the clip plays); the line under the video shows the current one.
   const tracks = phone && say ? clips.map(clip => {
     if (!clip.dataset.captions) return null;
@@ -95,7 +103,7 @@ if (root && clips.length) {
     cap.querySelector('.stage-sub').textContent = clip.dataset.sub || '';
     if (later) { later.textContent = clip.dataset.later || ''; later.hidden = !clip.dataset.later; }
     sayNow();
-    if (playing()) clip.play().catch(() => {});
+    if (playing()) start(clip);
   }
 
   tracks.forEach((track, k) => track?.addEventListener('cuechange', () => { if (k === on) sayNow(); }));
@@ -109,7 +117,7 @@ if (root && clips.length) {
     pause.innerHTML = paused ? PLAY : PAUSE;
     pause.setAttribute('aria-label', paused ? 'Play' : 'Pause');
     screen.classList.toggle('is-paused', paused);   // the person's pause only: a hidden tab or a scrolled-away stage shows no mark
-    if (playing()) clips[on].play().catch(() => {}); else clips[on].pause();
+    if (playing()) start(clips[on]); else clips[on].pause();
   }
   pause.addEventListener('click', () => setPaused(!paused));
   screen.addEventListener('click', () => setPaused(!paused));   // a click on the picture pauses and plays it too (owner, 24 Oct 2026); the button stays the keyboard way

@@ -29,3 +29,12 @@ test('every phone-only word in the hero has its desktop twin, and the stage capt
   assert.match(read('hero-stage.js'), /stage-step'\)\.textContent = `0\$\{on \+ 1\} \/ /, 'the label follows the clip');
   for (const clip of hero.match(/<video class="slide[^>]*>/g)) assert.match(clip, /data-short="[^"]+"/, 'each clip has a short phone title');
 });
+
+// Owner, 25 Oct 2026: "impose a 1.5x speed for all the clips"; and on his phone the Set up clip stayed on its poster (a refused autoplay was swallowed).
+test('every clip plays at 1.5x and a refused autoplay shows the play mark', () => {
+  const js = read('hero-stage.js');
+  assert.match(js, /const SPEED = 1\.5;/, 'one speed for the four clips');
+  assert.match(js, /clips\.forEach\(clip => \{ clip\.defaultPlaybackRate = SPEED; clip\.playbackRate = SPEED; \}\);/, 'set on every clip, also the ones not loaded yet');
+  assert.doesNotMatch(js, /\.play\(\)\.catch\(\(\) => \{\}\)/, 'no play() whose refusal is swallowed: start() shows the play mark');
+  assert.match(js, /error\.name === 'NotAllowedError' && clip === clips\[on\]\) setPaused\(true\)/, 'a refused clip pauses with the mark, so a tap starts it');
+});
