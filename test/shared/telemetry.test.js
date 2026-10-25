@@ -141,7 +141,7 @@ test('the private page counts feedback and links to the Feedback page (no copy o
 test('setup funnel: furthest step per install, never counted as a problem', async () => {
   const e = env();
   const at = new Date().toISOString();
-  // 'goals' below: an older app's step (now part of cv), ignored by the funnel.
+  // 'goals' and 'notion' below: an older app's steps (now part of cv, or gone), ignored by the funnel.
   const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.5.76', platform: 'darwin', at, step: s, ...extra});
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
@@ -153,16 +153,16 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   assert.match(html, /No problems reported/);  // setup steps are not problems
   const {funnel} = await import('../../shared/telemetry.js');
   const f = await funnel(e.STATS, 30);
-  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1, 1]);
+  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 1, 1, 1, 1, 1]);
 });
 
 test('why they stopped: reasons per step on the funnel', async () => {
   const e = env();
   const at = new Date().toISOString();
   const stop = (install, step, reason) => ({kind: 'setup', install, version: '0.5.82', platform: 'darwin', at, step: 'stopped', where: step, reason});
-  await send(e, [stop('install-aaaa', 'notion', 'notion'), stop('install-bbbb', 'notion', 'notion'), stop('install-cccc', 'notion', 'privacy')]);
+  await send(e, [stop('install-aaaa', 'ai', 'ai'), stop('install-bbbb', 'ai', 'ai'), stop('install-cccc', 'ai', 'privacy')]);
   const {funnel} = await import('../../shared/telemetry.js');
-  assert.deepEqual((await funnel(e.STATS, 30)).stopped, {notion: {notion: 2, privacy: 1}});
+  assert.deepEqual((await funnel(e.STATS, 30)).stopped, {ai: {ai: 2, privacy: 1}});
 });
 
 test('a control report reads as one problem per fingerprint, outcome and reason, across users and sites', () => {

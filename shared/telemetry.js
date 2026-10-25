@@ -100,9 +100,9 @@ export async function channels(db, days, now = new Date()) {
 }
 
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
-export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
+export const STOP_REASONS = {ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
   looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
-export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];  // 'notion': older apps only (it left the wizard 3 Oct 2026); "reached" counts furthest ≥ step, so newer installs pass it
+export const SETUP_STEPS = ['welcome', 'ai', 'cv', 'draft', 'hosted', 'extras', 'done'];  // older apps also reported 'notion' (it left the wizard 3 Oct 2026; its row was dropped 25 Oct 2026): an unknown step is ignored
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];
