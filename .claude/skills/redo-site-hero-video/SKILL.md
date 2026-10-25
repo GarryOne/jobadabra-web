@@ -32,7 +32,9 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
    `git show origin/main:web/public/media/<piece>.mp4`; right: this set; labelled, the shorter held) and a GIF of it, phone copies too. Open the
    changed pieces' MP4s for him (file names start with your session's short name), plus `preview.png` as the overview of every beat; ask
    AskUserQuestion (ship / change what) with a recommendation. Never ship clips he hasn't watched.
-5. **Place**: `tools/hero.sh --place <set dir>`, then the site tests `tools/site-run.sh node --test "test/**/*.test.js"`
+5. **Place**: `tools/hero.sh --place <set dir>`, then CI's two test steps: `tools/site-run.sh bash tools/check.sh --area site` and
+   `tools/site-run.sh bash "$PWD/tools/site-guards.sh" . "$PWD"` (background, tee'd). Never `node --test "desktop/test/*.test.js"` in the overlay:
+   it runs every public desktop test without `desktop/shared` or their packages (25 Oct 2026: 282 false fails, all "Cannot find module").
    (`tools/hero.sh --preview` re-renders the side-by-side from what is placed).
 6. **Ship** from the worktree: `~/jobadabra/tools/ship.sh --background --body=<file>` (body per `~/jobadabra/tools/pr-body-template.md`, with
    one `| What changed | Before | After |` row per changed clip: `<piece>-before.gif` | `<piece>-after.gif`, each linked to `<piece>-compare.mp4`
