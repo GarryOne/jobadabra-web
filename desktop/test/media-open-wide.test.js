@@ -87,3 +87,26 @@ test('the edge check reads a hold only once its camera has arrived: the wide ope
   const hits = edgeCuts(log, 1.5, {steady: true, keys});
   assert.equal(hits.length, 0, `the look itself is whole once arrived: ${JSON.stringify(hits)}`);
 });
+
+test('a look that opened wide always rests REST after its glide, even when its hold is short (run 26: the phone take\'s scroll used the time)', async () => {
+  const {cameraKeys, REST} = await import('../../media/camera.mjs');
+  const speed = 1.5;
+  for (const s of [0.5, 1, 1.5, 2.5, 4]) {
+    const events = [{t: 0, type: 'hold', box: {x: 100, y: 100, width: 600, height: 300}, s: 1}, {t: 3, type: 'mark'},
+      {t: 3.4, type: 'hold', box: {x: 1200, y: 600, width: 400, height: 200}, s, cut: true, opensWide: true}];
+    const keys = cameraKeys({viewport, events, speed, steady: true}), arrived = keys.at(-1).t;
+    assert.ok(arrived <= 3.4 + s - REST * speed + 1e-6 || arrived - 3.4 <= 0.05 + 1e-6, `hold ${s}: arrives at ${arrived}, the hold ends at ${3.4 + s}`);
+    assert.ok(keys.at(-1).glide > 0);
+  }
+});
+
+test('the edge check stops reading a hold where the next screen cuts in, even inside it (run 26: Set up\'s proposal painted mid-hold)', async () => {
+  const {cameraKeys} = await import('../../media/camera.mjs');
+  const {edgeCuts} = await import('../../media/edges.mjs');
+  const side = {k: 'card', x: 12, y: 238, w: 199, h: 46, text: '.current'};
+  const log = {viewport, frames: [{t: 0, file: 'a'}], events: [{t: 0, type: 'hold', box: {x: 0, y: 0, width: 1800, height: 1125}, s: 0.5},
+    {t: 1, type: 'mark'}, {t: 1.1, type: 'hold', look: '#loading', box: {x: 0, y: 0, width: 1800, height: 1125}, s: 6, cut: true, opensWide: true, edges: [side]},
+    {t: 4, type: 'ready'}, {t: 7.2, type: 'hold', look: '#next', box: {x: 900, y: 300, width: 500, height: 300}, s: 3, cut: true, opensWide: true}]};
+  const keys = cameraKeys({...log, speed: 1.5, steady: true});
+  assert.deepEqual(edgeCuts(log, 1.5, {steady: true, keys}), [], 'the glide into the next look is not this look\'s cut');
+});

@@ -3,6 +3,7 @@
 // the phone camera frames around them (whole.mjs), and edgeCuts finds those the camera's view crosses at its left or right edge when the look is shown. A line of words is never cut; a card that would
 // fit in the view is shown whole. Used by media.mjs before it draws a copy. Pure but edgesScript. Guard: desktop/test/media-edges.test.js.
 import {cameraAt, cameraKeys} from './camera.mjs';
+import {cutMoment} from './transitions.mjs';
 import {edgeItems, edgeItemsY} from './whole.mjs';
 
 // Runs in the page (page.evaluate): the visible lines of words and the cards (an element with a visible border and a rounded corner) inside the
@@ -43,7 +44,10 @@ export function edgeCuts(log, speed = 1, {steady = false, phone = null, keys = c
     // a cut is one most of the hold shows (SAMPLES points): the camera glides in and out at a hold's ends, and may arrive late in it (run 18: the
     // end of a hold was mid-glide; run 20: picture in picture arrived after the hold's middle), so one moment can read a passing edge as a cut
     // ... and only once it has arrived: a screen that opens wide glides in over the hold's first part (hold.mjs openWide)
-    const seen = new Map(), end = event.t + (event.s || 0), from = Math.max(event.t, ...keys.filter(key => key.t > event.t && key.t < end).map(key => key.t));
+    // ... and up to the next screen's cut, which can come inside the hold (run 26: Set up's proposal painted mid-hold; its frames are the next look's)
+    const i = log.events.indexOf(event), next = log.events.findIndex((later, j) => j > i && later.type === 'hold' && later.cut && later.box);
+    const end = Math.min(event.t + (event.s || 0), next < 0 ? Infinity : cutMoment(log.events, next));
+    const seen = new Map(), from = Math.max(event.t, ...keys.filter(key => key.t > event.t && key.t < end - 0.002).map(key => key.t));
     for (let k = 0; k < SAMPLES; k++) {
       const view = cameraAt(keys, from + (end - from) * (k + 0.5) / SAMPLES, log.viewport, speed, phone);
       const now = new Map(cutsIn(view, event.edges, log.viewport.w / least, log.viewport.w, log.viewport.h, log.viewport.w / least / aspect).map(cut => [`${cut.k} ${cut.side} ${cut.text}`, cut]));

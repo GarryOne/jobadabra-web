@@ -10,6 +10,7 @@ export const CONTEXT = 0.4;        // a first hold with no box (a context look) 
 export const ZOOM_IN = 0.55;       // output seconds a camera move takes (a sped-up clip stretches it in recorded time)
 export const SETTLE = 0.25;        // output seconds the camera stays on a click's target after the press, so the click is seen
 export const RING = 0.6;           // seconds a click ring grows and fades
+export const REST = 0.6;           // output seconds a look that opened wide rests after its glide in, at least (run 26: a phone hold's scroll left none)
 
 import {GLIDE_IN, OPEN_WIDE, pageChange} from './hold.mjs';
 import {blendAt, cutMoment, transitions} from './transitions.mjs';
@@ -77,17 +78,23 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
       : frame(box, used, viewport, aspect);
     if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
     // every new screen opens on the whole window, then glides in (hold.mjs openWide; owner 25 Oct 2026: "how to get there ... the context")
-    const glideIn = state => ({...state, glide: GLIDE_IN * speed});
-    if (steady && first) {
-      if (event.opensWide) move(event.t + (OPEN_WIDE + GLIDE_IN) * speed, glideIn(target)); else keys[0] = {t: 0, ...target};
-      return;
-    }
+    // It always ends with the look at rest for REST (the phone take's scroll can use a hold's time): the wide moment shrinks first, then the glide.
+    // The hold ends at its own end or at the next screen's cut, whichever comes first (run 26: Set up's proposal painted mid-hold).
+    const nextCut = events.findIndex((later, j) => j > i && later.type === 'hold' && later.cut && later.box);
+    const openWide = from => {
+      const end = Math.min(event.t + (event.s || 0), nextCut < 0 ? Infinity : cutMoment(events, nextCut)) - REST * speed;
+      const glide = Math.min(GLIDE_IN * speed, Math.max(0.05, end - from));
+      const open = Math.max(0, Math.min(OPEN_WIDE * speed, end - from - glide));
+      if (open > 0) move(from + open, full);
+      move(from + open + glide, {...target, glide});
+    };
+    if (steady && first) { if (event.opensWide) openWide(0); else keys[0] = {t: 0, ...target}; return; }
     const lastLook = earlier.filter(prev => prev.type === 'hold').at(-1);
     if (event.cut) {
       const at = cutMoment(events, i);   // the first page change since the last look, else when the page changed by itself (transitions.mjs)
       move(at - 0.001, {cx: keys.at(-1).cx, cy: keys.at(-1).cy, z: keys.at(-1).z});
       move(at, event.opensWide ? full : target);
-      if (event.opensWide) { move(Math.max(at, event.t) + OPEN_WIDE * speed, full); move(Math.max(at, event.t) + (OPEN_WIDE + GLIDE_IN) * speed, glideIn(target)); }
+      if (event.opensWide) openWide(Math.max(at, event.t));
       return;
     }
     const after = earlier.reverse().find(prev => prev.type === 'press');

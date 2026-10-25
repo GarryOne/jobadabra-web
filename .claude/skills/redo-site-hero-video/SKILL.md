@@ -255,7 +255,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   context/surroundings"). The first look and every cut look: the whole window (sidebar and page title in view) for `OPEN_WIDE`, then a slow glide
   (`GLIDE_IN`) to the look; the hold is lengthened by both (hold.mjs `openWide`), so the look still rests its own time. Never open a screen already
   zoomed. A click zoom is framed whole like a look, and no frame edge cuts a line or a card at the top or bottom either (the bottom edge cut Set
-  up's Back/Continue in run 25).
+  up's Back/Continue in run 25). The glide always leaves the look `REST` (0.6 s) at rest before the hold ends OR the next screen cuts in,
+  whichever is first (run 26: a phone hold's scroll, and Set up's proposal painting mid-hold, left no rest; the edge check read the glide and
+  the next look's frames as cuts); the edge check reads only that rest, up to the next cut.
 ## When something is wrong: fix the mechanism, then the scene (owner, 24 Oct 2026: "did you fix the root causes permanently?")
 A bad crop, a missing step or a wrong frame is first a question about the tool: which camera/recorder/tool rule let it through? Fix that rule, add a test
 that loops over every hero look or scene (it fails on the old code), add a trap line below; only then tune the scene's numbers. A scene-only tweak
