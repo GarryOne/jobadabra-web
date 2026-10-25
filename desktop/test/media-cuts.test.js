@@ -95,3 +95,16 @@ test('after a cut that opens wide, the whole new page is the reference until the
   clip.fill(page(40), 32, 38);   // the old look lingering after the cut: caught
   assert.equal(strayFrames({log, thumb: j => clip[j], frames: clip.length, speed})[0]?.side, 'after');
 });
+
+test('before a cut, the old page seen through a close zoom on the press is not another page; the new page there still is (cuts.mjs strayFrames)', async () => {
+  const {strayFrames, THUMB} = await import('../../media/cuts.mjs');
+  const size = THUMB.w * THUMB.h, page = level => new Uint8Array(size).fill(level);
+  const box = {x: 100, y: 100, width: 600, height: 300};
+  // Set up's Use Free AI (owner, 25 Oct 2026): look a to 1.0 s, the camera glides onto the button (1.1-1.8 s), rests there through the press until the page changes at 2.4
+  const log = {frames: [], events: [{t: 0, type: 'hold', box, s: 1, look: 'a'}, {t: 1.1, type: 'click', zoom: 3}, {t: 1.8, type: 'press', held: true}, {t: 2.4, type: 'mark'},
+    {t: 2.4, type: 'hold', box, cut: true, s: 1.5, look: 'b'}]};
+  const clip = Array.from({length: 120}, (_, j) => page(j / 30 < 1.1 ? 40 : j / 30 < 1.8 ? 60 + j : j / 30 < 2.4 ? 90 : 150));
+  assert.deepEqual(strayFrames({log, thumb: j => clip[j], frames: clip.length}), [], 'the zoomed old page passes');
+  clip.fill(page(150), 68, 71);   // the new page painted before the cut: caught
+  assert.equal(strayFrames({log, thumb: j => clip[j], frames: clip.length})[0]?.side, 'before');
+});
