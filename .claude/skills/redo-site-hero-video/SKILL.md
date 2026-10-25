@@ -276,7 +276,7 @@ comes back at the next redo.
   new phoneLook `#find-card .insight-head` no longer existed, the run waited 30 s and failed after Set up). Before recording, read the app's recent
   history of the screens in the scenes (`git -C ~/jobadabra log --since=<last recording> -- desktop/renderer/pages/<screen>*`) and check each new
   look's selector in the app's current markup; re-record only the pieces after the failure (the finished ones are kept in their set).
-- **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this.
+- **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this, unless the Mac is loaded: both recorders wait up to `SHOW_WAIT` (10 s, hold.mjs) for a look to become visible first (runs 26-27: Track's e-mail and Find's phone row were still drawing; each miss cost a whole re-recorded take).
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.
 - **The panel moves**: during a fill it sits centred, then returns to its corner; `panelBox` waits for the corner. A union of the panel and a far field is wider than the zoomed view and gets framed from its left edge: look at `'panel'` alone.
 - **Persona gaps show as app gaps**: `draft.json` needs `search.target_roles` (else "Target roles: Not set") and a numeric `usd` (step 3 crashes without it). That's old data, not a product bug.

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {startRealExtension} from '../desktop/e2e/lib/real-extension.mjs';
 import {edgesScript} from './edges.mjs';
-import {holdEvent, holdLeft, OFF_MAX, offScreen, scrollLookIn, stepMarks} from './hold.mjs';
+import {holdEvent, holdLeft, OFF_MAX, offScreen, scrollLookIn, SHOW_WAIT, stepMarks} from './hold.mjs';
 import {unionBox} from './record-app.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {answerReply, formHost, formHtml} from './stand-in.mjs';
@@ -72,6 +72,7 @@ export async function recordExtensionVideo({persona, piece, dir}) {
         const started = Date.now();
         await page.waitForTimeout(250);
         const boxOf = async look => (look ? unionBox(await Promise.all([look].flat().map(one => (one === 'panel' ? panelBox(page) : page.locator(one).first().boundingBox())))) : null);
+        if (item.look) await Promise.all([item.look].flat().filter(one => one !== 'panel').map(one => page.locator(one).first().waitFor({state: 'visible', timeout: SHOW_WAIT}).catch(() => {})));   // as record-app.mjs
         let box = await boxOf(item.look);
         if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
         let phoneBox = await boxOf(item.phoneLook);

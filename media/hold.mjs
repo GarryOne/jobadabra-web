@@ -55,6 +55,8 @@ export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, .
 // Every new screen opens on the whole app window, then glides in (owner, 25 Oct 2026, a general rule: "Let the user understand where is that zoomed
 // part placed in the app. Basically how to get there"): the first look and every cut look of a steady piece hold OPEN_WIDE + GLIDE_IN output seconds
 // longer, so the look still rests its own time after the camera arrives (camera.mjs). Pure. Guard: desktop/test/media-camera.test.js.
+// ms a hold waits for its look to become visible before it stops with "nothing to look at" (both recorders)
+export const SHOW_WAIT = 10000;
 export const OPEN_WIDE = 0.6;   // output seconds the whole window shows before the glide
 export const GLIDE_IN = 0.9;    // output seconds the glide in takes (a click's or a look's own move is ZOOM_IN, 0.55)
 export const opensWide = (steps, i) => Boolean(steps[i].hold && steps[i].look && steps[i].zoom !== 1 && (steps[i].cut || !steps.slice(0, i).some(step => step.hold)));

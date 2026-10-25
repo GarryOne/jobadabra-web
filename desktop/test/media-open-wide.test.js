@@ -110,3 +110,14 @@ test('the edge check stops reading a hold where the next screen cuts in, even in
   const keys = cameraKeys({...log, speed: 1.5, steady: true});
   assert.deepEqual(edgeCuts(log, 1.5, {steady: true, keys}), [], 'the glide into the next look is not this look\'s cut');
 });
+
+test('both recorders wait for a hold\'s look to become visible before stopping on "nothing to look at" (runs 26-27, a loaded Mac)', async () => {
+  const fs = await import('node:fs');
+  const {SHOW_WAIT} = await import('../../media/hold.mjs');
+  assert.ok(SHOW_WAIT >= 5000);
+  for (const file of ['record-app.mjs', 'record-extension.mjs']) {
+    const source = fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
+    const wait = source.indexOf("waitFor({state: 'visible', timeout: SHOW_WAIT})"), stop = source.indexOf('nothing to look at at ${item.look}');
+    assert.ok(wait > 0 && wait < stop, `${file}: the wait comes before the stop`);
+  }
+});

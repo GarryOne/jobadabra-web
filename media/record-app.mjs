@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {clickedControl, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 import {freePort} from '../desktop/e2e/lib/extension.mjs';
@@ -157,6 +157,8 @@ async function step(page, item, log, app = null) {
     const started = Date.now();
     // a cut look not yet seen is watched for from here too (round 3: the proposal replaced "reading your CV" in this gap, cut 0.4 s late)
     if (log.self) { const after = log.next; log.next = log.self; await watch(page, 250, log); log.next = after; } else await page.waitForTimeout(250);
+    // a look still drawing on a loaded Mac (run 26-27: Track's e-mail and Find's row were in the page, not yet visible) is waited for, up to SHOW_WAIT
+    if (item.look) await Promise.all([item.look].flat().map(selector => page.locator(selector).first().waitFor({state: 'visible', timeout: SHOW_WAIT}).catch(() => {})));
     let box = item.look ? await lookBox(page, item.look) : null;
     if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
     let phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
