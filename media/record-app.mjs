@@ -187,6 +187,8 @@ async function step(page, item, log, app = null) {
 export async function recordAppVideo({persona, piece, dir}) {
   const {app, page, close} = await launchApp({persona, settings: piece.settings, moment: piece.moment, env: piece.env, ...(piece.window ? {window: piece.window} : {})});
   try {
+    // the phone copy leaves out the two bars that sit under every page (Application sessions, Last refresh): they took a third of the window (owner, 25 Oct 2026: the tab's content got a thin strip)
+    if (piece.window) await page.addStyleTag({content: '#sessions-dock, #activity-toggle {display: none !important}'});
     const cast = await startScreencast(page, path.join(dir, 'frames'));
     const log = stepLog(cast.clock, cast.paint);
     log.speed = piece.speed || 1;   // a press's on-screen time (pressShow) is in output seconds

@@ -20,7 +20,7 @@ export const nav = view => `.nav[data-view=${view}]:not([data-settings])`;
 // round 9, owner chose "Narrow window": the phone copy is its own take in a 4:3 window of 880 x 660 at the app's text size 1.25, so the app
 // lays out 704 x 528 css px, one column, and the whole column fits a phone frame with readable text (at the app's own 0.8 it laid out 1100 css
 // wide: Jobs' cards spanned 980 px and the whole frame showed 4-px text). record-app.mjs launchApp, record-extension.mjs view; media.mjs takeOf.
-const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 880, height: 660}, zoom: 1.25};
+const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 960, height: 720}, zoom: 1.25};
 // Desktop (owner, 25 Oct 2026: "lower the window size, so that we can have bigger text. And/or zoom in more agressively where the click goes"): the
 // desktop take runs the app at text size 1 (its default here is 0.8, a 1800-px page), so the 1440 x 900 window is a 1440-px page and every screen
 // reads 25% bigger; a click zooms in to TAP_ZOOM wherever its part still has its one deliberate move (24 Oct rule, media-options.test.js); the whole-frame rule
@@ -28,7 +28,8 @@ const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 880, hei
 const DESKTOP = {zoom: 1};
 export const TAP_ZOOM = 3;
 const ROW = '.job-row:has-text("Cardiac Care Unit")';
-const DRAWER = '#job-panel';   // the whole job drawer, its top part: every tab is read at this one view
+const DRAWER = '#job-panel';
+const DRAWER_TAB = ['#job-panel .jd-tabs', '#job-panel .jd-body'];   // the phone copy reads a tab's content, not the job's header and the footer bars (owner, 25 Oct 2026)   // the whole job drawer, its top part: every tab is read at this one view
 // Round 4 (owner, 24 Oct 2026: "we kind of need to highlight each of the steps", sketch https://claude.ai/artifact/UxHHtYTzUwUaEzAsjQjoz5, A + B): each
 // clip's steps carry a `tag` drawn in the caption band (where the frame is: SET UP 1/5, JOBS, CHROME), and Set up's looks include the app's own
 // "Step n of 5" heading (HEAD).
@@ -50,6 +51,8 @@ const scrollTo = (title, behavior = 'instant') => `[...document.querySelectorAll
 // moving too fast to the job drawer": the drawer's first look is the clip's one camera move, from her row to the panel, not a cut.
 const SEARCH_SECONDS = 7;
 // Once the search's list is in (it loads a moment after the search ends): "In conversation" folded so the list sits under the card, her row to the middle.
+// the demo's Find card is fed by hand, so the app toasts "Its result was not saved" over the first job and reads like an error (owner, 25 Oct 2026): no toast is ever on screen in this clip
+const NO_TOASTS = `new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach(el => el.remove())).observe(document.body, {childList: true, subtree: true})`;
 const TO_HER_ROW = `new Promise(done => { const t0 = Date.now(); const tick = () => {
   const row = [...document.querySelectorAll('.job-row')].find(each => each.textContent.includes('Cardiac Care Unit'));
   if (!row && Date.now() - t0 < 20000) return setTimeout(tick, 100);   // a slow search (round 4: > 8 s on a loaded Mac); the cut drops this wait
@@ -120,6 +123,7 @@ export const VIDEOS = {
     steps: [
       {go: 'jobs'},
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
+      {js: NO_TOASTS},
       {click: '#find-card .magic-go', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Find jobs: the search starts'},
       // owner, 25 Oct 2026: "the Find jobs card appears once more after it is clicked" (a cut look opened wide on the idle card for a second), then "zoom in to the card
       // with the loading": no cut; the look waits for the searching card's own head and steps row (title down to the live lines, its left 760 px: owner, same day, "more centered", shot of the card
@@ -130,23 +134,23 @@ export const VIDEOS = {
       {click: ROW, say: 'One job opens'},
       // owner, 25 Oct 2026: "once we zoomed in the job drawer, we just click on every tab with the same zoom": one look (the drawer) for the opening and for all nine tabs, so the
       // camera never moves between them (no cut: a cut opens wide, which read as reloading the app); the persona's job carries data in every tab (media.json, job-pages.json)
-      {hold: 2.0, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, tag: 'The job', say: 'It opens beside the list: nine tabs', beat: 'The job opens in a panel beside the list, on Overview'},
+      {hold: 2.0, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 1.8, tag: 'The job', say: 'It opens beside the list: nine tabs', beat: 'The job opens in a panel beside the list, on Overview'},
       {click: '#job-panel .jd-tabs button:has-text("Match")', zoom: false},
-      {hold: 3.0, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, poster: true, say: 'Match: why this job fits', beat: 'The job on its Match tab: why it fits'},
+      {hold: 3.0, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, poster: true, say: 'Match: why this job fits', beat: 'The job on its Match tab: why it fits'},
       {click: '#job-panel .jd-tabs button:has-text("Description")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Description: the posting, saved', beat: 'The Description tab: the saved posting'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Description: the posting, saved', beat: 'The Description tab: the saved posting'},
       {click: '#job-panel .jd-tabs button:has-text("Application")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Application: the kit, answers, letter', beat: 'The Application tab: the kit and its answers'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Application: the kit, answers, letter', beat: 'The Application tab: the kit and its answers'},
       {click: '#job-panel .jd-tabs button:has-text("Documents")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Documents: the CV and letter', beat: 'The Documents tab: the CV and cover letter'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Documents: the CV and letter', beat: 'The Documents tab: the CV and cover letter'},
       {click: '#job-panel .jd-tabs button:has-text("Interviews")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Interviews: the phone screen', beat: 'The Interviews tab: the phone screen and its recording'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Interviews: the phone screen', beat: 'The Interviews tab: the phone screen and its recording'},
       {click: '#job-panel .jd-tabs button:has-text("Review")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Review: what went well, what to fix', beat: 'The Review tab: strengths and answers to improve'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Review: what went well, what to fix', beat: 'The Review tab: strengths and answers to improve'},
       {click: '#job-panel .jd-tabs button:has-text("Messages")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Messages: the recruiter, in one place', beat: 'The Messages tab: the recruiter and the invitation'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Messages: the recruiter, in one place', beat: 'The Messages tab: the recruiter and the invitation'},
       {click: '#job-panel .jd-tabs button:has-text("Timeline")', zoom: false},
-      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER, phoneZoom: 3, say: 'Timeline: every step, dated', beat: 'The Timeline tab: every step of the job, dated'},
+      {hold: 2.1, look: DRAWER, zoom: 1.4, wide: true, phoneLook: DRAWER_TAB, phoneZoom: 1.8, say: 'Timeline: every step, dated', beat: 'The Timeline tab: every step of the job, dated'},
     ]},
   'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, desktop: DESKTOP, phone: PHONE,
     shows: 'The job on Jobs, Apply pressed',
