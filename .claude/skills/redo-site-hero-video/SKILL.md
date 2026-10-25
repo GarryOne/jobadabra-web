@@ -39,7 +39,8 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
 6. **Ship** from the worktree: `~/jobadabra/tools/ship.sh --background --body=<file>` (body per `~/jobadabra/tools/pr-body-template.md`, with
    one `| What changed | Before | After |` row per changed clip: `<piece>-before.gif` | `<piece>-after.gif`, each linked to `<piece>-compare.mp4`
    (the body check refuses one combined image, and a header other than exactly `| What changed | Before | After |`: run
-   `python3 ~/jobadabra/tools/pr-screens.py < <body>` before ship; all published under a tag, not on the branch:
+   `~/jobadabra/tools/pr-body.sh origin/main --body=<body> >/dev/null` before ship: it runs every body rule, also at most 5 pairs
+   (PR2, 25 Oct 2026: ship failed twice, on the header and then on 8 pairs: pick the 4-5 clips/shapes that changed most); all published under a tag, not on the branch:
    `GITHUB_REPOSITORY=GarryOne/jobadabra-web node ~/jobadabra/tools/pr-assets.mjs pr-assets-<branch> <files>`; at most 5 rows); stills only for what is not a clip); Monitor `^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED|GREEN|CONFLICT)`. The owner merges; merge = production (www.jobadabra.top).
 After that, the daily `tools/media.sh` refresh re-records the hero pieces from origin/main with everything else; the hero needs this skill only to change.
 
