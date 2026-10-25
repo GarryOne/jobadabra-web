@@ -117,7 +117,7 @@ test('the hero is one stage of four clips: the first loads, the rest wait; each 
     assert.ok(clip.includes(`data-cap="${CAPTIONS[i]}"`), `clip ${i + 1} caption`);
     assert.match(clip, /data-sub="[^"]{10,}"/, `clip ${i + 1} supporting line`);
     assert.match(clip, /\(made-up example\)"/, `clip ${i + 1} says it is an example`);
-    assert.doesNotMatch(clip, /autoplay|loop/, `clip ${i + 1}: the script plays and advances it`);
+    assert.doesNotMatch(clip, i === 0 ? /loop/ : /autoplay|loop/, `clip ${i + 1}: the script advances it; only the first asks the browser to autoplay (iOS, owner 25 Oct 2026), none loops`);
   });
   assert.ok(stage.includes(`<b class="stage-title"><span class="m-hide">${CAPTIONS[0]}</span>`), 'the first caption is there without the script');
   assert.match(clips[2], /data-sub="Review your answers, then submit\."/, 'Apply hands over to the person');
