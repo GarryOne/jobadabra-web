@@ -8,6 +8,9 @@ import path from 'node:path';
 import {test} from 'node:test';
 
 const read = file => fs.readFileSync(new URL(`../../media/${file}`, import.meta.url), 'utf8');
+const ELECTRON = process.env.ELECTRON_BIN || path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', '.bin', 'electron');
+// The binary itself, not the npm shim: the site CI installs with ELECTRON_SKIP_BINARY_DOWNLOAD=1, so .bin/electron is there and runs nothing (#100 red).
+const HAS_ELECTRON = process.env.ELECTRON_BIN ? fs.existsSync(process.env.ELECTRON_BIN) : fs.existsSync(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', 'electron', 'path.txt'));
 
 test('runRender checks the frame count of what it made against the job, renders once more, then stops the piece', () => {
   const media = read('media.mjs');
@@ -61,3 +64,60 @@ test('Electron is started once, alone, before renders run side by side (run 30: 
   assert.match(media, /electronReady \?\?= runChild\(ELECTRON, \['--version'\]/, 'one shared start, memoised');
 });
 
+test('a copy renders in pieces of at least MIN_CHUNK frames, covering every frame once, in order (renders.mjs chunksOf)', async () => {
+  const {chunksOf, MIN_CHUNK} = await import('../../media/renders.mjs');
+  for (const count of [1, 89, 90, 179, 180, 572, 726, 2000]) {
+    const pieces = chunksOf(count, 4);
+    assert.equal(pieces[0][0], 0, `${count}`);
+    assert.equal(pieces.at(-1)[1], count, `${count}`);
+    pieces.forEach(([from, to], i) => { if (i) assert.equal(from, pieces[i - 1][1]); assert.ok(to > from); });
+    assert.ok(pieces.length <= 4 && (pieces.length === 1 || pieces.every(([from, to]) => to - from >= MIN_CHUNK)), `${count}: ${JSON.stringify(pieces)}`);
+  }
+  assert.equal(chunksOf(726, 4).length, 4);
+  assert.equal(chunksOf(100, 4).length, 1, 'a short copy stays whole');
+});
+
+test('the master uses the Mac\'s video chip where ffmpeg has it, x264 elsewhere or with HERO_HW=0 (renders.mjs masterEncoder)', async () => {
+  const {masterEncoder, VIDEOTOOLBOX, X264} = await import('../../media/renders.mjs');
+  assert.deepEqual(masterEncoder({}, () => true), VIDEOTOOLBOX);
+  assert.deepEqual(masterEncoder({}, () => false), X264, 'the CI runner');
+  assert.deepEqual(masterEncoder({HERO_HW: '0'}, () => true), X264);
+  assert.match(read('render.cjs'), /\.\.\.\(job\.encoder \|\| \['-c:v', 'libx264'/, 'the renderer takes the job\'s encoder');
+  const media = read('media.mjs');
+  assert.match(media, /const encoder = masterEncoder\(\), pieces = chunksOf\(job\.frames\.length\);/, 'every render goes through the pieces and the encoder');
+  assert.match(media, /'-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', job\.out/, 'pieces joined without encoding again');
+  assert.match(media, /joined \$\{made\} of \$\{job\.frames\.length\} frames/, 'a join that lost frames stops the piece');
+  assert.match(media, /'-map', '\[v\]', \.\.\.masterEncoder\(\), '-pix_fmt'/, 'joined parts use the same encoder');
+});
+
+test('pieces of a render draw the same frames as the whole render, joined (render.cjs + the concat join)', {skip: !HAS_ELECTRON && !process.env.CI && 'no Electron binary here (a fresh overlay installs without it); CI installs it (tests.yml), or ELECTRON_BIN=<path>'}, async () => {
+  assert.ok(HAS_ELECTRON, 'CI must install the Electron binary for this test (tests.yml: "Electron and a display")');
+  const {chunksOf} = await import('../../media/renders.mjs');
+  const {framesIn} = await import('../../media/encode.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pieces-')), frames = path.join(dir, 'frames');
+  fs.mkdirSync(frames);
+  for (const [i, colour] of ['red', 'green', 'blue'].entries()) execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `color=${colour}:s=320x200`, '-frames:v', '1', path.join(frames, `f${i}.jpg`)]);
+  const all = Array.from({length: 200}, (_, j) => ({file: `f${Math.floor(j / 70)}.jpg`, x: 0, y: 0, w: 320, h: 200, cx: 10, cy: 10, cursor: false}));
+  const job = {framesDir: frames, scale: 1, width: 320, height: 200, fps: 30, ring: 0.5, captionSize: 20, sayFade: 0.25, ffmpeg: 'ffmpeg', gradeSvg: '<svg xmlns="http://www.w3.org/2000/svg"><filter id="grade"><feComponentTransfer/></filter></svg>'};
+  const electron = ELECTRON, render = new URL('../../media/render.cjs', import.meta.url).pathname;
+  const outs = chunksOf(all.length, 4, 50).map(([from, to], i) => {
+    const out = path.join(dir, `part${i}.mp4`), file = path.join(dir, `part${i}.json`);
+    fs.writeFileSync(file, JSON.stringify({...job, frames: all.slice(from, to), out}));
+    execFileSync(electron, [...(process.platform === 'linux' ? ['--no-sandbox'] : []), render, file], {stdio: 'pipe'});   // Linux CI: no setuid sandbox; stderr kept for the error
+    return out;
+  });
+  const list = path.join(dir, 'parts.txt'), joined = path.join(dir, 'joined.mp4');
+  fs.writeFileSync(list, outs.map(out => `file '${out}'`).join('\n'));
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', joined]);
+  assert.equal(framesIn(joined), all.length);
+  fs.rmSync(dir, {recursive: true, force: true});
+});
+
+test('the MP4, WebM and phone ladders of a clip run side by side (encode.mjs encodeVideo)', () => {
+  const encode = read('encode.mjs');
+  assert.match(encode, /export async function encodeVideo\(/);
+  assert.match(encode, /await Promise\.all\(jobs\);/);
+  const body = encode.slice(encode.indexOf('export async function encodeVideo('));
+  assert.doesNotMatch(body.slice(0, body.indexOf('\n}\n')), /\bff\('-/, 'no encode inside it blocks the others');
+  assert.match(read('media.mjs'), /const \{files, bytes\} = await encodeVideo\(/);
+});

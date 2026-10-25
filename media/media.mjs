@@ -26,7 +26,7 @@ import {jpegWidth, loadPersona, parseArgs, planOf, withPlan} from './options.mjs
 import {partsOf, SNIPS, STILLS, VIDEOS} from './scenes.mjs';
 import {rewordLog} from './words.mjs';
 import {openWide, phoneTake} from './hold.mjs';
-import {limiter, RENDERS, runChild, TAKES} from './renders.mjs';
+import {chunksOf, limiter, masterEncoder, RENDERS, runChild, TAKES} from './renders.mjs';
 import {KEY_FILE, keptTake, reuseTake, takeKey} from './takes.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
@@ -44,6 +44,23 @@ const electronOnce = () => (electronReady ??= runChild(ELECTRON, ['--version'], 
   if (run.status !== 0) throw new Error(`media: Electron does not start (${run.error?.message ?? run.status ?? run.signal}): delete .overlay and run again`);
 }));
 async function runRender(job, name, tries = 2) {
+  // in pieces at once, each through the queue, on the Mac's video chip where there is one (renders.mjs chunksOf, masterEncoder), then joined
+  const encoder = masterEncoder(), pieces = chunksOf(job.frames.length);
+  const outs = pieces.map((_, i) => (pieces.length === 1 ? job.out : job.out.replace(/\.mp4$/, `.part${i}.mp4`)));
+  await Promise.all(pieces.map(([from, to], i) => renderPiece({...job, encoder, frames: job.frames.slice(from, to), out: outs[i]}, name, tries)));
+  if (pieces.length > 1) {
+    const list = job.out.replace(/\.mp4$/, '.parts.txt');
+    fs.writeFileSync(list, outs.map(out => `file '${out.replace(/'/g, "'\\''")}'`).join('\n'));
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', job.out]);
+    for (const file of [list, ...outs]) fs.rmSync(file, {force: true});
+    const made = framesIn(job.out);
+    if (made !== job.frames.length) throw new Error(`media: ${name}: ${path.basename(job.out)} joined ${made} of ${job.frames.length} frames`);
+  }
+  return job.out;
+}
+
+// One renderer on frames of a copy (the whole copy, or one piece): queued, rendered again once when it ends short. -> its file.
+async function renderPiece(job, name, tries) {
   const file = path.join(path.dirname(job.out), `${path.basename(job.out, '.mp4')}.json`);
   fs.writeFileSync(file, JSON.stringify({...job, gradeSvg: gradeSvg()}));   // every clip graded the same way, the app's pixels only (grade.mjs)
   await electronOnce();
@@ -208,7 +225,7 @@ function joined(files, kinds, speed, out) {
   if (files.length === 1) return files[0];
   const {filter, out: last} = joinFilter(files.map(file => duration(file)), kinds, speed);
   execFileSync('ffmpeg', ['-v', 'error', '-y', ...files.flatMap(file => ['-i', file]), '-filter_complex', `${filter};${last}format=yuv420p[v]`,
-    '-map', '[v]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '12', '-pix_fmt', 'yuv420p', out]);
+    '-map', '[v]', ...masterEncoder(), '-pix_fmt', 'yuv420p', out]);
   return out;
 }
 
@@ -226,7 +243,7 @@ async function makeVideo(name, persona, work, out) {
     const phoneStarts = clips.map((_, i) => clips.slice(0, i).reduce((sum, clip) => sum + (clip.phoneSeconds ?? clip.seconds), 0));   // the phone takes run their own time
     const posterOf = (at, logOf, pipAt) => clips.map((clip, i) => (clip.pip ? at[i] + pipAt(clip) : clip.piece.steps.some(step => step.poster) ? at[i] + posterTime(logOf(clip).events) : null)).filter(t => t !== null).at(-1) ?? 0;
     const posterAt = posterOf(starts, clip => clip.log, clip => clip.posterAt), phonePosterAt = posterOf(phoneStarts, clip => clip.phoneLog || clip.log, clip => clip.phonePosterAt ?? clip.posterAt);
-    const {files, bytes} = encodeVideo({master, phoneMaster, name, piece, outDir: out, posterAt, phonePosterAt});
+    const {files, bytes} = await encodeVideo({master, phoneMaster, name, piece, outDir: out, posterAt, phonePosterAt});
     console.log(`media: ${name}: ${Object.entries(bytes).map(([kind, n]) => `${kind} ${(n / 1e6).toFixed(2)} MB`).join(', ')}`);
     if (piece.camera === 'steady') {   // no frame of another page around a cut (cuts.mjs strayFrames), read off each played copy, part by part
       const strayIn = (file, at, logOf) => {
