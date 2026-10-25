@@ -378,8 +378,7 @@ test('the magic wand is the cursor from a step that says wand until the next one
   const {wandAt} = await import('../../media/camera.mjs');
   const events = [{t: 0, type: 'hold', wand: true}, {t: 1, type: 'click', wand: true}, {t: 1.7, type: 'press'}, {t: 3, type: 'hold', wand: true}, {t: 6, type: 'hold'}, {t: 7, type: 'click'}];
   assert.deepEqual([0.5, 1.8, 4, 6.5, 8].map(t => wandAt(events, t)), [true, true, true, false, false]);
+  // owner, 25 Oct 2026 (later): "Remove the magic wand for now. I don't like it how it looks": the drawing stays in render.cjs, no scene asks for it
   const {VIDEOS} = await import('../../media/scenes.mjs');
-  assert.equal(VIDEOS['hero-onboarding'].wand, true, 'the setup wizard draws the wand');
-  assert.ok(VIDEOS.hero.steps.find(step => step.click === '#find-card .magic-go')?.wand, 'and the Find jobs click');
-  assert.ok(VIDEOS.hero.steps.filter(step => step.hold && step.look).slice(-3).every(step => !step.wand), 'the arrow is back for the list and the drawer');
+  for (const [name, piece] of Object.entries(VIDEOS)) assert.ok(!piece.wand && !piece.steps.some(step => step.wand), `${name} draws the arrow`);
 });

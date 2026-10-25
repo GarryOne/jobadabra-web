@@ -423,6 +423,6 @@ comes back at the next redo.
   app: owner "we start again from zoomed out"); a look equal to the one before moves nothing (media-options counts it 0). Click zoom on every main button (Build my strategy, Find jobs, Check Gmail,
   Use Free AI). A piece whose pages hold still for seconds says `quiet: true` (else 262 frames in 52 s read as a stalled capture).
 - **The wand cursor** (owner, 25 Oct 2026): `wand: true` on a piece or a step draws the magic wand (render.cjs `frame.wand`, tip at the click point; `camera.mjs wandAt`) from that step until the next
-  click or look that does not say it. Set up: the whole clip; Find: from its first look through the search; the arrow comes back for the list and the drawer. Test: media-camera.
+  click or look that does not say it. The owner saw it and said "Remove the magic wand for now. I don't like it how it looks" (25 Oct 2026): no scene sets it now; the drawing stays for a redo.  Test: media-camera.
 - **Every drawer tab needs demo data** (owner: "a very complete job with conversations, timelines, reviews, interviews"): the persona's `job-pages.json` gives her job a kit, a record, prep, a recruiter
   message, notes, five dated events and a recorded, reviewed phone screen; add data there before adding a tab to a scene.

@@ -98,7 +98,7 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 // comes in (`into`, transitions.mjs): slide = one screen to another, tiles = time passed, card (+ `card` words) = the flow needs explaining, fade =
 // the same screen changing. A part's `into` is its join (a card part opens on its card); a clip's `stageInto` is the site's switch into it.
 export const VIDEOS = {
-  'hero-onboarding': {kind: 'video', wand: true, moves: 3, source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
+  'hero-onboarding': {kind: 'video', moves: 3, source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
     env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '4500'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV" (owner, 25 Oct 2026: "it moves to the next screen too fast")
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
@@ -119,12 +119,12 @@ export const VIDEOS = {
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
     steps: [
       {go: 'jobs'},
-      {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, wand: true, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
-      {click: '#find-card .magic-go', zoom: TAP_ZOOM, phoneZoom: 3, wand: true, say: 'Find jobs: the search starts'},
+      {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
+      {click: '#find-card .magic-go', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Find jobs: the search starts'},
       // owner, 25 Oct 2026: "the Find jobs card appears once more after it is clicked" (a cut look opened wide on the idle card for a second), then "zoom in to the card
       // with the loading": no cut; the look waits for the searching card's own head and steps row (title down to the live lines, its left 760 px: owner, same day, "more centered", shot of the card
       // with its left edge at the frame's edge) and the camera glides in after the press
-      {hold: SEARCH_SECONDS + 0.6, look: ['#find-card .find-head-box', '#find-card .find-steps-row'], lookWidth: 760, zoom: 1.7, phoneLook: '#find-card', phoneZoom: 2.6, wand: true, say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      {hold: SEARCH_SECONDS + 0.6, look: ['#find-card .find-head-box', '#find-card .find-steps-row'], lookWidth: 760, zoom: 1.7, phoneLook: '#find-card', phoneZoom: 2.6, say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
