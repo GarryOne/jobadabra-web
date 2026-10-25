@@ -433,3 +433,5 @@ comes back at the next redo.
 - **Two speeds, both on purpose** (owner, 25 Oct 2026: "impose a 1.5x speed for all the clips"): the render plays each clip at 1.5x of real time (scenes.mjs `speed: 1.5`) and the page adds 1.5x (hero-stage.js `SPEED`),
   2.25x in all. The owner meant 50% faster than the clips he had watched, which were already 1.5x; I first read it as 1.5x of real time, called #115 a bug and reverted it, then restored it. When a speed is asked for,
   ask "faster than what you watched?" before reading the pieces' `speed`. Test: mobile-hero asserts SPEED and a rate on every clip.
+- **Every click and tap zooms** (owner, 25 Oct 2026: "zoom enough always when we do a click, so that the user sees and understands where we clicked"; Build my strategy was only an example): the recorder gives a
+  step with no `zoom` the default (hold.mjs `clickZoom`, 3 = TAP_ZOOM). The one way out is `zoom: false`, only for the job drawer's tabs (one zoom for all nine). Test: media-click-zoom loops over every step of every piece.
