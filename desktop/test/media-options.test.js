@@ -75,11 +75,13 @@ test('every hero clip is steady, makes at most one deliberate move, holds a zoom
     // one deliberate camera move per part: a part is a phase of its own (round 5, owner: the live card "B, then pan to the pill")
     for (const part of partsOf(name)) {
       const steps = VIDEOS[part].steps;
-      const moves = steps.filter(step => step.look).slice(1).filter(step => !step.cut).length + steps.filter(step => (step.click || step.tap) && step.zoom).length;
-      assert.ok(moves <= 1, `${part}: ${moves} camera moves`);
+      const looks = steps.filter(step => step.look);   // a look that repeats the one before it moves nothing (the drawer's tabs, owner 25 Oct 2026)
+      const moves = looks.slice(1).filter((step, i) => !step.cut && JSON.stringify(step.look) !== JSON.stringify(looks[i].look)).length + steps.filter(step => (step.click || step.tap) && step.zoom).length;
+      // a piece may name more (owner, 25 Oct 2026: a close zoom on Use Free AI and on the search card, besides the result's move): `moves` in scenes.mjs
+      assert.ok(moves <= (VIDEOS[part].moves || 1), `${part}: ${moves} camera moves`);
     }
     const result = piece.steps.find(step => step.poster);
-    assert.ok(result && result.look && result.zoom >= 1.6, `${name}: a zoomed result marked poster`);
+    assert.ok(result && result.look && result.zoom >= (result.wide ? 1.4 : 1.6), `${name}: a zoomed result marked poster`);
     assert.ok(result.hold / piece.speed >= 2, `${name}: the result is on screen ${(result.hold / piece.speed).toFixed(1)} s`);
     assert.equal(piece.phone.width / piece.phone.height, 4 / 3, `${name}: phone copy 4:3`);
     assert.ok(piece.steps.filter(step => step.look).every(step => (step.phoneZoom || 0) > (step.zoom || 1)), `${name}: the phone crops tighter`);

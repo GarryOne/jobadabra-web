@@ -88,7 +88,12 @@ export function strayFrames({log, thumb, frames, speed = 1, fps = 30, max = STRA
     // a page that changes a little by itself late in the hold (run 24: Track's "Last refresh" line hiding) is not another page.
     const holdEnd = video(prev.t + prev.s), last = Math.max(beat(prev), holdEnd - 1);
     const lastOld = 2 * meanDiff(thumb(last), thumb(beat(prev))) < meanDiff(thumb(last), thumb(beat(hold)));
-    look(holdEnd, video(mixed ? Math.min(cut, mixed.from) : cut), lastOld ? [beat(prev), last] : [beat(prev)], 'before');
+    // A press with a close zoom before the cut (owner, 25 Oct 2026, Set up: "zoom in more on Use Free AI"): the camera glides onto the button and rests there until
+    // the page changes, so those frames are the old page through another view: the check starts where the zoom has arrived and reads that view as the old page.
+    const press = log.events.find(e => e.type === 'press' && e.t > prev.t && e.t < cut && log.events.some(c => c.type === 'click' && c.zoom && c.t > prev.t && c.t < e.t));
+    const arrived = press ? Math.min(frames - 1, video(press.t) + 1) : null, cutAt = video(mixed ? Math.min(cut, mixed.from) : cut);
+    if (press && arrived < cutAt) look(arrived + 1, cutAt, [arrived], 'before');
+    else look(holdEnd, cutAt, lastOld ? [beat(prev), last] : [beat(prev)], 'before');
     // After the cut, a look that fills in by itself (the search card's numbers) still differs from its own end: the frame half a second in is a second
     // reference, but only when it is the new page (not the old page, and closer to the new beat than to the old one), so an old page that lingers is
     // still caught. Not "twice as close" (run 24): in the phone copy one card fills the frame before and after Find's cut, and the new beat, late in the

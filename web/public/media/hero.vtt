@@ -1,22 +1,28 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:02.400
+00:00:00.000 --> 00:00:02.622
 {"tag":"Jobs","say":"Fresh from setup: one button, Find jobs"}
 
-00:00:02.400 --> 00:00:03.378
+00:00:02.622 --> 00:00:04.067
 {"tag":"Jobs","say":"Find jobs: the search starts"}
 
-00:00:03.378 --> 00:00:10.044
+00:00:04.067 --> 00:00:09.022
 {"tag":"Jobs","say":"It reads employer sites and job boards"}
 
-00:00:10.044 --> 00:00:12.333
+00:00:09.022 --> 00:00:11.356
 {"tag":"Jobs","say":"Ranked by fit: the best matches first"}
 
-00:00:12.333 --> 00:00:13.644
+00:00:11.356 --> 00:00:12.556
 {"tag":"Jobs","say":"One job opens"}
 
-00:00:13.644 --> 00:00:15.644
+00:00:12.556 --> 00:00:14.644
 {"tag":"The job","say":"It opens beside the list"}
 
-00:00:15.644 --> 00:00:18.833
+00:00:14.644 --> 00:00:18.622
 {"tag":"The job","say":"Match: why this job fits"}
+
+00:00:18.622 --> 00:00:22.022
+{"tag":"The job","say":"Description: the posting, saved with the job"}
+
+00:00:22.022 --> 00:00:25.200
+{"tag":"The job","say":"Timeline: when it was found"}

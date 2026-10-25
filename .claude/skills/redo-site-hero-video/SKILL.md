@@ -355,7 +355,8 @@ comes back at the next redo.
 - **A look that fills in by itself failed the gate** (round 3: the searching card went 0 → 31 found; its first frames differed 3.8 from its end):
   right after a cut the gate also accepts the frame half a second in, but only when that frame is the new page; never raise `STRAY_MAX` for this.
 - **A zoomed press before a cut holds the camera past the cut** (round 3: the tap on Use Free AI zoomed, the camera stayed on it after the page changed):
-  a press right before a page change gets no zoom; frame the button inside the look before it instead.
+  a press right before a page change got no zoom. Owner, 25 Oct 2026 ("zoom in more on the click area"): it gets the close zoom again; the stray-frame check reads the zoomed old
+  page as the old page (`cuts.mjs strayFrames`, from where the press's zoom has arrived; test: media-cuts), the camera still cuts to the new look at the page change.
 - **The demo shows another person's data where a persona lacks a file** (round 3: the nurse had no `ready.json`, so the DevOps list marked her job "Review & submit"):
   when a screen shows something odd, check which demo file feeds it and give the persona its own.
 - **lookWidth on a centred card cut its words** (round 4: the empty Find jobs card is full width with its words centred; lookWidth 1040 kept its
@@ -404,3 +405,15 @@ comes back at the next redo.
   a picture in picture for numbers, words or states that disagree between the two pictures before showing the owner.
 - **Check a recording's numbers, not just its look**: the recorder prints `the card paced on a N s fill`; a value under ~1 s means the sync or
   the done state was missed.
+- **A narrow look can still end at 1.2x** (run 1, 25 Oct 2026: a 286-px calendar card, a 403-px Set up card): the camera zoomed OUT until both frame edges fell in a gap between
+  lines of words, and a page of text has none (`whole.mjs`). Now the desktop copy never zooms out below `DESKTOP_FLOOR` 1.5 for clean edges: it takes the frame whose edges cut the
+  fewest lines and cards, and `edges.mjs` only names what it cuts (the phone copy still stops on a cut). Test: media-fits.
+- **The depth gate** (owner, 25 Oct 2026: "zoom deeper, about 1.5x"): `fits.mjs` stops a desktop piece before any render when a look ends below `MIN_ZOOM` 1.5, naming the look, its box width
+  and the width 1.5x shows (880 CSS px at 1440; the 1080-px strategy card needs `lookWidth` or a column). A whole-screen look says `wide: true`; a test fails a scene asking below 1.5.
+  A failed gate is the fastest probe: read each clip's `hero.log` FAILED line for the widths, fix, run again (a clip records ~4 min before the gate).
+- **A cut look opens wide on a page that has not changed yet** (owner: "the Find jobs card appears once more after it is clicked"): the idle card showed zoomed out for a second before the
+  search began. A look that only exists after the change (the searching card's title and chips) needs no `cut`: the camera glides in after the press and the hold waits for the element.
+- **A drawn overlay must hide the app under it**: the Gmail card's frame was shifted left (owner: "left of centre") because the faded app's words sat at the frame's edges
+  (whole.mjs). `MAIL_IN` hides the app behind its backdrop (`visibility: hidden`, which `edgesScript` skips).
+- **A caption gives way to a title card** (owner: the next part's caption showed over the Gmail one): `renderPlan` sets `sayKeep` = 1 - 2 x the card's alpha, `render.cjs` multiplies the caption by it. Test: media-transitions.
+- **A piece may name `moves`** (owner, 25 Oct 2026): Set up and Find make two deliberate moves (a close zoom on the press, then the result); `media-options` allows the piece's own number.

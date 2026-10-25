@@ -104,7 +104,7 @@ async function draw(job) {
       let m = widths();
       while (m.t + m.s + size * 0.6 > job.width * 0.86 && size > 10) { size -= 1; m = widths(); }
       const gap = tag ? size * 0.6 : 0, w = m.t + gap + m.s, padX = size * 0.75, h = size * 1.9, x = (job.width - w) / 2 - padX, y = job.height - h - size * 0.8;
-      ctx.globalAlpha = Math.min(1, (frame.sayAge || 0) / (job.sayFade || 0.25));
+      ctx.globalAlpha = Math.min(1, (frame.sayAge || 0) / (job.sayFade || 0.25)) * (frame.sayKeep ?? 1);   // gives way to a title card (camera.mjs renderPlan)
       ctx.fillStyle = 'rgba(10, 12, 16, 0.86)'; ctx.beginPath(); ctx.roundRect(x, y, w + 2 * padX, h, size * 0.5); ctx.fill();
       ctx.textBaseline = 'middle';
       if (tag) {

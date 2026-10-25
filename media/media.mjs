@@ -18,6 +18,7 @@ import {captionAt, captionSize, captionTimes, SAY_FADE, sayTrack, vttOf} from '.
 import {leftWords, pieceProblems, realEmails, stallsOf} from './check.mjs';
 import {brightness, duration, encodeStill, encodeVideo, framesIn, missingEncoders} from './encode.mjs';
 import {edgeCuts, edgeReport} from './edges.mjs';
+import {fitReport, shallowLooks} from './fits.mjs';
 import {gradeSvg} from './grade.mjs';
 import {manifest, stillEntry, videoEntry} from './manifest.mjs';
 import {recordAppVideo, shootApp} from './record-app.mjs';
@@ -143,12 +144,12 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
     phoneShape?.window ? takeOf(name, phoneTake(piece, phoneShape), persona, path.join(work, `${name}-phone`)) : null]);
   const steady = piece.camera === 'steady';
   // a hero look too wide for its zoom is shown whole at a lower zoom (camera.mjs fitWidth); much lower reads small, so the log names it (round 2)
-  const onFit = (event, asked, used) => console.log(`media: ${name}: look ${JSON.stringify(event.look)} shown whole at zoom ${used.toFixed(2)} (asked ${asked.toFixed(2)})${used < asked * FIT_WARN ? ': SMALL TEXT, pick a narrower look' : ''}`);
+  const onFit = copy => (event, asked, used) => console.log(`media: ${name} (${copy}): look ${JSON.stringify(event.look)} (${Math.round(((copy === 'phone' && event.phoneBox) || event.box).width)} px wide) shown whole at zoom ${used.toFixed(2)} (asked ${asked.toFixed(2)})${used < asked * FIT_WARN ? ': SMALL TEXT, pick a narrower look' : ''}`);
   let said = [];   // the phone copy's captions in its played seconds: the site shows them under it (captions.mjs sayTrack)
   const phone = phoneShape ? {aspect: phoneShape.width / phoneShape.height} : null;
   const render = (take, out, width, height, phone = null) => {
     const captions = captionTimes(take.log);   // the hero's step captions (captions.mjs), drawn by render.cjs on the desktop copy only (round 9)
-    const frames = renderPlan(take.log, FPS, piece.speed || 1, {steady, phone, onFit}).map((frame, i) => ({...frame, ...captionAt(captions, i / FPS)}));
+    const frames = renderPlan(take.log, FPS, piece.speed || 1, {steady, phone, onFit: onFit(phone ? 'phone' : 'desktop')}).map((frame, i) => ({...frame, ...captionAt(captions, i / FPS)}));
     if (phone) said = sayTrack(frames, FPS, piece.speed || 1);
     return runRender({framesDir: path.join(take.dir, 'frames'), frames: phone ? frames.map(noWords) : frames, scale: take.scale, width, height, fps: FPS, ring: RING, captionSize: captionSize(width, Boolean(phone)), sayFade: SAY_FADE, out, ffmpeg: 'ffmpeg'}, name);
   };
@@ -162,6 +163,7 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   // every check before any render (round 9, owner: "can we parallelize it more?"): a bad scene stops a minute in, not after minutes of rendering
   edgesOk(name, main.log, piece.speed || 1, steady, null);
   if (phone) edgesOk(name, (narrow || main).log, piece.speed || 1, steady, phone);
+  fitsOk(name, main.log, piece.speed || 1, steady);
   checked();
   if (steady) for (const [take, shape] of [[main, null], ...(phone ? [[narrow || main, phone]] : [])]) {   // stray frames, from the plan (prestray.mjs)
     const strays = planStrays({log: take.log, speed: piece.speed || 1, fps: FPS, phone: shape, small: smallFrames(path.join(take.dir, 'frames'), take.log)});
@@ -175,13 +177,21 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   };
 }
 
+// A desktop look that ends below 1.5x stops the piece before any render (fits.mjs; owner, 25 Oct 2026: "zoom deeper, about 1.5x"); HERO_FITS=warn only logs.
+function fitsOk(name, log, speed, steady) {
+  const hits = steady ? shallowLooks(log, speed) : [];
+  if (!hits.length) return;
+  if (process.env.HERO_FITS !== 'warn') throw new Error(fitReport(name, hits));
+  console.log(fitReport(name, hits));
+}
+
 // A phone copy whose view cuts a line of words or a card at its left or right edge stops (edges.mjs; round 9, owner 24 Oct 2026: "the video is
 // stripped"); the desktop copy's cuts are named in the log. A kept recording from before round 9 has no edges: nothing to check.
 function edgesOk(name, log, speed, steady, phone) {
   const hits = edgeCuts(log, speed, {steady, phone});
   if (!hits.length) return;
   const report = edgeReport(name, hits, phone ? 'phone' : 'desktop');
-  if (process.env.HERO_EDGES !== 'warn') throw new Error(report);   // both copies (round 9: the desktop copy too, owner)
+  if (process.env.HERO_EDGES !== 'warn' && phone) throw new Error(report);   // the phone copy; the desktop copy's frame keeps 1.5x (camera.mjs DESKTOP_FLOOR), so it names what it cuts
   console.log(report);
 }
 

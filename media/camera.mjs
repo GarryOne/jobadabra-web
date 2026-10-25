@@ -36,6 +36,14 @@ export const padded = box => ({x: box.x - LOOK_MARGIN, y: box.y - LOOK_MARGIN, w
 export const fitWidth = (box, z, viewport) => Math.min(z, Math.max(1, viewport.w / padded(box).width));
 // A hero look whose zoom fitWidth had to lower by more than this share reads small: the recording names it (`onFit`) so a narrower look is picked.
 export const FIT_WARN = 0.85;
+// The desktop copy never zooms out below this to keep a frame edge clean (whole.mjs floor; owner, 25 Oct 2026: "zoom deeper, about 1.5x ... not just 10%"): a line of words
+// at the edge, outside the look, may be cut instead (edges.mjs logs it). media/fits.mjs MIN_ZOOM is the same bar.
+export const DESKTOP_FLOOR = 1.5;
+// ... and a click's zoom on the desktop copy never backs off below this (owner, 25 Oct 2026, Set up: "zoom in more on the click area": the clean-edge search had pulled
+// the zoom on Use Free AI back to ~1.5): it is the close-up, a cut word at its edge is context.
+export const CLICK_FLOOR = 2.2;
+// ... and its frame slides at most this far (CSS px) off the look's centre for clean edges: the Find jobs card read off-centre (owner, 25 Oct 2026, two shots)
+export const DESKTOP_SHIFT = 40;
 
 // log: {viewport: {w, h}, events: [{t, type: 'click'|'press'|'hold'|'mark', box?, zoom?, cut?, phoneZoom?, phoneBox?, opensWide?}]} -> [{t, cx, cy, z, glide?}], time-ordered; a key is where
 // the camera has ARRIVED at t. Default: the whole screen shows only at the start (context); a click zooms onto its target while the cursor glides there; a hold
@@ -70,7 +78,7 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
       const fit = 0.6 * Math.min(viewport.w / event.box.width, viewport.h / event.box.height), z = zoomed(event, Math.max(1.4, Math.min(event.zoom ?? CLICK_ZOOM, fit)));
       // a steady click zoom is framed whole like a look (run 25: Set up's zoom onto Save cut a line of words at the left), by the page's last edges
       const edges = steady && events.slice(0, i).filter(prev => prev.type === 'hold' && prev.edges).at(-1)?.edges;
-      move(press ? press.t : event.t + 0.7, edges ? wholeFrame({frameAt: zoom => frame(event.box, zoom, viewport, aspect), z, least, look: padded(event.box), edges, viewport, aspect})
+      move(press ? press.t : event.t + 0.7, edges ? wholeFrame({frameAt: zoom => frame(event.box, zoom, viewport, aspect), z, least, look: padded(event.box), edges, viewport, aspect, floor: phone ? 0 : CLICK_FLOOR, shift: phone ? Infinity : DESKTOP_SHIFT})
         : frame(event.box, z, viewport, aspect));
     }
     if (event.type !== 'hold') return;
@@ -85,7 +93,7 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     if (used < asked) onFit?.(event, asked, used);
     // both copies' edges fall in gaps, never through words or a card (whole.mjs; round 9, owner 24 Oct 2026, phones: "the video is stripped";
     // then of the desktop copy, with two shots of the logo and cards cut at its edges: "port this to desktop as well")
-    const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
+    const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect, floor: phone ? 0 : DESKTOP_FLOOR, shift: phone ? Infinity : DESKTOP_SHIFT})
       : frame(box, used, viewport, aspect);
     if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
     // every new screen opens on the whole window, then glides in (hold.mjs openWide; owner 25 Oct 2026: "how to get there ... the context")
@@ -200,7 +208,9 @@ export function renderPlan(log, fps = 30, speed = 1, {steady = false, phone = nu
     // fade, slide, tiles: the old screen is the frame shown just before the cut, through the camera it had then (render.cjs mixes them)
     const before = blend?.kind ? blend.at - 0.002 : null;
     const from = before === null ? {} : {from: {file: log.frames[frameAt(log.frames, before)].file, ...cameraAt(keys, before, log.viewport, speed, phone)}, kind: blend.kind, mix: blend.mix};
-    const card = blend?.card ? {card: blend.card, cardAlpha: blend.alpha} : {};
+    // a caption gives way to a title card before the card is half in (owner, 25 Oct 2026, Track: the next part's caption showed over the Gmail one): the old caption
+    // is gone and the new one waits until the card is half out (render.cjs multiplies the caption's alpha by sayKeep)
+    const card = blend?.card ? {card: blend.card, cardAlpha: blend.alpha, sayKeep: Math.max(0, 1 - 2 * blend.alpha)} : {};
     out.push({file: log.frames[frameAt(log.frames, t)].file, ...view, cx: at.x, cy: at.y, press: at.press, cursor, ...from, ...card});
   }
   return out;
