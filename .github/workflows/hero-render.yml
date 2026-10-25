@@ -1,0 +1,109 @@
+# Renders the landing hero's clips on GitHub's Mac runners, by hand only (owner, 25 Oct 2026: "we can have a manually triggerable workflow";
+# Mac fonts, never Linux). One runner per clip runs tools/hero.sh on the demo persona (no AI, nothing of the owner's); each clip comes back as an
+# artifact (site files, contact sheets, the side-by-side, the log). With `branch` set, a last job places them there (hero.sh --place) and commits.
+# Guard: test/web/hero-render-workflow.test.js. Skill: .claude/skills/redo-site-hero-video.
+name: Hero render
+
+on:
+  workflow_dispatch:
+    inputs:
+      clips:
+        description: 'Clips, space separated (hero-onboarding = Set up, hero = Find, hero-fill = Apply, hero-track = Track)'
+        type: string
+        default: 'hero-onboarding hero hero-fill hero-track'
+      public_ref:
+        description: 'Public app branch to record (a public PR branch that changes a screen the hero shows)'
+        type: string
+        default: main
+      branch:
+        description: 'Place the clips on this existing branch and commit them (empty: artifacts only)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hero-render
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      clips: ${{ steps.clips.outputs.clips }}
+    steps:
+      - id: clips
+        env:
+          CLIPS: ${{ inputs.clips }}
+        run: printf 'clips=%s\n' "$(jq -cn --arg s "$CLIPS" '$s | split(" ") | map(select(test("^hero(-[a-z]+)?$")))')" >> "$GITHUB_OUTPUT"
+
+  render:
+    needs: plan
+    if: needs.plan.outputs.clips != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        clip: ${{ fromJSON(needs.plan.outputs.clips) }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: ffmpeg
+        run: brew install ffmpeg
+      - name: Record and render ${{ matrix.clip }}
+        shell: bash
+        env:
+          CLIP: ${{ matrix.clip }}
+          HERO_PUBLIC_REF: ${{ inputs.public_ref }}
+        run: tools/hero.sh "$CLIP" 2>&1 | tee hero.log
+      - name: Collect the clip's files
+        if: always()
+        shell: bash
+        env:
+          CLIP: ${{ matrix.clip }}
+        run: |
+          mkdir -p out && cp hero.log out/ 2>/dev/null || true
+          set_dir="$(sed -n 's/^hero: DONE \([^ ]*\).*/\1/p' hero.log | tail -1)"
+          [ -n "$set_dir" ] || { echo "::error::no 'hero: DONE' line: the run did not finish (see hero.log in the artifact)"; exit 1; }
+          for file in "$set_dir/$CLIP".mp4 "$set_dir/$CLIP".webm "$set_dir/$CLIP".vtt "$set_dir/$CLIP"-poster.jpg "$set_dir/$CLIP"-[0-9]*.mp4 "$set_dir/$CLIP"-[0-9]*-poster.jpg "$set_dir/preview.png"; do
+            [ -f "$file" ] && cp "$file" out/
+          done
+          cp -R "$set_dir/sheets" out/ 2>/dev/null || true
+          du -k out/* | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hero-${{ matrix.clip }}
+          path: out
+          retention-days: 14
+
+  place:
+    needs: render
+    if: inputs.branch != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hero-*
+          path: set
+          merge-multiple: true
+      - name: Place the clips and commit them
+        shell: bash
+        env:
+          BRANCH: ${{ inputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          tools/hero.sh --place set
+          git add web/public/media
+          git diff --cached --quiet && { echo "No clip changed"; exit 0; }
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -m "Place the hero clips rendered on the Mac runners" -m "$RUN_URL"
+          git push origin "HEAD:$BRANCH"
