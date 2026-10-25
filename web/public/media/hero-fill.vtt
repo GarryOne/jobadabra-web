@@ -1,13 +1,13 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:04.645
+00:00:00.000 --> 00:00:04.556
 {"tag":"Jobs","say":"Institut Cardio Rhône: Apply"}
 
-00:00:04.645 --> 00:00:06.400
+00:00:04.556 --> 00:00:06.378
 {"tag":"Applying","say":"Applying: the form opens in Chrome"}
 
-00:00:06.400 --> 00:00:08.133
+00:00:06.378 --> 00:00:08.200
 {"tag":"Chrome","say":"In Chrome, the extension fills the form"}
 
-00:00:08.133 --> 00:00:10.200
+00:00:08.200 --> 00:00:10.600
 {"tag":"Applying","say":"Every field ticked: Ready to submit"}
