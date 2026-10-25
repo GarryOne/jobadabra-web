@@ -109,3 +109,13 @@ test('the Download button serves the latest stable release under its own name, e
   assert.equal(await versioned('windows', {}, ok, null), 'https://x/Job-Pilotto-0.5.60-x64.exe');
   assert.equal(await versioned('mac', {}, async () => new Response('', {status: 403}), null), null);  // GitHub busy: the fixed name
 });
+
+test('the Download button prefers the Jobadabra-* file and still serves a release that has only the old names', async () => {
+  const both = {assets: [{name: 'Job-Pilotto-0.8.28-arm64.dmg', browser_download_url: 'https://x/old.dmg'}, {name: 'Jobadabra-0.8.28-arm64.dmg', browser_download_url: 'https://x/new.dmg'},
+    {name: 'Job-Pilotto-0.8.28-x64.exe', browser_download_url: 'https://x/old.exe'}, {name: 'Jobadabra-0.8.28-x64.exe', browser_download_url: 'https://x/new.exe'}]};
+  const answer = async () => new Response(JSON.stringify(both), {status: 200});
+  assert.equal(await versioned('mac', {}, answer, null), 'https://x/new.dmg');
+  assert.equal(await versioned('windows', {}, answer, null), 'https://x/new.exe');
+  const old = {assets: [{name: 'Job-Pilotto-0.8.27-arm64.dmg', browser_download_url: 'https://x/old.dmg'}]};
+  assert.equal(await versioned('mac', {}, async () => new Response(JSON.stringify(old), {status: 200}), null), 'https://x/old.dmg');
+});

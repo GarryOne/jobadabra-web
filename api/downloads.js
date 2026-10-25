@@ -8,6 +8,8 @@ import {net} from './attribution.js';
 import {device} from '../shared/device.js';
 
 const RELEASE = 'https://github.com/GarryOne/jobadabra/releases/latest/download/';
+// The fixed fallback keeps the old alias: every stable release has it (it is uploaded beside Jobadabra-mac-arm64.dmg for a few releases), and the
+// first Jobadabra-named release is not latest yet when this ships. The normal path (versioned, below) already prefers the Jobadabra-* file.
 export const FILES = {mac: 'Job-Pilotto-mac-arm64.dmg', windows: 'Job-Pilotto-windows-x64.exe'};
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse|curl|wget|python|monitor/i;
 
@@ -51,10 +53,11 @@ export async function hit(request, env, now = new Date()) {
 }
 
 // GET /download/mac?from=hero&page=/&src=linkedin.com: count it (in the background), then send the visitor to the file.
-// The latest stable release's own file (Job-Pilotto-0.5.3-arm64.dmg), so each download is named after its
-// version instead of Chrome's "Job-Pilotto-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
+// The latest stable release's own file (Jobadabra-0.8.28-arm64.dmg; Job-Pilotto-… on a release made before the rename), so each download is named after its
+// version instead of Chrome's "Jobadabra-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
 // cache); if GitHub doesn't answer, the fixed name above still works.
-const VERSIONED = {mac: /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/, windows: /^Job-Pilotto-\d[\w.-]*-x64\.exe$/};
+const VERSIONED = {mac: [/^Jobadabra-\d[\w.-]*-arm64\.dmg$/, /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/],
+  windows: [/^Jobadabra-\d[\w.-]*-x64\.exe$/, /^Job-Pilotto-\d[\w.-]*-x64\.exe$/]};
 export async function versioned(platform, env, fetcher = globalThis.fetch, cache = globalThis.caches?.default) {
   const api = `https://api.github.com/repos/${env.GITHUB_REPO || 'GarryOne/jobadabra'}/releases/latest`;
   try {
@@ -69,7 +72,11 @@ export async function versioned(platform, env, fetcher = globalThis.fetch, cache
       if (cache) await cache.put(api, response.clone());
     }
     const release = await response.json();
-    return (release.assets || []).find(asset => VERSIONED[platform].test(asset.name))?.browser_download_url || null;
+    for (const pattern of VERSIONED[platform]) {
+      const found = (release.assets || []).find(asset => pattern.test(asset.name));
+      if (found) return found.browser_download_url;
+    }
+    return null;
   } catch { return null; }
 }
 
