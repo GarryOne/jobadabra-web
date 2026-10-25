@@ -60,3 +60,17 @@ test('a look with no frame right after its forced repaint is a stall; a still pa
   const problems = pieceProblems({name: 'hero', source: 'app', log: {frames, events: [{t: 3, type: 'hold', look: 'b'}], text: ''}, posterBrightness: 0.1, quiet: true});
   assert.ok(problems.some(line => /capture stalled/.test(line)), problems.join(' / '));
 });
+
+test('the take loop records again on every stall the final gate refuses, the frame rate too (run 28: Find, 117 frames in 31.8 s)', async () => {
+  const fs = await import('node:fs');
+  const {stallsOf} = await import('../../media/check.mjs');
+  // a raw take: the app starting (busy, 20 fps) for 15 s, then the clip from its first look at 15 s, starved to 3 fps for 30 s
+  const frames = [...Array.from({length: 300}, (_, i) => ({t: i / 20})), ...Array.from({length: 90}, (_, i) => ({t: 15 + i / 3}))];
+  const events = [{t: 15, type: 'hold', look: 'a'}, {t: 30, type: 'hold', look: 'b'}];
+  assert.match(stallsOf({frames, events}).join(), /only 91 frames in 29\.7 s/, 'counted from the first look: the busy start hides nothing');
+  assert.deepEqual(stallsOf({frames: frames.filter(f => f.t < 15).concat(Array.from({length: 200}, (_, i) => ({t: 15 + i * 0.15}))), events}), []);
+  assert.deepEqual(stallsOf({frames: [{t: 15}, {t: 30.2}], events}, true), [], 'a quiet piece needs a frame at each look only');
+  const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
+  assert.match(media, /const stalls = stallsOf\(recorded, piece\.quiet\)/, 'the loop asks the same function as the gate');
+  assert.match(fs.readFileSync(new URL('../../media/check.mjs', import.meta.url), 'utf8'), /for \(const stall of stallsOf\(log, quiet\)\)/);
+});

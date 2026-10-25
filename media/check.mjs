@@ -34,6 +34,18 @@ export function captureGaps(log, within = 1) {
     .map(hold => ({look: hold.look, t: hold.t}));
 }
 
+// Every way a capture stalls, one reason each (empty: it did not): too few frames from the first look on (a quiet piece, a still page that changes
+// only on a click, needs two), or a look with no frame (captureGaps). One function for the take loop, which records again (media.mjs), and the
+// final gate (pieceProblems): run 28 failed at the end on Find's 117 frames in 31.8 s, a stall the loop never looked for. Pure.
+export function stallsOf(log, quiet = false) {
+  const from = (log.events || []).find(event => event.type === 'hold' && event.look)?.t ?? 0;
+  const frames = log.frames.filter(frame => frame.t >= from - 0.05), seconds = Math.max(0, (log.frames.at(-1)?.t || 0) - from);
+  const out = [];
+  if (quiet ? frames.length < 2 : frames.length < seconds * 5) out.push(`only ${frames.length} frames in ${seconds.toFixed(1)} s (the capture stalled)`);
+  for (const gap of captureGaps(log)) out.push(`no frame at the look ${JSON.stringify(gap.look)} (${gap.t.toFixed(1)} s): the capture stalled`);
+  return out;
+}
+
 export function pieceProblems({name, source, log, posterBrightness, forbid = [], quiet = false}) {
   const problems = [];
   const left = leftWords(log.text, forbid);
@@ -42,8 +54,6 @@ export function pieceProblems({name, source, log, posterBrightness, forbid = [],
   if (emails.length) problems.push(`${name}: an e-mail address that may be real is on screen: ${emails.join(', ')}`);
   if (posterBrightness > DARK_MAX) problems.push(`${name}: the window is not dark (brightness ${posterBrightness.toFixed(2)})`);
   if (source === 'extension') { const missing = missingFills(log.filled); if (missing.length) problems.push(`${name}: the extension did not fill ${missing.join(', ')}`); }
-  const seconds = log.frames.at(-1)?.t || 0;
-  if (quiet ? log.frames.length < 2 : log.frames.length < seconds * 5) problems.push(`${name}: only ${log.frames.length} frames in ${seconds.toFixed(1)} s (the capture stalled)`);   // a quiet piece (a still page that changes only on a click) sends a frame per change, so it needs two
-  for (const gap of captureGaps(log)) problems.push(`${name}: no frame at the look ${JSON.stringify(gap.look)} (${gap.t.toFixed(1)} s): the capture stalled`);
+  for (const stall of stallsOf(log, quiet)) problems.push(`${name}: ${stall}`);
   return problems;
 }

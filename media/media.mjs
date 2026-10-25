@@ -14,7 +14,7 @@ import {dropChanges, frameCuts, STRAY_MAX, strayFrames, THUMB} from './cuts.mjs'
 import {joinFilter, openOnCard, transitions, withCards} from './transitions.mjs';
 import {fillSeconds, pipPlan} from './pip.mjs';
 import {captionAt, captionSize, captionTimes, SAY_FADE, sayTrack, vttOf} from './captions.mjs';
-import {captureGaps, leftWords, pieceProblems, realEmails} from './check.mjs';
+import {leftWords, pieceProblems, realEmails, stallsOf} from './check.mjs';
 import {brightness, duration, encodeStill, encodeVideo, framesIn, missingEncoders} from './encode.mjs';
 import {edgeCuts, edgeReport} from './edges.mjs';
 import {gradeSvg} from './grade.mjs';
@@ -59,7 +59,7 @@ const recordQueue = limiter(TAKES);   // takes recorded at once (renders.mjs)
 // uses the scene's window; the phone take (round 9) the phone shape's narrow window, where the app lays out one column. -> {log, dir, scale}
 async function takeOf(name, piece, persona, dir) {
   const record = piece.source === 'extension' ? recordExtensionVideo : recordAppVideo, label = path.basename(dir);
-  // a capture that stalled on a loaded Mac is recorded again (check.mjs captureGaps), at most twice; then pieceProblems fails the piece
+  // a capture that stalled on a loaded Mac is recorded again (check.mjs stallsOf), at most twice; then pieceProblems fails the piece
   let recorded;
   if (wordsFrom) {
     const kept = path.join(wordsFrom, label);
@@ -83,9 +83,9 @@ async function takeOf(name, piece, persona, dir) {
         console.log(`media: ${label}: ${error.message.split('\n')[0]}: recording again`);
         continue;
       }
-      const gaps = captureGaps(recorded);
-      if (!gaps.length || attempt === 3) break;
-      console.log(`media: ${label}: the capture stalled (no frame at ${gaps.map(gap => `${gap.t.toFixed(1)} s`).join(', ')}): recording again (${attempt + 1} of 3)`);
+      const stalls = stallsOf(recorded, piece.quiet);   // the final gate's own stall checks (check.mjs)
+      if (!stalls.length || attempt === 3) break;
+      console.log(`media: ${label}: ${stalls.join('; ')}: recording again (${attempt + 1} of 3)`);
     }
     fs.writeFileSync(path.join(dir, KEY_FILE), key);
   }

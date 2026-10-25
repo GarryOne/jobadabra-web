@@ -195,7 +195,8 @@ test('a look may keep its left part on purpose (lookWidth), never wider than the
 test('a hold logs the seconds it has left after measuring, and the recorder waits exactly that', async () => {
   const {holdEvent, holdLeft} = await import('../../media/hold.mjs');
   assert.ok(Math.abs(holdLeft(2.2, 1000, 1700) - 1.5) < 1e-9);
-  assert.equal(holdLeft(1, 1000, 3000), 0.3, 'a slow measure still leaves a moment on screen');
+  assert.equal(holdLeft(1, 1000, 3000), 0.5, 'a slow measure still leaves half the hold on screen');
+  assert.equal(holdLeft(1.8, 1000, 2500), 0.9, 'run 28: Track\'s practise look kept 0.3 of 1.8 s on a loaded Mac');
   assert.equal(holdEvent({hold: 2.2, look: 'x'}, {x: 0, y: 0, width: 10, height: 10}, null, 1.5).s, 1.5);
 });
 

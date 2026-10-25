@@ -10,11 +10,32 @@ import {edgeItems, edgeItemsY} from './whole.mjs';
 // window. -> [{k: 'text'|'card', x, y, w, h, text}] in CSS px.
 export function edgesScript() {
   const W = innerWidth, H = innerHeight, out = [], seen = r => r.width > 0 && r.height > 0 && r.right > 0 && r.left < W && r.bottom > 0 && r.top < H;
+  // only the part of a line its boxes let show (run 28: the Interviews tip scrolls sideways in a strip that hides the rest; its hidden start
+  // at x 14 read as words the frame cut): each ancestor that clips an axis (overflow not visible) narrows the line to its box
+  const clips = new Map(), all = {left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity};
+  const clipOf = el => {
+    if (!el || el === document.body || el === document.documentElement) return all;
+    if (clips.has(el)) return clips.get(el);
+    const up = clipOf(el.parentElement), style = getComputedStyle(el);
+    let c = up;
+    if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+      const r = el.getBoundingClientRect();
+      c = {...up, ...(style.overflowX !== 'visible' ? {left: Math.max(up.left, r.left), right: Math.min(up.right, r.right)} : {}),
+        ...(style.overflowY !== 'visible' ? {top: Math.max(up.top, r.top), bottom: Math.min(up.bottom, r.bottom)} : {})};
+    }
+    clips.set(el, c);
+    return c;
+  };
   const range = document.createRange(), walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (!node.textContent.trim() || !node.parentElement?.checkVisibility?.({opacityProperty: true, visibilityProperty: true})) continue;
     range.selectNodeContents(node);
-    for (const r of range.getClientRects()) if (seen(r)) out.push({k: 'text', x: r.x, y: r.y, w: r.width, h: r.height, text: node.textContent.trim().slice(0, 30)});
+    const c = clipOf(node.parentElement);
+    for (const r of range.getClientRects()) {
+      const left = Math.max(r.left, c.left), right = Math.min(r.right, c.right), top = Math.max(r.top, c.top), bottom = Math.min(r.bottom, c.bottom);
+      const shown = {left, right, top, bottom, width: right - left, height: bottom - top};
+      if (shown.width >= 1 && shown.height >= 1 && seen(shown)) out.push({k: 'text', x: left, y: top, w: right - left, h: bottom - top, text: node.textContent.trim().slice(0, 30)});
+    }
   }
   for (const el of document.body.querySelectorAll('*')) {
     const style = getComputedStyle(el), r = el.getBoundingClientRect();

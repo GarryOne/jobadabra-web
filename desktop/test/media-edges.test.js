@@ -197,3 +197,23 @@ test('a click whose middle lands on another control inside its target stops the 
   } finally { delete globalThis.document; }
   assert.match(fs.readFileSync(new URL('../../media/record-app.mjs', import.meta.url), 'utf8'), /const under = await target\.evaluate\(clickedControl\)/);
 });
+
+test('the edges script notes only the part of a line its boxes let show: a sideways ticker\'s hidden start is not words on screen (run 28)', async () => {
+  const vm = await import('node:vm');
+  const {edgesScript} = await import('../../media/edges.mjs');
+  const rect = (left, top, width, height) => ({left, top, right: left + width, bottom: top + height, x: left, y: top, width, height});
+  const el = (parent, box, style = {}) => ({parentElement: parent, getBoundingClientRect: () => box, style: {overflowX: 'visible', overflowY: 'visible', visibility: 'visible', opacity: '1', borderLeftWidth: '0', ...style}, checkVisibility: () => true});
+  const body = el(null, rect(0, 0, 1800, 1125)), page = el(body, rect(230, 0, 1570, 1125));
+  const strip = el(page, rect(240, 80, 760, 30), {overflowX: 'hidden', overflowY: 'hidden'});   // the tip strip: its text scrolled left
+  const text = (parent, words, box) => ({textContent: words, parentElement: parent, rects: [box]});
+  const nodes = [text(strip, 'Review an interview within a day', rect(14, 88, 574, 15)), text(strip, 'Gone off the left', rect(-300, 88, 200, 15)),
+    text(page, 'Interviews', rect(250, 20, 120, 24))];
+  let current;
+  const document = {body, documentElement: null, createRange: () => ({selectNodeContents: node => { current = node; }, getClientRects: () => current.rects}),
+    createTreeWalker: () => { let i = -1; return {nextNode: () => nodes[++i] || null}; }};
+  document.body.querySelectorAll = () => [];
+  const out = vm.runInNewContext(`(${edgesScript.toString()})()`, {innerWidth: 1800, innerHeight: 1125, document, NodeFilter: {SHOW_TEXT: 4}, getComputedStyle: e => e.style});
+  assert.deepEqual(JSON.parse(JSON.stringify(out)).map(item => [item.text.slice(0, 12), Math.round(item.x), Math.round(item.w)]), [['Review an in', 240, 348], ['Interviews', 250, 120]],
+    'the ticker from the strip\'s left edge on; the line scrolled out of the strip is gone');
+});
+
