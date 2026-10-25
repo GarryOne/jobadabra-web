@@ -304,6 +304,10 @@ comes back at the next redo.
   VP9's lowest step vs 2.25 MB H.264 near its best; then 2.82 MB, over budget, run 40154540314), and its ladder was the slowest encode. Every browser
   plays the MP4. Guard: desktop/test/media-mp4-only.test.js. **Every budgeted copy logs `CRF n (a-b), X of Y MB`** (media/encode.mjs budgetLine);
   `LOWEST QUALITY` means the next, slightly heavier take fails: raise that clip's budget in scenes.mjs or shorten the scene.
+- **A clip keeps its last hold whole** (camera.mjs toLastHold): the recorder gets a frame only when the page changes and the video ends at the last
+  frame, so a still last hold was cut and the poster (90% into it) fell past the end: "ffmpeg -ss 38.98 ... poster.jpg" failed on the runner (run
+  40156280319). The held frame is marked `held` so stallsOf does not count it. A slow machine shows timing bugs the Mac hides: read the runner's
+  failure as a bug, not as noise.
 - **The media cache prunes itself** (owner, 25 Oct 2026: "make an auto-prune of the media recordings"; 99 kept runs filled 42 GB, 3.9 GB free): `media/prune.mjs` keeps the newest few of every kind tools/hero.sh and tools/media.sh write (hero runs: HERO_KEEP=3 with the new one; previews, media sets, their logs, package caches); a folder with a KEEP file stays. A new tool that writes to the cache adds its rule there. The newest are the last written (mtime), never the latest name: the names are local time and the clocks went back an hour on 25 Oct 2026 (run 30's set sorted before run 29's).
 - **Electron starts once, alone, before parallel renders** (run 30, words only on a freshly rebuilt .overlay: four first starts at once collided unpacking Electron, "File exists"): `media.mjs electronOnce`.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.

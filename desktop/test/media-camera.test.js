@@ -359,3 +359,16 @@ test('both recorders check every look is on screen before framing it', async () 
     assert.match(source, /offScreen\(box, view\)/, `${file}: measures looks without the off-screen check`);
   }
 });
+
+test('a clip ending on a still page keeps its last hold whole, so the poster and beats fall inside the video (run 40156280319)', async () => {
+  const {toLastHold, posterTime: poster} = await import('../../media/camera.mjs');
+  const log = {frames: [{t: 0, file: 'a.jpg'}, {t: 38.9, file: 'b.jpg'}], events: [{type: 'hold', t: 37.9, s: 1.2, poster: true}]};
+  const held = toLastHold(log);
+  assert.deepEqual(held.frames.at(-1), {t: 39.1, file: 'b.jpg', held: true}, 'the last frame is held to the hold\'s end');
+  const {stallsOf} = await import('../../media/check.mjs');
+  const steady = {frames: Array.from({length: 11}, (_, i) => ({t: i * 0.1, file: `${i}.jpg`})), events: [{type: 'hold', t: 0.5, s: 3}]};
+  assert.deepEqual(stallsOf(toLastHold(steady)), [], 'the held tail is not counted as a stalled capture');
+  assert.ok(poster(held.events) <= held.frames.at(-1).t, 'the poster is inside the clip');
+  const early = {...log, events: [{type: 'hold', t: 30, s: 1}]};
+  assert.equal(toLastHold(early), early, 'a hold that ends before the last frame changes nothing');
+});

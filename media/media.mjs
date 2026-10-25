@@ -9,7 +9,7 @@
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import {beatTimes, FIT_WARN, fromFirstLook, posterTime, renderPlan, RING, untilEnd} from './camera.mjs';
+import {beatTimes, FIT_WARN, fromFirstLook, posterTime, renderPlan, RING, toLastHold, untilEnd} from './camera.mjs';
 import {dropChanges, frameCuts, STRAY_MAX, strayFrames, THUMB} from './cuts.mjs';
 import {planStrays, smallFrames} from './prestray.mjs';
 import {joinFilter, openOnCard, transitions, withCards} from './transitions.mjs';
@@ -124,7 +124,7 @@ async function takeOf(name, piece, persona, dir) {
     return thumbs.get(key);
   };
   // a title card's time is added at its cut (transitions.mjs withCards): the beats, captions and the gate all read this log
-  const log = piece.camera === 'steady' ? withCards(frameCuts({log: dropChanges(fromFirstLook(untilEnd(recorded))), thumb}), piece.speed || 1) : recorded;
+  const log = piece.camera === 'steady' ? toLastHold(withCards(frameCuts({log: dropChanges(fromFirstLook(untilEnd(recorded))), thumb}), piece.speed || 1)) : recorded;
   console.log(`media: ${label}: recorded ${log.frames.length} frames, ${log.frames.at(-1).t.toFixed(1)} s`);
   return {log, dir, scale: jpegWidth(fs.readFileSync(path.join(dir, 'frames', log.frames[0].file))) / log.viewport.w};
 }
