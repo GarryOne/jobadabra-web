@@ -430,3 +430,5 @@ comes back at the next redo.
   so parts save minutes and add a join job, a start state per part and a visible cut. Apply keeps its parts. Propose it again only with new numbers.
 - **The wand and the glow come from the app, not from a scene** (owner, 25 Oct 2026, after the app got its own wand and glow): the recorder reads `.magic-go`, `[data-wand]` and `[data-magic]` on each click and tap
   (hold.mjs `magicTarget`), draws the app's `wand.svg` and glides the real pointer over a glow card (`glideTo`). Never add a `wand` flag to a scene; a button the app does not mark shows the arrow. Test: media-magic.
+- **The clips are already rendered at 1.5x** (scenes.mjs `speed: 1.5` since 24 Oct): the speed lives in the render, never in the page. On 25 Oct a `playbackRate` of 1.5 in hero-stage.js made the site play them at 2.25x
+  (PR #115, fixed the same day). Before changing a speed, read the pieces' `speed` and the file's duration against the recording. Test: mobile-hero asserts no `playbackRate` in the stage.
