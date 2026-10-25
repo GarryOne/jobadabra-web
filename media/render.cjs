@@ -119,10 +119,20 @@ async function draw(job) {
     if (frame.cursor !== false) {
       const c = 1.3 * unit * (frame.press != null && frame.press < 0.12 ? 0.88 : 1);   // pressed: a touch smaller
       ctx.save(); ctx.translate(px, py); ctx.scale(c, c);
+      if (frame.wand) {   // a magic wand (owner, 25 Oct 2026), its tip at the cursor's point: a stick going down and right, a four-point star of light on its tip, two small sparkles
+        const star = (x, y, r, fill) => { const q = r * 0.28, d = new Path2D(); d.moveTo(x, y - r); d.lineTo(x + q, y - q); d.lineTo(x + r, y); d.lineTo(x + q, y + q); d.lineTo(x, y + r); d.lineTo(x - q, y + q); d.lineTo(x - r, y); d.lineTo(x - q, y - q); d.closePath(); ctx.fillStyle = fill; ctx.fill(d); };
+        ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
+        ctx.lineCap = 'round'; ctx.strokeStyle = '#111111'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(28, 28); ctx.stroke();
+        ctx.shadowColor = 'transparent'; ctx.strokeStyle = '#f4f5f7'; ctx.lineWidth = 4.4; ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(28, 28); ctx.stroke();
+        ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 4.4; ctx.beginPath(); ctx.moveTo(21, 21); ctx.lineTo(28, 28); ctx.stroke();
+        ctx.shadowColor = 'rgba(245,184,61,0.9)'; ctx.shadowBlur = 10; star(0, 0, 11, '#ffd773');
+        ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; star(0, 0, 6, '#ffffff'); star(-10, -9, 4, '#ffd773'); star(9, -11, 3, '#ffffff');
+      } else {
       const arrow = new Path2D('M0 0 L0 24 L6 18.5 L10.5 28 L14 26.5 L9.8 17.3 L17.5 17.3 Z');
       ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
       ctx.fillStyle = '#ffffff'; ctx.fill(arrow);
       ctx.shadowColor = 'transparent'; ctx.lineWidth = 1.4; ctx.strokeStyle = '#111111'; ctx.stroke(arrow);
+      }
       ctx.restore();
     }
     if (frame.card && frame.cardAlpha > 0) {   // a title card over everything: the place's tag and a few words on the page colour

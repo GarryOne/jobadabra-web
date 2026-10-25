@@ -112,7 +112,8 @@ export const VIDEOS = {
       {hold: 4.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
       {hold: 3, look: ['#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], lookWidth: 560, zoom: 1.9, phoneZoom: 2.6, phoneLook: ['#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], cut: true, into: 'tiles', poster: true, say: 'The strategy: roles, level, salary', beat: 'The proposal: roles, level, on-site, an estimated salary'},
       {tap: '#draft-save', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
-  hero: {kind: 'video', moves: 3, source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 3.0e6, desktop: DESKTOP, phone: PHONE,   // 3.0: the drawer's nine tabs (run 2 hit CRF 34 at 1.9)
+  hero: {kind: 'video', moves: 3, quiet: true, source: 'app', slide: 2,   // quiet: the drawer's nine tabs are still pages (run 11: 262 frames in 52 s read as a stalled capture)
+  stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 3.0e6, desktop: DESKTOP, phone: PHONE,   // 3.0: the drawer's nine tabs (run 2 hit CRF 34 at 1.9)
     settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
