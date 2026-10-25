@@ -1,7 +1,7 @@
 // Cuts out the frames between a hero step's page change and the moment its next look is on screen (media): those frames showed the old framing over a
 // new page (owner, 24 Oct 2026: "a small glitch in the first clip, showing something about Sonnet") or the new framing over a page still changing.
 // Pure; run by media.mjs after fromFirstLook. Guard: desktop/test/media-camera.test.js ("a cut look starts when its content is on screen").
-import {FIRST_LAG, frameAt} from './camera.mjs';
+import {FIRST_LAG, frameAt, wideOpening} from './camera.mjs';
 import {pageChange} from './hold.mjs';
 
 const round = t => Number(t.toFixed(3));
@@ -93,9 +93,17 @@ export function strayFrames({log, thumb, frames, speed = 1, fps = 30, max = STRA
     // reference, but only when it is the new page (not the old page, and closer to the new beat than to the old one), so an old page that lingers is
     // still caught. Not "twice as close" (run 24): in the phone copy one card fills the frame before and after Find's cut, and the new beat, late in the
     // search, is 1.75x closer only.
-    const start = mixed ? video(mixed.to) : video(cut), end = Math.min(frames, start + Math.round(fps / 2)), settled = end - 1;
-    const toOld = meanDiff(thumb(settled), thumb(beat(prev))), isNew = toOld > max && meanDiff(thumb(settled), thumb(beat(hold))) < toOld;
-    look(start + 1, end, isNew ? [beat(hold), settled] : [beat(hold)], 'after');
+    const start = mixed ? video(mixed.to) : video(cut);
+    if (hold.opensWide) {
+      // a screen that opens wide (camera.mjs) shows the whole new page until its glide starts: that last whole frame is the reference, not the
+      // zoomed look's beat (run 27: six false alarms); no whole moment (a short hold) leaves only the moving glide, which no frame can stand for
+      const wide = wideOpening(log.events, log.events.indexOf(hold), speed), glideAt = Math.min(frames, video(wide.from + wide.open), start + Math.round(fps / 2));
+      if (wide.open > 0 && glideAt - 1 > start + 1) look(start + 1, glideAt - 1, [glideAt - 1], 'after');
+    } else {
+      const end = Math.min(frames, start + Math.round(fps / 2)), settled = end - 1;
+      const toOld = meanDiff(thumb(settled), thumb(beat(prev))), isNew = toOld > max && meanDiff(thumb(settled), thumb(beat(hold))) < toOld;
+      look(start + 1, end, isNew ? [beat(hold), settled] : [beat(hold)], 'after');
+    }
     if (worst) out.push(worst);
   });
   return out;

@@ -77,3 +77,21 @@ test('after a cut, a look that fills in by itself counts as the new page when it
   clip.fill(page(41), 48, 64);   // the old page lingering after the cut: still caught
   assert.equal(strayFrames({log, thumb: j => clip[j], frames: clip.length})[0]?.side, 'after');
 });
+
+test('after a cut that opens wide, the whole new page is the reference until the glide starts; an old page lingering is still caught (run 27)', async () => {
+  const {strayFrames, THUMB} = await import('../../media/cuts.mjs');
+  const {cameraKeys, wideOpening} = await import('../../media/camera.mjs');
+  const size = THUMB.w * THUMB.h, page = level => new Uint8Array(size).fill(level);
+  const box = {x: 100, y: 100, width: 600, height: 300}, speed = 1.5;
+  const log = {viewport: {w: 1800, h: 1125}, frames: [], events: [{t: 0, type: 'hold', box, s: 1.5, look: 'a'}, {t: 1.6, type: 'mark'},
+    {t: 1.6, type: 'hold', box, cut: true, s: 4, look: 'b', opensWide: true}]};
+  const wide = wideOpening(log.events, 2, speed);
+  const keys = cameraKeys({...log, speed, steady: true});
+  assert.ok(keys.some(key => Math.abs(key.t - (wide.from + wide.open)) < 1e-6), `the camera leaves the whole window at ${wide.from + wide.open}`);
+  // the played copy (20 frames per recorded second): the old look zoomed (40), the new page whole (90), the glide (90 -> 150), the look (150)
+  const at = t => Math.round(t / speed * 30), glideFrom = at(wide.from + wide.open), glideTo = at(wide.from + wide.open + wide.glide);
+  const clip = Array.from({length: 120}, (_, j) => page(j < 32 ? 40 : j < glideFrom ? 90 : j < glideTo ? 90 + 60 * (j - glideFrom) / (glideTo - glideFrom) : 150));
+  assert.deepEqual(strayFrames({log, thumb: j => clip[j], frames: clip.length, speed}), [], 'Set up and Find (run 27): the wide opening is the new page');
+  clip.fill(page(40), 32, 38);   // the old look lingering after the cut: caught
+  assert.equal(strayFrames({log, thumb: j => clip[j], frames: clip.length, speed})[0]?.side, 'after');
+});

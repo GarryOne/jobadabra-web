@@ -45,6 +45,17 @@ export const FIT_WARN = 0.85;
 // up to PHONE_MAX and never so wide that the view leaves the page. `speed`: the clip is played faster, so moves are stretched in recorded time.
 // `steady` looks fit their box's width (fitWidth), the phone copy's too (round 8, owner 24 Oct 2026: "on mobile ... the videos are not centered"): a tighter
 // phone shot comes from a narrower phoneLook, never from cutting the look; onFit(event, asked, used) hears each lowered zoom.
+// When a look that opens wide (hold.mjs openWide) shows the whole window and glides in, in recorded seconds: from (its cut, or the hold, whichever
+// is later; 0 for the piece's first look), open (how long the whole window shows), glide. The look then rests REST before its hold ends or the
+// next screen cuts in. Shared by cameraKeys and the stray-frame check (cuts.mjs, run 27: it read the wide opening as another page). Pure.
+export function wideOpening(events, i, speed = 1, first = false) {
+  const event = events[i], nextCut = events.findIndex((later, j) => j > i && later.type === 'hold' && later.cut && later.box);
+  const from = first ? 0 : Math.max(event.cut ? cutMoment(events, i) : event.t, event.t);
+  const end = Math.min(event.t + (event.s || 0), nextCut < 0 ? Infinity : cutMoment(events, nextCut)) - REST * speed;
+  const glide = Math.min(GLIDE_IN * speed, Math.max(0.05, end - from));
+  return {from, open: Math.max(0, Math.min(OPEN_WIDE * speed, end - from - glide)), glide};
+}
+
 export function cameraKeys({viewport, events, speed = 1, steady = false, phone = null, onFit = null}) {
   const aspect = phone ? phone.aspect : viewport.w / viewport.h;
   const least = Math.max(1, viewport.w / aspect / viewport.h);   // the widest view that still fits the page's height
@@ -80,21 +91,18 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     // every new screen opens on the whole window, then glides in (hold.mjs openWide; owner 25 Oct 2026: "how to get there ... the context")
     // It always ends with the look at rest for REST (the phone take's scroll can use a hold's time): the wide moment shrinks first, then the glide.
     // The hold ends at its own end or at the next screen's cut, whichever comes first (run 26: Set up's proposal painted mid-hold).
-    const nextCut = events.findIndex((later, j) => j > i && later.type === 'hold' && later.cut && later.box);
-    const openWide = from => {
-      const end = Math.min(event.t + (event.s || 0), nextCut < 0 ? Infinity : cutMoment(events, nextCut)) - REST * speed;
-      const glide = Math.min(GLIDE_IN * speed, Math.max(0.05, end - from));
-      const open = Math.max(0, Math.min(OPEN_WIDE * speed, end - from - glide));
+    const openWide = () => {
+      const {from, open, glide} = wideOpening(events, i, speed, first);
       if (open > 0) move(from + open, full);
       move(from + open + glide, {...target, glide});
     };
-    if (steady && first) { if (event.opensWide) openWide(0); else keys[0] = {t: 0, ...target}; return; }
+    if (steady && first) { if (event.opensWide) openWide(); else keys[0] = {t: 0, ...target}; return; }
     const lastLook = earlier.filter(prev => prev.type === 'hold').at(-1);
     if (event.cut) {
       const at = cutMoment(events, i);   // the first page change since the last look, else when the page changed by itself (transitions.mjs)
       move(at - 0.001, {cx: keys.at(-1).cx, cy: keys.at(-1).cy, z: keys.at(-1).z});
       move(at, event.opensWide ? full : target);
-      if (event.opensWide) openWide(Math.max(at, event.t));
+      if (event.opensWide) openWide();
       return;
     }
     const after = earlier.reverse().find(prev => prev.type === 'press');
