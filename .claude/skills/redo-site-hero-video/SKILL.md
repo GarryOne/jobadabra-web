@@ -295,6 +295,10 @@ comes back at the next redo.
   **Built** (`.github/workflows/hero-render.yml`): `gh workflow run hero-render.yml -R GarryOne/jobadabra-web --ref <branch with the scenes> -f clips="hero-track" [-f branch=<PR branch>]`;
   each clip is an artifact `hero-<clip>` (site files, sheets, preview.png, hero.log); with `branch` a last job runs `hero.sh --place` and commits there.
   macOS minutes are free only while the repo is public; it runs by hand only (guard: test/web/hero-render-workflow.test.js).
+  **A workflow change runs once on its PR branch before the owner merges** (`gh workflow run hero-render.yml --ref <branch>`): #101 merged untested
+  and run 1 stopped all 4 clips in 30 s (Homebrew's slim ffmpeg has no libwebp: #104 installs ffmpeg-full); run 2: two takes at once on the
+  3-core runner stalled the capture and painted late after cuts (HERO_TAKES=1 there). Read a job's log mid-run with
+  `curl -sL -H "Authorization: Bearer $(gh auth token)" https://api.github.com/repos/GarryOne/jobadabra-web/actions/jobs/<id>/logs` (gh refuses its colours).
 - **The media cache prunes itself** (owner, 25 Oct 2026: "make an auto-prune of the media recordings"; 99 kept runs filled 42 GB, 3.9 GB free): `media/prune.mjs` keeps the newest few of every kind tools/hero.sh and tools/media.sh write (hero runs: HERO_KEEP=3 with the new one; previews, media sets, their logs, package caches); a folder with a KEEP file stays. A new tool that writes to the cache adds its rule there. The newest are the last written (mtime), never the latest name: the names are local time and the clocks went back an hour on 25 Oct 2026 (run 30's set sorted before run 29's).
 - **Electron starts once, alone, before parallel renders** (run 30, words only on a freshly rebuilt .overlay: four first starts at once collided unpacking Electron, "File exists"): `media.mjs electronOnce`.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.

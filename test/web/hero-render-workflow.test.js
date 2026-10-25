@@ -51,3 +51,7 @@ test('the Mac runner gets an ffmpeg with libwebp first on PATH (run 1: Homebrew\
   assert.match(render, /brew install ffmpeg-full && echo "\$\(brew --prefix ffmpeg-full\)\/bin" >> "\$GITHUB_PATH"/);
   assert.ok(render.indexOf('ffmpeg-full') < render.indexOf('tools/hero.sh'), 'before the run');
 });
+
+test('the runner records one take at a time (run 2: two at once on a 3-core VM stalled the capture and painted late after cuts)', () => {
+  assert.match(job('render'), /HERO_TAKES: '1'/);
+});
