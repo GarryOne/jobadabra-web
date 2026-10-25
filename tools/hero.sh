@@ -54,6 +54,8 @@ if [ "${1:-}" = --preview ]; then
 fi
 
 pieces=("$@"); [ ${#pieces[@]} -gt 0 ] || pieces=("${HERO[@]}")
+# the newest HERO_KEEP sets stay (this one included), older ones go, except a set with a KEEP file or the --words one (media/takes.mjs pruneSets)
+HERO_CACHE="$cache" HERO_KEEP="${HERO_KEEP:-3}" HERO_PROTECT="${words[1]:-}" node --input-type=module -e "import {pruneSets} from './media/takes.mjs'; const gone = pruneSets(process.env.HERO_CACHE, Number(process.env.HERO_KEEP) - 1, [process.env.HERO_PROTECT].filter(Boolean)); if (gone.length) console.error('hero: removed ' + gone.length + ' old sets (keeping the newest ' + process.env.HERO_KEEP + ')');"
 set_dir="$cache/hero-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$set_dir/sheets"
 echo "hero: ${words[1]:+words only from ${words[1]}: }recording ${pieces[*]} into $set_dir"
 lock="${MEDIA_HEAVY_LOCK:-$HOME/job-pilotto/tools/heavy-lock.sh}"
