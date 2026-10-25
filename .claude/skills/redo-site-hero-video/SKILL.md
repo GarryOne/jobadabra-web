@@ -264,7 +264,7 @@ that loops over every hero look or scene (it fails on the old code), add a trap 
 comes back at the next redo.
 
 ## Checklist before showing the owner
-  - Every check that compares frames must know the wide opening (run 27: the stray check compared the whole-window frames after a cut with the zoomed look and stopped on 6 false alarms). The timing lives in ONE place, `camera.mjs wideOpening`, used by the camera and by `cuts.mjs strayFrames`; a new frame check uses it too. Wide openings make clips longer: Track's WebM (listed first, so what Chrome plays) needed its budget raised to 2.6 MB (total 8.1 MB).
+  - Every check that compares frames must know the wide opening (run 27: the stray check compared the whole-window frames after a cut with the zoomed look and stopped on 6 false alarms). The timing lives in ONE place, `camera.mjs wideOpening`, used by the camera and by `cuts.mjs strayFrames`; a new frame check uses it too. Wide openings make clips longer: Track's WebM (listed first, so what Chrome plays) needed its budget raised to 2.6 MB (total 8.1 MB), then 2.8 MB (run 29: 2.63 MB at VP9 CRF 50; a denoise changed nothing, 819 vs 817 KB on a slice; VP9 is simply bigger than H.264 on these screens, 817 vs 537 KB). Open: drop the WebM or list the MP4 first (CI PR).
 - Each beat frame: its beat's words are readable and inside the crop; the crop ends on a gap between columns/cards, never through one.
 - Each sheet: the story holds (same job everywhere), nothing important cut at an edge, no empty frame, the move happens once.
 - Preview: every caption matches its clip; the result text readable at desktop AND phone; Apply's whole panel in frame; Track's interview is the
