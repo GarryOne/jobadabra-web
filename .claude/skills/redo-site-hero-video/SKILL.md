@@ -417,3 +417,12 @@ comes back at the next redo.
   (whole.mjs). `MAIL_IN` hides the app behind its backdrop (`visibility: hidden`, which `edgesScript` skips).
 - **A caption gives way to a title card** (owner: the next part's caption showed over the Gmail one): `renderPlan` sets `sayKeep` = 1 - 2 x the card's alpha, `render.cjs` multiplies the caption by it. Test: media-transitions.
 - **A piece may name `moves`** (owner, 25 Oct 2026): Set up and Find make two deliberate moves (a close zoom on the press, then the result); `media-options` allows the piece's own number.
+- **Frames stay centred** (owner, 25 Oct 2026, two shots of the Find jobs card): the clean-edge search slid the frame up to hundreds of px off the look's centre. The desktop copy slides at most
+  `DESKTOP_SHIFT` 40 px (`whole.mjs shift`); a frame needing more is not looked for, the zoom steps down to the floor, and at the floor the centred frame is the answer. Test: media-fits.
+- **A tab-by-tab look is one look**: the job drawer's nine tabs share ONE look (`DRAWER`, `wide: true`, zoom 1.4: the panel is ~960 px wide), no `cut` (a cut opens wide, which read as reloading the
+  app: owner "we start again from zoomed out"); a look equal to the one before moves nothing (media-options counts it 0). Click zoom on every main button (Build my strategy, Find jobs, Check Gmail,
+  Use Free AI). A piece whose pages hold still for seconds says `quiet: true` (else 262 frames in 52 s read as a stalled capture).
+- **The wand cursor** (owner, 25 Oct 2026): `wand: true` on a piece or a step draws the magic wand (render.cjs `frame.wand`, tip at the click point; `camera.mjs wandAt`) from that step until the next
+  click or look that does not say it. Set up: the whole clip; Find: from its first look through the search; the arrow comes back for the list and the drawer. Test: media-camera.
+- **Every drawer tab needs demo data** (owner: "a very complete job with conversations, timelines, reviews, interviews"): the persona's `job-pages.json` gives her job a kit, a record, prep, a recruiter
+  message, notes, five dated events and a recorded, reviewed phone screen; add data there before adding a tab to a scene.
