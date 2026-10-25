@@ -1,4 +1,4 @@
-// The owner's /admin/app page: the problems users hit, the setup funnel, the gate and the channels, from shared/telemetry.js.
+// The owner's /admin/app page: the problems users hit, the setup funnel and the channels, from shared/telemetry.js.
 // Same key or cookie as /admin. Guarded by test/shared/telemetry.test.js.
 import {filterLinks} from './admin.js';
 import {viewer} from '../shared/auth.js';
@@ -10,7 +10,7 @@ import {flags} from '../shared/guard.js';
 import {report as knowledgeReport} from '../shared/knowledge.js';
 import {esc} from '../shared/html.js';
 import {remember} from '../shared/auth.js';
-import {KEEP_DAYS, text, normal, problems, channels, STOP_REASONS, GATE_WHY, funnel, GATE_REVISIT_INSTALLS, gateStats, daily, GATE_REVISIT_RATE} from '../shared/telemetry.js';
+import {KEEP_DAYS, text, normal, problems, channels, STOP_REASONS, funnel, daily} from '../shared/telemetry.js';
 
 const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (admin/trends.js)
 const STEP_LABELS = {ai: 'AI', cv: 'CV'};
@@ -84,12 +84,6 @@ ${data.funnel?.started ? `<table class="funnel">${data.funnel.reached.map(({step
 ${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">Why they stopped</h2><table>${Object.entries(data.funnel.stopped)
   .map(([at, reasons]) => `<tr><td style="width:110px">${esc(at)}</td><td>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
     .map(([why, n]) => `${esc(STOP_REASONS[why] || why)} <b>×${n}</b>`).join(' · ')}</td></tr>`).join('')}</table>` : ''}</section>
-<section class="card" style="margin-bottom:12px"><h2>🗂️ Notion prompt${chip(data, 'notion')}</h2><small class="muted">installs that were asked to connect Notion (last ${data.days < 30 ? 30 : data.days} days): did they, and why not</small>
-${data.gate?.installs ? `<p style="margin:8px 0"><b>${data.gate.installs}</b> asked · <b>${data.gate.connected}</b> connected · <b>${data.gate.never}</b> never (${Math.round(data.gate.neverRate * 100)}%)${data.gate.repeaters ? ` · ${data.gate.repeaters} asked 3+ times without connecting` : ''}</p>
-<table><tr><th>Asked for</th><th>Shown</th><th>Connected</th><th>Not now</th><th>Closed</th><th>Failed</th><th>Page opened</th></tr>${data.gate.reasons.map(r => `<tr><td>${esc(r.reason)}</td><td class="num">${r.shown}</td><td class="num">${r.connected}</td><td class="num">${r.not_now}</td><td class="num">${r.closed}</td><td class="num">${r.failed}</td><td class="num">${r.viewed}</td></tr>`).join('')}</table>
-${Object.keys(data.gate.whys).length ? `<p class="muted" style="margin-top:8px">Why not: ${Object.entries(data.gate.whys).sort((a, b) => b[1] - a[1]).map(([why, n]) => `${esc(GATE_WHY[why] || why)} <b>×${n}</b>`).join(' · ')}</p>` : ''}
-<small class="muted" style="display:block;margin-top:6px">Revisit local tracking without Notion when, over ${GATE_REVISIT_INSTALLS}+ installs asked, more than ${Math.round(GATE_REVISIT_RATE * 100)}% never connect and "I don't use Notion" is the top reason. ${data.gate.revisit ? '<b style="color:var(--red)">That is the case now.</b>' : 'Not yet.'}</small>`
-  : '<p class="muted">Nobody has been asked yet.</p>'}</section>
 <section class="card" style="margin-top:12px"><h2>🧬 What installs ask and where they stall${chip(data, 'asks')}</h2>
 <small class="muted">Questions no answer matched, reported by ${3} or more installs (the form's own wording), and where applications got to per board (last 7 days).</small>
 <table style="margin-top:8px"><tr><th>Question</th><th>Kind</th><th>Times</th><th>Installs</th><th>Boards</th></tr>
@@ -120,11 +114,10 @@ export async function view(request, env, now = new Date()) {
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env, request);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
-    const [data, feedback, setup, byChannel, gate] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
-      funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => []),
-      gateStats(env.STATS, Math.max(days, 30), now).catch(() => null)]);
+    const [data, feedback, setup, byChannel] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
+      funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => [])]);
     const guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null), trends = await appTrends(env.STATS, now).catch(() => null);
-    return new Response(page({...data, feedback, funnel: setup, gate, channels: byChannel, guard: guardData, knowledge: learned, trends}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    return new Response(page({...data, feedback, funnel: setup, channels: byChannel, guard: guardData, knowledge: learned, trends}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

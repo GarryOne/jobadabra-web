@@ -21,15 +21,11 @@ export async function appTrends(db, now = new Date()) {
   const fills = await rows(db, 'SELECT day, SUM(n) AS n FROM form_exposure WHERE day >= ? AND source = \'user\' GROUP BY day', from);
   const guard = await rows(db, 'SELECT day, n FROM anomalies WHERE day >= ?', from);
   const feedback = await rows(db, 'SELECT day FROM feedback WHERE day >= ?', from);
-  const gate = setup.filter(row => row.data.step === 'notion_gate' && row.data.outcome !== 'viewed')
-    .map(row => ({day: row.day, shown: 1, connected: row.data.outcome === 'connected' ? 1 : 0}));
-  const pct = value => `${Math.round(value * 100)}%`;
   return {
     machines: {label: 'active installs', values: byWeek(health, now, distinct('install'))},
     helped: {label: 'runs that worked', values: byWeek(health.map(row => ({day: row.day, ok: Number(json(row.data).runsOk) || 0})), now, sum('ok'))},
     channels: {label: 'new installs', values: byWeek(firsts, now, count)},
     setup: {label: 'setups finished', values: byWeek(setup.filter(row => row.data.step === 'done'), now, distinct('install'))},
-    notion: {label: 'connected when asked', values: byWeek(gate, now, ratio('connected', 'shown')), format: pct},
     problems: {label: 'problem reports', values: byWeek(problems, now, count), higherIsBetter: false},
     asks: {label: 'forms filled', values: byWeek(fills, now, sum('n'))},
     guard: {label: 'access anomalies', values: byWeek(guard, now, sum('n')), higherIsBetter: false},
