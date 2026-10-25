@@ -86,6 +86,9 @@ test('each kind is drawn over the frames it covers, from the old screen to the n
   }
   const card = list.find(item => item.kind === 'card'), opaque = plan.filter((frame, i) => frame.cardAlpha === 1 && i / 30 >= card.at);
   assert.ok(opaque.length >= Math.floor(CARD.hold * 30) - 1, 'the card stays fully on for its hold');
+  // owner, 25 Oct 2026 (Track): the next part's caption showed over the Gmail one; a caption is gone before its card is half in, and every frame says so
+  for (const frame of plan.filter(each => each.card)) assert.equal(frame.sayKeep, Math.max(0, 1 - 2 * frame.cardAlpha), 'a caption gives way to the card');
+  assert.ok(plan.some(frame => frame.card && frame.sayKeep === 0), 'a caption is fully hidden while the card shows');
 });
 
 test('parts are joined by their kinds, each over the held last frame of the one before (no part loses time)', () => {

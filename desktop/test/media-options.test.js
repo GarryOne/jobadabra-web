@@ -76,7 +76,8 @@ test('every hero clip is steady, makes at most one deliberate move, holds a zoom
     for (const part of partsOf(name)) {
       const steps = VIDEOS[part].steps;
       const moves = steps.filter(step => step.look).slice(1).filter(step => !step.cut).length + steps.filter(step => (step.click || step.tap) && step.zoom).length;
-      assert.ok(moves <= 1, `${part}: ${moves} camera moves`);
+      // a piece may name more (owner, 25 Oct 2026: a close zoom on Use Free AI and on the search card, besides the result's move): `moves` in scenes.mjs
+      assert.ok(moves <= (VIDEOS[part].moves || 1), `${part}: ${moves} camera moves`);
     }
     const result = piece.steps.find(step => step.poster);
     assert.ok(result && result.look && result.zoom >= 1.6, `${name}: a zoomed result marked poster`);

@@ -200,7 +200,9 @@ export function renderPlan(log, fps = 30, speed = 1, {steady = false, phone = nu
     // fade, slide, tiles: the old screen is the frame shown just before the cut, through the camera it had then (render.cjs mixes them)
     const before = blend?.kind ? blend.at - 0.002 : null;
     const from = before === null ? {} : {from: {file: log.frames[frameAt(log.frames, before)].file, ...cameraAt(keys, before, log.viewport, speed, phone)}, kind: blend.kind, mix: blend.mix};
-    const card = blend?.card ? {card: blend.card, cardAlpha: blend.alpha} : {};
+    // a caption gives way to a title card before the card is half in (owner, 25 Oct 2026, Track: the next part's caption showed over the Gmail one): the old caption
+    // is gone and the new one waits until the card is half out (render.cjs multiplies the caption's alpha by sayKeep)
+    const card = blend?.card ? {card: blend.card, cardAlpha: blend.alpha, sayKeep: Math.max(0, 1 - 2 * blend.alpha)} : {};
     out.push({file: log.frames[frameAt(log.frames, t)].file, ...view, cx: at.x, cy: at.y, press: at.press, cursor, ...from, ...card});
   }
   return out;

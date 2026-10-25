@@ -79,8 +79,9 @@ const MAIL_IN = `(() => { const back = document.createElement('div'); back.id = 
     '<div style="min-width:0;flex:1"><div style="display:flex;justify-content:space-between;color:#4a4f59;font-size:14px"><span>Gmail</span><span>now</span></div>' +
     '<div style="font-weight:700;font-size:19px;margin-top:3px">Institut Cardio Rhône</div><div style="font-weight:600">Interview invitation: Registered Nurse, Cardiac Care Unit</div>' +
     '<div style="color:#4a4f59;margin-top:4px">We would like to meet you on Wed 28 Oct at 10:00 for an interview…</div></div>';
+  const hide = document.createElement('style'); hide.id = 'hero-mail-hide'; hide.textContent = 'body > *:not(#hero-mail-back):not(#hero-mail) { visibility: hidden }'; document.head.append(hide);
   document.body.append(back, n); requestAnimationFrame(() => requestAnimationFrame(() => { back.style.opacity = '1'; n.style.transform = 'none'; n.style.opacity = '1'; })); })()`;
-const MAIL_WAIT = "(() => { document.getElementById('hero-mail')?.remove(); document.getElementById('hero-mail-back')?.remove(); const s = document.createElement('style'); s.id = 'hero-wait'; s.textContent = '#activity-card, #activity-log, #activity-status, #activity-sub { visibility: hidden }'; document.head.append(s); })()";
+const MAIL_WAIT = "(() => { document.getElementById('hero-mail')?.remove(); document.getElementById('hero-mail-hide')?.remove(); document.getElementById('hero-mail-back')?.remove(); const s = document.createElement('style'); s.id = 'hero-wait'; s.textContent = '#activity-card, #activity-log, #activity-status, #activity-sub { visibility: hidden }'; document.head.append(s); })()";
 // Round 5 (owner, 24 Oct 2026: "show the Action screen where we click on 'check gmail' card"): she runs the check from Actions, then its result opens.
 const GMAIL_TASK = '.task-card:has([data-command=mail])';
 // The results panel is SET open or shut, never toggled: the app opens it by itself for a run, so a toggle could shut it (runs 26-28: Track's
@@ -96,21 +97,21 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 // comes in (`into`, transitions.mjs): slide = one screen to another, tiles = time passed, card (+ `card` words) = the flow needs explaining, fade =
 // the same screen changing. A part's `into` is its join (a card part opens on its card); a clip's `stageInto` is the site's switch into it.
 export const VIDEOS = {
-  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
+  'hero-onboarding': {kind: 'video', moves: 2, source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
-    env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '2000'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV"
+    env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '4500'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV" (owner, 25 Oct 2026: "it moves to the next screen too fast")
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
     caption: 'Add your CV. Shape your search.', alt: 'The Jobadabra setup: a CV added, a note on the job wanted, the AI reading the CV, then the proposed strategy with roles, level, work mode and an estimated salary, confirmed',
     steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-facts'], phoneLookWidth: 620, phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
-      {tap: '#ai-save', then: jumpTo('cv')},
+      {tap: '#ai-save', zoom: TAP_ZOOM, phoneZoom: 3, then: jumpTo('cv')},
       {hold: 2.4, look: '.step[data-step=cv] .cv-drop', zoom: 1.9, phoneZoom: 2.8, cut: true, into: 'slide', tag: 'Set up 2/5', say: 'The CV, read for roles and places', beat: 'The CV added: the AI reads it for roles, places and salary'},
       {js: OPEN_BUILD}, {js: typeNote('Day shifts in cardiac care, around Lyon.')},
       {hold: 2.0, look: [HEAD('draft'), '#draft-intro .step-card'], lookWidth: 760, zoom: 2.2, phoneZoom: 3, phoneLook: [HEAD('draft'), '#draft-intro .step-card'], phoneLookWidth: 640, cut: true, into: 'slide', tag: 'Set up 3/5', say: 'The job wanted, in one line', beat: 'The job wanted, in one line'},
       {click: '#draft-build'},
-      {hold: 2.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
+      {hold: 4.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
       {hold: 3, look: ['#draft-title', '#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], lookWidth: 1080, zoom: 1.64, phoneZoom: 2.6, phoneLook: ['#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], cut: true, into: 'tiles', poster: true, say: 'The strategy: roles, level, salary', beat: 'The proposal: roles, level, on-site, an estimated salary'},
       {tap: '#draft-save', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
-  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.9e6, desktop: DESKTOP, phone: PHONE,
+  hero: {kind: 'video', moves: 2, source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.9e6, desktop: DESKTOP, phone: PHONE,
     settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
@@ -118,13 +119,20 @@ export const VIDEOS = {
       {go: 'jobs'},
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
       {click: '#find-card .magic-go', say: 'Find jobs: the search starts'},
-      {hold: SEARCH_SECONDS + 0.6, look: '#find-card', lookWidth: 1040, zoom: 1.7, phoneZoom: 2.6, phoneLook: '#find-card', cut: true, into: 'fade', say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      // owner, 25 Oct 2026: "the Find jobs card appears once more after it is clicked" (a cut look opened wide on the idle card for a second), then "zoom in to the card
+      // with the loading": no cut; the look waits for the searching card's own title and chips (a part of it, so the zoom reads) and the camera glides in after the press
+      {hold: SEARCH_SECONDS + 0.6, look: ['#find-card .find-title', '#find-card .find-step >> nth=0', '#find-card .find-step >> nth=-1'], zoom: 2, phoneLook: '#find-card', phoneZoom: 2.6, say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
       {hold: 1.8, look: ['#job-panel h2', '#job-panel .jd-tabs'], zoom: 2, phoneZoom: 3, phoneLook: ['#job-panel .jd-top .fit-cell', '#job-panel .jd-title'], phoneLookWidth: 480, tag: 'The job', say: 'It opens beside the list', beat: 'The job opens in a panel beside the list'},
       {click: '#job-panel .jd-tabs button:has-text("Match")'},
       {hold: 3, look: ['#job-panel h2', '#job-panel .fit-detail'], zoom: 2.2, phoneLook: '#job-panel .fit-card.tone-good', phoneZoom: 3.8, cut: true, into: 'fade', poster: true, say: 'Match: why this job fits', beat: 'The job opened on Match: why it fits'},
+      // owner, 25 Oct 2026: "when the job drawer opens, show more (or all) of its tabs, each with demo data": the posting's text, then the job's timeline; the Match look is the result
+      {click: '#job-panel .jd-tabs button:has-text("Description")'},
+      {hold: 1.8, look: '#job-panel .jd-body > :first-child', lookWidth: 860, zoom: 2, phoneZoom: 3, cut: true, into: 'fade', say: 'Description: the posting, saved with the job', beat: 'The Description tab: the saved posting'},
+      {click: '#job-panel .jd-tabs button:has-text("Timeline")'},
+      {hold: 2.4, look: '#job-panel .jd-timeline > :first-child', lookWidth: 860, zoom: 2, phoneZoom: 3, cut: true, into: 'fade', say: 'Timeline: when it was found', beat: 'The Timeline tab: the job found by the search'},
     ]},
   'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, desktop: DESKTOP, phone: PHONE,
     shows: 'The job on Jobs, Apply pressed',
@@ -150,7 +158,7 @@ export const VIDEOS = {
   'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',
-    steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, phoneLook: ['#application > h2 >> nth=0', '#location'], tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
+    steps: [{hold: 3.0, look: '#application', zoom: 1.3, wide: true, phoneZoom: 2.2, phoneLook: ['#application > h2 >> nth=0', '#location'], tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
       {hold: 3, look: 'panel', zoom: 1.8, phoneZoom: 2.6, poster: true, say: 'Filled from the profile: ready to review', beat: 'Filled from the profile: Ready to submit, to review'}]},
   'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 2.8e6, desktop: DESKTOP, phone: {...PHONE, budget: 1.8e6},
     shows: 'Two weeks later: the interview e-mail for that job, the call recorded and reviewed, what to practise, the next round on the calendar',

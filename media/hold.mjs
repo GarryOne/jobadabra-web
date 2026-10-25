@@ -10,7 +10,7 @@ export const holdLeft = (hold, startedMs, nowMs) => Math.max(hold * HOLD_KEEP, h
 export const leftPart = (box, width) => (box && width ? {...box, width: Math.min(box.width, width)} : box);
 export const holdEvent = (item, box, phoneBox = null, s = item.hold) => ({type: 'hold', look: item.look || null, box: leftPart(box, item.lookWidth), s, ...(item.zoom ? {zoom: item.zoom} : {}),
   ...(item.cut ? {cut: true} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {}), ...(phoneBox ? {phoneBox: leftPart(phoneBox, item.phoneLookWidth)} : {}), ...(item.poster ? {poster: true} : {}), ...(item.say ? {say: item.say} : {}), ...(item.tag ? {tag: item.tag} : {}),
-  ...(item.into ? {into: item.into} : {}), ...(item.lead ? {lead: true} : {}), ...(item.opensWide ? {opensWide: true} : {}), ...(item.into === 'card' ? {card: {tag: item.tag || '', text: item.card || ''}} : {})});   // the transition into this look (transitions.mjs)
+  ...(item.into ? {into: item.into} : {}), ...(item.lead ? {lead: true} : {}), ...(item.wide ? {wide: true} : {}), ...(item.opensWide ? {opensWide: true} : {}), ...(item.into === 'card' ? {card: {tag: item.tag || '', text: item.card || ''}} : {})});   // the transition into this look (transitions.mjs)
 // How much of a look's box is outside the window. A look measured off screen is framed on whatever sits at the window's
 // edge (round 5: the Applying page kept the Jobs page's scroll, her job's header was at y -308 and the camera showed the needs list): the recorders stop. Pure.
 // The share of a look's box outside the window, 0..1: a form a few px taller than the window (its bottom padding) is fine, a header above it is not.
