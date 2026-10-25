@@ -30,3 +30,17 @@ test('a hero click zooms in to TAP_ZOOM wherever its part still has its one deli
   }
   assert.ok(zoomed >= 2, `${zoomed} clicks zoom`);
 });
+
+test('a left part whose edge cuts words moves back to the gap before them; too far and the take stops (hold.mjs gapWidth)', async () => {
+  const {gapWidth, GAP_FLOOR} = await import('../../media/hold.mjs');
+  const box = {x: 100, y: 0, width: 1300, height: 60};
+  const line = (x, width, text) => ({x, y: 10, width, height: 16, text});
+  // PR5's Find row on the 1440-px page: "Ready to submit" crossed the 862 px picked on the 1800-px page
+  const row = [line(110, 300, 'Cardiac Care Unit nurse'), line(520, 200, 'Lausanne'), line(900, 140, 'Ready to submit'), line(1200, 80, 'Apply')];
+  assert.equal(gapWidth(box, 862, row), 900 - 100 - 8, 'ends in the gap before "Ready to submit"');
+  assert.equal(gapWidth(box, 780, row), 780, 'an edge in a gap stays');
+  // the edge lands in another line after the first move: it keeps moving left
+  const tight = [line(110, 300, 'a'), line(700, 230, 'long'), line(900, 140, 'b')];
+  assert.equal(gapWidth(box, 862, tight), 700 - 100 - 8);
+  assert.equal(gapWidth({...box}, 862, [line(110, 900, 'one long line')]), null, `no gap within ${GAP_FLOOR}`);
+});

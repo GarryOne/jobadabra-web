@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {clickedControl, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, GAP_FLOOR, gapWidth, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 import {freePort} from '../desktop/e2e/lib/extension.mjs';
@@ -81,15 +81,15 @@ const linesOf = async (page, look) => (await Promise.all([look].flat().map(selec
   }
   return lines;
 }).catch(() => [])))).flat();
-// A look whose lookWidth edge cuts through a line of its words stops the recording (round 4: the centred Find jobs card's description crossed it).
+// A look whose lookWidth edge cuts through a line of its words is narrowed to the gap before it (hold.mjs gapWidth); only a gap under GAP_FLOOR of the
+// asked width stops the recording (round 4: the centred Find jobs card's description crossed it). -> the width to use.
 async function checkWords(page, look, box, width, which) {
-  if (!width || !box) return;
-  const lines = await linesOf(page, look), edge = box.x + Math.min(box.width, width);
-  const cut = wordsCut(box, width, lines);
-  if (cut > 4) {
-    const crossing = [...new Set(lines.filter(line => line.x < edge - 1 && line.x + line.width > edge + 4).map(line => JSON.stringify(line.text)))].slice(0, 4).join(', ');
-    throw new Error(`media: ${which} "${[look].flat().join(', ')}" keeps its left ${width} px but that edge cuts ${cut} px off a line of words (${crossing}): end it in a gap between columns, or name the part that holds the words (scenes.mjs)`);
-  }
+  if (!width || !box) return width;
+  const lines = await linesOf(page, look), edge = box.x + Math.min(box.width, width), fitted = gapWidth(box, width, lines);
+  if (fitted === width) return width;
+  const crossing = [...new Set(lines.filter(line => line.x < edge - 1 && line.x + line.width > edge + 4).map(line => JSON.stringify(line.text)))].slice(0, 4).join(', ');
+  if (fitted) { console.log(`media: ${which} "${[look].flat().join(', ')}" left part ${width} -> ${fitted} px: its edge cut ${crossing}`); return fitted; }
+  throw new Error(`media: ${which} "${[look].flat().join(', ')}" keeps its left ${width} px but that edge cuts ${wordsCut(box, width, lines)} px off a line of words (${crossing}), and no gap is left within ${Math.round(GAP_FLOOR * 100)}%: name the part that holds the words (scenes.mjs)`);
 }
 // A press stays on screen PRESS_SHOW output seconds before what it does (hold.mjs); stills (no speed) don't wait.
 const pressShow = log => (log.speed ? PRESS_SHOW * log.speed * 1000 : 0);
@@ -169,8 +169,8 @@ async function step(page, item, log, app = null) {
       out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
     }
     if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: ${item.fitScroll ? 'taller than the phone window: give the hold a shorter phoneLook' : 'scroll it into view first'} (scenes.mjs)`);
-    await checkWords(page, item.look, box, item.lookWidth, 'look');
-    await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook');
+    item = {...item, lookWidth: await checkWords(page, item.look, box, item.lookWidth, 'look'),
+      phoneLookWidth: await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook')};
     const left = holdLeft(item.hold, started, Date.now());
     // the words and cards on screen, so edges.mjs can prove no copy's view cuts one at its left or right edge (round 9)
     log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});
