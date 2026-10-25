@@ -51,6 +51,8 @@ export const stepMarks = (item, log) => {
 // Every phone look is shown whole: no left part (lookWidth / phoneLookWidth, hand-picked for the wide layout; run 20: Track's 460-px part cut a
 // line of words in the one-column layout), the whole-frame camera (whole.mjs) keeps the edges clean.
 const wholeLook = ({lookWidth, phoneLookWidth, ...step}) => step;
+// The desktop take: the app at the piece's desktop text size (scenes.mjs DESKTOP: a 1440-px page instead of 1800, text 25% bigger). Pure.
+export const desktopTake = piece => (piece.source === 'app' && piece.desktop?.zoom ? {...piece, settings: {...piece.settings, zoom: piece.desktop.zoom}} : piece);
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
   steps: piece.steps.map(step => (!step.hold ? step : {...wholeLook(step), fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook} : {})}))});
 

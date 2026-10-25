@@ -13,7 +13,7 @@ test('a sound plan is kept, also inside a code fence', () => {
 
 test('an unknown look, a zoom out of range, a long caption or prose is refused', () => {
   assert.match(validatePlan({...good, zooms: {'.other': 1.2}}, looks).error, /unknown look/);
-  assert.match(validatePlan({...good, zooms: {'#jobs-body': 3}}, looks).error, /outside/);
+  assert.match(validatePlan({...good, zooms: {'#jobs-body': 3.5}}, looks).error, /outside/);
   assert.match(validatePlan({...good, caption: 'one two three four five six seven'}, looks).error, /caption/);
   assert.match(validatePlan('Here is my plan: zoom a bit', looks).error, /not JSON/);
   assert.match(validatePlan({...good, alt: 'x'.repeat(301)}, looks).error, /alt/);

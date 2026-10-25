@@ -21,6 +21,12 @@ export const nav = view => `.nav[data-view=${view}]:not([data-settings])`;
 // lays out 704 x 528 css px, one column, and the whole column fits a phone frame with readable text (at the app's own 0.8 it laid out 1100 css
 // wide: Jobs' cards spanned 980 px and the whole frame showed 4-px text). record-app.mjs launchApp, record-extension.mjs view; media.mjs takeOf.
 const PHONE = {width: 1080, height: 810, budget: 1.5e6, window: {width: 880, height: 660}, zoom: 1.25};
+// Desktop (owner, 25 Oct 2026: "lower the window size, so that we can have bigger text. And/or zoom in more agressively where the click goes"): the
+// desktop take runs the app at text size 1 (its default here is 0.8, a 1800-px page), so the 1440 x 900 window is a 1440-px page and every screen
+// reads 25% bigger; a click zooms in to TAP_ZOOM wherever its part still has its one deliberate move (24 Oct rule, media-options.test.js); the whole-frame rule
+// still backs a zoom off a cut line (hold.mjs desktopTake, camera.mjs).
+const DESKTOP = {zoom: 1};
+export const TAP_ZOOM = 3;
 const ROW = '.job-row:has-text("Cardiac Care Unit")';
 // Round 4 (owner, 24 Oct 2026: "we kind of need to highlight each of the steps", sketch https://claude.ai/artifact/UxHHtYTzUwUaEzAsjQjoz5, A + B): each
 // clip's steps carry a `tag` drawn in the caption band (where the frame is: SET UP 1/5, JOBS, CHROME), and Set up's looks include the app's own
@@ -90,7 +96,7 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 // comes in (`into`, transitions.mjs): slide = one screen to another, tiles = time passed, card (+ `card` words) = the flow needs explaining, fade =
 // the same screen changing. A part's `into` is its join (a card part opens on its card); a clip's `stageInto` is the site's switch into it.
 export const VIDEOS = {
-  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, phone: PHONE,
+  'hero-onboarding': {kind: 'video', source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
     env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '2000'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV"
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
@@ -103,8 +109,8 @@ export const VIDEOS = {
       {click: '#draft-build'},
       {hold: 2.0, look: [HEAD('draft'), '#draft-loading'], zoom: 2.2, phoneZoom: 3.2, cut: true, into: 'fade', say: 'The AI reads the CV and drafts the goals', beat: 'The AI reads the CV and proposes the goals'},
       {hold: 3, look: ['#draft-title', '#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], lookWidth: 1080, zoom: 1.64, phoneZoom: 2.6, phoneLook: ['#setup-strategy-slot #strategy-main-goals .card-head > :first-child', '#setup-strategy-slot #strategy-main-goals .card-read'], cut: true, into: 'tiles', poster: true, say: 'The strategy: roles, level, salary', beat: 'The proposal: roles, level, on-site, an estimated salary'},
-      {tap: '#draft-save', zoom: 2.4, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
-  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.9e6, phone: PHONE,
+      {tap: '#draft-save', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
+  hero: {kind: 'video', source: 'app', slide: 2, stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.9e6, desktop: DESKTOP, phone: PHONE,
     settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
@@ -120,20 +126,20 @@ export const VIDEOS = {
       {click: '#job-panel .jd-tabs button:has-text("Match")'},
       {hold: 3, look: ['#job-panel h2', '#job-panel .fit-detail'], zoom: 2.2, phoneLook: '#job-panel .fit-card.tone-good', phoneZoom: 3.8, cut: true, into: 'fade', poster: true, say: 'Match: why this job fits', beat: 'The job opened on Match: why it fits'},
     ]},
-  'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, phone: PHONE,
+  'hero-fill-app': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, desktop: DESKTOP, phone: PHONE,
     shows: 'The job on Jobs, Apply pressed',
     steps: [{go: 'jobs'}, {js: scrollTo('Cardiac Care Unit')},
       {hold: 1.8, look: [`${ROW} .company`, `${ROW} button.row-main`], zoom: 2.2, phoneZoom: 3, phoneLook: [`${ROW} .company`, `${ROW} .row-actions`], tag: 'Jobs', say: 'Institut Cardio Rhône: Apply', beat: 'The job on Jobs: Apply'},
       // round 6: the part ends on the press (`end`); the Applying card opens in the picture in picture by a slide (a fade over two framings of the
       // same card made a ghost: take 4 at 3.5 s)
-      {tap: `${ROW} button.row-main`, end: true}]},
+      {tap: `${ROW} button.row-main`, zoom: TAP_ZOOM, end: true}]},
   // Both app parts are quiet (round 5): with the form open in Chrome the Applying card no longer spins "Checking Chrome…", so the page sends a frame only
   // when it changes; each hold's forced frame still catches a real stall (check.mjs captureGaps).
   // Round 5 (owner, 24 Oct 2026: "show ... how the session card in the desktop app gets updated live, at the time the [extension] is filling it"): the
   // Applying page's form card ticks off each field as the extension reports it (a `review` step), then Ready to submit. Round 6 (owner: "I'd like picture
   // in picture, but swapping them"): it plays together with the fill (pip.mjs): main first, the inset while Chrome fills (`lead` on the fill), main again
   // at Ready to submit; synced on the fill's start (`sync`), its ticks paced on the fill's real time.
-  'hero-fill-done': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, phone: PHONE,
+  'hero-fill-done': {kind: 'video', source: 'app', part: true, speed: 1.5, camera: 'steady', moment: 'applying', quiet: true, width: 1600, height: 1000, desktop: DESKTOP, phone: PHONE,
     shows: 'The Applying card ticking off each field the extension fills, then Ready to submit',
     steps: [{go: 'sessions'}, {js: OPEN_HERS},   // the card's count, bar and pill change; its folded list of fields would shrink it to small text
       {hold: 3.0, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress'], lookWidth: 760, zoom: 2.0, phoneZoom: 2.8, cut: true, into: 'slide', lead: true, tag: 'Applying', say: 'Applying: the form opens in Chrome', beat: 'The Applying card: 0 of 6 fields, Chrome beside it'},
@@ -141,12 +147,12 @@ export const VIDEOS = {
       // then one move right to the pill (owner, 24 Oct 2026: "B, then pan to the pill"): close on the count while it ticks, the pill when it is ready
       // round 6: back to the main picture on the whole completion section (count, full bar, pill): the pill alone cut the row's words (take 4 at 8 s)
       {hold: 2.6, look: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress', '#ss-form-pill'], zoom: 2.0, phoneZoom: 2.8, phoneLook: ['#ss-form-card .ss-form-head', '#ss-form-card .ss-form-progress'], phoneLookWidth: 520, lead: true, tag: 'Applying', say: 'Every field ticked: Ready to submit', beat: 'The card: 6 of 6, Ready to submit'}]},
-  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 1.8e6, phone: PHONE,
+  'hero-fill': {kind: 'video', source: 'extension', slide: 3, before: 'hero-fill-app', pip: 'hero-fill-done', stageInto: 'slide', into: 'slide', speed: 1.5, camera: 'steady', motion: 'reduce', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     shows: 'Apply pressed on the job, then the Jobadabra extension filling its application form; you review, then submit',
     caption: 'Fill applications with your details.', alt: 'An application form filled by the Jobadabra extension, its panel saying Ready to submit: review, then submit',
     steps: [{hold: 3.0, look: '#application', zoom: 1.3, phoneZoom: 2.2, phoneLook: ['#application > h2 >> nth=0', '#location'], tag: 'Chrome', say: 'In Chrome, the extension fills the form', beat: "That job's application form, still empty"}, {fill: true, sync: true, lead: true}, {hold: 0.8},
       {hold: 3, look: 'panel', zoom: 1.8, phoneZoom: 2.6, poster: true, say: 'Filled from the profile: ready to review', beat: 'Filled from the profile: Ready to submit, to review'}]},
-  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 2.8e6, phone: {...PHONE, budget: 1.8e6},
+  'hero-track': {kind: 'video', source: 'app', slide: 4, stageInto: 'tiles', speed: 1.5, camera: 'steady', moment: 'later', width: 1600, height: 1000, budget: 2.8e6, desktop: DESKTOP, phone: {...PHONE, budget: 1.8e6},
     shows: 'Two weeks later: the interview e-mail for that job, the call recorded and reviewed, what to practise, the next round on the calendar',
     caption: 'Your interviews and next steps, together.', alt: 'Jobadabra two weeks later: the Institut Cardio Rhône interview e-mail, the phone screen reviewed, interview patterns and practice, then the interview in the calendar',
     steps: [{go: 'focus'}, {js: MAIL_IN},

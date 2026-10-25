@@ -2,7 +2,7 @@
 // cursor glides, when a click ring shows. The renderer (render.cjs) draws real recorded frames through this camera, so the app's pixels are never redrawn.
 // Coordinates are the page's CSS pixels. Guard: desktop/test/media-camera.test.js.
 
-export const MAX_ZOOM = 2.4;
+export const MAX_ZOOM = 3;   // a click's zoom (scenes.mjs TAP_ZOOM, owner 25 Oct 2026: "zoom in more agressively where the click goes")
 export const FILL = 0.9;           // a zoomed box fills this share of the view
 export const LOOK_HEIGHT = 0.6;    // a tall box (a drawer, a list) is framed by its top part: where the action is
 export const CLICK_ZOOM = 2;       // a click zooms onto its target (owner, 21 Oct 2026: "when there is a click, zoom on that click")
