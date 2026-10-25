@@ -27,7 +27,7 @@ test('each clip renders on its own Mac runner and comes back as an artifact; pla
   assert.match(render, /runs-on: macos-/);
   assert.match(render, /clip: \$\{\{ fromJSON\(needs\.plan\.outputs\.clips\) \}\}/);
   assert.match(render, /tools\/hero\.sh "\$CLIP"/);
-  assert.match(render, /upload-artifact@v4[\s\S]*name: hero-\$\{\{ matrix\.clip \}\}/);
+  assert.match(render, /upload-artifact@v6[\s\S]*name: hero-\$\{\{ matrix\.clip \}\}/);
   assert.match(flow.slice(0, flow.indexOf('\njobs:')), /permissions:\n  contents: read/);
   assert.match(job('place'), /if: inputs\.branch != ''[\s\S]*contents: write[\s\S]*tools\/hero\.sh --place set/);
 });
@@ -54,4 +54,10 @@ test('the Mac runner gets an ffmpeg with libwebp first on PATH (run 1: Homebrew\
 
 test('the runner records one take at a time (run 2: two at once on a 3-core VM stalled the capture and painted late after cuts)', () => {
   assert.match(job('render'), /HERO_TAKES: '1'/);
+});
+
+test('the artifact actions run on Node 24 (run 2 warned: Node.js 20 is deprecated for upload-artifact@v4)', () => {
+  assert.match(flow, /actions\/upload-artifact@v6/);
+  assert.match(flow, /actions\/download-artifact@v7/);
+  assert.doesNotMatch(flow, /actions\/(upload|download)-artifact@v[45]\b/);
 });
