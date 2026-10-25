@@ -40,7 +40,9 @@ export const cutsAt = (x, side, edges, top, bottom, maxW, pageW, margin = 0) => 
 // (the whole page: its own borders cut nothing). Top and bottom first (at the centred left), then left and right at that height. Pure.
 // floor (the desktop copy, owner 25 Oct 2026: "zoom deeper, about 1.5x"): never zoom out below it to find a clean edge; at the floor, the frame whose left and
 // right edges cut the fewest lines and cards (nearest the centred one) is the answer, and the log names what it cuts (edges.mjs, desktop: context, not an error).
-export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect, floor = 0}) {
+// shift (the desktop copy, owner 25 Oct 2026: "zoom to the Find jobs card ... right now is not centered"): the frame never slides more than this many CSS px off the centred one to find
+// clean edges; a frame that would need more is not looked for, the zoom steps down instead, and at the floor the centred frame is the answer.
+export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect, floor = 0, shift = Infinity}) {
   const maxW = viewport.w / least, maxH = maxW / aspect, bottom = Math.max(least, Math.min(z, floor));
   for (let zoom = z; ; zoom = Math.max(bottom, zoom * STEP)) {
     const base = frameAt(zoom), w = viewport.w / zoom, h = w / aspect;
@@ -49,13 +51,13 @@ export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect, fl
     const flat = top => !edgeItemsY(top, 'top', near, want, want + w, maxH, viewport.h, MARGIN).length && !edgeItemsY(top + h, 'bottom', near, want, want + w, maxH, viewport.h, MARGIN).length;
     let top = flat(wantTop) ? wantTop : null;
     if (top === null) {
-      const lo = Math.max(0, look.y + Math.min(look.height, h) - h), hi = Math.min(viewport.h - h, look.y);   // tops that keep the look's top part in view
+      const lo = Math.max(wantTop - shift, 0, look.y + Math.min(look.height, h) - h), hi = Math.min(wantTop + shift, viewport.h - h, look.y);   // tops that keep the look's top part in view, near the centred one
       for (let t = Math.floor(lo); t <= hi; t += 2) if (flat(t) && (top === null || Math.abs(t - wantTop) < Math.abs(top - wantTop))) top = t;
       if (top === null && hi >= viewport.h - h - 0.5 && flat(viewport.h - h)) top = viewport.h - h;   // pinned to the page's bottom
     }
     if (top !== null) {
       const bottom = top + h, cy = top + h / 2;
-      const lo = Math.max(0, look.x + look.width - w), hi = Math.min(viewport.w - w, look.x);   // left edges that keep the look in view, on the page
+      const lo = Math.max(want - shift, 0, look.x + look.width - w), hi = Math.min(want + shift, viewport.w - w, look.x);   // left edges that keep the look in view, on the page, near the centred one
       const clean = left => !cutsAt(left, 'left', edges, top, bottom, maxW, viewport.w, MARGIN) && !cutsAt(left + w, 'right', edges, top, bottom, maxW, viewport.w, MARGIN);
       if (clean(want)) return {cx: want + w / 2, cy, z: zoom};
       let best = null;
@@ -65,7 +67,7 @@ export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect, fl
     if (zoom <= bottom) {
       if (bottom <= least) return frameAt(least);
       const base = frameAt(zoom), w = viewport.w / zoom, h = w / aspect, want = Math.min(Math.max(base.cx - w / 2, 0), viewport.w - w);
-      const top = Math.min(Math.max(base.cy - h / 2, 0), viewport.h - h), lo = Math.max(0, look.x + look.width - w), hi = Math.min(viewport.w - w, look.x);
+      const top = Math.min(Math.max(base.cy - h / 2, 0), viewport.h - h), lo = Math.max(want - shift, 0, look.x + look.width - w), hi = Math.min(want + shift, viewport.w - w, look.x);
       const cost = left => edgeItems(left, 'left', edges, top, top + h, maxW, viewport.w, MARGIN).length + edgeItems(left + w, 'right', edges, top, top + h, maxW, viewport.w, MARGIN).length;
       let best = want;
       for (let left = Math.floor(lo); left <= hi; left += 2) if (cost(left) < cost(best) || (cost(left) === cost(best) && Math.abs(left - want) < Math.abs(best - want))) best = left;

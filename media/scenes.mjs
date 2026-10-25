@@ -121,8 +121,9 @@ export const VIDEOS = {
       {hold: 3.0, look: ['#find-card .eyebrow', '#find-card .magic-sub', '#find-card .magic-go'], zoom: 1.7, phoneLook: ['#find-card .magic-title', '#find-card .magic-go'], phoneZoom: 2.6, tag: 'Jobs', say: 'Fresh from setup: one button, Find jobs', beat: 'First visit to Jobs: the big Find jobs card'},
       {click: '#find-card .magic-go', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Find jobs: the search starts'},
       // owner, 25 Oct 2026: "the Find jobs card appears once more after it is clicked" (a cut look opened wide on the idle card for a second), then "zoom in to the card
-      // with the loading": no cut; the look waits for the searching card's own title and chips (a part of it, so the zoom reads) and the camera glides in after the press
-      {hold: SEARCH_SECONDS + 0.6, look: ['#find-card .find-title', '#find-card .find-step >> nth=0', '#find-card .find-step >> nth=-1'], zoom: 2, phoneLook: '#find-card', phoneZoom: 2.6, say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
+      // with the loading": no cut; the look waits for the searching card's own head and steps row (title down to the live lines, its left 760 px: owner, same day, "more centered", shot of the card
+      // with its left edge at the frame's edge) and the camera glides in after the press
+      {hold: SEARCH_SECONDS + 0.6, look: ['#find-card .find-head-box', '#find-card .find-steps-row'], lookWidth: 760, zoom: 1.7, phoneLook: '#find-card', phoneZoom: 2.6, say: 'It reads employer sites and job boards', beat: 'Searching: sites read, jobs found and scored'},
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
@@ -180,7 +181,7 @@ export const VIDEOS = {
       {js: MAIL_WAIT}, {go: 'actions'},
       {hold: 1.8, look: GMAIL_TASK, zoom: 2.2, phoneZoom: 3.2, phoneLook: GMAIL_TASK, phoneLookWidth: 380, cut: true, into: 'card', card: 'Jobadabra checks the mail', tag: 'Actions', say: "In Jobadabra's Actions: Check Gmail", beat: 'Actions: the Check Gmail & Calendar card'},
       {tap: `${GMAIL_TASK} [data-command=mail]`, zoom: TAP_ZOOM, phoneZoom: 3.4, then: MAIL_OPEN},
-      {hold: 2.6, look: '#activity-card .mail-email', zoom: 1.9, phoneZoom: 3.4, phoneLook: '#activity-card .mail-email', phoneLookWidth: 460, cut: true, into: 'fade', say: 'It reads it: interview scheduled', beat: 'The check reads it: the job moves to Interview scheduled'},
+      {hold: 2.6, look: '#activity-card .mail-email', lookWidth: 720, zoom: 1.9, phoneZoom: 3.4, phoneLook: '#activity-card .mail-email', phoneLookWidth: 460, cut: true, into: 'fade', say: 'It reads it: interview scheduled', beat: 'The check reads it: the job moves to Interview scheduled'},
       {js: panel(false)},   // the panel stays open across pages and covers the next one
       {go: 'interviews'}, {hold: 1.7, look: '#iv-drafts .iv-draft', lookWidth: 800, zoom: 2.2, phoneZoom: 3.4, phoneLook: '#iv-drafts .iv-draft', phoneLookWidth: 510, cut: true, into: 'tiles', tag: 'Interviews', say: 'The phone screen, recorded on the Mac', beat: 'The phone screen with them, recorded on the Mac'},
       {click: '#iv-saved tr:has-text("Institut Cardio Rhône") button:has-text("Open review")'},

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MIN_ZOOM, shallowLooks, widestAt} from '../../media/fits.mjs';
 import {wholeFrame} from '../../media/whole.mjs';
-import {CLICK_FLOOR, DESKTOP_FLOOR, cameraKeys} from '../../media/camera.mjs';
+import {CLICK_FLOOR, DESKTOP_FLOOR, DESKTOP_SHIFT, cameraKeys} from '../../media/camera.mjs';
 import {VIDEOS} from '../../media/scenes.mjs';
 
 const viewport = {w: 1440, h: 900};
@@ -46,4 +46,16 @@ test('a desktop click zoom keeps CLICK_FLOOR when no frame has clean edges', () 
     {t: 1.8, type: 'press', box: {x: 1300, y: 800, width: 100, height: 40}}];
   const keys = cameraKeys({viewport, events, steady: true});
   assert.ok(keys.at(-1).z >= CLICK_FLOOR - 1e-6, `the click zoom ends at ${keys.at(-1).z}`);
+});
+
+// owner, 25 Oct 2026: "when we zoom to the Find jobs card, right now it is not centered": a gap between words far from the look's centre pulled the frame sideways
+test('a desktop frame stays centred on its look: a clean edge further away than DESKTOP_SHIFT is not worth it', () => {
+  const look = {x: 560, y: 300, width: 320, height: 160}, frameAt = z => ({cx: 720, cy: 380, z});
+  // words everywhere except a gap at x 100-130 (the left edge could sit there, 300 px off centre) and a gap in the middle that is too narrow for both edges
+  const edges = Array.from({length: 40}, (_, i) => [{k: 'text', x: 0, y: 20 * i, w: 100, h: 14, text: 'a'}, {k: 'text', x: 130, y: 20 * i, w: 1310, h: 14, text: 'b'}]).flat();
+  const args = {frameAt, z: 2, least: 1, look, edges, viewport, aspect: 1.6};
+  const free = wholeFrame(args), held = wholeFrame({...args, floor: DESKTOP_FLOOR, shift: DESKTOP_SHIFT});
+  assert.ok(Math.abs(held.cx - 720) <= DESKTOP_SHIFT + 1, `the frame's centre ${held.cx} stays near 720`);
+  assert.ok(held.z >= DESKTOP_FLOOR - 1e-6, `and keeps ${held.z}`);
+  assert.ok(free.cx !== undefined);
 });
