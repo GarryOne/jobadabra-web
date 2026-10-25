@@ -2,7 +2,7 @@
 // the view never leaves the page, every output frame maps to a recorded frame.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {cameraAt, cameraKeys, clipTo, cursorAt, frameAt, MAX_ZOOM, PHONE_GAIN, PHONE_MAX, posterTime, renderPlan, beatTimes, LOOK_MARGIN, FIT_WARN, FIRST_LAG, fromFirstLook} from '../../media/camera.mjs';
+import {cameraAt, cameraKeys, clipTo, cursorAt, frameAt, MAX_ZOOM, PHONE_GAIN, PHONE_MAX, PHONE_SCALE, posterTime, renderPlan, beatTimes, LOOK_MARGIN, FIT_WARN, FIRST_LAG, fromFirstLook} from '../../media/camera.mjs';
 
 const viewport = {w: 1800, h: 1125};
 const box = {x: 250, y: 500, width: 1200, height: 540};
@@ -107,7 +107,7 @@ test('the phone copy: its own aspect, a tighter zoom (gain or its own), capped, 
   const events = [{t: 0, type: 'hold', box: {x: 860, y: 360, width: 300, height: 130}, zoom: 2.2}, {t: 3, type: 'hold', box: {x: 260, y: 750, width: 400, height: 60}, zoom: 2, phoneZoom: 3.2}];
   const keys = cameraKeys({viewport, events, steady: true, phone});
   assert.equal(keys[0].z, Math.min(PHONE_MAX, 2.2 * PHONE_GAIN));
-  assert.equal(keys.at(-1).z, 3.2, 'a step may set its own phone zoom');
+  assert.ok(Math.abs(keys.at(-1).z - 3.2 * PHONE_SCALE) < 1e-9, 'a step may set its own phone zoom, shown at PHONE_SCALE of it');
   for (let t = 0; t < 6; t += 0.1) {
     const view = cameraAt(keys, t, viewport, 1, phone);
     assert.ok(Math.abs(view.w / view.h - 4 / 3) < 1e-6, 'a 4:3 view');
@@ -161,7 +161,7 @@ test('a phone look is never cut left or right either: centred, its zoom lowered 
         assert.ok(view.x <= look.x + 0.5 && view.x + view.w >= look.x + look.width - 0.5, `${name}: the view ${view.x.toFixed(0)}+${view.w.toFixed(0)} holds the box`);
         const centre = look.x + look.width / 2, middle = view.x + view.w / 2;
         if (view.x > 0.5 && view.x + view.w < viewport.w - 0.5) assert.ok(Math.abs(middle - centre) < 1, `${name}: centred on the look (${middle.toFixed(0)} vs ${centre.toFixed(0)})`);
-        const asked = Math.min(PHONE_MAX, phoneZoom ?? zoom * PHONE_GAIN);
+        const asked = Math.min(PHONE_MAX, phoneZoom != null ? phoneZoom * PHONE_SCALE : zoom * PHONE_GAIN);
         if (look.width + 2 * LOOK_MARGIN > viewport.w / asked) assert.equal(heard.length, 1, `${name}: the lowered zoom is reported`);
       }
     }

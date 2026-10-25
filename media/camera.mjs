@@ -18,8 +18,9 @@ import {wholeFrame} from './whole.mjs';
 
 export const ease = x => { const u = Math.max(0, Math.min(1, x)); return u * u * (3 - 2 * u); };
 
-export const PHONE_GAIN = 1.8;    // the phone copy zooms this much closer than the desktop one (owner, 24 Oct 2026: "a tighter mobile crop")
-export const PHONE_MAX = 3.3;     // ... up to here: frames are 2x the page (round 9: 2.5x the window), so a 3.3x crop still fills the 1080-wide phone copy
+export const PHONE_GAIN = 1.4;    // the phone copy zooms this much closer than the desktop one (owner, 24 Oct 2026: "a tighter mobile crop")
+export const PHONE_SCALE = 0.8;   // a step's phoneZoom is shown at this share (owner, 25 Oct 2026: "we shouldn't be that aggressive on mobile ... zoom a bit, but not that much")
+export const PHONE_MAX = 2.8;     // ... up to here: frames are 2x the page (round 9: 2.5x the window), so a 3.3x crop still fills the 1080-wide phone copy
 
 // The camera state that frames `box` at zoom z: centred on it, so a box in a corner puts the camera in that corner (cameraAt keeps the view on the page).
 // A box wider than the zoomed view is read from its left edge (names and scores first), not cropped on both sides. `aspect`: the output's (16:10, or the phone's).
@@ -67,7 +68,7 @@ export function wideOpening(events, i, speed = 1, first = false) {
 export function cameraKeys({viewport, events, speed = 1, steady = false, phone = null, onFit = null}) {
   const aspect = phone ? phone.aspect : viewport.w / viewport.h;
   const least = Math.max(1, viewport.w / aspect / viewport.h);   // the widest view that still fits the page's height
-  const zoomed = (event, z) => Math.max(least, phone ? Math.min(PHONE_MAX, event.phoneZoom ?? z * PHONE_GAIN) : Math.min(MAX_ZOOM, z));
+  const zoomed = (event, z) => Math.max(least, phone ? Math.min(PHONE_MAX, event.phoneZoom != null ? event.phoneZoom * PHONE_SCALE : z * PHONE_GAIN) : Math.min(MAX_ZOOM, z));
   const full = {cx: viewport.w / 2, cy: viewport.h / 2, z: least};
   const keys = [{t: 0, ...full}];
   const move = (t, state) => { if (t > keys.at(-1).t) keys.push({t, ...state}); };

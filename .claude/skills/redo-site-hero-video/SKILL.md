@@ -200,6 +200,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **A dull colour: find which layer made it before fixing anything** ("is maybe the recording/rendering ... the problem?"): compare the app's CSS token
   (`desktop/renderer/tokens.css`) with the raw frame (`.work/<piece>/frames`) and the decoded clip. The ring green was the APP's bug (the dark theme
   had no `--good-bright`, so it drew the light theme's #2e9e6a): fixed in the app (jobadabra PR, merged first), then the hero recorded again.
+- **Phone copies are gentle** (owner, 25 Oct 2026: "we shouldn't be that aggressive on mobile ... zoom a bit, but not that much"): a step's `phoneZoom` shows at `PHONE_SCALE` (0.8) of itself, `PHONE_GAIN` 1.4, cap 2.8, in a 960x720 window. The phone take hides `#sessions-dock` and `#activity-toggle` (not `#activity-panel`: Track's mail card lives in it); Find's tab holds frame `DRAWER_TAB`, not the whole drawer.
+- **No toast in a clip** (owner, 25 Oct 2026, "Its result was not saved" over Find's first job): the demo feeds the Find card by hand, so the app toasts. The `NO_TOASTS` step removes toasts as they appear; a CSS hide in the recorder changed the stray-frame gate's timing and failed it.
+- **The hero cache keeps the newest 3 sets**: a set not yet placed is pruned by the next run, so copy or `--place` it first. A combined four-piece run once failed on Find's job row where single pieces passed: record Find alone and merge its files and manifest item into the set.
 
 **Round 9: phones show whole frames, captions under the video, 1080** (owner, 24 Oct 2026)
 - **Nothing cut at a phone frame's edge** ("the video is stripped ... I don't see the full video frame"; chose "whole column, centred" over the whole
