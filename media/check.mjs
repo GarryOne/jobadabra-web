@@ -39,7 +39,8 @@ export function captureGaps(log, within = 1) {
 // final gate (pieceProblems): run 28 failed at the end on Find's 117 frames in 31.8 s, a stall the loop never looked for. Pure.
 export function stallsOf(log, quiet = false) {
   const from = (log.events || []).find(event => event.type === 'hold' && event.look)?.t ?? 0;
-  const frames = log.frames.filter(frame => frame.t >= from - 0.05), seconds = Math.max(0, (log.frames.at(-1)?.t || 0) - from);
+  const caught = log.frames.filter(frame => !frame.held);   // a frame held to the last hold's end is no capture (camera.mjs toLastHold)
+  const frames = caught.filter(frame => frame.t >= from - 0.05), seconds = Math.max(0, (caught.at(-1)?.t || 0) - from);
   const out = [];
   if (quiet ? frames.length < 2 : frames.length < seconds * 5) out.push(`only ${frames.length} frames in ${seconds.toFixed(1)} s (the capture stalled)`);
   for (const gap of captureGaps(log)) out.push(`no frame at the look ${JSON.stringify(gap.look)} (${gap.t.toFixed(1)} s): the capture stalled`);

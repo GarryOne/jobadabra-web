@@ -166,6 +166,15 @@ export function untilEnd(log) {
   return {...log, frames, events: log.events.filter(event => event.t <= end.t && event !== end)};
 }
 
+// A clip that ends on a still page keeps its last hold whole: the recorder gets a frame only when the page changes, and the video ends at the last
+// frame, so a quiet last hold was cut short and the poster (90% into it) fell past the end (Track on the 3-core runner, run 40156280319: poster at
+// 38.98 s, frames to 38.9 s). The last frame is held to the end of the last hold, as untilEnd does for a press. Pure.
+export function toLastHold(log) {
+  const end = Math.max(0, ...log.events.filter(event => event.type === 'hold').map(event => Number((event.t + event.s).toFixed(3))));
+  const last = log.frames.at(-1);
+  return last && end > last.t ? {...log, frames: [...log.frames, {...last, t: end, held: true}]} : log;   // held: no new capture (check.mjs stallsOf)
+}
+
 // The poster's moment: the end of the hold marked poster (the filled form, ready to submit), else the first frame. Pure.
 export function posterTime(events = []) {
   const hold = events.find(event => event.type === 'hold' && event.poster);
