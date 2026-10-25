@@ -42,6 +42,8 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
         working-directory: desktop
+      - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - name: PR description laid out
         if: github.event_name == 'pull_request'
         env:

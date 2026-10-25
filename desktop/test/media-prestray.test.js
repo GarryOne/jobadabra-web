@@ -31,7 +31,7 @@ test('the plan check finds an old page lingering after a cut and passes a clean 
 });
 
 test('every recorded frame is read once, in order, by one ffmpeg call (prestray.mjs smallFrames)', async t => {
-  try { execFileSync('ffmpeg', ['-version'], {stdio: 'ignore'}); } catch { t.skip('no ffmpeg'); return; }
+  try { execFileSync('ffmpeg', ['-version'], {stdio: 'ignore'}); } catch (error) { if (process.env.CI) throw error; t.skip('no ffmpeg'); return; }   // CI installs it (tests.yml): never skipped there
   const {smallFrames, SMALL_W} = await import('../../media/prestray.mjs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prestray-test-'));
   const levels = [20, 120, 230];
