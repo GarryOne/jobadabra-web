@@ -34,6 +34,19 @@ export const wordsCut = (box, width, lines) => {
   const edge = box.x + Math.min(box.width, width);
   return Math.max(0, ...lines.filter(line => line.x < edge - 1).map(line => Math.round(line.x + line.width - edge)));
 };
+// A left part (lookWidth) whose edge cuts a line of words moves back to the gap before that line, until no line is cut (PR5, 25 Oct 2026: the
+// 1440-px desktop page reflowed Find's row and "Ready to submit" crossed the 862 px picked on the 1800-px page). -> the width, or null when the gap is
+// under GAP_FLOOR of the asked width (then the look needs another part). Pure.
+export const GAP_FLOOR = 0.6;
+export const gapWidth = (box, width, lines, margin = 8) => {
+  let w = width;
+  while (w && wordsCut(box, w, lines) > 4) {
+    const edge = box.x + Math.min(box.width, w), crossing = lines.filter(line => line.x < edge - 1 && line.x + line.width > edge + 4);
+    w = crossing.length ? Math.floor(Math.min(...crossing.map(line => line.x)) - box.x - margin) : w - 1;
+    if (w < width * GAP_FLOOR) return null;
+  }
+  return w;
+};
 // The look the recorder watches for after step i (record-app.mjs logs 'ready' when it is on screen, cuts.mjs drops the frames before it): the next look
 // if it is marked `cut`, else null. Pure.
 export const nextCut = (steps, i) => { const look = steps.slice(i + 1).find(step => step.hold && step.look); return look?.cut ? {look: look.look} : null; };
@@ -51,6 +64,8 @@ export const stepMarks = (item, log) => {
 // Every phone look is shown whole: no left part (lookWidth / phoneLookWidth, hand-picked for the wide layout; run 20: Track's 460-px part cut a
 // line of words in the one-column layout), the whole-frame camera (whole.mjs) keeps the edges clean.
 const wholeLook = ({lookWidth, phoneLookWidth, ...step}) => step;
+// The desktop take: the app at the piece's desktop text size (scenes.mjs DESKTOP: a 1440-px page instead of 1800, text 25% bigger). Pure.
+export const desktopTake = piece => (piece.source === 'app' && piece.desktop?.zoom ? {...piece, settings: {...piece.settings, zoom: piece.desktop.zoom}} : piece);
 export const phoneTake = (piece, {window, zoom = null}) => ({...piece, window, ...(zoom ? {zoom, settings: {...piece.settings, zoom}} : {}),
   steps: piece.steps.map(step => (!step.hold ? step : {...wholeLook(step), fitScroll: true, ...(step.phoneLook ? {look: step.phoneLook} : {})}))});
 
