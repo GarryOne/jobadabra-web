@@ -372,3 +372,14 @@ test('a clip ending on a still page keeps its last hold whole, so the poster and
   const early = {...log, events: [{type: 'hold', t: 30, s: 1}]};
   assert.equal(toLastHold(early), early, 'a hold that ends before the last frame changes nothing');
 });
+
+// owner, 25 Oct 2026: "During wizard, or when clicking on Find jobs ... instead of default cursor, can we have a magic wand?"
+test('the magic wand is the cursor from a step that says wand until the next one that does not', async () => {
+  const {wandAt} = await import('../../media/camera.mjs');
+  const events = [{t: 0, type: 'hold', wand: true}, {t: 1, type: 'click', wand: true}, {t: 1.7, type: 'press'}, {t: 3, type: 'hold', wand: true}, {t: 6, type: 'hold'}, {t: 7, type: 'click'}];
+  assert.deepEqual([0.5, 1.8, 4, 6.5, 8].map(t => wandAt(events, t)), [true, true, true, false, false]);
+  const {VIDEOS} = await import('../../media/scenes.mjs');
+  assert.equal(VIDEOS['hero-onboarding'].wand, true, 'the setup wizard draws the wand');
+  assert.ok(VIDEOS.hero.steps.find(step => step.click === '#find-card .magic-go')?.wand, 'and the Find jobs click');
+  assert.ok(VIDEOS.hero.steps.filter(step => step.hold && step.look).slice(-3).every(step => !step.wand), 'the arrow is back for the list and the drawer');
+});
