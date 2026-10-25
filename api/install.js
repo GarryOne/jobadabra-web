@@ -3,7 +3,9 @@
 // "Open Anyway" (the app isn't notarized yet). Also updates an installed copy. Each run is counted as a Mac
 // download (button "terminal"); curl isn't a bot here.
 
-const ZIP = 'https://github.com/GarryOne/jobadabra/releases/latest/download/Job-Pilotto-mac-arm64.zip';
+const RELEASE = 'https://github.com/GarryOne/jobadabra/releases/latest/download/';
+const ZIP = RELEASE + 'Jobadabra-mac-arm64.zip';
+const OLD_ZIP = RELEASE + 'Job-Pilotto-mac-arm64.zip';   // the alias of a stable release made before the rename; kept as the fallback
 
 // Where the person came from (the link they followed carried ?src=reddit-devops): a short slug, or nothing.
 export function cleanSource(value) {
@@ -26,7 +28,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 echo "Downloading Jobadabra…"
-curl -fL --progress-bar -o "$tmp/app.zip" "${ZIP}"
+curl -fL --progress-bar -o "$tmp/app.zip" "${ZIP}" || curl -fL --progress-bar -o "$tmp/app.zip" "${OLD_ZIP}"
 ditto -x -k "$tmp/app.zip" "$tmp/unpacked"
 
 if pgrep -f "/Job Pilotto.app/Contents/MacOS/" >/dev/null; then
