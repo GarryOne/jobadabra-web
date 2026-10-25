@@ -59,8 +59,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: ffmpeg
-        run: brew install ffmpeg
+      - name: ffmpeg with libwebp   # Homebrew's ffmpeg is slim (no libwebp: run 1 stopped at once); ffmpeg-full is keg-only, so it goes first on PATH
+        run: brew install ffmpeg-full && echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
       - name: Record and render ${{ matrix.clip }}
         shell: bash
         env:
