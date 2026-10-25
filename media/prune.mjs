@@ -6,14 +6,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// kind: what writes it; keep: how many stay, not counting the one the caller is about to write; by: the newest by name (a time stamp) or by mtime;
-// group: rules that keep per group (a package cache per folder: desktop, desktop-e2e)
+// kind: what writes it; keep: how many stay, not counting the one the caller is about to write; group: rules that keep per group (a package cache
+// per folder: desktop, desktop-e2e). The newest are the last written (mtime), never by name: the names are local time, and on 25 Oct 2026 the clocks
+// went back an hour, so run 30's hero-20261025-022404 sorted before run 29's hero-20261025-024141.
 export const RULES = [
   {kind: 'hero', match: /^hero-\d{8}-\d{6}$/, keep: 2},                       // tools/hero.sh: a 1.3-2 GB run (takes, renders, site files)
   {kind: 'preview', match: /^hero-preview-\d{8}-\d{6}$/, keep: 2},            // tools/hero.sh --preview
   {kind: 'set', match: /^set-\d{8}-\d{6}$/, keep: 2},                         // tools/media.sh: a run of the site's media
   {kind: 'log', match: /^media-\d{8}-\d{6}\.log$/, keep: 10},                 // tools/media.sh --background
-  {kind: 'modules', match: /^modules-(.+)-[0-9a-f]{16}$/, keep: 2, by: 'mtime', group: m => m[1]},   // tools/media.sh: node_modules per lock file
+  {kind: 'modules', match: /^modules-(.+)-[0-9a-f]{16}$/, keep: 2, group: m => m[1]},   // tools/media.sh: node_modules per lock file
 ];
 
 // -> the removed names, in no order. keep: {kind: n} overrides a rule's count.
@@ -30,7 +31,7 @@ export function pruneCache(root, {keep = {}, protect = [], rules = RULES} = {}) 
     }
     for (const list of groups.values()) {
       const at = name => fs.statSync(path.join(root, name)).mtimeMs;
-      const newest = rule.by === 'mtime' ? list.sort((a, b) => at(b) - at(a)) : list.sort().reverse();
+      const newest = list.sort((a, b) => at(b) - at(a) || (a < b ? 1 : -1));
       for (const name of newest.slice(Math.max(0, keep[rule.kind] ?? rule.keep))) {
         const full = path.join(root, name);
         if (kept.has(full) || fs.existsSync(path.join(full, 'KEEP'))) continue;

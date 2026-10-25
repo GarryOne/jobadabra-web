@@ -36,11 +36,19 @@ const FPS = 30;
 // Writes a render job and runs render.cjs on it; a render that ends short (round 9: the phone copy's renderer quit 17 frames in, exit 0, on a Mac
 // low on memory, and the clip came out 0.4 s long) is run once more, then stops the piece. Up to RENDERS run at once (renders.mjs). -> out.
 const renderQueue = limiter(RENDERS);
+const ELECTRON = path.join(desktop, 'node_modules', '.bin', 'electron');
+// Electron unpacks itself on its first start: started once, alone, before renders run side by side (run 30: a fresh .overlay, four renderers at
+// once, "File exists" and "Electron failed to install correctly"). The takes start the app one at a time, so a run that records is safe already.
+let electronReady = null;
+const electronOnce = () => (electronReady ??= runChild(ELECTRON, ['--version'], 5 * 60000).then(run => {
+  if (run.status !== 0) throw new Error(`media: Electron does not start (${run.error?.message ?? run.status ?? run.signal}): delete .overlay and run again`);
+}));
 async function runRender(job, name, tries = 2) {
   const file = path.join(path.dirname(job.out), `${path.basename(job.out, '.mp4')}.json`);
   fs.writeFileSync(file, JSON.stringify({...job, gradeSvg: gradeSvg()}));   // every clip graded the same way, the app's pixels only (grade.mjs)
+  await electronOnce();
   return renderQueue(async () => { for (let attempt = 1; ; attempt++) {
-    const run = await runChild(path.join(desktop, 'node_modules', '.bin', 'electron'), [path.join(here, 'render.cjs'), file], 15 * 60000);
+    const run = await runChild(ELECTRON, [path.join(here, 'render.cjs'), file], 15 * 60000);
     // run.error: it never started (24 Oct 2026, a Mac out of memory printed "failed (null)"): name the cause
     if (run.status !== 0) throw new Error(`media: ${name}: the renderer failed (${run.error ? `could not start: ${run.error.message}` : run.status ?? run.signal})`);
     const made = fs.existsSync(job.out) ? framesIn(job.out) : 0;

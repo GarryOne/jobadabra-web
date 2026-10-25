@@ -12,9 +12,10 @@ test('every kind of media cache folder keeps its newest few; a KEEP folder, a pr
     'hero-preview-20261024-010000', 'hero-preview-20261024-020000', 'hero-preview-20261024-030000',
     'set-20261021-010000', 'set-20261021-020000', 'set-20261021-030000', 'modules-desktop-1111111111111111', 'modules-desktop-2222222222222222',
     'modules-desktop-3333333333333333', 'modules-desktop-e2e-4444444444444444', 'hero-r5-final', 'something-else'];
-  dirs.forEach((name, i) => { fs.mkdirSync(path.join(root, name)); fs.utimesSync(path.join(root, name), 1e9 + i, 1e9 + i); });
-  for (let i = 0; i < 12; i++) fs.writeFileSync(path.join(root, `media-202610${String(10 + i)}-010000.log`), 'x');
+  dirs.forEach(name => fs.mkdirSync(path.join(root, name)));
   fs.writeFileSync(path.join(root, 'hero-20261024-010000', 'KEEP'), 'owner approved');
+  dirs.forEach((name, i) => fs.utimesSync(path.join(root, name), 1e9 + i, 1e9 + i));   // written in the order listed
+  for (let i = 0; i < 12; i++) { const log = path.join(root, `media-202610${String(10 + i)}-010000.log`); fs.writeFileSync(log, 'x'); fs.utimesSync(log, 1e9 + i, 1e9 + i); }
   const gone = pruneCache(root, {protect: [path.join(root, 'hero-20261024-020000')]}).sort();
   assert.deepEqual(gone, ['hero-20261024-030000', 'hero-preview-20261024-010000', 'media-20261010-010000.log', 'media-20261011-010000.log',
     'modules-desktop-1111111111111111', 'set-20261021-010000']);
@@ -41,3 +42,13 @@ test('the prune runs from the command line with --keep and --protect', async () 
   execFileSync('node', [new URL('../../media/prune.mjs', import.meta.url).pathname, root, '--protect', ''], {stdio: 'pipe'});
   fs.rmSync(root, {recursive: true, force: true});
 });
+
+test('the newest are the last written, not the latest name: the clocks went back an hour on 25 Oct 2026 (media/prune.mjs)', async () => {
+  const {pruneCache} = await import('../../media/prune.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'media-prune-dst-'));
+  // written in this order: run 28 at 02:32 summer time, run 29 at 02:41 summer time, run 30 at 02:24 winter time (the newest)
+  ['hero-20261025-023221', 'hero-20261025-024141', 'hero-20261025-022404'].forEach((name, i) => { fs.mkdirSync(path.join(root, name)); fs.utimesSync(path.join(root, name), 2e9 + i * 600, 2e9 + i * 600); });
+  assert.deepEqual(pruneCache(root, {keep: {hero: 2}}), ['hero-20261025-023221'], 'run 28 goes; run 30, written last, stays');
+  fs.rmSync(root, {recursive: true, force: true});
+});
+

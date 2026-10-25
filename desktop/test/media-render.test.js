@@ -53,3 +53,11 @@ test('every check runs before any render: a clip and picture in picture return a
   assert.match(media, /entries\.push\(\.\.\.await settled\(finishes\.map\(finish => finish\(\)\)\)\)/);
   assert.match(media, /return renderQueue\(async \(\) => \{ for \(let attempt = 1; ; attempt\+\+\) \{\n\s+const run = await runChild\(/, 'every render goes through the queue');
 });
+
+test('Electron is started once, alone, before renders run side by side (run 30: four first starts at once on a fresh copy collided)', () => {
+  const media = read('media.mjs');
+  const fn = media.slice(media.indexOf('async function runRender'), media.indexOf('// Words only'));
+  assert.ok(fn.indexOf('await electronOnce();') > 0 && fn.indexOf('await electronOnce();') < fn.indexOf('renderQueue('), 'runRender waits for the one start before queueing');
+  assert.match(media, /electronReady \?\?= runChild\(ELECTRON, \['--version'\]/, 'one shared start, memoised');
+});
+
