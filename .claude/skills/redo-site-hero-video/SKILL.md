@@ -426,3 +426,5 @@ comes back at the next redo.
   click or look that does not say it. The owner saw it and said "Remove the magic wand for now. I don't like it how it looks" (25 Oct 2026): no scene sets it now; the drawing stays for a redo.  Test: media-camera.
 - **Every drawer tab needs demo data** (owner: "a very complete job with conversations, timelines, reviews, interviews"): the persona's `job-pages.json` gives her job a kit, a record, prep, a recruiter
   message, notes, five dated events and a recorded, reviewed phone screen; add data there before adding a tab to a scene.
+- **Do not split Set up, Find or Track into joined parts** (weighed and dropped, owner, 25 Oct 2026: "with no real gained value"): the clips already render in parallel (Set up 9 min, Find 15 min),
+  so parts save minutes and add a join job, a start state per part and a visible cut. Apply keeps its parts. Propose it again only with new numbers.
