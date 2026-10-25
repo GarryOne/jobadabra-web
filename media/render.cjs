@@ -119,14 +119,15 @@ async function draw(job) {
     if (frame.cursor !== false) {
       const c = 1.3 * unit * (frame.press != null && frame.press < 0.12 ? 0.88 : 1);   // pressed: a touch smaller
       ctx.save(); ctx.translate(px, py); ctx.scale(c, c);
-      if (frame.wand) {   // a magic wand (owner, 25 Oct 2026), its tip at the cursor's point: a stick going down and right, a four-point star of light on its tip, two small sparkles
-        const star = (x, y, r, fill) => { const q = r * 0.28, d = new Path2D(); d.moveTo(x, y - r); d.lineTo(x + q, y - q); d.lineTo(x + r, y); d.lineTo(x + q, y + q); d.lineTo(x, y + r); d.lineTo(x - q, y + q); d.lineTo(x - r, y); d.lineTo(x - q, y - q); d.closePath(); ctx.fillStyle = fill; ctx.fill(d); };
+      if (frame.wand) {   // the app's own wand cursor (desktop/renderer/assets/wand.svg, owner's pick 25 Oct 2026), its star's centre at the cursor's point
+        const line = (y0, y1, color, width) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(0, y1); ctx.stroke(); };
+        const star = new Path2D('M0,-10 L2.59,-3.56 L9.51,-3.09 L4.18,1.36 L5.88,8.09 L0,4.4 L-5.88,8.09 L-4.18,1.36 L-9.51,-3.09 L-2.59,-3.56Z');
+        ctx.scale(1.25, 1.25); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
-        ctx.lineCap = 'round'; ctx.strokeStyle = '#111111'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(28, 28); ctx.stroke();
-        ctx.shadowColor = 'transparent'; ctx.strokeStyle = '#f4f5f7'; ctx.lineWidth = 4.4; ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(28, 28); ctx.stroke();
-        ctx.strokeStyle = '#f2a93b'; ctx.lineWidth = 4.4; ctx.beginPath(); ctx.moveTo(21, 21); ctx.lineTo(28, 28); ctx.stroke();
-        ctx.shadowColor = 'rgba(245,184,61,0.9)'; ctx.shadowBlur = 10; star(0, 0, 11, '#ffd773');
-        ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; star(0, 0, 6, '#ffffff'); star(-10, -9, 4, '#ffd773'); star(9, -11, 3, '#ffffff');
+        line(6, 23, '#000000', 5.2); ctx.shadowColor = 'transparent';
+        line(6, 17, '#f2a93b', 2.6); line(17, 23, '#8a8f9a', 2.6);
+        ctx.strokeStyle = '#000000'; ctx.lineWidth = 2.4; ctx.stroke(star); ctx.fillStyle = '#ffd73a'; ctx.fill(star);
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4; ctx.stroke(new Path2D('M-3,-4 Q-1,-6.2 1.6,-5.4'));
       } else {
       const arrow = new Path2D('M0 0 L0 24 L6 18.5 L10.5 28 L14 26.5 L9.8 17.3 L17.5 17.3 Z');
       ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;

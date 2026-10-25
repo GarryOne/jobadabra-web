@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {clickedControl, GAP_FLOOR, gapWidth, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, glideTo, magicTarget, GAP_FLOOR, gapWidth, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 import {freePort} from '../desktop/e2e/lib/extension.mjs';
@@ -126,9 +126,11 @@ async function step(page, item, log, app = null) {
     return;
   }
   if (item.tap) {   // the cursor glides to a control and presses it, nothing is clicked (a demo-disabled control, or the clip's last gesture), then `then` runs
-    const box = await page.locator(item.tap).first().boundingBox();
+    const tapped = page.locator(item.tap).first(), box = await tapped.boundingBox();
     if (!box) throw new Error(`media: nothing to tap at ${item.tap} (update scenes.mjs)`);
-    log.add({type: 'click', selector: item.tap, box, ...say, ...(item.wand ? {wand: true} : {}), ...(item.zoom ? {zoom: item.zoom} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})}); await page.waitForTimeout(700); log.add({type: 'press', selector: item.tap, box, ...(item.then && pressShow(log) ? {held: true} : {})});
+    const magic = await tapped.evaluate(magicTarget).catch(() => ({})), wand = item.wand ?? magic.wand;   // the app's own wand and glow marks, as for a click
+    log.add({type: 'click', selector: item.tap, box, ...say, ...(wand ? {wand: true} : {}), ...(item.zoom ? {zoom: item.zoom} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})});
+    if (magic.glow || magic.wand) await glideTo(page, box, log, 700); else await page.waitForTimeout(700); log.add({type: 'press', selector: item.tap, box, ...(item.then && pressShow(log) ? {held: true} : {})});
     if (item.end) { await page.waitForTimeout(pressShow(log) || 400); log.add({type: 'end'}); return; }   // the part ends on this press (camera.mjs untilEnd)
     if (item.then) { await page.waitForTimeout(pressShow(log)); log.add({type: 'mark'}); await page.evaluate(item.then); }
     await watch(page, item.then ? 900 : 300, log);
@@ -143,8 +145,10 @@ async function step(page, item, log, app = null) {
     // head's middle, so the card never opened and the next look timed out) would get it instead
     const under = await target.evaluate(clickedControl).catch(() => null);
     if (under) throw new Error(`media: the click on ${item.click} would land on "${under}" inside it: click a part that is only the target (scenes.mjs)`);
-    log.add({type: 'click', selector: item.click, box, ...say, ...(item.wand ? {wand: true} : {})});
-    await page.waitForTimeout(700);   // the cursor's glide, drawn by the renderer
+    const magic = await target.evaluate(magicTarget).catch(() => ({}));   // what the app itself marks: a wand cursor on its AI buttons, a pointer-following glow on its magic cards
+    const wand = item.wand ?? magic.wand;
+    log.add({type: 'click', selector: item.click, box, ...say, ...(wand ? {wand: true} : {})});
+    if (magic.glow || magic.wand) await glideTo(page, box, log, 700); else await page.waitForTimeout(700);   // the cursor's glide, drawn by the renderer
     const wait = pressShow(log);
     log.add({type: 'press', selector: item.click, box, ...(wait ? {held: true} : {})});
     if (wait) { await page.waitForTimeout(wait); log.add({type: 'mark'}); }
