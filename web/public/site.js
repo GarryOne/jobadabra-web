@@ -78,8 +78,8 @@
   });
 
   // Links shared before 20 Oct 2026 point at sections of the long landing; each now lives on its own page.
-  const MOVED = {how: '/how-it-works', 'your-click': '/how-it-works#control', autoapply: '/how-it-works#fill', app: '/features', learns: '/features#coach',
-    see: '/features#screens', intelligence: '/intelligence', evidence: '/research', privacy: '/trust', trust: '/trust#download', setup: '/download',
+  const MOVED = {how: '/how-it-works', 'your-click': '/how-it-works#control', autoapply: '/how-it-works#fill', app: '/features', learns: '/features#improve',
+    see: '/features#find', intelligence: '/intelligence', evidence: '/research', privacy: '/trust', trust: '/trust#download', setup: '/download',
     pricing: '/pricing', early: '/pricing#early', faq: '/faq'};
   if (document.body.dataset.page === 'home') {
     const to = MOVED[location.hash.slice(1)];
