@@ -113,7 +113,7 @@ test('pieces of a render draw the same frames as the whole render, joined (rende
   fs.rmSync(dir, {recursive: true, force: true});
 });
 
-test('the MP4, WebM and phone ladders of a clip run side by side (encode.mjs encodeVideo)', () => {
+test('the MP4 and phone ladders of a clip run side by side (encode.mjs encodeVideo)', () => {
   const encode = read('encode.mjs');
   assert.match(encode, /export async function encodeVideo\(/);
   assert.match(encode, /await Promise\.all\(jobs\);/);
