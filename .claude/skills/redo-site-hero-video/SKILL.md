@@ -299,7 +299,7 @@ comes back at the next redo.
   and run 1 stopped all 4 clips in 30 s (Homebrew's slim ffmpeg has no libwebp: #104 installs ffmpeg-full); run 2: two takes at once on the
   3-core runner stalled the capture and painted late after cuts (HERO_TAKES=1 there). A job's log exists only once the job ends (mid-run the logs
   URL answers BlobNotFound): mid-run read its steps (`gh api repos/GarryOne/jobadabra-web/actions/jobs/<id> --jq '.steps[]|"\(.name) \(.status)"'`),
-  after it `gh run view <run> --log --job <id>`. A runner clip takes 9-12 min (about 2x the Mac per clip; the 4 run side by side).
+  after it `gh run view <run> --log --job <id>`. A runner clip takes 8-10 min (measured 25 Oct 2026, about 2x the Mac per clip; the 4 run side by side: ~10 min, 35 runner min, ~350 counted min if the repo is private).
 - **MP4 only, no WebM** (owner, 25 Oct 2026, chose "MP4 for all"): VP9 came out bigger and blurrier than H.264 on app screens (Track: 2.63 MB at
   VP9's lowest step vs 2.25 MB H.264 near its best; then 2.82 MB, over budget, run 40154540314), and its ladder was the slowest encode. Every browser
   plays the MP4. Guard: desktop/test/media-mp4-only.test.js. **Every budgeted copy logs `CRF n (a-b), X of Y MB`** (media/encode.mjs budgetLine);
