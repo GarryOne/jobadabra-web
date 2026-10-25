@@ -128,7 +128,7 @@ async function step(page, item, log, app = null) {
   if (item.tap) {   // the cursor glides to a control and presses it, nothing is clicked (a demo-disabled control, or the clip's last gesture), then `then` runs
     const box = await page.locator(item.tap).first().boundingBox();
     if (!box) throw new Error(`media: nothing to tap at ${item.tap} (update scenes.mjs)`);
-    log.add({type: 'click', selector: item.tap, box, ...say, ...(item.zoom ? {zoom: item.zoom} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})}); await page.waitForTimeout(700); log.add({type: 'press', selector: item.tap, box, ...(item.then && pressShow(log) ? {held: true} : {})});
+    log.add({type: 'click', selector: item.tap, box, ...say, ...(item.wand ? {wand: true} : {}), ...(item.zoom ? {zoom: item.zoom} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})}); await page.waitForTimeout(700); log.add({type: 'press', selector: item.tap, box, ...(item.then && pressShow(log) ? {held: true} : {})});
     if (item.end) { await page.waitForTimeout(pressShow(log) || 400); log.add({type: 'end'}); return; }   // the part ends on this press (camera.mjs untilEnd)
     if (item.then) { await page.waitForTimeout(pressShow(log)); log.add({type: 'mark'}); await page.evaluate(item.then); }
     await watch(page, item.then ? 900 : 300, log);
@@ -143,7 +143,7 @@ async function step(page, item, log, app = null) {
     // head's middle, so the card never opened and the next look timed out) would get it instead
     const under = await target.evaluate(clickedControl).catch(() => null);
     if (under) throw new Error(`media: the click on ${item.click} would land on "${under}" inside it: click a part that is only the target (scenes.mjs)`);
-    log.add({type: 'click', selector: item.click, box, ...say});
+    log.add({type: 'click', selector: item.click, box, ...say, ...(item.wand ? {wand: true} : {})});
     await page.waitForTimeout(700);   // the cursor's glide, drawn by the renderer
     const wait = pressShow(log);
     log.add({type: 'press', selector: item.click, box, ...(wait ? {held: true} : {})});
@@ -186,7 +186,8 @@ export async function recordAppVideo({persona, piece, dir}) {
     const cast = await startScreencast(page, path.join(dir, 'frames'));
     const log = stepLog(cast.clock, cast.paint);
     log.speed = piece.speed || 1;   // a press's on-screen time (pressShow) is in output seconds
-    for (const [i, item] of piece.steps.entries()) {
+    for (const [i, original] of piece.steps.entries()) {
+      const item = original.wand === undefined && piece.wand ? {...original, wand: true} : original;   // a piece's wand cursor (scenes.mjs), a step's own `wand` wins
       log.self = item.hold && item.cut && !(log.next?.ready && log.next.look === item.look) ? {look: item.look} : null;
       log.next = nextCut(piece.steps, i); await step(page, item, log, app);
     }

@@ -150,6 +150,13 @@ export function cursorAt(events, t, viewport) {
   return {x, y, press};
 }
 
+// Which cursor is drawn at time t: the magic wand (owner, 25 Oct 2026: "During wizard, or when clicking on Find jobs ... instead of default cursor, can we have a magic wand?")
+// from a step that says `wand` (or a piece that does) until the next click or look that does not. Pure.
+export function wandAt(events, t) {
+  const last = events.filter(event => (event.type === 'click' || event.type === 'hold') && event.t <= t).at(-1);
+  return Boolean(last?.wand);
+}
+
 // A hero clip starts at its first look (round 2, owner 24 Oct 2026: Find "starts on the list already full": the frames before the first look showed the
 // page before its scene set it up). -> the log with every time moved so the first look's hold starts at 0 (plus FIRST_LAG for the screen to repaint);
 // the frame shown then becomes frame 0, earlier frames and events are dropped. No look: the log unchanged. Pure.
@@ -211,7 +218,7 @@ export function renderPlan(log, fps = 30, speed = 1, {steady = false, phone = nu
     // a caption gives way to a title card before the card is half in (owner, 25 Oct 2026, Track: the next part's caption showed over the Gmail one): the old caption
     // is gone and the new one waits until the card is half out (render.cjs multiplies the caption's alpha by sayKeep)
     const card = blend?.card ? {card: blend.card, cardAlpha: blend.alpha, sayKeep: Math.max(0, 1 - 2 * blend.alpha)} : {};
-    out.push({file: log.frames[frameAt(log.frames, t)].file, ...view, cx: at.x, cy: at.y, press: at.press, cursor, ...from, ...card});
+    out.push({file: log.frames[frameAt(log.frames, t)].file, ...view, cx: at.x, cy: at.y, press: at.press, cursor, ...(wandAt(log.events, t) ? {wand: true} : {}), ...from, ...card});
   }
   return out;
 }
