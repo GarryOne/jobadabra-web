@@ -20,7 +20,7 @@ on:
         type: string
         default: ''
       private_cost_ok:
-        description: 'The repo is private: macOS minutes count 10x and can be billed (~25 min per clip). Tick only with the owner''s yes'
+        description: 'The repo is private: macOS minutes count 10x and can be billed (measured 8-10 min per clip: ~350 counted min for all 4). Tick only with the owner''s yes'
         type: boolean
         default: false
 
