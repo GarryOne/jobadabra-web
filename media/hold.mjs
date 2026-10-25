@@ -129,3 +129,9 @@ export async function glideTo(page, box, log, ms, steps = 14) {
   }
   log.pointer = to;
 }
+
+// The zoom a click or tap step records (owner, 25 Oct 2026: "we should zoom enough always when we do a click, so that the user sees and understands where we
+// clicked"): the step's own, else 3, the same as scenes.mjs TAP_ZOOM (media-click-zoom.test.js holds them together); `zoom: false` is the one way out, for
+// a click that deliberately stays at its look's zoom. -> the zoom, or 0 for none.
+export const CLICK_ZOOM = 3;
+export const clickZoom = item => (item.zoom === false ? 0 : item.zoom ?? CLICK_ZOOM);

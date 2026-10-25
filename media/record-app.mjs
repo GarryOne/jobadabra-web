@@ -9,7 +9,7 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {clickedControl, glideTo, magicTarget, GAP_FLOOR, gapWidth, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, clickZoom, glideTo, magicTarget, GAP_FLOOR, gapWidth, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
 import {edgesScript} from './edges.mjs';
 import {freePort} from '../desktop/e2e/lib/extension.mjs';
@@ -129,7 +129,7 @@ async function step(page, item, log, app = null) {
     const tapped = page.locator(item.tap).first(), box = await tapped.boundingBox();
     if (!box) throw new Error(`media: nothing to tap at ${item.tap} (update scenes.mjs)`);
     const magic = await tapped.evaluate(magicTarget).catch(() => ({})), wand = item.wand ?? magic.wand;   // the app's own wand and glow marks, as for a click
-    log.add({type: 'click', selector: item.tap, box, ...say, ...(wand ? {wand: true} : {}), ...(item.zoom ? {zoom: item.zoom} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})});
+    log.add({type: 'click', selector: item.tap, box, ...say, ...(wand ? {wand: true} : {}), ...(clickZoom(item) ? {zoom: clickZoom(item)} : {}), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})});
     if (magic.glow || magic.wand) await glideTo(page, box, log, 700); else await page.waitForTimeout(700); log.add({type: 'press', selector: item.tap, box, ...(item.then && pressShow(log) ? {held: true} : {})});
     if (item.end) { await page.waitForTimeout(pressShow(log) || 400); log.add({type: 'end'}); return; }   // the part ends on this press (camera.mjs untilEnd)
     if (item.then) { await page.waitForTimeout(pressShow(log)); log.add({type: 'mark'}); await page.evaluate(item.then); }
@@ -153,7 +153,7 @@ async function step(page, item, log, app = null) {
     log.add({type: 'press', selector: item.click, box, ...(wait ? {held: true} : {})});
     if (wait) { await page.waitForTimeout(wait); log.add({type: 'mark'}); }
     await target.click();
-    if (item.zoom) Object.assign(log.events.findLast(event => event.type === 'click'), {zoom: item.zoom, ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})});
+    if (clickZoom(item)) Object.assign(log.events.findLast(event => event.type === 'click'), {zoom: clickZoom(item), ...(item.phoneZoom ? {phoneZoom: item.phoneZoom} : {})});
     await watch(page, 800, log, false);
     return;
   }
