@@ -1,27 +1,43 @@
-// Guards the hero cache's cleanup (media/takes.mjs pruneSets, tools/hero.sh): 25 Oct 2026, 99 kept sets filled 42 GB and left the Mac 3.9 GB free.
+// Guards the media cache's auto-prune (media/prune.mjs; owner, 25 Oct 2026: "make an auto-prune of the media recordings"): 99 kept runs filled 42 GB.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-test('the hero cache keeps its newest sets, an owner-kept one and the --words one; other folders are never touched', async () => {
-  const {pruneSets} = await import('../../media/takes.mjs');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hero-prune-'));
-  const sets = ['hero-20261024-010000', 'hero-20261024-020000', 'hero-20261024-030000', 'hero-20261025-010000', 'hero-20261025-020000', 'hero-20261025-030000'];
-  for (const name of [...sets, 'set-20261021-040124', 'modules-desktop-abc', 'hero-preview-20261024-023503']) fs.mkdirSync(path.join(root, name, '.work'), {recursive: true});
-  fs.writeFileSync(path.join(root, 'hero-20261024-010000', 'KEEP'), 'owner approved round 9');
-  const gone = pruneSets(root, 2, [path.join(root, 'hero-20261024-020000')]);
-  assert.deepEqual(gone.sort(), ['hero-20261024-030000', 'hero-20261025-010000']);
-  assert.deepEqual(fs.readdirSync(root).sort(), ['hero-20261024-010000', 'hero-20261024-020000', 'hero-20261025-020000', 'hero-20261025-030000', 'hero-preview-20261024-023503', 'modules-desktop-abc', 'set-20261021-040124']);
-  assert.deepEqual(pruneSets(path.join(root, 'none'), 2), [], 'no cache yet');
+test('every kind of media cache folder keeps its newest few; a KEEP folder, a protected one and unknown names stay (media/prune.mjs)', async () => {
+  const {pruneCache} = await import('../../media/prune.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'media-prune-'));
+  const dirs = ['hero-20261024-010000', 'hero-20261024-020000', 'hero-20261024-030000', 'hero-20261025-010000', 'hero-20261025-020000',
+    'hero-preview-20261024-010000', 'hero-preview-20261024-020000', 'hero-preview-20261024-030000',
+    'set-20261021-010000', 'set-20261021-020000', 'set-20261021-030000', 'modules-desktop-1111111111111111', 'modules-desktop-2222222222222222',
+    'modules-desktop-3333333333333333', 'modules-desktop-e2e-4444444444444444', 'hero-r5-final', 'something-else'];
+  dirs.forEach((name, i) => { fs.mkdirSync(path.join(root, name)); fs.utimesSync(path.join(root, name), 1e9 + i, 1e9 + i); });
+  for (let i = 0; i < 12; i++) fs.writeFileSync(path.join(root, `media-202610${String(10 + i)}-010000.log`), 'x');
+  fs.writeFileSync(path.join(root, 'hero-20261024-010000', 'KEEP'), 'owner approved');
+  const gone = pruneCache(root, {protect: [path.join(root, 'hero-20261024-020000')]}).sort();
+  assert.deepEqual(gone, ['hero-20261024-030000', 'hero-preview-20261024-010000', 'media-20261010-010000.log', 'media-20261011-010000.log',
+    'modules-desktop-1111111111111111', 'set-20261021-010000']);
+  assert.ok(['hero-r5-final', 'something-else', 'modules-desktop-e2e-4444444444444444'].every(name => fs.existsSync(path.join(root, name))), 'unknown names and a lone cache stay');
+  assert.deepEqual(pruneCache(root, {keep: {hero: 0}}), ['hero-20261025-020000', 'hero-20261025-010000', 'hero-20261024-020000'], 'a count from the caller; unprotected now; the KEEP one stays');
+  assert.deepEqual(pruneCache(path.join(root, 'none')), [], 'no cache yet');
   fs.rmSync(root, {recursive: true, force: true});
 });
 
-test('tools/hero.sh prunes before each new set, keeping HERO_KEEP (3) with the new one and the --words set', () => {
-  const source = fs.readFileSync(new URL('../../tools/hero.sh', import.meta.url), 'utf8');
-  const prune = source.indexOf('pruneSets(process.env.HERO_CACHE'), made = source.indexOf('set_dir="$cache/hero-$(date');
-  assert.ok(prune > 0 && prune < made, 'the prune runs before the new set is made');
-  assert.match(source, /HERO_KEEP="\$\{HERO_KEEP:-3\}"/);
-  assert.match(source, /HERO_PROTECT="\$\{words\[1\]:-\}"/);
+test('both media tools prune the cache before they write a new folder (tools/hero.sh, tools/media.sh)', () => {
+  const read = file => fs.readFileSync(new URL(`../../tools/${file}`, import.meta.url), 'utf8');
+  const hero = read('hero.sh'), media = read('media.sh');
+  assert.ok(hero.indexOf('node media/prune.mjs "$cache"') > 0 && hero.indexOf('node media/prune.mjs "$cache"') < hero.indexOf('set_dir="$cache/hero-$(date'), 'hero.sh');
+  assert.match(hero, /--keep "hero=\$\(\( \$\{HERO_KEEP:-3\} - 1 \)\)" --protect "\$\{words\[1\]:-\}"/);
+  assert.ok(media.indexOf('media/prune.mjs" "$cache"') > 0 && media.indexOf('media/prune.mjs" "$cache"') < media.indexOf('out="$cache/set-$(date'), 'media.sh');
+});
+
+test('the prune runs from the command line with --keep and --protect', async () => {
+  const {execFileSync} = await import('node:child_process');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'media-prune-cli-'));
+  for (const name of ['hero-20261024-010000', 'hero-20261024-020000', 'hero-20261024-030000']) fs.mkdirSync(path.join(root, name));
+  execFileSync('node', [new URL('../../media/prune.mjs', import.meta.url).pathname, root, '--keep', 'hero=1', '--protect', path.join(root, 'hero-20261024-010000')], {stdio: 'pipe'});
+  assert.deepEqual(fs.readdirSync(root).sort(), ['hero-20261024-010000', 'hero-20261024-030000']);
+  execFileSync('node', [new URL('../../media/prune.mjs', import.meta.url).pathname, root, '--protect', ''], {stdio: 'pipe'});
+  fs.rmSync(root, {recursive: true, force: true});
 });

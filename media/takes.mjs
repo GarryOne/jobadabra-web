@@ -55,15 +55,3 @@ export function reuseTake(kept, dir) {
   fs.copyFileSync(path.join(kept, 'log.json'), path.join(dir, 'log.json'), fs.constants.COPYFILE_FICLONE);
   return JSON.parse(fs.readFileSync(path.join(dir, 'log.json'), 'utf8'));
 }
-
-// The cache keeps the newest `keep` hero sets (tools/hero.sh calls it before each new set): every run kept a whole 1.3-2 GB set and nothing removed
-// one (25 Oct 2026: 42 GB, the Mac down to 3.9 GB free). A set with a KEEP file (an owner-approved take) and the `protect`ed ones (a --words set)
-// stay. Only folders named like hero.sh's sets are touched. -> the removed folders' names.
-export function pruneSets(root, keep = 3, protect = []) {
-  if (!fs.existsSync(root)) return [];
-  const kept = new Set(protect.map(dir => path.resolve(dir)));
-  const sets = fs.readdirSync(root).filter(name => /^hero-\d{8}-\d{6}$/.test(name)).sort().reverse();
-  const gone = sets.slice(Math.max(0, keep)).filter(name => !kept.has(path.join(root, name)) && !fs.existsSync(path.join(root, name, 'KEEP')));
-  for (const name of gone) fs.rmSync(path.join(root, name), {recursive: true, force: true});
-  return gone;
-}
