@@ -219,6 +219,11 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   Now a gate for the whole run, renders included (25 Oct 2026: a media test run rebuilt a render's overlay; its preview lost playwright-core):
   hero.sh and media.sh mark `.overlay/.git/in-use`, `tools/overlay.sh` refuses a marked tree (exit 3), and site-run's hourly rebuild skips it.
   Test in another worktree meanwhile. Media tests that need ffmpeg run on CI too (tests.yml installs it; #98 was red without it): never a skip there.
+  Same for Electron (#100): check the binary (`node_modules/electron/path.txt`), never the npm shim `.bin/electron` (CI has the shim only);
+  CI installs it plus xvfb and runs the guards under `xvfb-run`. `site-run.sh` lays the worktree's files over `.overlay` on every run (three
+  stale runs on 25 Oct 2026), so no `SITE_OVERLAY_FRESH=1` after an edit; it is for a new public main only.
+  Desktop text (owner, 25 Oct 2026): the desktop take runs the app at text size 1 (`desktop: DESKTOP` in scenes.mjs: a 1440-px page, 25% bigger
+  than the 0.8 default); a click zooms to `TAP_ZOOM` (3) wherever its part still has its one deliberate move.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
   **Phone looks are whole looks** (run 20: Track's 460-px left part cut words mid-line): phoneTake drops `lookWidth`/`phoneLookWidth`; a look too
   wide or tall for the phone window gets a shorter `phoneLook` (its title + the one block you mean), never a cropped part.

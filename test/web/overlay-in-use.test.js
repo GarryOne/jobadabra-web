@@ -69,3 +69,18 @@ test('hero.sh and media.sh mark the overlay right after building it and clear th
     assert.match(source.slice(mark), /^echo \$\$ > \.overlay\/\.git\/in-use; trap '[^']*in-use"?' EXIT/, `${file}: cleared on exit`);
   }
 });
+
+test('site-run.sh lays the worktree\'s current files over the tree on every run, but never under a live run (overlay.sh --sync)', () => {
+  const {dir, tree, env} = scratch();
+  try {
+    const site = path.join(dir, 'site'), edited = path.join(site, 'edited.txt');
+    fs.writeFileSync(edited, 'new');
+    fs.writeFileSync(path.join(tree, '.git', 'in-use'), String(process.pid));
+    const busy = spawnSync(path.join(site, 'tools', 'site-run.sh'), ['cat', 'edited.txt'], {env, encoding: 'utf8'});
+    assert.notEqual(busy.stdout, 'new', 'a live run\'s tree is left as it is');
+    fs.rmSync(path.join(tree, '.git', 'in-use'));
+    const run = spawnSync(path.join(site, 'tools', 'site-run.sh'), ['cat', 'edited.txt'], {env, encoding: 'utf8'});
+    assert.equal(run.stdout, 'new', run.stderr);
+    assert.ok(fs.existsSync(path.join(tree, 'sentinel')), 'laid over, not rebuilt');
+  } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+});
