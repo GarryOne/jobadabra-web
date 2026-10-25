@@ -15,14 +15,19 @@ const cap = root?.querySelector('.stage-cap');
 const later = root?.querySelector('.stage-later');
 const say = root?.querySelector('.stage-say');
 const PAUSE = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 3h3v10H4zm5 0h3v10H9z"/></svg>';
+const SPEED = 1.5;
 const PLAY ='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3l8 5-8 5z"/></svg>';
 
 if (root && clips.length) {
   const phone = matchMedia('(max-width: 720px)').matches;
   if (phone) clips.forEach(clip => { if (clip.dataset.phonePoster) clip.poster = clip.dataset.phonePoster; });
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Every clip plays at SPEED on top of its render (scenes.mjs speed 1.5): 2.25x of real time in all (owner, 25 Oct 2026: "impose a 1.5x speed for all the clips", meaning 50% faster
+  // than the clips he had watched); the captions follow, they are timed on the clip's own clock.
+  clips.forEach(clip => { clip.defaultPlaybackRate = SPEED; clip.playbackRate = SPEED; });
   // A browser that refuses to start a clip by itself (iOS in Low Power Mode, owner's phone 25 Oct 2026: stuck on the poster) shows the play mark; a tap starts it.
   const start = clip => {
+    clip.playbackRate = SPEED;
     clip.play().catch(error => { if (error.name === 'NotAllowedError' && clip === clips[on]) setPaused(true); });
   };
   // Phones: each clip's captions as a hidden metadata track (loaded with the page, read as the clip plays); the line under the video shows the current one.
