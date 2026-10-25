@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {beatTimes, FIT_WARN, fromFirstLook, posterTime, renderPlan, RING, untilEnd} from './camera.mjs';
 import {dropChanges, frameCuts, STRAY_MAX, strayFrames, THUMB} from './cuts.mjs';
+import {planStrays, smallFrames} from './prestray.mjs';
 import {joinFilter, openOnCard, transitions, withCards} from './transitions.mjs';
 import {fillSeconds, pipPlan} from './pip.mjs';
 import {captionAt, captionSize, captionTimes, SAY_FADE, sayTrack, vttOf} from './captions.mjs';
@@ -137,6 +138,10 @@ async function recordClip(name, persona, work, {tune = piece => piece, layer = f
   edgesOk(name, main.log, piece.speed || 1, steady, null);
   if (phone) edgesOk(name, (narrow || main).log, piece.speed || 1, steady, phone);
   checked();
+  if (steady) for (const [take, shape] of [[main, null], ...(phone ? [[narrow || main, phone]] : [])]) {   // stray frames, from the plan (prestray.mjs)
+    const strays = planStrays({log: take.log, speed: piece.speed || 1, fps: FPS, phone: shape, small: smallFrames(path.join(take.dir, 'frames'), take.log)});
+    if (strays.length) throw new Error(strays.map(s => `media: ${path.basename(take.dir)}: a frame of another page at ${s.at} s (recorded), ${s.side} the cut to ${JSON.stringify(s.look)} (differs ${s.diff} > ${STRAY_MAX}), found before rendering: record again; if it repeats, the cut's timing is wrong (cuts.mjs)`).join('\n'));
+  }
   // -> finish(): both copies rendered at once (renders.mjs), when every take of the run is recorded (main)
   return async () => {
     const [master, phoneMaster] = await Promise.all([render(main, path.join(main.dir, 'master.mp4'), piece.width, piece.height),

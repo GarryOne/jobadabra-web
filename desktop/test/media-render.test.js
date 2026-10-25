@@ -45,7 +45,8 @@ test('the render queue runs at most n jobs at once and every job ends', async ()
 test('every check runs before any render: a clip and picture in picture return a finish(), main renders all pieces after all takes', () => {
   const media = read('media.mjs');
   const clip = media.slice(media.indexOf('async function recordClip'), media.indexOf('function edgesOk'));
-  assert.ok(clip.indexOf('checked();\n  // -> finish()') > 0 && clip.indexOf('checked();\n  // -> finish()') < clip.indexOf('await Promise.all([render(main'), 'recordClip: checks, then renders');
+  const checks = clip.indexOf('checked();'), plan = clip.indexOf('planStrays(', checks), finish = clip.indexOf('// -> finish()', plan);
+  assert.ok(checks > 0 && plan > checks && finish > plan && finish < clip.indexOf('await Promise.all([render(main'), 'recordClip: checks, the plan\'s stray frames (prestray.mjs), then renders');
   const pip = media.slice(media.indexOf('async function recordPip'), media.indexOf('function joined'));
   assert.ok(pip.indexOf('edgesOk(rec.name') < pip.indexOf('await Promise.all([compose('), 'recordPip: checks, then renders');
   assert.match(media, /const finishes = await settled\(options\.pieces[^\n]*makeVideo\(/);
