@@ -1,7 +1,7 @@
 // Cuts out the frames between a hero step's page change and the moment its next look is on screen (media): those frames showed the old framing over a
 // new page (owner, 24 Oct 2026: "a small glitch in the first clip, showing something about Sonnet") or the new framing over a page still changing.
 // Pure; run by media.mjs after fromFirstLook. Guard: desktop/test/media-camera.test.js ("a cut look starts when its content is on screen").
-import {FIRST_LAG, frameAt} from './camera.mjs';
+import {FIRST_LAG, frameAt, wideOpening} from './camera.mjs';
 import {pageChange} from './hold.mjs';
 
 const round = t => Number(t.toFixed(3));
@@ -84,15 +84,49 @@ export function strayFrames({log, thumb, frames, speed = 1, fps = 30, max = STRA
     let worst = null;
     const look = (from, to, refs, side) => { for (let j = from; j < to; j++) { const diff = Math.min(...refs.map(ref => meanDiff(thumb(j), thumb(ref)))); if (diff > max && (!worst || diff > worst.diff)) worst = {look: hold.look, at: Number((j / fps).toFixed(2)), side, diff: Number(diff.toFixed(1))}; } };
     const mixed = windows.find(w => w.from <= cut + 0.05 && w.to >= cut - 0.05);
-    look(video(prev.t + prev.s), video(mixed ? Math.min(cut, mixed.from) : cut), [beat(prev)], 'before');
+    // Before the cut, the old look's last frame is a second reference when it is still the old page (twice as close to the old beat as to the new):
+    // a page that changes a little by itself late in the hold (run 24: Track's "Last refresh" line hiding) is not another page.
+    const holdEnd = video(prev.t + prev.s), last = Math.max(beat(prev), holdEnd - 1);
+    const lastOld = 2 * meanDiff(thumb(last), thumb(beat(prev))) < meanDiff(thumb(last), thumb(beat(hold)));
+    look(holdEnd, video(mixed ? Math.min(cut, mixed.from) : cut), lastOld ? [beat(prev), last] : [beat(prev)], 'before');
     // After the cut, a look that fills in by itself (the search card's numbers) still differs from its own end: the frame half a second in is a second
-    // reference, but only when it is the new page (twice as close to the new beat as to the old one), so an old page that lingers is still caught.
-    const start = mixed ? video(mixed.to) : video(cut), end = Math.min(frames, start + Math.round(fps / 2)), settled = end - 1;
-    const isNew = 2 * meanDiff(thumb(settled), thumb(beat(hold))) < meanDiff(thumb(settled), thumb(beat(prev)));
-    look(start + 1, end, isNew ? [beat(hold), settled] : [beat(hold)], 'after');
+    // reference, but only when it is the new page (not the old page, and closer to the new beat than to the old one), so an old page that lingers is
+    // still caught. Not "twice as close" (run 24): in the phone copy one card fills the frame before and after Find's cut, and the new beat, late in the
+    // search, is 1.75x closer only.
+    const start = mixed ? video(mixed.to) : video(cut);
+    if (hold.opensWide) {
+      // a screen that opens wide (camera.mjs) shows the whole new page until its glide starts: that last whole frame is the reference, not the
+      // zoomed look's beat (run 27: six false alarms); no whole moment (a short hold) leaves only the moving glide, which no frame can stand for
+      const wide = wideOpening(log.events, log.events.indexOf(hold), speed), glideAt = Math.min(frames, video(wide.from + wide.open), start + Math.round(fps / 2));
+      if (wide.open > 0 && glideAt - 1 > start + 1) look(start + 1, glideAt - 1, [glideAt - 1], 'after');
+    } else {
+      const end = Math.min(frames, start + Math.round(fps / 2)), settled = end - 1;
+      const toOld = meanDiff(thumb(settled), thumb(beat(prev))), isNew = toOld > max && meanDiff(thumb(settled), thumb(beat(hold))) < toOld;
+      look(start + 1, end, isNew ? [beat(hold), settled] : [beat(hold)], 'after');
+    }
     if (worst) out.push(worst);
   });
   return out;
+}
+
+// A cut look the phone take scrolled into its window (hold.mjs scrollLookIn, run 24): its box is measured after the scroll, so the page's change is
+// looked for in the previous look's box, where the camera still is (the frame just before the scroll is the new page there), and the scroll's frames
+// are cut out: the old look, then the new look already in place, never the new page sliding under the old look. -> the log. Pure.
+function scrolledCut(log, {prev, cut, scroll, scrolled, thumb}) {
+  // the old look's first tenth is the old page: the new one can paint anywhere in that hold (run 25: Set up's proposal came mid-hold, the phone
+  // look's card a moment later, so 'ready' and its 90% beat were both late), so it is looked for from there, not from the beat
+  let start = cut;
+  const from = prev.t + prev.s * 0.1, old = log.frames[frameAt(log.frames, from)], fresh = log.frames[frameAt(log.frames, scroll.t)];
+  const byAction = log.events.some(event => pageChange(event) && event.t > prev.t && event.t === cut);
+  if (!byAction && old && fresh && old.file !== fresh.file) {
+    const a = thumb(old.file, prev.box), b = thumb(fresh.file, prev.box);
+    const looksNew = frame => 2 * meanDiff(thumb(frame.file, prev.box), b) < meanDiff(thumb(frame.file, prev.box), a);
+    const early = meanDiff(a, b) > STRAY_MAX && log.frames.find(frame => frame.t > from && frame.t <= scroll.t && looksNew(frame));
+    if (early) start = Math.min(cut, round(early.t - 0.001));
+  }
+  if (start >= scrolled.t) return log;
+  const out = start < cut ? {...log, events: [...log.events, {type: 'ready', t: start}].sort((x, y) => x.t - y.t)} : log;
+  return cutOut(out, start, scrolled.t);
 }
 
 // Each cut checked against the recorded frames themselves (round 3): 'ready' is noticed by polling, so a page that changes by itself (no click or page step
@@ -107,6 +141,9 @@ export function frameCuts({log, thumb}) {
     const holds = out.events.filter(event => event.type === 'hold' && event.box), hold = holds[k], prev = holds[k - 1];
     if (!hold.cut) continue;
     const cut = cutTime(out, out.events.indexOf(hold)), seen = prev.t + prev.s * 0.9;
+    const scroll = out.events.find(event => event.type === 'scroll' && event.t > prev.t && event.t < hold.t);
+    const scrolled = scroll && out.events.find(event => event.type === 'scrolled' && event.t >= scroll.t && event.t <= hold.t);
+    if (scrolled) { out = scrolledCut(out, {prev, cut, scroll, scrolled, thumb}); continue; }
     const old = out.frames[frameAt(out.frames, seen)], fresh = out.frames[frameAt(out.frames, hold.t + hold.s * 0.9)];
     if (!old || !fresh || old.file === fresh.file) continue;
     const box = hold.box, a = thumb(old.file, box), b = thumb(fresh.file, box);

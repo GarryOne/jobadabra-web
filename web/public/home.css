@@ -51,6 +51,15 @@
 @media (prefers-reduced-motion: reduce) { .stage-later { animation: none; opacity: 1; } }
 @media (max-width: 900px) { .hero.split { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 40px 40px; } }
 @media (max-width: 720px) { .stage-screen { aspect-ratio: 4 / 3; } }   /* the phone copies: the same clips, cropped tighter */
+/* Round 9 (owner, 24 Oct 2026: "move the subtitles/captions out of the video ... at least on mobile"): on phones the step's caption sits under the video
+   (hero-stage.js reads it from the clip's WebVTT track); one line kept tall enough that the steps never jump. Desktop keeps it in the video. */
+.stage-say { display: none; }
+@media (max-width: 720px) {
+  .stage-say:not([hidden]) { display: flex; gap: 8px; align-items: center; margin: -4px 0 0; min-height: 1.9rem; font: 600 .9rem/1.3 var(--sans); color: var(--ink); }
+  .stage-say.is-empty { visibility: hidden; }
+  .stage-say-tag:not(:empty) { flex: none; padding: 3px 8px; border-radius: 6px; font: 700 .7rem/1.2 var(--mono); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--signal-ink); background: var(--signal); }
+}
 @media (max-width: 420px) { .stage-steps button { padding: 7px 6px 10px; font-size: .74rem; justify-content: center; } .stage-steps button span { display: none; } }
 
 /* Mac and Windows: two identical buttons, side by side; full width on phones. */

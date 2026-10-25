@@ -108,3 +108,15 @@ test('a scene that opens the Recent activity panel closes it before it goes to a
     }
   }
 });
+
+test('every scene step that clicks the results panel\'s toggle sets it open or shut, never flips it (runs 26-28: Track\'s e-mail look)', async () => {
+  const {VIDEOS, STILLS} = await import('../../media/scenes.mjs');
+  let seen = 0;
+  for (const [name, piece] of Object.entries({...VIDEOS, ...STILLS})) for (const step of piece.steps || []) for (const value of Object.values(step)) {
+    if (typeof value !== 'string' || !value.includes('activity-toggle')) continue;
+    seen++;
+    assert.match(value, /\.hidden/, `${name}: ${value.slice(0, 80)} reads the panel's state before clicking`);
+  }
+  assert.ok(seen >= 3, `${seen} toggle steps`);
+});
+

@@ -3,8 +3,9 @@
 // screen until then, never its end-frame poster), by its `data-into` (round 6: "make a nice transition effect, not just an instant screen/image
 // replacement"; media/scenes.mjs stageInto): slide = a soft edge sweeping in from the right (from the left for a step back), tiles = growing tiles
 // (time passed), fade; reduced motion switches at once; its caption goes above the stage (a "later" clip leads it with a tag, never over the video) and its step's line fills as it plays. The steps jump to a clip, the pause button
-// (or a click on the picture, which then shows a play mark) holds it (as do a hidden tab and a stage scrolled out of view); the next clip is fetched while the current one plays. Phones (the 720 copies, 4:3) get
-// their own posters. With reduced motion nothing plays by itself: the posters show, a step switches them, play starts a clip. Guarded by test/web/landing.test.js.
+// (or a click on the picture, which then shows a play mark) holds it (as do a hidden tab and a stage scrolled out of view); the next clip is fetched while the current one plays. Phones (the 1080 copies, 4:3) get
+// their own posters, and the step's caption under the video (round 9, owner 24 Oct 2026: "move the subtitles/captions out of the video ... at least on
+// mobile, they hide some buttons"): the phone copy has none drawn on it; its WebVTT track (media/captions.mjs vttOf) gives the line. With reduced motion nothing plays by itself: the posters show, a step switches them, play starts a clip. Guarded by test/web/landing.test.js.
 const root = document.getElementById('hero-stage');
 const clips = root ? [...root.querySelectorAll('video.slide')] : [];
 const steps = root ? [...root.querySelectorAll('.stage-steps button:not(.stage-pause)')] : [];
@@ -12,6 +13,7 @@ const pause = root?.querySelector('.stage-pause');
 const screen = root?.querySelector('.stage-screen');
 const cap = root?.querySelector('.stage-cap');
 const later = root?.querySelector('.stage-later');
+const say = root?.querySelector('.stage-say');
 const PAUSE = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 3h3v10H4zm5 0h3v10H9z"/></svg>';
 const PLAY = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 3l8 5-8 5z"/></svg>';
 
@@ -19,6 +21,22 @@ if (root && clips.length) {
   const phone = matchMedia('(max-width: 720px)').matches;
   if (phone) clips.forEach(clip => { if (clip.dataset.phonePoster) clip.poster = clip.dataset.phonePoster; });
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Phones: each clip's captions as a hidden metadata track (loaded with the page, read as the clip plays); the line under the video shows the current one.
+  const tracks = phone && say ? clips.map(clip => {
+    if (!clip.dataset.captions) return null;
+    const el = Object.assign(document.createElement('track'), {kind: 'metadata', src: clip.dataset.captions, default: true});
+    clip.append(el); el.track.mode = 'hidden';
+    return el.track;
+  }) : [];
+  if (tracks.some(Boolean)) say.hidden = false;
+  const sayNow = () => {
+    if (!tracks.length) return;
+    let line = null;
+    try { const cue = tracks[on]?.activeCues?.[0]; line = cue ? JSON.parse(cue.text) : null; } catch { line = null; }
+    say.querySelector('.stage-say-tag').textContent = line?.tag || '';
+    say.querySelector('.stage-say-text').textContent = line?.say || '';
+    say.classList.toggle('is-empty', !line?.say);
+  };
   let on = 0, paused = still, hidden = false, away = false;
   const warm = i => { const clip = clips[i % clips.length]; if (clip.preload !== 'auto') { clip.preload = 'auto'; clip.load(); } };
   const playing = () => !paused && !hidden && !away;
@@ -76,9 +94,11 @@ if (root && clips.length) {
     cap.querySelector('.stage-step').textContent = `0${on + 1} / ${steps[on].getAttribute('aria-label')}`;   // the phone's one short label above the title
     cap.querySelector('.stage-sub').textContent = clip.dataset.sub || '';
     if (later) { later.textContent = clip.dataset.later || ''; later.hidden = !clip.dataset.later; }
+    sayNow();
     if (playing()) clip.play().catch(() => {});
   }
 
+  tracks.forEach((track, k) => track?.addEventListener('cuechange', () => { if (k === on) sayNow(); }));
   clips.forEach((clip, k) => {
     clip.addEventListener('playing', () => { if (k === on) warm(on + 1); });
     clip.addEventListener('ended', () => { if (k === on && playing()) show(on + 1); });

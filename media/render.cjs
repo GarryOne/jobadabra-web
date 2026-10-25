@@ -150,6 +150,8 @@ app.disableHardwareAcceleration();   // the same pixels on every Mac and runner
 app.whenReady().then(async () => {
   const win = new BrowserWindow({show: false, webPreferences: {nodeIntegration: true, contextIsolation: false, backgroundThrottling: false}});
   await win.loadURL('about:blank');
+  // a renderer killed mid-way (memory) must fail the run, never end it as if done (round 9: a 17-frame phone copy, exit 0)
+  win.webContents.on('render-process-gone', (_event, details) => { console.error(`render failed: the renderer is gone (${details.reason})`); app.exit(1); });
   try {
     const frames = await win.webContents.executeJavaScript(`(${draw.toString()})(${JSON.stringify(job)})`);
     console.log(`rendered ${frames} frames`);

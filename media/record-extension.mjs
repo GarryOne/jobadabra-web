@@ -7,7 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {startRealExtension} from '../desktop/e2e/lib/real-extension.mjs';
-import {holdEvent, holdLeft, OFF_MAX, offScreen, stepMarks} from './hold.mjs';
+import {edgesScript} from './edges.mjs';
+import {holdEvent, holdLeft, OFF_MAX, offScreen, scrollLookIn, SHOW_WAIT, stepMarks} from './hold.mjs';
 import {unionBox} from './record-app.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {answerReply, formHost, formHtml} from './stand-in.mjs';
@@ -39,12 +40,13 @@ export async function recordExtensionVideo({persona, piece, dir}) {
     const {page, context} = ext;
     const host = formHost(persona.job);
     await context.route(`https://${host}/**`, route => route.fulfill({status: 200, contentType: 'text/html', body: formHtml(template, persona.job)}));
-    await page.setViewportSize(VIEW);
+    const z = piece.zoom || 1, view = piece.window ? {width: Math.round(piece.window.width / z), height: Math.round(piece.window.height / z)} : VIEW, density = piece.window ? 2.5 * z : 2;   // the phone take (round 9): a narrow page, captured sharper
+    await page.setViewportSize(view);
     // Playwright emulates light unless told: the form (form.html) and the extension's panel both follow it. A piece with motion 'reduce' (the hero, owner
     // 24 Oct 2026: "remove the large colour sweep") records the panel without its aurora and shimmer (panel-overlay-fx.js adds none under reduced motion).
     await page.emulateMedia({colorScheme: 'dark', ...(piece.motion === 'reduce' ? {reducedMotion: 'reduce'} : {})});
     const cdp = await context.newCDPSession(page);
-    await cdp.send('Emulation.setDeviceMetricsOverride', {width: VIEW.width, height: VIEW.height, deviceScaleFactor: 2, mobile: false});
+    await cdp.send('Emulation.setDeviceMetricsOverride', {width: view.width, height: view.height, deviceScaleFactor: density, mobile: false});
     await page.goto(`https://${host}/jobs/apply`);
     await ext.assertIsolated();
     const cast = await startScreencast(page, path.join(dir, 'frames'));
@@ -70,13 +72,19 @@ export async function recordExtensionVideo({persona, piece, dir}) {
         const started = Date.now();
         await page.waitForTimeout(250);
         const boxOf = async look => (look ? unionBox(await Promise.all([look].flat().map(one => (one === 'panel' ? panelBox(page) : page.locator(one).first().boundingBox())))) : null);
-        const box = await boxOf(item.look);
+        if (item.look) await Promise.all([item.look].flat().filter(one => one !== 'panel').map(one => page.locator(one).first().waitFor({state: 'visible', timeout: SHOW_WAIT}).catch(() => {})));   // as record-app.mjs
+        let box = await boxOf(item.look);
         if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
-        const phoneBox = await boxOf(item.phoneLook), view = await page.evaluate(() => ({w: innerWidth, h: innerHeight}));
-        const out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
-        if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
+        let phoneBox = await boxOf(item.phoneLook);
+        const view = await page.evaluate(() => ({w: innerWidth, h: innerHeight}));
+        let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+        if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view, log)) {   // the phone take's short window (hold.mjs)
+          box = await boxOf(item.look); phoneBox = await boxOf(item.phoneLook);
+          out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+        }
+        if (out > OFF_MAX) throw new Error(`media: look "${[item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: ${item.fitScroll ? 'taller than the phone window: give the hold a shorter phoneLook' : 'scroll it into view first'} (scenes.mjs)`);
         const left = holdLeft(item.hold, started, Date.now());
-        log.add(holdEvent(item, box, phoneBox, left));
+        log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});   // edges.mjs
         await log.paint();   // a frame now, still page or not (check.mjs captureGaps)
         await page.waitForTimeout(Math.max(0, left * 1000 - 180));
       }

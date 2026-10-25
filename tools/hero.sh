@@ -19,7 +19,9 @@ if [ "${1:-}" = --words ]; then words=(--words "${2:?--words needs a set dir mad
 if [ "${1:-}" = --place ]; then
   set_dir="${2:?--place needs a set dir}"
   for piece in "${HERO[@]}"; do
-    for file in "$set_dir/$piece".{mp4,webm} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-720.mp4 "$set_dir/$piece"-720-poster.jpg; do
+    # a phone copy of another width replaces the old one (round 9: 720 -> 1080), and the captions the phone copy leaves out go beside it (.vtt)
+    if compgen -G "$set_dir/$piece-[0-9]*.mp4" >/dev/null; then git rm -q --ignore-unmatch -- "web/public/media/$piece-[0-9]*.mp4" "web/public/media/$piece-[0-9]*-poster.jpg"; fi
+    for file in "$set_dir/$piece".{mp4,webm,vtt} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-[0-9]*.mp4 "$set_dir/$piece"-[0-9]*-poster.jpg; do
       [ -f "$file" ] && cp "$file" web/public/media/
     done
   done
@@ -52,6 +54,8 @@ if [ "${1:-}" = --preview ]; then
 fi
 
 pieces=("$@"); [ ${#pieces[@]} -gt 0 ] || pieces=("${HERO[@]}")
+# the cache keeps the newest HERO_KEEP runs (this one included) and of every other kind its newest few (media/prune.mjs; a KEEP file or the --words set stays)
+node media/prune.mjs "$cache" --keep "hero=$(( ${HERO_KEEP:-3} - 1 ))" --protect "${words[1]:-}"
 set_dir="$cache/hero-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$set_dir/sheets"
 echo "hero: ${words[1]:+words only from ${words[1]}: }recording ${pieces[*]} into $set_dir"
 lock="${MEDIA_HEAVY_LOCK:-$HOME/job-pilotto/tools/heavy-lock.sh}"

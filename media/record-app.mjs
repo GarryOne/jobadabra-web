@@ -9,30 +9,51 @@ import {clipTo} from './camera.mjs';
 import {startScreencast, stepLog} from './screencast.mjs';
 import {nav} from './scenes.mjs';
 import {personaCopy} from './persona-copy.mjs';
-import {holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, stepMarks, wordsCut} from './hold.mjs';
+import {clickedControl, holdEvent, holdLeft, nextCut, OFF_MAX, offScreen, PRESS_SHOW, scrollLookIn, SHOW_WAIT, stepMarks, wordsCut} from './hold.mjs';
 import {liveStates} from './live-review.mjs';
+import {edgesScript} from './edges.mjs';
+import {freePort} from '../desktop/e2e/lib/extension.mjs';
 
 const desktop = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'desktop');
 const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.json'))('playwright-core');
 export const WINDOW = {width: 1440, height: 900};   // 16:10, the site's hero shape; the app's own zoom lays it out wider, Retina capture is 2x
 
 // The app on a temp copy of the persona (persona-copy.mjs); demo mode reads its data from there too (JOB_PILOTTO_DEMO_DIR, lib/demo.js).
-export async function launchApp({persona = {folder: path.join(desktop, 'demo')}, settings = null, moment = null, env = {}} = {}) {
+// Apps start one at a time and a failed start is tried once more (run 22: two takes started at once, one app "failed to launch!" and Playwright
+// threw it outside any await, killing the run); the recordings themselves still overlap (media.mjs recordQueue).
+let starting = Promise.resolve();
+function startApp(options) {
+  const start = async () => {
+    try { return await electron.launch(options); } catch (error) {
+      console.log(`media: the app failed to start (${error.message.split('\n')[0]}): starting it again`);
+      return electron.launch(options);
+    }
+  };
+  const mine = starting.then(start);
+  starting = mine.catch(() => {});
+  return mine;
+}
+
+export async function launchApp({persona = {folder: path.join(desktop, 'demo')}, settings = null, moment = null, env = {}, window = WINDOW} = {}) {
   const data = personaCopy(persona, {demo: path.join(desktop, 'demo'), moment});
   if (settings) {   // a piece may start the app in another state (the first-run wizard: setupDone false), on the temp copy only
     const file = path.join(data, 'settings.json');
     fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...settings}, null, 1));
   }
-  const app = await electron.launch({
+  const app = await startApp({
     executablePath: path.join(desktop, 'node_modules', '.bin', 'electron'),   // a Mac (here or the CI runner): the site shows the Mac app
-    args: [desktop],
+    // round 9 (owner, 24 Oct 2026: "low resolution"): frames 2.5x the window (3600 px, screencast.mjs's cap) instead of the Retina 2x, so a zoomed
+    // look still has a pixel for each of the 1080-wide phone copy's
+    args: ['--force-device-scale-factor=2.5', desktop],
     env: {...process.env, ...env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_CONFIG_DIR: data, JOB_PILOTTO_DATA_DIR: data, JOB_PILOTTO_DEMO_DIR: data,
-      JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich'},
+      JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich',
+      // its own port, never 47111 (round 9): the owner's live app and its extension talk on that one, and two takes recorded at once would share it
+      JOB_PILOTTO_PORT: String(await freePort())},
     timeout: 240000,   // a busy Mac (load 60+, 21 Oct 2026) took over 90 s to start the window
   });
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
-  await app.evaluate(({BrowserWindow}, size) => BrowserWindow.getAllWindows()[0].setContentSize(size.width, size.height), WINDOW);
+  await app.evaluate(({BrowserWindow}, size) => BrowserWindow.getAllWindows()[0].setContentSize(size.width, size.height), window);
   await page.emulateMedia({colorScheme: 'dark'});   // Playwright emulates light unless told; the app's own default is dark
   await page.evaluate(() => localStorage.setItem('jp.menu.tour', 'done'));   // the first-run tour bubble would cover every screen
   await page.reload();
@@ -118,6 +139,10 @@ async function step(page, item, log, app = null) {
     const target = page.locator(item.click).first();
     const box = await target.boundingBox();
     if (!box) throw new Error(`media: nothing to click at ${item.click} (has the screen changed? update scenes.mjs)`);
+    // a click lands on the target's middle: another control there (run 21: the phone take's one column put the confidence chip under the insight
+    // head's middle, so the card never opened and the next look timed out) would get it instead
+    const under = await target.evaluate(clickedControl).catch(() => null);
+    if (under) throw new Error(`media: the click on ${item.click} would land on "${under}" inside it: click a part that is only the target (scenes.mjs)`);
     log.add({type: 'click', selector: item.click, box, ...say});
     await page.waitForTimeout(700);   // the cursor's glide, drawn by the renderer
     const wait = pressShow(log);
@@ -132,15 +157,23 @@ async function step(page, item, log, app = null) {
     const started = Date.now();
     // a cut look not yet seen is watched for from here too (round 3: the proposal replaced "reading your CV" in this gap, cut 0.4 s late)
     if (log.self) { const after = log.next; log.next = log.self; await watch(page, 250, log); log.next = after; } else await page.waitForTimeout(250);
-    const box = item.look ? await lookBox(page, item.look) : null;
+    // a look still drawing on a loaded Mac (run 26-27: Track's e-mail and Find's row were in the page, not yet visible) is waited for, up to SHOW_WAIT
+    if (item.look) await Promise.all([item.look].flat().map(selector => page.locator(selector).first().waitFor({state: 'visible', timeout: SHOW_WAIT}).catch(() => {})));
+    let box = item.look ? await lookBox(page, item.look) : null;
     if (item.look && !box) throw new Error(`media: nothing to look at at ${item.look} (update scenes.mjs)`);
-    const phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
-    const view = await viewportOf(page), out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
-    if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: scroll it into view first (scenes.mjs)`);
+    let phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
+    const view = await viewportOf(page);
+    let out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+    if (out > OFF_MAX && item.fitScroll && await scrollLookIn(page, item.look, box, view, log)) {   // the phone take's short window (hold.mjs)
+      box = await lookBox(page, item.look); phoneBox = item.phoneLook ? await lookBox(page, item.phoneLook) : null;
+      out = Math.max(offScreen(box, view), offScreen(phoneBox, view));
+    }
+    if (out > OFF_MAX) throw new Error(`media: look "${[item.phoneLook && offScreen(phoneBox, view) > OFF_MAX ? item.phoneLook : item.look].flat().join(', ')}" is ${Math.round(out * 100)}% off screen: ${item.fitScroll ? 'taller than the phone window: give the hold a shorter phoneLook' : 'scroll it into view first'} (scenes.mjs)`);
     await checkWords(page, item.look, box, item.lookWidth, 'look');
     await checkWords(page, item.phoneLook, phoneBox, item.phoneLookWidth, 'phoneLook');
     const left = holdLeft(item.hold, started, Date.now());
-    log.add(holdEvent(item, box, phoneBox, left));
+    // the words and cards on screen, so edges.mjs can prove no copy's view cuts one at its left or right edge (round 9)
+    log.add({...holdEvent(item, box, phoneBox, left), ...(item.phoneLook ? {phoneLook: item.phoneLook} : {}), edges: await page.evaluate(edgesScript).catch(() => [])});
     await log.paint();   // a frame now, still page or not (check.mjs captureGaps)
     await watch(page, Math.max(0, left * 1000 - 180), log);   // a page that changes by itself (the AI's proposal replacing "reading your CV") is cut when it shows
   }
@@ -148,7 +181,7 @@ async function step(page, item, log, app = null) {
 
 // A video piece: frames + log.json in `dir`. -> the log.
 export async function recordAppVideo({persona, piece, dir}) {
-  const {app, page, close} = await launchApp({persona, settings: piece.settings, moment: piece.moment, env: piece.env});
+  const {app, page, close} = await launchApp({persona, settings: piece.settings, moment: piece.moment, env: piece.env, ...(piece.window ? {window: piece.window} : {})});
   try {
     const cast = await startScreencast(page, path.join(dir, 'frames'));
     const log = stepLog(cast.clock, cast.paint);

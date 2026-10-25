@@ -32,12 +32,15 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
    `git show origin/main:web/public/media/<piece>.mp4`; right: this set; labelled, the shorter held) and a GIF of it, phone copies too. Open the
    changed pieces' MP4s for him (file names start with your session's short name), plus `preview.png` as the overview of every beat; ask
    AskUserQuestion (ship / change what) with a recommendation. Never ship clips he hasn't watched.
-5. **Place**: `tools/hero.sh --place <set dir>`, then the site tests `tools/site-run.sh node --test "test/**/*.test.js"`
+5. **Place**: `tools/hero.sh --place <set dir>`, then CI's two test steps: `tools/site-run.sh bash tools/check.sh --area site` and
+   `tools/site-run.sh bash "$PWD/tools/site-guards.sh" . "$PWD"` (background, tee'd). Never `node --test "desktop/test/*.test.js"` in the overlay:
+   it runs every public desktop test without `desktop/shared` or their packages (25 Oct 2026: 282 false fails, all "Cannot find module").
    (`tools/hero.sh --preview` re-renders the side-by-side from what is placed).
 6. **Ship** from the worktree: `~/jobadabra/tools/ship.sh --background --body=<file>` (body per `~/jobadabra/tools/pr-body-template.md`, with
    one `| What changed | Before | After |` row per changed clip: `<piece>-before.gif` | `<piece>-after.gif`, each linked to `<piece>-compare.mp4`
    (the body check refuses one combined image, and a header other than exactly `| What changed | Before | After |`: run
-   `python3 ~/jobadabra/tools/pr-screens.py < <body>` before ship; all published under a tag, not on the branch:
+   `~/jobadabra/tools/pr-body.sh origin/main --body=<body> >/dev/null` before ship: it runs every body rule, also at most 5 pairs
+   (PR2, 25 Oct 2026: ship failed twice, on the header and then on 8 pairs: pick the 4-5 clips/shapes that changed most); all published under a tag, not on the branch:
    `GITHUB_REPOSITORY=GarryOne/jobadabra-web node ~/jobadabra/tools/pr-assets.mjs pr-assets-<branch> <files>`; at most 5 rows); stills only for what is not a clip); Monitor `^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED|GREEN|CONFLICT)`. The owner merges; merge = production (www.jobadabra.top).
 After that, the daily `tools/media.sh` refresh re-records the hero pieces from origin/main with everything else; the hero needs this skill only to change.
 
@@ -197,12 +200,74 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 - **A dull colour: find which layer made it before fixing anything** ("is maybe the recording/rendering ... the problem?"): compare the app's CSS token
   (`desktop/renderer/tokens.css`) with the raw frame (`.work/<piece>/frames`) and the decoded clip. The ring green was the APP's bug (the dark theme
   had no `--good-bright`, so it drew the light theme's #2e9e6a): fixed in the app (jobadabra PR, merged first), then the hero recorded again.
+
+**Round 9: phones show whole frames, captions under the video, 1080** (owner, 24 Oct 2026)
+- **Nothing cut at a phone frame's edge** ("the video is stripped ... I don't see the full video frame"; chose "whole column, centred" over the whole
+  window, whose text is ~3 px on a phone): round 8 showed each LOOK whole, but its neighbours were still cut mid-word at the edges. The recorder now
+  notes the words and cards on screen at every look (`edges.mjs` edgesScript → `edges` in log.json); the phone camera picks, nearest its centred frame,
+  a view whose both edges fall in gaps, zooming out a step when none exists (`whole.mjs`); `edges.mjs` edgeCuts then STOPS the phone copy if a line or
+  a card that would fit is still cut (`HERO_EDGES=warn` lists them all and goes on). **The desktop copy too** (owner, after the phone preview: "port
+  this to desktop as well, because on desktop it was also cropped", with shots of the logo and cards cut): same camera rule, same stop.
+  The phone take's short window (528 css) scrolls a look below it to the middle before measuring (`fitScroll`, hold.mjs scrollLookIn).
+  **Faster redo** (owner: "Is there anyway we can speed up the recording process? ... can we parallelize it more?"; measured: renders ~80% of a
+  redo, one copy at a time on 1 of 8 cores): every take is recorded and checked first (edges, page problems: a bad scene stops ~1 min in), then
+  every copy renders through `renders.mjs`, `HERO_RENDERS` at once (default 3; memory). The edge check reads the hold's middle, where the camera
+  rests (at its end the camera is already gliding on: false cuts), and the camera frames with `MARGIN` 2 px over the check (float rounding).
+  A camera or check change needs no new recording: re-check a kept take's `log.json` with edgeCuts in seconds, or `--words` to redraw.
+  **Never run the site tests while hero.sh records** (run 17: `SITE_OVERLAY_FRESH=1 tools/site-run.sh` rebuilt `.overlay`, the app the recorder
+  runs from, and the take died on `page.reload: net::ERR_FILE_NOT_FOUND`): test before starting the recording, or after it ends.
+  A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
+  **Phone looks are whole looks** (run 20: Track's 460-px left part cut words mid-line): phoneTake drops `lookWidth`/`phoneLookWidth`; a look too
+  wide or tall for the phone window gets a shorter `phoneLook` (its title + the one block you mean), never a cropped part.
+  **The edge check samples each hold 10 times and counts a cut only when most samples show it, once per moment** (run 20: in picture in picture
+  the camera reaches its look late, one sample showed a cut that no viewer sees; a first fix counted 10 rows of one moment as 10 samples).
+  **A click must land on its own target** (run 21: in the one-column phone layout the insight head's middle was its confidence chip, the card never
+  opened and the next look timed out): record-app's `clickedControl` stops a click whose centre hits another control; click the toggle itself.
+  **Takes are reused while nothing they record changed** (`takes.mjs`: piece, recorder sources, app commit, persona files, today's date → `take-key`
+  in `.work/<take>/`; `HERO_FRESH=1` records all): a camera, check or caption fix re-renders only. **Two takes record at once** (`HERO_TAKES`),
+  each app on its own free port (never 47111), **apps start one at a time with one retry** (run 22: two Electron launches at once → Playwright
+  "Process failed to launch!" crashed node with no `media: FAILED`; stray errors now print it), and **a failed take is recorded once more**
+  (run 23: under two takes' load Find's list was not on screen yet at its look). Measured: 12 takes ~2:40 (was ~6 min); a reuse run ~30 s.
+  **A phone copy can fail the stray-frame check where the desktop copy passes** (run 24, 3 of 4 clips): the phone frame is the page's narrow column,
+  so a small change fills more of it. Causes found: (1) a cut hold's `fitScroll` scroll ran after the new page painted, so the early-cut search
+  (cuts.mjs frameCuts, which reads the new look's AFTER-scroll box) missed the change and the unscrolled new page played under the old look;
+  (2) a status line that hides by itself in the hold's last tenth (Track's "Last refresh") made the old page differ from its 90% beat.
+- **The phone copy is its own take in a narrow window** (owner chose "Narrow window" of three): on the wide 1800-px layout, long lines (up to
+  1500 px) left only near-whole-window phone frames (zoom 1.2, ~3-px text). Each hero clip is recorded twice: the desktop window, then
+  `PHONE.window` 880 x 660 (the app lays out 1100 x 825, one column; Jobs' sidebar folds to icons), and the phone master, its captions (.vtt),
+  poster and stray-frame check come from that take (`media.mjs` takeOf/recordClip; picture in picture composes both phone takes). A redo takes ~2x
+  as long; `<piece>-phone/` sits beside `<piece>/` in `.work`, and `--words` redraws both.
+  **The window alone is not narrow enough** (run 14): at the app's own zoom 0.8 the 880-px window lays out 1100 css, and Jobs' cards span 980 px
+  (< 92% of the page, so "show whole") → the phone frame was the whole window, ~4-px text. `PHONE.zoom` 1.25 sets the app's text size in the
+  phone take (settings `zoom`; the extension's page is the window / zoom): 704 x 528 css, the column readable. The window can't go below 640 x 640
+  (main-window.js minWidth/minHeight), so narrow by zoom, not by size. Probe a layout in seconds with a CDP shot (Playwright's own crops the
+  zoomed app) before a 25-min redo. The page's own border never counts as a cut, and the zoom-out step is 0.5%: a frame pinned at a border
+  moves its far edge only by zooming, and a clean spot in a 16-px gutter is ~8 px wide.
+- **A render can end short and say nothing** (round 9: the phone copy's renderer quit 17 of 572 frames in, exit 0, on a 16-GB Mac with ~60 MB
+  free; only the missing poster stopped the run): `runRender` now counts the frames it got (`framesIn`), renders once more, then fails the piece;
+  render.cjs exits 1 when its renderer is gone. A clip much shorter than its recording is this, not a scene bug.
+- **Captions under the video on phones** ("they hide some buttons/actions"; "Phones only"): the phone copy is drawn with no caption or tag; the
+  desktop copy's captions go to `<piece>.vtt` (captions.mjs sayTrack/vttOf, played seconds), the page adds it as a hidden metadata `<track>` and
+  hero-stage.js writes the current cue under the video (`.stage-say`, one line, height kept). Title cards stay in the video.
+- **Higher quality** ("Low resolution. Let it be higher quality"): phone copies 1080 x 810 (were 720), CRF ladders start at 22 for both copies and the
+  budgets are ceilings; the app is recorded at `--force-device-scale-factor=2.5` (3600-px frames) so a zoomed look still has a pixel per output pixel.
+  Old `-720` files are `git rm`-ed by `hero.sh --place`. A changed look or edges need a NEW recording; `--words` only redraws words.
+- **Every new screen opens on the whole app window, then glides in** (owner, 25 Oct 2026, a GENERAL rule for every clip and both copies: "too
+  zoomed, hard to understand what's it ... show a bigger part of the screen and slowly zoom in"; "let's start from a zoomed out position"; "This
+  should be I think a general rule"; "Let the user understand where is that zoomed part placed in the app. Basically how to get there. Like the
+  context/surroundings"). The first look and every cut look: the whole window (sidebar and page title in view) for `OPEN_WIDE`, then a slow glide
+  (`GLIDE_IN`) to the look; the hold is lengthened by both (hold.mjs `openWide`), so the look still rests its own time. Never open a screen already
+  zoomed. A click zoom is framed whole like a look, and no frame edge cuts a line or a card at the top or bottom either (the bottom edge cut Set
+  up's Back/Continue in run 25). The glide always leaves the look `REST` (0.6 s) at rest before the hold ends OR the next screen cuts in,
+  whichever is first (run 26: a phone hold's scroll, and Set up's proposal painting mid-hold, left no rest; the edge check read the glide and
+  the next look's frames as cuts); the edge check reads only that rest, up to the next cut.
 ## When something is wrong: fix the mechanism, then the scene (owner, 24 Oct 2026: "did you fix the root causes permanently?")
 A bad crop, a missing step or a wrong frame is first a question about the tool: which camera/recorder/tool rule let it through? Fix that rule, add a test
 that loops over every hero look or scene (it fails on the old code), add a trap line below; only then tune the scene's numbers. A scene-only tweak
 comes back at the next redo.
 
 ## Checklist before showing the owner
+  - Every check that compares frames must know the wide opening (run 27: the stray check compared the whole-window frames after a cut with the zoomed look and stopped on 6 false alarms). The timing lives in ONE place, `camera.mjs wideOpening`, used by the camera and by `cuts.mjs strayFrames`; a new frame check uses it too. Wide openings make clips longer: Track's WebM (listed first, so what Chrome plays) needed its budget raised to 2.6 MB (total 8.1 MB), then 2.8 MB (run 29: 2.63 MB at VP9 CRF 50; a denoise changed nothing, 819 vs 817 KB on a slice; VP9 is simply bigger than H.264 on these screens, 817 vs 537 KB). Open: drop the WebM or list the MP4 first (CI PR).
 - Each beat frame: its beat's words are readable and inside the crop; the crop ends on a gap between columns/cards, never through one.
 - Each sheet: the story holds (same job everywhere), nothing important cut at an edge, no empty frame, the move happens once.
 - Preview: every caption matches its clip; the result text readable at desktop AND phone; Apply's whole panel in frame; Track's interview is the
@@ -215,7 +280,12 @@ comes back at the next redo.
   new phoneLook `#find-card .insight-head` no longer existed, the run waited 30 s and failed after Set up). Before recording, read the app's recent
   history of the screens in the scenes (`git -C ~/jobadabra log --since=<last recording> -- desktop/renderer/pages/<screen>*`) and check each new
   look's selector in the app's current markup; re-record only the pieces after the failure (the finished ones are kept in their set).
-- **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this.
+- **A look matched a hidden element** (`.focus-item:has-text(...)` found one off-screen): scope it (`#focus-list .focus-item:has-text("Prepare for ...")`). "nothing to look at at <sel>" is this, unless the Mac is loaded: both recorders wait up to `SHOW_WAIT` (10 s, hold.mjs) for a look to become visible first (runs 26-27: Track's e-mail and Find's phone row were still drawing; each miss cost a whole re-recorded take). A miss that repeats WITH the wait is a scene bug, not load: run 28's Track e-mail look missed again because the step meant to open the results panel clicked its toggle, and the app had already opened the panel for the run, so the click shut it. A step SETS a panel open or shut (`panel(true|false)` in scenes.mjs, reading `.hidden` first), never toggles it; guard: media-options.test.js.
+- **Run 28's lessons (a loaded Mac):** (1) ONE stall check (`check.mjs stallsOf`) for the take loop and the final gate: the frame-rate stall was only checked after all 12 takes, so it failed the run instead of re-recording the take. (2) Words the app itself hides are not words on screen: the edges script clips each line to its overflow boxes (the Interviews tip ticker read as a cut line). (3) A hold keeps at least half its time after the recorder measures (`HOLD_KEEP`): Track's 1.8-s look kept 0.3 s and the camera never arrived.
+- **A check that can run before the render, does** (owner, 25 Oct 2026: "did you improve your process, how many bugs are still to be discovered?"): each bug cost a 25-minute run because the stray check read only the rendered copies. `prestray.mjs` runs it on the render plan (64x40 thumbnails cut from small grey frames through the camera's view) in seconds per take before any render; on runs 27-28's takes it matched the final gate. The check on the played copies stays the last gate. A new check: make it read the plan, not the copies.
+- **Renders move to GitHub CI** (owner, 25 Oct 2026: "should we do the rendering on the Github CI? will it be faster?" / "we can have a manually triggerable workflow"; chose "after PR2"): the Mac is shared by ~10 sessions (load 100-312 on 8 cores), so local parallel renders only split the same CPU (PR3: ~25 -> ~20 min). Plan: a workflow_dispatch workflow, one macOS runner per clip (Mac fonts: never Linux), recording from public main with the demo persona, videos back as an artifact or a commit on the PR branch. Also: reuse the graded picture when only the caption or cursor changed (45% of run 29's 6,638 frames).
+- **The media cache prunes itself** (owner, 25 Oct 2026: "make an auto-prune of the media recordings"; 99 kept runs filled 42 GB, 3.9 GB free): `media/prune.mjs` keeps the newest few of every kind tools/hero.sh and tools/media.sh write (hero runs: HERO_KEEP=3 with the new one; previews, media sets, their logs, package caches); a folder with a KEEP file stays. A new tool that writes to the cache adds its rule there. The newest are the last written (mtime), never the latest name: the names are local time and the clocks went back an hour on 25 Oct 2026 (run 30's set sorted before run 29's).
+- **Electron starts once, alone, before parallel renders** (run 30, words only on a freshly rebuilt .overlay: four first starts at once collided unpacking Electron, "File exists"): `media.mjs electronOnce`.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.
 - **The panel moves**: during a fill it sits centred, then returns to its corner; `panelBox` waits for the corner. A union of the panel and a far field is wider than the zoomed view and gets framed from its left edge: look at `'panel'` alone.
 - **Persona gaps show as app gaps**: `draft.json` needs `search.target_roles` (else "Target roles: Not set") and a numeric `usd` (step 3 crashes without it). That's old data, not a product bug.

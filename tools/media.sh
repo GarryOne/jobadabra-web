@@ -56,6 +56,7 @@ done
 (cd "$tree/desktop/e2e" && npx playwright-core install chromium >/dev/null)
 
 # 5. record, render, check (one heavy run at a time on this Mac)
+node "$here/media/prune.mjs" "$cache"   # the cache keeps the newest few of each kind (media/prune.mjs)
 out="$cache/set-$(date +%Y%m%d-%H%M%S)"; start=$SECONDS
 lock="${MEDIA_HEAVY_LOCK:-$HOME/job-pilotto/tools/heavy-lock.sh}"
 record=(node ../media/media.mjs --out "$out" ${args[@]+"${args[@]}"})

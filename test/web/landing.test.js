@@ -111,8 +111,9 @@ test('the hero is one stage of four clips: the first loads, the rest wait; each 
   clips.forEach((clip, i) => {
     assert.match(clip, new RegExp(`preload="${i === 0 ? 'auto' : 'none'}"`), `clip ${i + 1} preload`);
     assert.match(clip, /poster="\/media\/[^"]+-poster\.jpg"/, `clip ${i + 1} poster`);
-    assert.match(clip, /data-phone-poster="\/media\/[^"]+-720-poster\.jpg"/, `clip ${i + 1} phone poster`);
-    assert.match(clip, /-720\.mp4" type="video\/mp4" media="\(max-width: 720px\)"/, `clip ${i + 1} phone copy`);
+    assert.match(clip, /data-phone-poster="\/media\/[^"]+-1080-poster\.jpg"/, `clip ${i + 1} phone poster`);
+    assert.match(clip, /-1080\.mp4" type="video\/mp4" media="\(max-width: 720px\)"/, `clip ${i + 1} phone copy (round 9: 1080 wide)`);
+    assert.match(clip, /data-captions="\/media\/[a-z-]+\.vtt"/, `clip ${i + 1}: its captions for the line under the phone copy`);
     assert.ok(clip.includes(`data-cap="${CAPTIONS[i]}"`), `clip ${i + 1} caption`);
     assert.match(clip, /data-sub="[^"]{10,}"/, `clip ${i + 1} supporting line`);
     assert.match(clip, /\(made-up example\)"/, `clip ${i + 1} says it is an example`);
@@ -138,6 +139,19 @@ test('the stage script: plays in turn, steps jump, pause, phone posters, nothing
   assert.match(css, /@media \(max-width: 720px\) \{ \.stage-screen \{ aspect-ratio: 4 \/ 3; \} \}/, 'phones show the 4:3 copies');
   assert.match(css, /\.stage-screen \{[^}]*rgb\(255 178 36/, 'a restrained amber glow around the frame');
   assert.match(css, /\.hero\.split \{ grid-template-columns: minmax\(420px, 3\.8fr\) minmax\(0, 8fr\)/, 'the hero is one row: words left, the stage right');
+});
+
+// Round 9 (owner, 24 Oct 2026: "move the subtitles/captions out of the video, let's put them below, at least on mobile, they hide some buttons/actions"):
+// phones show the step's caption in a line under the video, read from the clip's WebVTT track; desktop keeps it drawn in the video.
+test('on phones the step caption sits under the video, from the clip\'s caption track; the line keeps its height', () => {
+  const html = read('index.html'), js = read('hero-stage.js'), css = read('home.css');
+  const stage = html.match(/<div class="stage-screen">[\s\S]*?<div class="stage-steps"/)[0];
+  assert.match(stage, /<\/video>\s*<\/div>\s*<p class="stage-say" hidden><b class="stage-say-tag"><\/b><span class="stage-say-text"><\/span><\/p>\s*<div class="stage-steps"/, 'between the video and the steps, never on the video');
+  for (const hook of [/kind: 'metadata', src: clip\.dataset\.captions/, /el\.track\.mode = 'hidden'/, /addEventListener\('cuechange'/, /JSON\.parse\(cue\.text\)/, /phone && say \?/])
+    assert.match(js, hook);
+  assert.match(css, /\.stage-say \{ display: none; \}/, 'desktop: no line (the caption is in the video)');
+  assert.match(css, /@media \(max-width: 720px\) \{\n  \.stage-say:not\(\[hidden\]\) \{ display: flex;[^}]*min-height: 1\.9rem/, 'phones: one line, its height kept');
+  assert.match(css, /\.stage-say\.is-empty \{ visibility: hidden; \}/, 'no caption: the space stays, the steps never jump');
 });
 
 // Round 6 (owner, 24 Oct 2026: "make a nice transition effect, not just an instant screen/image replacement"): every switch between clips (the end of
