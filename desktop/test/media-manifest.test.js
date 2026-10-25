@@ -28,7 +28,7 @@ test('every piece has the words the site needs; video captions are 6 words at mo
     assert.ok(piece.budget > 0 && piece.steps.length, name);
   }
   const slides = Object.values(VIDEOS).filter(piece => piece.slide);
-  assert.ok(slides.reduce((sum, piece) => sum + piece.budget, 0) <= 8.3e6, 'the four hero clips together fit 8.3 MB at most (round 8: the sharper grade, +41%; round 9: room for CRF 22, owner: "low resolution"; run 27: Track\'s wide openings left its WebM, the copy Chrome plays, over 2.2 MB at the lowest quality; run 29: 2.63 MB at VP9 CRF 50, bigger than its H.264 copy (2.25 MB))');
+  assert.ok(slides.reduce((sum, piece) => sum + piece.budget, 0) <= 8.8e6, 'the four hero clips together fit 8.8 MB at most (25 Oct 2026: Find +0.5 for the drawer tabs) (round 8: the sharper grade, +41%; round 9: room for CRF 22, owner: "low resolution"; run 27: Track\'s wide openings left its WebM, the copy Chrome plays, over 2.2 MB at the lowest quality; run 29: 2.63 MB at VP9 CRF 50, bigger than its H.264 copy (2.25 MB))');
   assert.ok(slides.every(piece => piece.phone?.width === 1080 && piece.phone.budget) && slides.reduce((sum, piece) => sum + piece.phone.budget, 0) <= 6.3e6, 'phone copies 1080 wide, 6.3 MB together at most (round 9: "low resolution")');
   for (const [name, item] of [...Object.entries(STILLS), ...Object.entries(SNIPS)]) assert.ok(item.shows && item.steps.length, name);
 });
