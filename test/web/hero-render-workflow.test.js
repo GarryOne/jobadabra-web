@@ -45,3 +45,9 @@ test('on a private repo the Mac render refuses to start unless the run accepts t
   assert.ok(plan.indexOf('repository.private') < plan.indexOf('id: clips'), 'the cost gate comes first: no clip is planned without it');
   assert.match(flow, /private_cost_ok:\n(?:\s+.*\n)*?\s+default: false/);
 });
+
+test('the Mac runner gets an ffmpeg with libwebp first on PATH (run 1: Homebrew\'s slim ffmpeg lacks it and every clip stopped at once)', () => {
+  const render = job('render');
+  assert.match(render, /brew install ffmpeg-full && echo "\$\(brew --prefix ffmpeg-full\)\/bin" >> "\$GITHUB_PATH"/);
+  assert.ok(render.indexOf('ffmpeg-full') < render.indexOf('tools/hero.sh'), 'before the run');
+});
