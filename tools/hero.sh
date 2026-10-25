@@ -40,6 +40,7 @@ if [ -z "$have" ] || { [ -n "$want" ] && [ "$want" != "$have" ]; }; then
   tools/overlay.sh .overlay "$ref" >&2
 fi
 rsync -a media/ .overlay/media/ && rsync -a web/ .overlay/web/ && rsync -a tools/ .overlay/tools/
+echo $$ > .overlay/.git/in-use; trap 'rm -f .overlay/.git/in-use' EXIT   # nothing rebuilds the overlay under this run (tools/overlay-busy.sh)
 for dir in desktop desktop/e2e; do   # packages, cached by lock file as tools/media.sh does
   [ -d ".overlay/$dir/node_modules" ] && continue
   key="$(shasum -a 256 ".overlay/$dir/package-lock.json" | cut -c1-16)"; store="$cache/modules-$(echo "$dir" | tr / -)-$key"
