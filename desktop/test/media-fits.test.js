@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MIN_ZOOM, shallowLooks, widestAt} from '../../media/fits.mjs';
 import {wholeFrame} from '../../media/whole.mjs';
-import {DESKTOP_FLOOR} from '../../media/camera.mjs';
+import {CLICK_FLOOR, DESKTOP_FLOOR, cameraKeys} from '../../media/camera.mjs';
 import {VIDEOS} from '../../media/scenes.mjs';
 
 const viewport = {w: 1440, h: 900};
@@ -37,4 +37,13 @@ test('a desktop frame never zooms out below the floor to find a clean edge, and 
   assert.equal(wholeFrame(args).z, 1, 'without a floor the camera falls back to the whole page');
   assert.ok(Math.abs(wholeFrame({...args, floor: DESKTOP_FLOOR}).z - DESKTOP_FLOOR) < 1e-6, 'with the floor it stops at 1.5x');
   assert.equal(wholeFrame({...args, z: 1.2, floor: DESKTOP_FLOOR}).z, 1.2, 'a look asked below the floor keeps its own zoom');
+});
+
+// owner, 25 Oct 2026: the close zoom on Use Free AI came out near 1.5x, the edge search having backed it off (run 5)
+test('a desktop click zoom keeps CLICK_FLOOR when no frame has clean edges', () => {
+  const edges = Array.from({length: 40}, (_, i) => ({k: 'text', x: 0, y: 20 * i, w: 1440, h: 14, text: `line ${i}`}));
+  const events = [{t: 0, type: 'hold', look: 'a', box: {x: 100, y: 100, width: 600, height: 200}, s: 1, edges}, {t: 1.1, type: 'click', box: {x: 1300, y: 800, width: 100, height: 40}, zoom: 3, edges},
+    {t: 1.8, type: 'press', box: {x: 1300, y: 800, width: 100, height: 40}}];
+  const keys = cameraKeys({viewport, events, steady: true});
+  assert.ok(keys.at(-1).z >= CLICK_FLOOR - 1e-6, `the click zoom ends at ${keys.at(-1).z}`);
 });
