@@ -36,7 +36,21 @@ test('every clip plays at 1.5x and a refused autoplay shows the play mark', () =
   assert.match(js, /const SPEED = 1\.5;/, 'one speed for the four clips');
   assert.match(js, /clips\.forEach\(clip => \{ clip\.defaultPlaybackRate = SPEED; clip\.playbackRate = SPEED; \}\);/, 'set on every clip, also the ones not loaded yet');
   assert.doesNotMatch(js, /\.play\(\)\.catch\(\(\) => \{\}\)/, 'no play() whose refusal is swallowed: start() shows the play mark');
-  assert.match(js, /error\.name === 'NotAllowedError' && clip === clips\[on\]\) setPaused\(true\)/, 'a refused clip pauses with the mark, so a tap starts it');
+  assert.match(js, /error\.name === 'NotAllowedError' && clip === clips\[on\] && seen\) setPaused\(true\)/, 'a refused clip pauses with the mark, so a tap starts it');
+});
+
+// Owner, 25 Oct 2026, iPhone: autoplay still failed and two play buttons showed. A play() below the fold is refused by iOS and was read as "the person paused" (mark + button);
+// pause() on a clip waiting to autoplay cancels the browser's own start.
+test('an early refused play() waits for the stage to be seen, and pause() never cancels a pending autoplay', () => {
+  const js = read('hero-stage.js');
+  assert.match(js, /&& seen\) setPaused\(true\)/, 'no paused mark before the observer has reported the stage');
+  assert.match(js, /else if \(!clips\[on\]\.paused\) clips\[on\]\.pause\(\)/, 'pause() only a clip that is playing');
+  assert.match(js, /seen = true; setPaused\(paused\)/, 'the observer retries the start once the stage shows');
+});
+
+test('phones show one play mark: the tab-row button is hidden, the picture toggles', () => {
+  const css = read('home.css');
+  assert.match(css, /@media \(max-width: 720px\) \{[^}]*\.stage-steps \.stage-pause \{ display: none; \}/, 'second play button hidden on phones');
 });
 
 // Owner, 25 Oct 2026, from iOS guidance ("autoplay muted playsinline" on an H.264 MP4): the first clip asks the browser to autoplay itself, not only the script.

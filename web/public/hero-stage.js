@@ -28,7 +28,7 @@ if (root && clips.length) {
   // A browser that refuses to start a clip by itself (iOS in Low Power Mode, owner's phone 25 Oct 2026: stuck on the poster) shows the play mark; a tap starts it.
   const start = clip => {
     clip.playbackRate = SPEED;
-    clip.play().catch(error => { if (error.name === 'NotAllowedError' && clip === clips[on]) setPaused(true); });
+    clip.play().catch(error => { if (error.name === 'NotAllowedError' && clip === clips[on] && seen) setPaused(true); });   // before the stage has been seen (a play() below the fold, which iOS refuses) the observer retries once it shows
   };
   // Phones: each clip's captions as a hidden metadata track (loaded with the page, read as the clip plays); the line under the video shows the current one.
   const tracks = phone && say ? clips.map(clip => {
@@ -46,7 +46,7 @@ if (root && clips.length) {
     say.querySelector('.stage-say-text').textContent = line?.say || '';
     say.classList.toggle('is-empty', !line?.say);
   };
-  let on = 0, paused = still, hidden = false, away = false;
+  let on = 0, paused = still, hidden = false, away = false, seen = !('IntersectionObserver' in window);
   const warm = i => { const clip = clips[i % clips.length]; if (clip.preload !== 'auto') { clip.preload = 'auto'; clip.load(); } };
   const playing = () => !paused && !hidden && !away;
 
@@ -118,12 +118,12 @@ if (root && clips.length) {
     pause.innerHTML = paused ? PLAY : PAUSE;
     pause.setAttribute('aria-label', paused ? 'Play' : 'Pause');
     screen.classList.toggle('is-paused', paused);   // the person's pause only: a hidden tab or a scrolled-away stage shows no mark
-    if (playing()) start(clips[on]); else clips[on].pause();
+    if (playing()) start(clips[on]); else if (!clips[on].paused) clips[on].pause();   // pause() on a clip still waiting to autoplay cancels the browser's own start (iOS)
   }
   pause.addEventListener('click', () => setPaused(!paused));
   screen.addEventListener('click', () => setPaused(!paused));   // a click on the picture pauses and plays it too (owner, 24 Oct 2026); the button stays the keyboard way
   document.addEventListener('visibilitychange', () => { hidden = document.hidden; setPaused(paused); });
-  if ('IntersectionObserver' in window) new IntersectionObserver(([entry]) => { away = !entry.isIntersecting; setPaused(paused); }).observe(root);
+  if ('IntersectionObserver' in window) new IntersectionObserver(([entry]) => { away = !entry.isIntersecting; seen = true; setPaused(paused); }).observe(root);
 
   // The step's line: how far the current clip has played.
   const line = () => {
