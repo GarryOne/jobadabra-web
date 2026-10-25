@@ -66,6 +66,7 @@ jobs:
         env:
           CLIP: ${{ matrix.clip }}
           HERO_PUBLIC_REF: ${{ inputs.public_ref }}
+          HERO_TAKES: '1'   # a 3-core runner: two takes at once stalled the capture (run 2: 131-177 frames in 37-39 s) and painted late after cuts
         run: tools/hero.sh "$CLIP" 2>&1 | tee hero.log
       - name: Collect the clip's files
         if: always()
