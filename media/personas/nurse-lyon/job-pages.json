@@ -226,15 +226,79 @@
    "url": "https://example.com/jobs/4",
    "title": "Registered Nurse, Cardiac Care Unit",
    "company": "Institut Cardio Rhône",
-   "stage": "",
-   "applied_on": "",
+   "stage": "Interview scheduled",
+   "applied_on": "2026-10-06",
    "location": "Lyon",
-   "channel": "Direct"
+   "channel": "Direct",
+   "next_interview": "2026-10-14T10:00:00",
+   "interview_prep": "2026-10-09",
+   "call_facts": "Team: 14 nurses · Shifts: days, one weekend a month"
   },
   "sections": {
-   "🧾 Job description": "Institut Cardio Rhône is looking for a registered nurse, cardiac care unit.\n\n- Care for patients after a heart attack or cardiac surgery.\n- Watch the central monitoring station and act on alarms.\n- Teach patients their new medication before they go home."
+   "🧾 Job description": "Institut Cardio Rhône is looking for a registered nurse, cardiac care unit.\n\n- Care for patients after a heart attack or cardiac surgery.\n- Watch the central monitoring station and act on alarms.\n- Teach patients their new medication before they go home.",
+   "📝 Application kit": "Drafted by claude-sonnet-5-5 for Registered Nurse, Cardiac Care Unit, Institut Cardio Rhône. Form questions read from the application form. Review before sending; nothing was submitted.\n\n### ⚠️ Check before sending\n\n- The form asks for your start date.\n\n### 💡 Lead with\n\n- Six years on a cardiac ward\n- Telemetry and central monitoring every shift\n\n### ✉️ Cover letter\n\nDear Institut Cardio Rhône team,\n\nI have nursed cardiac patients for six years and read telemetry every shift. I would like to bring that to your Cardiac Care Unit.\n\n### 🧾 Form answers\n\n**Notice period**\n\n1 month\n\n**Are you legally authorised to work in this country?**\n\nYes\n\n### Machine-readable kit\n\n```json\n{\n \"version\": 1,\n \"url\": \"https://jobs.example/institut-cardio-rhone/cardiac-care\",\n \"model\": \"claude-sonnet-5-5\",\n \"eligible\": true,\n \"eligibility_note\": \"\",\n \"check_before_sending\": [\n  \"The form asks for your start date.\"\n ],\n \"highlights\": [\n  \"Six years on a cardiac ward\",\n  \"Telemetry and central monitoring every shift\"\n ],\n \"cover_letter\": \"Dear Institut Cardio Rhône team,\\n\\nI have nursed cardiac patients for six years and read telemetry every shift. I would like to bring that to your Cardiac Care Unit.\",\n \"answers\": [\n  {\n   \"question\": \"Notice period\",\n   \"answer\": \"1 month\",\n   \"needs_review\": false,\n   \"field\": \"q1\"\n  },\n  {\n   \"question\": \"Are you legally authorised to work in this country?\",\n   \"answer\": \"Yes\",\n   \"needs_review\": false,\n   \"field\": \"q2\"\n  }\n ]\n}\n```",
+   "🗂 Application record": "Frozen 2026-10-06T08:41:00 for Registered Nurse, Cardiac Care Unit, Institut Cardio Rhône. Answers read from the form just before Submit.\n\n### Machine-readable record\n\n```json\n{\n \"version\": 1,\n \"recorded_at\": \"2026-10-06T08:41:00\",\n \"url\": \"https://example.com/jobs/4\",\n \"job\": {\n  \"title\": \"Registered Nurse, Cardiac Care Unit\",\n  \"company\": \"Institut Cardio Rhône\",\n  \"applied_on\": \"2026-10-06\",\n  \"ats\": \"workable\",\n  \"description\": \"\"\n },\n \"answers_captured\": \"Form\",\n \"answers\": [\n  {\n   \"question\": \"Notice period\",\n   \"answer\": \"1 month\",\n   \"draft\": \"1 month\"\n  },\n  {\n   \"question\": \"Are you legally authorised to work in this country?\",\n   \"answer\": \"Yes\",\n   \"draft\": \"Yes\"\n  }\n ],\n \"cover_letter\": \"Dear Institut Cardio Rhône team,\\n\\nI have nursed cardiac patients for six years and read telemetry every shift. I would like to bring that to your Cardiac Care Unit.\",\n \"variant\": \"v1\",\n \"run\": {\n  \"agent\": \"claude\"\n },\n \"cv\": \"CV · Institut Cardio Rhône · Cardiac Care.pdf · 7b2c91e0aa\"\n}\n```",
+   "🎤 Interview prep": "**On the unit · built 9 Oct 2026 · $0.04**\n\n### What they will likely assess\n\n- Telemetry reading and alarm response\n- Calm communication with patients and families\n\n### Likely questions\n\n- Tell us about a patient who deteriorated on your shift → The night the monitor alarm caught it early\n- How do you teach a new medication before discharge?\n\n### Stories to have ready\n\n- The night the monitor alarm caught it early\n\n### Gaps and how to handle them\n\n- No cardiac surgery ward time: say what you learned on the cardiology day ward\n\n### Ask them\n\n- How is the weekend rota shared?\n\n### Still unknown: ask the recruiter\n\n- Team size on nights\n\n### Your prep plan\n\n1. 30 min: the monitor-alarm story\n2. 20 min: discharge teaching steps",
+   "🤝 Recruiter message": "Bonjour Camille, a role at Institut Cardio Rhône.\n\nCould we talk on Saturday?\n\n▸ 📧 Full message\n  Bonjour Camille, your profile fits our Cardiac Care Unit.\n\n  Could we talk on Saturday morning?\n\n  Unsubscribe here",
+   "📥 Logged messages": "▸ **📥 08 Oct 2026 · Recruiter asked for a call**\n  > Bonjour Camille,\n\n  > Could we talk on Saturday at 10:00?\n\n▸ **📝 09 Oct 2026 · Note**\n  > Ask about the weekend rota and the night team size."
   },
-  "events": [],
+  "events": [
+   {
+    "id": "ev-4",
+    "kind": "Interview scheduled",
+    "at": "2026-10-12T07:22:00",
+    "source": "Gmail",
+    "source_id": "18f3a1b2c3d4e5a1",
+    "note": "We would like to invite you to an interview on the unit on Wednesday 14 October at 10:00. It will be a 45-minute conversation with the nurse manager and a senior nurse.",
+    "changes": {
+     "fields": {},
+     "from": "Institut Cardio Rhône <recrutement@institut-cardio.example>",
+     "subject": "Interview invitation: Registered Nurse, Cardiac Care Unit"
+    }
+   },
+   {
+    "id": "ev-3",
+    "kind": "Message",
+    "at": "2026-10-08T16:05:00",
+    "source": "Gmail",
+    "source_id": "18f2e0d9c8b7a601",
+    "note": "Your profile fits our Cardiac Care Unit. Could we talk by phone on Saturday morning?",
+    "changes": {
+     "fields": {},
+     "from": "Dr Claire Fontaine <recrutement@institut-cardio.example>",
+     "subject": "A call about the Cardiac Care Unit"
+    }
+   },
+   {
+    "id": "ev-2",
+    "kind": "Confirmation received",
+    "at": "2026-10-06T08:44:00",
+    "source": "Gmail",
+    "source_id": "18f2e0d9c8b7a654",
+    "note": "Thank you for applying. We received your application and will answer within a week.",
+    "changes": {
+     "fields": {},
+     "from": "Institut Cardio Rhône <recrutement@institut-cardio.example>",
+     "subject": "Application received"
+    }
+   },
+   {
+    "id": "e1",
+    "app_id": "demo-app-4",
+    "kind": "Applied",
+    "at": "2026-10-06",
+    "source": "Jobadabra",
+    "note": "Applied with the extension"
+   },
+   {
+    "id": "e3",
+    "app_id": "demo-app-4",
+    "kind": "Interview scheduled",
+    "at": "2026-10-12",
+    "source": "Calendar",
+    "note": "Wednesday 10:00, on the unit"
+   }
+  ],
   "files": [],
   "match": {
    "url": "https://example.com/jobs/4",
@@ -270,7 +334,32 @@
    "reason": "Cardiac care unit with telemetry, your daily work; permanent contract, days with one weekend a month.",
    "first_seen": "2026-10-01"
   },
-  "interviews": []
+  "interviews": [
+   {
+    "id": "demo-iv-4a",
+    "app_id": "demo-app-4",
+    "title": "Phone screen",
+    "round": "Screening",
+    "at": "2026-10-10T10:00:00",
+    "input": "Recording",
+    "overall": "positive",
+    "next_step": "Interview on the unit on Wed 14 Oct",
+    "transcript": "**Dr Fontaine (Institut Cardio Rhône)** 01:48\nTell me about a patient who deteriorated on your shift.\n\n**You** 02:10\nA man after a stent, his telemetry showed runs of ectopic beats. I called the doctor early and he went to the cath lab.\n\n**Dr Fontaine (Institut Cardio Rhône)** 05:02\nHow do you teach a new medication before discharge?\n\n**You** 05:20\nOne medicine at a time, with the written list, and I ask the patient to say it back.",
+    "review": "> [!🎤] Positive · a clear, calm phone screen with concrete cardiac examples.\n\n**Strengths**\n\n- Concrete telemetry example with a good outcome\n- Calm, structured answers\n- Clear teaching method for discharge\n\n**Answers to improve**\n\n- Say how many patients you look after per shift (03:12)\n- Name the monitoring system you use (06:40)\n\nReviewed by claude-sonnet-5-5."
+   },
+   {
+    "id": "demo-iv-4b",
+    "app_id": "demo-app-4",
+    "title": "Recruiter intro",
+    "round": "Intro",
+    "at": "2026-10-08T15:30:00",
+    "input": "Notes",
+    "overall": "mixed",
+    "next_step": "Phone screen with the nurse manager",
+    "transcript": "",
+    "review": ""
+   }
+  ]
  },
  "https://example.com/jobs/5": {
   "app": {
