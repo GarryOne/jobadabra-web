@@ -38,3 +38,10 @@ test('inputs reach the scripts only through env, never pasted into a run line', 
     assert.doesNotMatch(run, /\$\{\{\s*(inputs|matrix|github\.event)\./, `a run line uses an expression directly: ${run.slice(0, 80)}`);
   }
 });
+
+test('on a private repo the Mac render refuses to start unless the run accepts the cost (macOS minutes count 10x)', () => {
+  const plan = job('plan');
+  assert.match(plan, /if: github\.event\.repository\.private && !inputs\.private_cost_ok\n\s+run: [^\n]*exit 1/);
+  assert.ok(plan.indexOf('repository.private') < plan.indexOf('id: clips'), 'the cost gate comes first: no clip is planned without it');
+  assert.match(flow, /private_cost_ok:\n(?:\s+.*\n)*?\s+default: false/);
+});
