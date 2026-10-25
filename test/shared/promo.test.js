@@ -47,6 +47,17 @@ test('the promo Pro counts as licensed for the app: the status the app reads is 
   assert.equal(body.ok, true); assert.equal(body.plan, 'pro');   // desktop licenseState() turns plan 'pro' into licensed: true (the Export gate)
 });
 
+test('PRO_PLAN "promo": a code gives Pro while paying stays off (no prices, no checkout, no sign-in)', async () => {
+  const env = site({PRO_PLAN: 'promo'}); await importCode(env);
+  const free = await status(env, A);
+  assert.deepEqual([free.plan, free.mode, free.offers], ['free', 'promo', []], 'no prices are sent');
+  assert.equal((await (await redeem(env, A, FAKE)).json()).ok, true);
+  const pro = await status(env, A);
+  assert.deepEqual([pro.plan, pro.source, pro.offers], ['pro', 'promo', []]);
+  const post = async path => worker.fetch(new Request(`${ORIGIN}${path}`, {method: 'POST', headers: {'x-api-key': await key(env, A), 'Content-Type': 'application/json'}, body: JSON.stringify({kind: 'pro'})}), env, {});
+  for (const path of ['/api/pro/checkout', '/api/pro/signin/start']) assert.equal((await post(path)).status, 404, `${path} stays off`);
+});
+
 test('the cap holds, also for parallel calls', async () => {
   const env = site(); await importCode(env, {cap: '2'});
   const answers = await Promise.all([A, B, C].map(install => redeem(env, install, FAKE).then(r => r.json())));
