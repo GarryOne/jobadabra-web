@@ -77,7 +77,10 @@ const MAIL_IN = `(() => { const back = document.createElement('div'); back.id = 
 const MAIL_WAIT = "(() => { document.getElementById('hero-mail')?.remove(); document.getElementById('hero-mail-back')?.remove(); const s = document.createElement('style'); s.id = 'hero-wait'; s.textContent = '#activity-card, #activity-log, #activity-status, #activity-sub { visibility: hidden }'; document.head.append(s); })()";
 // Round 5 (owner, 24 Oct 2026: "show the Action screen where we click on 'check gmail' card"): she runs the check from Actions, then its result opens.
 const GMAIL_TASK = '.task-card:has([data-command=mail])';
-const MAIL_OPEN = "(() => { document.getElementById('activity-toggle')?.click(); const s = document.getElementById('hero-wait'); if (s) s.textContent = '#activity-log { display: none }'; })()";
+// The results panel is SET open or shut, never toggled: the app opens it by itself for a run, so a toggle could shut it (runs 26-28: Track's
+// "nothing to look at at #activity-card .mail-email", the panel shut by the click meant to open it). Guard: media-options.test.js.
+const panel = open => `(() => { const p = document.getElementById('activity-panel'); if (p && p.hidden === ${open}) document.getElementById('activity-toggle')?.click(); })()`;
+const MAIL_OPEN = "(() => { const p = document.getElementById('activity-panel'); if (p && p.hidden) document.getElementById('activity-toggle')?.click(); const s = document.getElementById('hero-wait'); if (s) s.textContent = '#activity-log { display: none }'; })()";
 // No fade: the cut is the change (a fade read as another page to the stray-frame gate). The demo run has no log: its "No log available" row stays hidden.
 const MAIL_SHOW = "(() => { const s = document.getElementById('hero-wait'); if (s) s.textContent = '#activity-log { display: none }'; })()";
 // The stand-in form's REQUIRED fields (media/form.html), in its order: the live card (hero-fill-done) ticks them off and counts the same 6 the
@@ -152,7 +155,7 @@ export const VIDEOS = {
       {hold: 1.8, look: GMAIL_TASK, zoom: 2.2, phoneZoom: 3.2, phoneLook: GMAIL_TASK, phoneLookWidth: 380, cut: true, into: 'card', card: 'Jobadabra checks the mail', tag: 'Actions', say: "In Jobadabra's Actions: Check Gmail", beat: 'Actions: the Check Gmail & Calendar card'},
       {tap: `${GMAIL_TASK} [data-command=mail]`, then: MAIL_OPEN},
       {hold: 2.6, look: '#activity-card .mail-email', zoom: 1.9, phoneZoom: 3.4, phoneLook: '#activity-card .mail-email', phoneLookWidth: 460, cut: true, into: 'fade', say: 'It reads it: interview scheduled', beat: 'The check reads it: the job moves to Interview scheduled'},
-      {js: "document.getElementById('activity-toggle')?.click()"},   // the panel stays open across pages and covers the next one
+      {js: panel(false)},   // the panel stays open across pages and covers the next one
       {go: 'interviews'}, {hold: 1.7, look: '#iv-drafts .iv-draft', lookWidth: 800, zoom: 2.2, phoneZoom: 3.4, phoneLook: '#iv-drafts .iv-draft', phoneLookWidth: 510, cut: true, into: 'tiles', tag: 'Interviews', say: 'The phone screen, recorded on the Mac', beat: 'The phone screen with them, recorded on the Mac'},
       {click: '#iv-saved tr:has-text("Institut Cardio Rhône") button:has-text("Open review")'},
       {hold: 2.6, look: '#review-dialog', zoom: 2.3, phoneZoom: 3.2, cut: true, into: 'fade', say: 'Its review: next step, what to work on', beat: 'Its review: next step, what to work on, strengths'},
@@ -177,7 +180,7 @@ export const STILLS = {
   calendar: {steps: [{go: 'calendar'}], shows: 'Interviews and follow-ups on a calendar'},
   interviews: {steps: [{go: 'interviews'}], shows: 'Interview notes and what to practise next'},
   strategy: {steps: [{go: 'strategy'}], shows: 'Where the search looks and what would bring more jobs'},
-  activity: {steps: [{go: 'focus'}, {js: "document.getElementById('activity-toggle')?.click()"}], shows: 'Recent activity: every run and what it found'},
+  activity: {steps: [{go: 'focus'}, {js: panel(true)}], shows: 'Recent activity: every run and what it found'},
 };
 
 // Close-ups: one card each, captured at 2x. [selector, margin px]
