@@ -216,6 +216,9 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   A camera or check change needs no new recording: re-check a kept take's `log.json` with edgeCuts in seconds, or `--words` to redraw.
   **Never run the site tests while hero.sh records** (run 17: `SITE_OVERLAY_FRESH=1 tools/site-run.sh` rebuilt `.overlay`, the app the recorder
   runs from, and the take died on `page.reload: net::ERR_FILE_NOT_FOUND`): test before starting the recording, or after it ends.
+  Now a gate for the whole run, renders included (25 Oct 2026: a media test run rebuilt a render's overlay; its preview lost playwright-core):
+  hero.sh and media.sh mark `.overlay/.git/in-use`, `tools/overlay.sh` refuses a marked tree (exit 3), and site-run's hourly rebuild skips it.
+  Test in another worktree meanwhile. Media tests that need ffmpeg run on CI too (tests.yml installs it; #98 was red without it): never a skip there.
   A phone shot that had to zoom out says so (`shown whole at zoom`): hand-picked `phoneLookWidth` left parts are no longer needed.
   **Phone looks are whole looks** (run 20: Track's 460-px left part cut words mid-line): phoneTake drops `lookWidth`/`phoneLookWidth`; a look too
   wide or tall for the phone window gets a shorter `phoneLook` (its title + the one block you mean), never a cropped part.

@@ -34,6 +34,7 @@ cd "$run"
 
 # 2. the public tree at origin/main with this repo laid over it
 tools/overlay.sh .overlay >&2
+echo $$ > .overlay/.git/in-use; trap 'rm -f "$run/.overlay/.git/in-use"' EXIT   # nothing rebuilds the overlay under this run (tools/overlay-busy.sh)
 tree="$run/.overlay"; sha="$(git -C "$tree" rev-parse HEAD)"
 echo "media: public ${sha:0:9} + site $(git rev-parse --short HEAD)"
 if [ "$check" = yes ]; then tools/public-watch.sh "$tree" media $(cat tools/media-paths.txt); git checkout -q -- .public-media 2>/dev/null || rm -f .public-media; exit 0; fi   # a look must not move the record
