@@ -94,7 +94,7 @@ test('each section of /admin/app and /admin/insights has its weeks, from the tab
   assert.deepEqual(insights.fixes.values.slice(-2), [0.5, 0.2]);
   for (const series of [...Object.values(app), ...Object.values(insights)]) assert.equal(series.values.length, 8, series.label);
   const html = await (await get(e, '/admin/app?days=30', owner)).text();
-  assert.equal((html.match(/class="trend"/g) || []).length, 9);   // the form lab's trend was retired 9 Oct 2026
+  assert.equal((html.match(/class="trend"/g) || []).length, 8);   // the Notion prompt's trend was retired 25 Oct 2026, the form lab's trend was retired 9 Oct 2026
   const intel = await (await get(e, '/admin/insights', owner)).text();
   assert.equal((intel.match(/class="trend"/g) || []).length, 9);
 });

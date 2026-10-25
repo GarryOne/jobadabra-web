@@ -102,7 +102,6 @@ export async function channels(db, days, now = new Date()) {
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
 export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
   looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
-export const GATE_WHY = {no_notion: "Doesn't use Notion", privacy: 'Privacy', later: 'Later', other: 'Something else'};  // = desktop/lib/notion-gate.js WHY
 export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'hosted', 'extras', 'done'];  // 'notion': older apps only (it left the wizard 3 Oct 2026); "reached" counts furthest ≥ step, so newer installs pass it
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
@@ -129,37 +128,6 @@ export async function funnel(db, days, now = new Date()) {
   const reached = SETUP_STEPS.map((step, i) => ({step, n: Object.values(furthest).filter(max => max >= i).length}));
   minutesDone.sort((a, b) => a - b);
   return {stopped, reached, started: Object.keys(furthest).length, medianMinutes: minutesDone.length ? minutesDone[Math.floor(minutesDone.length / 2)] : null, trial};
-}
-
-// Who refuses Notion (desktop/lib/notion-gate.js gateEvent; Notion later, 3 Oct 2026): per install, did it ever connect after
-// seeing the prompt, and why not. REVISIT_AT / REVISIT_RATE = the trigger written in docs/superpowers/specs/2026-10-03-notion-later.md.
-export const GATE_REVISIT_INSTALLS = 30, GATE_REVISIT_RATE = 0.4;
-export async function gateStats(db, days, now = new Date()) {
-  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
-  const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];
-  const perInstall = {}, byReason = {}, whys = {};
-  for (const row of rows) {
-    let data = {};
-    try { data = JSON.parse(row.data); } catch {}
-    if (data.step !== 'notion_gate') continue;
-    const mine = perInstall[row.install] ||= {prompts: 0, connected: false};
-    const reason = String(data.reason || 'none');
-    const line = byReason[reason] ||= {reason, shown: 0, connected: 0, not_now: 0, closed: 0, failed: 0, viewed: 0};
-    if (data.outcome in line) line[data.outcome] += 1;
-    if (data.outcome === 'viewed') continue;  // seeing a locked page is not a refusal
-    mine.prompts += 1;
-    line.shown += 1;
-    if (data.outcome === 'connected') mine.connected = true;
-    if (data.outcome === 'not_now' && data.why) whys[data.why] = (whys[data.why] || 0) + 1;
-  }
-  const saw = Object.values(perInstall).filter(item => item.prompts > 0);
-  const never = saw.filter(item => !item.connected);
-  const topWhy = Object.entries(whys).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  const neverRate = saw.length ? never.length / saw.length : 0;
-  return {installs: saw.length, connected: saw.length - never.length, never: never.length, neverRate,
-    repeaters: never.filter(item => item.prompts >= 3).length, whys, topWhy,
-    reasons: Object.values(byReason).sort((a, b) => b.shown - a.shown),
-    revisit: saw.length >= GATE_REVISIT_INSTALLS && neverRate > GATE_REVISIT_RATE && topWhy === 'no_notion'};
 }
 
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
