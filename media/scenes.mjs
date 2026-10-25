@@ -125,9 +125,9 @@ export const VIDEOS = {
       {js: TO_HER_ROW},
       {hold: 2.0, look: ['.job-row >> nth=0', ROW], lookWidth: 862, zoom: 2.2, phoneLook: [`${ROW} .fit-cell`, `${ROW} .role`], phoneZoom: 3, cut: true, into: 'tiles', say: 'Ranked by fit: the best matches first', beat: 'The list it filled, ranked by fit; the job among the best'},
       {click: ROW, say: 'One job opens'},
-      {hold: 1.8, look: ['#job-panel h2', '#job-panel .jd-tabs'], zoom: 2, phoneZoom: 3, phoneLook: ['#job-panel .jd-top .fit-cell', '#job-panel .jd-title'], phoneLookWidth: 480, tag: 'The job', say: 'It opens beside the list', beat: 'The job opens in a panel beside the list'},
+      {hold: 1.8, look: ['#job-panel h2', '#job-panel .jd-tabs button >> nth=3'], zoom: 2, phoneZoom: 3, phoneLook: ['#job-panel .jd-top .fit-cell', '#job-panel .jd-title'], phoneLookWidth: 480, tag: 'The job', say: 'It opens beside the list', beat: 'The job opens in a panel beside the list'},
       {click: '#job-panel .jd-tabs button:has-text("Match")'},
-      {hold: 3, look: ['#job-panel h2', '#job-panel .fit-detail'], zoom: 2.2, phoneLook: '#job-panel .fit-card.tone-good', phoneZoom: 3.8, cut: true, into: 'fade', poster: true, say: 'Match: why this job fits', beat: 'The job opened on Match: why it fits'},
+      {hold: 3, look: ['#job-panel h2', '#job-panel .fit-detail'], lookWidth: 860, zoom: 2.2, phoneLook: '#job-panel .fit-card.tone-good', phoneZoom: 3.8, cut: true, into: 'fade', poster: true, say: 'Match: why this job fits', beat: 'The job opened on Match: why it fits'},
       // owner, 25 Oct 2026: "when the job drawer opens, show more (or all) of its tabs, each with demo data": the posting's text, then the job's timeline; the Match look is the result
       {click: '#job-panel .jd-tabs button:has-text("Description")'},
       {hold: 1.8, look: '#job-panel .jd-body > :first-child', lookWidth: 860, zoom: 2, phoneZoom: 3, cut: true, into: 'fade', say: 'Description: the posting, saved with the job', beat: 'The Description tab: the saved posting'},

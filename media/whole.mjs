@@ -38,9 +38,11 @@ export const cutsAt = (x, side, edges, top, bottom, maxW, pageW, margin = 0) => 
 // frameAt(z) -> {cx, cy, z}: the camera's own centred frame at zoom z (camera.mjs). look: the box that must stay in view (padded).
 // -> the frame nearest frameAt(z) whose four edges cut nothing, at the highest zoom from z down to `least` that has one; frameAt(least) if none
 // (the whole page: its own borders cut nothing). Top and bottom first (at the centred left), then left and right at that height. Pure.
-export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect}) {
-  const maxW = viewport.w / least, maxH = maxW / aspect;
-  for (let zoom = z; ; zoom = Math.max(least, zoom * STEP)) {
+// floor (the desktop copy, owner 25 Oct 2026: "zoom deeper, about 1.5x"): never zoom out below it to find a clean edge; at the floor, the frame whose left and
+// right edges cut the fewest lines and cards (nearest the centred one) is the answer, and the log names what it cuts (edges.mjs, desktop: context, not an error).
+export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect, floor = 0}) {
+  const maxW = viewport.w / least, maxH = maxW / aspect, bottom = Math.max(least, Math.min(z, floor));
+  for (let zoom = z; ; zoom = Math.max(bottom, zoom * STEP)) {
     const base = frameAt(zoom), w = viewport.w / zoom, h = w / aspect;
     const want = Math.min(Math.max(base.cx - w / 2, 0), viewport.w - w), wantTop = Math.min(Math.max(base.cy - h / 2, 0), viewport.h - h);
     const near = edges.filter(item => item.x + item.w > want - EDGE_CLEAR && item.x < want + w + EDGE_CLEAR);
@@ -60,6 +62,14 @@ export function wholeFrame({frameAt, z, least, look, edges, viewport, aspect}) {
       for (let left = Math.floor(lo); left <= hi; left += 2) if (clean(left) && (best === null || Math.abs(left - want) < Math.abs(best - want))) best = left;
       if (best !== null) return {cx: best + w / 2, cy, z: zoom};
     }
-    if (zoom <= least) return frameAt(least);
+    if (zoom <= bottom) {
+      if (bottom <= least) return frameAt(least);
+      const base = frameAt(zoom), w = viewport.w / zoom, h = w / aspect, want = Math.min(Math.max(base.cx - w / 2, 0), viewport.w - w);
+      const top = Math.min(Math.max(base.cy - h / 2, 0), viewport.h - h), lo = Math.max(0, look.x + look.width - w), hi = Math.min(viewport.w - w, look.x);
+      const cost = left => edgeItems(left, 'left', edges, top, top + h, maxW, viewport.w, MARGIN).length + edgeItems(left + w, 'right', edges, top, top + h, maxW, viewport.w, MARGIN).length;
+      let best = want;
+      for (let left = Math.floor(lo); left <= hi; left += 2) if (cost(left) < cost(best) || (cost(left) === cost(best) && Math.abs(left - want) < Math.abs(best - want))) best = left;
+      return {cx: best + w / 2, cy: base.cy, z: zoom};
+    }
   }
 }

@@ -102,7 +102,8 @@ test('both recorders note the edges at every look, and media.mjs checks each cop
   const media = fs.readFileSync(new URL('../../media/media.mjs', import.meta.url), 'utf8');
   assert.match(media, /edgesOk\(name, main\.log, piece\.speed \|\| 1, steady, null\);\n\s+if \(phone\) edgesOk\(name, \(narrow \|\| main\)\.log/, 'both copies of a clip');
   assert.match(media, /for \(const copy of \[null, \.\.\.\(phone \? \[phone\] : \[\]\)\]\) for \(const rec of recsOf\(copy\)\) edgesOk\(/, 'both copies of picture in picture');
-  assert.match(media, /if \(process\.env\.HERO_EDGES !== 'warn'\) throw new Error\(report\)/, 'a cut stops the desktop copy too');
+  // owner, 25 Oct 2026 ("zoom deeper, about 1.5x"): only the phone copy's cut stops it; the desktop frame keeps 1.5x (camera.mjs DESKTOP_FLOOR) and logs what it cuts
+  assert.match(media, /if \(process\.env\.HERO_EDGES !== 'warn' && phone\) throw new Error\(report\)/, 'a cut stops the phone copy');
 });
 
 // Round 9 (owner, 24 Oct 2026, of three options: "Narrow window"): a wide app page has lines up to 1500 px, so no phone frame of it is both whole and

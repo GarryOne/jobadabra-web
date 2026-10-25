@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MIN_ZOOM, shallowLooks, widestAt} from '../../media/fits.mjs';
+import {wholeFrame} from '../../media/whole.mjs';
+import {DESKTOP_FLOOR} from '../../media/camera.mjs';
 import {VIDEOS} from '../../media/scenes.mjs';
 
 const viewport = {w: 1440, h: 900};
@@ -25,4 +27,14 @@ test('every hero look asks at least MIN_ZOOM, unless it is a whole-screen look',
       assert.ok(step.zoom >= MIN_ZOOM || step.wide, `${name}: ${step.beat || JSON.stringify(step.look)} asks ${step.zoom}: ask ${MIN_ZOOM}+ or say wide: true`);
     }
   }
+});
+
+// The cause of 1.0-1.2x on narrow looks (run 3, 25 Oct 2026): the camera zoomed out until both frame edges fell in a gap, and a page of text has none.
+test('a desktop frame never zooms out below the floor to find a clean edge, and picks the edges that cut least', () => {
+  const edges = Array.from({length: 30}, (_, i) => ({k: 'text', x: 0, y: 20 * i, w: 1440, h: 14, text: `line ${i}`}));   // text across the whole page: no gap anywhere
+  const look = {x: 600, y: 300, width: 200, height: 100}, frameAt = z => ({cx: 700, cy: 350, z});
+  const args = {frameAt, z: 2.2, least: 1, look, edges, viewport, aspect: 1.6};
+  assert.equal(wholeFrame(args).z, 1, 'without a floor the camera falls back to the whole page');
+  assert.ok(Math.abs(wholeFrame({...args, floor: DESKTOP_FLOOR}).z - DESKTOP_FLOOR) < 1e-6, 'with the floor it stops at 1.5x');
+  assert.equal(wholeFrame({...args, z: 1.2, floor: DESKTOP_FLOOR}).z, 1.2, 'a look asked below the floor keeps its own zoom');
 });

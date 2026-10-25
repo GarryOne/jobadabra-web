@@ -36,6 +36,9 @@ export const padded = box => ({x: box.x - LOOK_MARGIN, y: box.y - LOOK_MARGIN, w
 export const fitWidth = (box, z, viewport) => Math.min(z, Math.max(1, viewport.w / padded(box).width));
 // A hero look whose zoom fitWidth had to lower by more than this share reads small: the recording names it (`onFit`) so a narrower look is picked.
 export const FIT_WARN = 0.85;
+// The desktop copy never zooms out below this to keep a frame edge clean (whole.mjs floor; owner, 25 Oct 2026: "zoom deeper, about 1.5x ... not just 10%"): a line of words
+// at the edge, outside the look, may be cut instead (edges.mjs logs it). media/fits.mjs MIN_ZOOM is the same bar.
+export const DESKTOP_FLOOR = 1.5;
 
 // log: {viewport: {w, h}, events: [{t, type: 'click'|'press'|'hold'|'mark', box?, zoom?, cut?, phoneZoom?, phoneBox?, opensWide?}]} -> [{t, cx, cy, z, glide?}], time-ordered; a key is where
 // the camera has ARRIVED at t. Default: the whole screen shows only at the start (context); a click zooms onto its target while the cursor glides there; a hold
@@ -85,7 +88,7 @@ export function cameraKeys({viewport, events, speed = 1, steady = false, phone =
     if (used < asked) onFit?.(event, asked, used);
     // both copies' edges fall in gaps, never through words or a card (whole.mjs; round 9, owner 24 Oct 2026, phones: "the video is stripped";
     // then of the desktop copy, with two shots of the logo and cards cut at its edges: "port this to desktop as well")
-    const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect})
+    const target = event.edges ? wholeFrame({frameAt: z => frame(box, z, viewport, aspect), z: used, least, look: padded(box), edges: event.edges, viewport, aspect, floor: phone ? 0 : DESKTOP_FLOOR})
       : frame(box, used, viewport, aspect);
     if (target.z < used - 1e-6) onFit?.(event, asked, target.z);   // zoomed out for clean edges: the log names it like a fitted look
     // every new screen opens on the whole window, then glides in (hold.mjs openWide; owner 25 Oct 2026: "how to get there ... the context")
