@@ -6,6 +6,8 @@ import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+if (ROOT / '.private' / '.github').is_dir():   # CI runs this repo's tests in the public tree, with this repo at .private: its own workflows only
+    ROOT = ROOT / '.private'
 EXPECTED = json.loads((ROOT / '.github' / 'expected-secrets.json').read_text(encoding='utf-8'))
 
 
