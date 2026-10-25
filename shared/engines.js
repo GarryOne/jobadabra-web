@@ -2,16 +2,16 @@
 // the engine (api: Anthropic key, cli: Claude Code, openai: OpenAI key, codex: Codex) for the installs count, and its family (claude | openai)
 // for every other metric (owner, 9 Oct 2026: a family's CLI and API run the same models, so metrics split by family; installs by engine to see
 // plan vs API). An install with no health report, or none naming an engine: 'unknown'. Nothing new is sent by the app. Guarded by
-// 'free' (Free AI, our own relay) is its own engine since 25 Oct 2026 (owner: see Free apart from real API keys); an app older than that still reports it as 'api'.
+// 'free' (Free AI trial, our own relay) and 'pro' (our relay after the Pro plan is bought) are their own engines since 25 Oct 2026 (owner: see them apart from real API keys); an app older than that still reports it as 'api'.
 // Its family stays 'claude' as before. test/shared/engines.test.js.
-export const ENGINES = {free: 'Free AI (our own API)', api: 'Anthropic API key', cli: 'Claude Code (Claude plan)', openai: 'OpenAI API key', codex: 'Codex (ChatGPT plan)'};
+export const ENGINES = {free: 'Free AI (trial, our own API)', pro: 'Pro (our own AI, paid credit)', api: 'Anthropic API key', cli: 'Claude Code (Claude plan)', openai: 'OpenAI API key', codex: 'Codex (ChatGPT plan)'};
 export const FAMILIES = {claude: 'Claude', openai: 'OpenAI'};
-export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : engine === 'api' || engine === 'cli' || engine === 'free' ? 'claude' : 'unknown');
+export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : engine === 'api' || engine === 'cli' || engine === 'free' || engine === 'pro' ? 'claude' : 'unknown');
 // The SQL of each install's latest engine, as a CTE body (install, engine). One grouped pass over the health rows (SQLite takes the bare `data` from the row that
 // holds MAX(at)), served by the partial index telemetry_health_latest (migration 0065). 14 Oct 2026: a correlated MAX per health row read ~120k rows a call.
 export const LATEST_ENGINE = `SELECT install, json_extract(data, '$.aiEngine') AS engine FROM (SELECT install, data, MAX(at) FROM telemetry WHERE kind = 'health' GROUP BY install)`;
 // The same, as a family per install: join a per-install table on it and filter "WHERE fam.family = ?".
-export const LATEST_FAMILY = `SELECT install, CASE WHEN engine IN ('openai', 'codex') THEN 'openai' WHEN engine IN ('api', 'cli', 'free') THEN 'claude'
+export const LATEST_FAMILY = `SELECT install, CASE WHEN engine IN ('openai', 'codex') THEN 'openai' WHEN engine IN ('api', 'cli', 'free', 'pro') THEN 'claude'
   ELSE 'unknown' END AS family FROM (${LATEST_ENGINE})`;
 
 // The family of one reporting install (raw install id, as telemetry stores it), for the counts a report adds.

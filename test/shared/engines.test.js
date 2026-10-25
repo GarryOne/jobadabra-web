@@ -21,7 +21,7 @@ const health = (db, install, aiEngine, at = '2026-10-09T10:00:00Z') => db.prepar
   VALUES (?, ?, 'health', ?, '0.6.0', 'darwin', 'health', 'health', ?)`).run(at.slice(0, 10), at, install, JSON.stringify({aiEngine}));
 
 test('a family per engine: the CLI and the API key of a family run the same models', () => {
-  assert.deepEqual(['api', 'cli', 'free', 'openai', 'codex', 'none', undefined].map(familyOf), ['claude', 'claude', 'claude', 'openai', 'openai', 'unknown', 'unknown']);
+  assert.deepEqual(['api', 'cli', 'free', 'pro', 'openai', 'codex', 'none', undefined].map(familyOf), ['claude', 'claude', 'claude', 'claude', 'openai', 'openai', 'unknown', 'unknown']);
 });
 
 test("an install's family is its latest health report's; none yet is unknown", async () => {
@@ -35,9 +35,9 @@ test("an install's family is its latest health report's; none yet is unknown", a
 test('installs are counted by their engines (Free AI, plan, API key), the rest as not reported yet', async () => {
   const {db, d1: STATS} = d1();
   health(db, 'install-a0001', 'cli'); health(db, 'install-a0002', 'cli'); health(db, 'install-a0003', 'api');
-  health(db, 'install-a0004', 'codex'); health(db, 'install-a0005', 'openai'); health(db, 'install-a0006', 'none'); health(db, 'install-a0007', 'free'); health(db, 'install-a0008', 'free');
+  health(db, 'install-a0004', 'codex'); health(db, 'install-a0005', 'openai'); health(db, 'install-a0006', 'none'); health(db, 'install-a0007', 'free'); health(db, 'install-a0008', 'free'); health(db, 'install-a0009', 'pro');
   const counts = Object.fromEntries((await installsByEngine(STATS, '2026-10-01')).map(row => [row.engine, row.n]));
-  assert.deepEqual(counts, {free: 2, api: 1, cli: 2, openai: 1, codex: 1, unknown: 1});
+  assert.deepEqual(counts, {free: 2, pro: 1, api: 1, cli: 2, openai: 1, codex: 1, unknown: 1});
 });
 
 test('a Codex install\'s form results land in the OpenAI row and under the OpenAI filter, never in Claude\'s', async () => {
