@@ -42,11 +42,13 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
         working-directory: desktop
-      - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js); cut and retried, never a hang (web #122: 11m51s)
+        timeout-minutes: 5
+        run: .private/tools/apt-install.sh ffmpeg
       - name: Electron and a display for the hero render test   # #100: media-render.test.js draws frames with media/render.cjs; the job skips the binary above
+        timeout-minutes: 8
         working-directory: desktop
-        run: sudo apt-get install -y -qq --no-install-recommends xvfb && ELECTRON_SKIP_BINARY_DOWNLOAD='' node node_modules/electron/install.js
+        run: ../.private/tools/apt-install.sh xvfb && ELECTRON_SKIP_BINARY_DOWNLOAD='' node node_modules/electron/install.js
       - name: PR description laid out
         if: github.event_name == 'pull_request'
         env:
