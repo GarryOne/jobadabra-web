@@ -11,6 +11,8 @@ export const aiCallsKey = async install => (await digestOf(await digestOf(instal
 export const DEVICES_PER_ACCOUNT = 3;
 export const OVERDRAFT_MICRO = rawToCredit(250_000);   // $0.25 of our cost, in credit units: an application in progress finishes when the credit runs out (the app starts no new work at 0)
 export const planOn = env => ['test', 'live'].includes(env.PRO_PLAN);
+// "promo" (owner, 25 Oct 2026: Pro for the founder and friends while paying is off): a promo code can be redeemed and its Pro shows in /api/pro/status; checkout, sign-in, credit and prices stay off.
+export const promoOn = env => planOn(env) || env.PRO_PLAN === 'promo';
 const stamp = date => date.toISOString();
 const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };   // as free-ai.js (not imported: it imports this lane)
 
@@ -70,16 +72,16 @@ export const warnOf = percent => (percent <= 0 ? 0 : percent <= 10 ? 10 : percen
 
 // GET /api/pro/status with the install's own AI key (x-api-key: JPF1.<install>.<token>, the one Free AI already uses).
 export async function status(request, env) {
-  if (!planOn(env)) return new Response('Not found', {status: 404});
+  if (!promoOn(env)) return new Response('Not found', {status: 404});
   const given = parseKey(request.headers.get('x-api-key'));
   const access = given && await authorize(env, given.install, given.token, 'ai');
   if (!access?.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
-  const account = await accountOf(env, given.install);
+  const account = planOn(env) ? await accountOf(env, given.install) : null;   // promo mode: no paid accounts, no offers
   // The offers to show (ids, euro prices, the list price), so the app never hard-codes a number. A trial account is Free until it pays.
   if (!account || account.status !== 'active' || account.plan !== 'pro') {
     // Pro by a promo code (shared/promo.js): no credit, until the code's end date or its revoke.
-    if (await promoActive(env, given.install)) return Response.json({ok: true, plan: 'pro', package: 'pro', mode: env.PRO_PLAN, hasCredit: false, creditPercent: 0, warn: null, devices: DEVICES_PER_ACCOUNT, offers: OFFERS, source: 'promo'});
-    return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: OFFERS});
+    if (await promoActive(env, given.install)) return Response.json({ok: true, plan: 'pro', package: 'pro', mode: env.PRO_PLAN, hasCredit: false, creditPercent: 0, warn: null, devices: DEVICES_PER_ACCOUNT, offers: planOn(env) ? OFFERS : [], source: 'promo'});
+    return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: planOn(env) ? OFFERS : []});
   }
   // A Pro account that never had credit (the €9 package) has no bar and no "used up" warning.
   const hasCredit = account.credit_added_micro > 0, percent = percentOf(account);

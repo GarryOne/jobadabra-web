@@ -2,7 +2,7 @@
 // date, and from then on /api/pro/status says Pro for that install while the code is neither revoked nor past its end date. No account, no e-mail, no AI credit. Only a hash of the code is checked; the code is also kept encrypted (PROMO_CODE_KEY) for the owner's page, never in plain text.
 // Hidden (404) while PRO_PLAN is off. Guards: test/shared/promo.test.js.
 import {authorize, digestOf, equal, flag} from './guard.js';
-import {accountOf, planOn} from './pro.js';
+import {accountOf, promoOn} from './pro.js';
 
 export const TRIES_PER_INSTALL = 5, TRIES_PER_IP = 20;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 32 characters: no 0/O/1/I, and 256 divides by 32, so a random byte maps evenly
@@ -61,7 +61,7 @@ async function over(env, key, limit, now) {
 
 // POST /api/pro/redeem {code} with x-api-key: JPF1.<install>.<token> -> {ok: true, already?} or {ok: false, error: 'wrong' | 'expired' | 'used_up' | 'limit'}.
 export async function redeem(request, env, now = new Date()) {
-  if (!planOn(env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!promoOn(env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
   const given = parseKey(request.headers.get('x-api-key')), access = given && await authorize(env, given.install, given.token, 'ai');
   if (!access?.ok) return json({ok: false, error: 'unauthorized'}, 401);
