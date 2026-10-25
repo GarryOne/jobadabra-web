@@ -1,4 +1,4 @@
-// The site's files from a rendered master (media): MP4 (H.264, every browser) and WebM (VP9) within the piece's byte budget,
+// The site's files from a rendered master (media): MP4 (H.264, every browser; no WebM since 25 Oct 2026, see encodeVideo) within the piece's byte budget,
 // a phone copy, a GIF, a poster (the first frame, or the scene's poster hold), and WebP stills. ffmpeg from PATH (brew on the CI runner).
 import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -28,15 +28,21 @@ export async function sharpestFit(ladder, fits) {
   return best === null ? null : {crf: ladder[best], tries};
 }
 
+// The line each budgeted copy logs: its quality and bytes against its ceiling, flagged when it took the ladder's last step (the next take that
+// is a little heavier fails: Track's old WebM sat on CRF 48-50 from 24 Oct, then the bigger desktop text put it over, run 40154540314). Pure.
+export const budgetLine = (file, crf, bytes, budget, ladder) => `media: ${file}: CRF ${crf} (${ladder[0]}-${ladder.at(-1)}), ${(bytes / 1e6).toFixed(2)} of ${(budget / 1e6).toFixed(2)} MB`
+  + (crf === ladder.at(-1) ? ': LOWEST QUALITY, raise its budget or shorten the scene' : '');
+
 async function withinBudget(make, file, budget, ladder) {
   if (!budget) { await make(ladder[0]); return ladder[0]; }
   const found = await sharpestFit(ladder, async crf => { await make(crf); return size(file) <= budget; });
   if (!found) throw new Error(`media: ${path.basename(file)} is ${(size(file) / 1e6).toFixed(2)} MB at the lowest quality, over its ${(budget / 1e6).toFixed(2)} MB budget (shorten the scene)`);
   if (found.tries.at(-1) !== found.crf) await make(found.crf);   // the file left on disk is the chosen quality's
+  console.log(budgetLine(path.basename(file), found.crf, size(file), budget, ladder));
   return found.crf;
 }
 
-export const ENCODERS = ['libx264', 'libvpx-vp9', 'libwebp'];
+export const ENCODERS = ['libx264', 'libwebp'];
 export function missingEncoders(list = execFileSync('ffmpeg', ['-hide_banner', '-encoders'], {encoding: 'utf8'})) {
   return ENCODERS.filter(name => !new RegExp(`\\s${name}\\s`).test(list));   // whole names: libwebp_anim is not libwebp
 }
@@ -47,18 +53,19 @@ export function missingEncoders(list = execFileSync('ffmpeg', ['-hide_banner', '
 export const COLOR_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'iec61966-2-1', '-color_range', 'tv'];
 export const videoFilter = scale => `${scale}:out_color_matrix=bt709:out_range=tv,format=yuv420p`;   // scale ends in its own options. Pure.
 
-// -> {mp4, webm, poster, phone?, gif?}: file names in outDir, plus the bytes of each. The MP4, WebM and phone ladders run side by side (owner 25 Oct
-// 2026: "let's do all the optimizations possible"; one after another they were minutes per clip, x264 and VP9 each leaving cores idle).
+// -> {mp4, poster, phone?, gif?}: file names in outDir, plus the bytes of each. The MP4 and phone ladders run side by side (owner 25 Oct
+// 2026: "let's do all the optimizations possible"; one after another they were minutes per clip).
+// No WebM (owner, 25 Oct 2026, chose "MP4 for all"): within the same budget VP9 came out bigger and blurrier than H.264 on these app screens
+// (Track: 2.63 MB at VP9 CRF 50, the lowest step, vs 2.25 MB at H.264 near its best; then 2.82 MB, over budget, run 40154540314), and its
+// ladder was the slowest encode. Every browser plays the H.264 MP4 (guard: desktop/test/media-mp4-only.test.js).
 export async function encodeVideo({master, phoneMaster = null, name, piece, outDir, posterAt = 0, phonePosterAt = posterAt}) {
-  const files = {mp4: `${name}.mp4`, webm: `${name}.webm`, poster: `${name}-poster.jpg`};
+  const files = {mp4: `${name}.mp4`, poster: `${name}-poster.jpg`};
   const at = file => path.join(outDir, file);
   const fast = piece.speed > 1 ? `setpts=PTS/${piece.speed},fps=30,` : '';   // a sped-up clip: the whole flow in about 3 s
   const scale = `${fast}scale=${piece.width}:${piece.height}:flags=lanczos`;
   const jobs = [
     withinBudget(crf => ffAsync('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-movflags', '+faststart', '-an', at(files.mp4)),
       at(files.mp4), piece.budget, crfLadder(22, 34)),
-    withinBudget(crf => ffAsync('-i', master, '-vf', videoFilter(scale), ...COLOR_TAGS, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', String(crf), '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', '-an', at(files.webm)),
-      at(files.webm), piece.budget, crfLadder(34, 50)),
     ffAsync('-ss', String(posterAt), '-i', master, '-vf', scale, '-frames:v', '1', '-q:v', '3', at(files.poster))];
   if (piece.phone) {   // a width (the desktop master made smaller), or {width, height, budget} with its own tighter master (the hero, owner 24 Oct 2026)
     const width = typeof piece.phone === 'object' ? piece.phone.width : piece.phone;

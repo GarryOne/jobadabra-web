@@ -6,9 +6,9 @@ import {COLOR_TAGS, videoFilter} from '../../media/encode.mjs';
 
 const source = fs.readFileSync(new URL('../../media/encode.mjs', import.meta.url), 'utf8');
 
-test('every video encode (H.264 or VP9) uses the BT.709 filter and tags', () => {
-  const calls = source.split('\n').filter(line => /'-c:v', 'lib(x264|vpx-vp9)'/.test(line));
-  assert.ok(calls.length >= 3, `expected the mp4, webm and phone encodes, found ${calls.length}`);
+test('every video encode (H.264) uses the BT.709 filter and tags', () => {
+  const calls = source.split('\n').filter(line => /'-c:v', 'libx264'/.test(line));
+  assert.ok(calls.length >= 2, `expected the mp4 and phone encodes, found ${calls.length}`);
   for (const line of calls) {
     assert.match(line, /videoFilter\(/, `encode without the BT.709 matrix: ${line.trim()}`);
     assert.match(line, /\.\.\.COLOR_TAGS/, `encode without the BT.709 tags: ${line.trim()}`);

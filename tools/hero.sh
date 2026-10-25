@@ -21,7 +21,8 @@ if [ "${1:-}" = --place ]; then
   for piece in "${HERO[@]}"; do
     # a phone copy of another width replaces the old one (round 9: 720 -> 1080), and the captions the phone copy leaves out go beside it (.vtt)
     if compgen -G "$set_dir/$piece-[0-9]*.mp4" >/dev/null; then git rm -q --ignore-unmatch -- "web/public/media/$piece-[0-9]*.mp4" "web/public/media/$piece-[0-9]*-poster.jpg"; fi
-    for file in "$set_dir/$piece".{mp4,webm,vtt} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-[0-9]*.mp4 "$set_dir/$piece"-[0-9]*-poster.jpg; do
+    git rm -q --ignore-unmatch -- "web/public/media/$piece.webm"   # MP4 only since 25 Oct 2026 (media/encode.mjs encodeVideo)
+    for file in "$set_dir/$piece".{mp4,vtt} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-[0-9]*.mp4 "$set_dir/$piece"-[0-9]*-poster.jpg; do
       [ -f "$file" ] && cp "$file" web/public/media/
     done
   done

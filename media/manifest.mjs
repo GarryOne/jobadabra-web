@@ -7,13 +7,13 @@ export const VERSION = 1;
 // video: {name, piece, files, bytes, width, height, seconds} | still: {name, kind: 'still'|'snip', file, bytes, width, height, shows}
 export function videoEntry({name, piece, files, bytes, seconds, beats = []}) {
   return {name, kind: 'video', theme: 'dark', shows: piece.shows, caption: piece.caption, alt: piece.alt,
-    files: {mp4: files.mp4, webm: files.webm, gif: files.gif || null, poster: files.poster, phone: files.phone || null, phone_poster: files.phonePoster || null, captions: files.captions || null, png: null},
+    files: {mp4: files.mp4, gif: files.gif || null, poster: files.poster, phone: files.phone || null, phone_poster: files.phonePoster || null, captions: files.captions || null, png: null},
     width: piece.width, height: piece.height, duration_s: Number(seconds.toFixed(1)), bytes, ...(beats.length ? {beats} : {})};
 }
 
 export function stillEntry({name, kind, file, bytes, width, height, shows}) {
   return {name, kind, theme: 'dark', shows, caption: null, alt: shows,
-    files: {mp4: null, webm: null, gif: null, poster: null, phone: null, png: null, webp: file}, width, height, duration_s: null, bytes: {webp: bytes}};
+    files: {mp4: null, gif: null, poster: null, phone: null, png: null, webp: file}, width, height, duration_s: null, bytes: {webp: bytes}};
 }
 
 // made: {sha, at, persona}. A partial run (some pieces) keeps the other entries of the folder's earlier manifest.

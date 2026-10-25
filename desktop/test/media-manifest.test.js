@@ -6,7 +6,7 @@ import {manifest, stillEntry, VERSION, videoEntry} from '../../media/manifest.mj
 import {SNIPS, STILLS, VIDEOS} from '../../media/scenes.mjs';
 
 test('a video entry carries the agreed fields; a partial run keeps the other entries', () => {
-  const hero = videoEntry({name: 'hero', piece: VIDEOS.hero, files: {mp4: 'hero.mp4', webm: 'hero.webm', poster: 'hero-poster.jpg', phone: 'hero-720.mp4'}, bytes: {mp4: 1}, seconds: 14.44});
+  const hero = videoEntry({name: 'hero', piece: VIDEOS.hero, files: {mp4: 'hero.mp4', poster: 'hero-poster.jpg', phone: 'hero-720.mp4'}, bytes: {mp4: 1}, seconds: 14.44});
   assert.deepEqual(Object.keys(hero), ['name', 'kind', 'theme', 'shows', 'caption', 'alt', 'files', 'width', 'height', 'duration_s', 'bytes']);
   assert.equal(hero.duration_s, 14.4);
   assert.equal(hero.theme, 'dark');

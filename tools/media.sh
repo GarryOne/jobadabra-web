@@ -43,7 +43,7 @@ if [ "$check" = yes ]; then tools/public-watch.sh "$tree" media $(cat tools/medi
 if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -qE ' libwebp '; then
   echo "media: ffmpeg has no libwebp encoder: brew install ffmpeg-full, then put \$(brew --prefix ffmpeg-full)/bin first in PATH"; exit 1
 fi
-for encoder in libx264 libvpx-vp9 libwebp; do ffmpeg -hide_banner -encoders | grep -qE " $encoder " || { echo "media: ffmpeg lacks $encoder"; exit 1; }; done
+for encoder in libx264 libwebp; do ffmpeg -hide_banner -encoders | grep -qE " $encoder " || { echo "media: ffmpeg lacks $encoder"; exit 1; }; done
 
 # 4. the app's and the harness's packages (cached by lock file; an APFS clone makes the copy instant)
 for dir in desktop desktop/e2e; do

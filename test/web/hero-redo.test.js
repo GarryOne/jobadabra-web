@@ -16,7 +16,7 @@ const skill = [SKILL, `.private/${SKILL}`, `../${SKILL}`].map(rel => new URL(rel
 test('the stage shows every slide scene, in order, and every file it names is placed', () => {
   const html = read('web/public/index.html');
   const stage = (html.match(/<div class="hero-stage"[\s\S]*?<div class="stage-steps"/) || [''])[0];
-  const shown = [...stage.matchAll(/<source src="\/media\/([\w-]+)\.webm"/g)].map(match => match[1]);
+  const shown = [...stage.matchAll(/<source src="\/media\/([\w-]+)\.mp4" type="video\/mp4">/g)].map(match => match[1]);   // the desktop copy (the phone's has media=)
   assert.deepEqual(shown, slides, 'index.html plays the slide scenes in their slide order');
   for (const file of new Set([...stage.matchAll(/"\/media\/([\w.-]+)"/g)].map(match => match[1]))) {
     assert.ok(existsSync(new URL(`web/public/media/${file}`, root)), `web/public/media/${file} is placed (tools/hero.sh --place)`);

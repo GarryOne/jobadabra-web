@@ -77,7 +77,7 @@ jobs:
           mkdir -p out && cp hero.log out/ 2>/dev/null || true
           set_dir="$(sed -n 's/^hero: DONE \([^ ]*\).*/\1/p' hero.log | tail -1)"
           [ -n "$set_dir" ] || { echo "::error::no 'hero: DONE' line: the run did not finish (see hero.log in the artifact)"; exit 1; }
-          for file in "$set_dir/$CLIP".mp4 "$set_dir/$CLIP".webm "$set_dir/$CLIP".vtt "$set_dir/$CLIP"-poster.jpg "$set_dir/$CLIP"-[0-9]*.mp4 "$set_dir/$CLIP"-[0-9]*-poster.jpg "$set_dir/preview.png"; do
+          for file in "$set_dir/$CLIP".mp4 "$set_dir/$CLIP".vtt "$set_dir/$CLIP"-poster.jpg "$set_dir/$CLIP"-[0-9]*.mp4 "$set_dir/$CLIP"-[0-9]*-poster.jpg "$set_dir/preview.png"; do
             [ -f "$file" ] && cp "$file" out/
           done
           cp -R "$set_dir/sheets" out/ 2>/dev/null || true
