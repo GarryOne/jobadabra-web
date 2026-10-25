@@ -110,3 +110,22 @@ export async function scrollLookIn(page, look, box, view, log) {
   log.add({type: 'scrolled'});
   return true;
 }
+
+// Runs in the page on a click or tap target: what the app itself marks on it (desktop/renderer magic.css, magic.js): the wand cursor on an AI button
+// (.magic-go, [data-wand]) and the pointer-following glow on a card (inside [data-magic]). The recording draws the wand and moves the real pointer
+// over a glow card, so the app's own effect follows the drawn cursor (owner, 25 Oct 2026: "the correct magic wand ... and some glow effect"). -> {wand, glow}.
+export function magicTarget(el) {
+  return {wand: el.matches('.magic-go:not(:disabled), [data-wand]:not(:disabled)'), glow: Boolean(el.closest('[data-magic]'))};
+}
+
+// Moves the real pointer to the middle of `box` in small eased steps over `ms` (from where the last glide ended, or a little up and left), so a glow card
+// follows it as it glides; remembers the point on the log. Takes a Playwright page and the step log.
+export async function glideTo(page, box, log, ms, steps = 14) {
+  const to = {x: box.x + box.width / 2, y: box.y + box.height / 2}, from = log.pointer || {x: Math.max(0, to.x - 160), y: Math.max(0, to.y + 90)};
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps, e = t * t * (3 - 2 * t);
+    await page.mouse.move(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
+    await page.waitForTimeout(ms / steps);
+  }
+  log.pointer = to;
+}

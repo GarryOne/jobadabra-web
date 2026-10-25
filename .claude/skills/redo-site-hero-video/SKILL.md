@@ -428,3 +428,5 @@ comes back at the next redo.
   message, notes, five dated events and a recorded, reviewed phone screen; add data there before adding a tab to a scene.
 - **Do not split Set up, Find or Track into joined parts** (weighed and dropped, owner, 25 Oct 2026: "with no real gained value"): the clips already render in parallel (Set up 9 min, Find 15 min),
   so parts save minutes and add a join job, a start state per part and a visible cut. Apply keeps its parts. Propose it again only with new numbers.
+- **The wand and the glow come from the app, not from a scene** (owner, 25 Oct 2026, after the app got its own wand and glow): the recorder reads `.magic-go`, `[data-wand]` and `[data-magic]` on each click and tap
+  (hold.mjs `magicTarget`), draws the app's `wand.svg` and glides the real pointer over a glow card (`glideTo`). Never add a `wand` flag to a scene; a button the app does not mark shows the arrow. Test: media-magic.
