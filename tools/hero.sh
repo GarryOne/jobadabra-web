@@ -46,6 +46,8 @@ for dir in desktop desktop/e2e; do   # packages, cached by lock file as tools/me
   key="$(shasum -a 256 ".overlay/$dir/package-lock.json" | cut -c1-16)"; store="$cache/modules-$(echo "$dir" | tr / -)-$key"
   if [ -d "$store" ]; then cp -cR "$store" ".overlay/$dir/node_modules"; else (cd ".overlay/$dir" && npm ci >/dev/null) && cp -cR ".overlay/$dir/node_modules" "$store"; fi
 done
+# the browser the extension take drives, as tools/media.sh does: a fresh Mac runner has none, and a disk cleanup can remove it (25 Oct 2026)
+(cd .overlay/desktop/e2e && npx playwright-core install chromium >/dev/null)
 
 if [ "${1:-}" = --preview ]; then
   out="${2:-$cache/hero-preview-$(date +%Y%m%d-%H%M%S)}"; mkdir -p "$out"
