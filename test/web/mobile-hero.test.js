@@ -38,3 +38,12 @@ test('every clip plays at 1.5x and a refused autoplay shows the play mark', () =
   assert.doesNotMatch(js, /\.play\(\)\.catch\(\(\) => \{\}\)/, 'no play() whose refusal is swallowed: start() shows the play mark');
   assert.match(js, /error\.name === 'NotAllowedError' && clip === clips\[on\]\) setPaused\(true\)/, 'a refused clip pauses with the mark, so a tap starts it');
 });
+
+// Owner, 25 Oct 2026, from iOS guidance ("autoplay muted playsinline" on an H.264 MP4): the first clip asks the browser to autoplay itself, not only the script.
+test('the first hero clip carries autoplay, muted and playsinline; the others wait for the script', () => {
+  const clips = [...read('index.html').matchAll(/<video class="slide[^>]*>/g)].map(match => match[0]);
+  assert.equal(clips.length, 4);
+  assert.match(clips[0], /autoplay muted playsinline/, 'the first clip starts by itself, muted and inline');
+  for (const clip of clips) assert.match(clip, /muted playsinline/, 'every clip is muted and inline');
+  for (const clip of clips.slice(1)) assert.doesNotMatch(clip, /autoplay/, 'only the first clip autoplays; the script plays the next ones in turn');
+});
