@@ -27,6 +27,11 @@ const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
 // The two lines the admin Monetization page shows, read the same way the route enforces them.
 export const monthStopUsd = env => num(env.FREE_AI_MONTH_STOP_USD, LIMITS.monthStopUsd);
 export const trialUsd = env => num(env.FREE_AI_TRIAL_USD, LIMITS.trialUsd);
+// Every line in force: wrangler.toml's vars over the defaults above. The route enforces these and /admin/ai-cost shows them (26 Oct 2026:
+// the page compared an install's day against the $0.30 default while $0.50 was enforced, and showed 140%).
+export const limitsOf = (env = {}) => ({...LIMITS, trialUsd: trialUsd(env), monthStopUsd: monthStopUsd(env), perMinute: num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute),
+  installDayUsd: num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd), installMonthUsd: num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd),
+  alertUsd: num(env.FREE_AI_ALERT_USD, LIMITS.alertUsd), stopUsd: num(env.FREE_AI_STOP_USD, LIMITS.stopUsd), monthAlertUsd: num(env.FREE_AI_MONTH_ALERT_USD, LIMITS.monthAlertUsd)});
 const count = async (kv, key) => Number(await kv.get(key)) || 0;
 
 export const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
@@ -55,15 +60,16 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), month = day.slice(0, 7), minute = now.toISOString().slice(0, 16);
   const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${access.who}`};
   const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons, life] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
-  if (!pro && microUsd >= num(env.FREE_AI_STOP_USD, LIMITS.stopUsd) * 1e6) return error(503, BUSY);
-  if (!pro && globalMonth >= monthStopUsd(env) * 1e6) return error(503, BUSY_MONTH);
+  const lines = limitsOf(env);
+  if (!pro && microUsd >= lines.stopUsd * 1e6) return error(503, BUSY);
+  if (!pro && globalMonth >= lines.monthStopUsd * 1e6) return error(503, BUSY_MONTH);
   const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
   const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
   if (!pro && seen >= allowance) return error(503, BUSY);
-  if (perMinute >= (pro ? PRO_PER_MINUTE : num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute))) return error(429, 'Free AI: too many requests in a minute. Jobadabra will retry.', 'rate_limit_error');
-  if (!pro && !access.license && life >= trialUsd(env) * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
-  if (!pro && installMonth >= num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd) * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
-  if (!pro && (installDay >= num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd) * 1e6 || tokens >= LIMITS.tokensPerDay)) return error(429, DAY_MESSAGE, 'rate_limit_error');
+  if (perMinute >= (pro ? PRO_PER_MINUTE : lines.perMinute)) return error(429, 'Free AI: too many requests in a minute. Jobadabra will retry.', 'rate_limit_error');
+  if (!pro && !access.license && life >= lines.trialUsd * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
+  if (!pro && installMonth >= lines.installMonthUsd * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
+  if (!pro && (installDay >= lines.installDayUsd * 1e6 || tokens >= lines.tokensPerDay)) return error(429, DAY_MESSAGE, 'rate_limit_error');
 
   let body;
   try { body = await request.json(); } catch { return error(400, 'Bad request.', 'invalid_request_error'); }

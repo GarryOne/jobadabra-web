@@ -3,6 +3,7 @@
 import {freeSection, freeSummary, trialUse} from './free-ai-cost.js';
 import {webMonth, webSection} from './free-ai-web-cost.js';
 import {accountNeurons} from '../shared/free-ai-usage.js';
+import {limitsOf} from '../shared/free-ai.js';
 import {viewer} from '../shared/auth.js';   // admins (invited) read this page too
 import {isOwner, remember} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
@@ -85,7 +86,7 @@ export function byKey(rows, now = new Date(), range = '30d') {
   return Object.values(keys).filter(k => k.range > 0 || RANGES[range].hours >= 720).sort((a, b) => b.range - a.range);
 }
 
-export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d', freeRows = [], accountToday = null, trial = null, web = null) {
+export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d', freeRows = [], accountToday = null, trial = null, web = null, lines = undefined) {
   const spaceRows = keyRows.filter(row => String(row.key).startsWith('ws.')).map(row => ({...row, key: row.key.slice(3)}));   // a workspace's days: the sum of its keys (ai-cost-report.mjs)
   const s = summarize(rows, billed, now, range), keys = byKey(keyRows.filter(row => !String(row.key).startsWith('ws.')), now, range), spaces = byKey(spaceRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
   const fresh = range === '30d' && start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
@@ -116,7 +117,7 @@ td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-v
 ${s.providers.map(p => `<tr><td>${esc(PROVIDERS[p.id])}</td><td class="n">${money(p.today)}</td><td class="n">${money(p.usd)}</td><td class="n">${s.total ? Math.round(100 * p.usd / s.total) : 0}%</td><td class="n">${p.runs}</td></tr>`).join('')}
 <tr class="total"><td>Total</td><td class="n">${money(s.today)}</td><td class="n">${money(s.total)}</td><td class="n">${s.total ? '100%' : '–'}</td><td class="n">${s.runs}</td></tr>
 </table></div></section>
-${freeSection(freeSummary(freeRows, now, Math.max(1, Math.round(r.hours / 24))), r.label, accountToday, trial)}
+${freeSection(freeSummary(freeRows, now, Math.max(1, Math.round(r.hours / 24))), r.label, accountToday, trial, lines)}
 ${webSection(web)}
 <div class="grid">
 <section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>${last}</th></tr>
@@ -204,5 +205,5 @@ export async function view(request, env) {
   const now = new Date(), accountToday = env.WAITLIST ? await accountNeurons(env, env.WAITLIST, now.toISOString().slice(0, 10), now) : null;   // Cloudflare's own count, any caller
   const trial = env.WAITLIST?.list ? await trialUse(env.WAITLIST, Number(env.FREE_AI_TRIAL_USD) > 0 ? Number(env.FREE_AI_TRIAL_USD) : undefined) : null;
   const web = await webMonth(env.WAITLIST, env, now);   // the Free AI board web search against its month line
-  return new Response(page(runs, billed, keys, since(env), now, rangeOf(url.searchParams.get('range')), free, accountToday, trial, web), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(runs, billed, keys, since(env), now, rangeOf(url.searchParams.get('range')), free, accountToday, trial, web, limitsOf(env)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
