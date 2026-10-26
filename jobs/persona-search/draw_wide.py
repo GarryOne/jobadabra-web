@@ -85,30 +85,40 @@ ASK = ('Invent one specific, real job a person in {country} could hold, of this 
        '"education": the usual diploma or licence; "tools": the skills, tools or certificates, comma-separated}}.')
 
 
+LIMITS = {'title': 60, 'duty': 300, 'education': 160, 'tools': 300}   # characters; a CV line wraps, so only a runaway answer is refused
+
+
 def valid(found):
-    """The AI's role as kept, or None: four short single-line strings."""
+    """(role, why not): the AI's role as kept (four single-line strings, the title at most six words), or None and the reason."""
     if not isinstance(found, dict):
-        return None
-    role = {key: str(found.get(key) or '').strip() for key in ('title', 'duty', 'education', 'tools')}
-    if not all(role.values()) or any(len(value) > 160 or '\n' in value for value in role.values()) or len(role['title'].split()) > 6:
-        return None
-    return role
+        return None, 'not a JSON object'
+    role = {key: ' '.join(str(found.get(key) or '').split()) for key in LIMITS}
+    for key, most in LIMITS.items():
+        if not role[key]:
+            return None, f'{key} is empty'
+        if len(role[key]) > most:
+            return None, f'{key} is {len(role[key])} characters (at most {most})'
+    if len(role['title'].split()) > 6:
+        return None, 'title is more than six words'
+    return role, ''
 
 
 def invent(seed, kind, country, title='', ask=None):
     """{title, duty, education, tools} for a role of this kind; `title` fixes the title (a re-run of a gap found earlier). `ask(prompt) -> text` is the model."""
     fixed = f'The title is "{title}". ' if title else ''
     prompt = ASK.format(country=country, work=kind_words(kind), seed=seed, fixed=fixed)
-    for _ in range(2):
+    why = ''
+    for _ in range(3):
         text = (ask or claude)(prompt)
         match = re.search(r'\{.*\}', text or '', re.S)
         try:
-            role = valid(json.loads(match.group(0))) if match else None
+            role, why = valid(json.loads(match.group(0))) if match else (None, 'no JSON in the answer')
         except ValueError:
-            role = None
+            role, why = None, 'the JSON does not parse'
         if role:
             return {**role, 'title': title or role['title']}
-    raise SystemExit(f'draw_wide: no valid role from the AI for kind {kind}')
+        print(f'draw_wide: role answer refused ({why}), asking again', file=sys.stderr)
+    raise SystemExit(f'draw_wide: no valid role from the AI for kind {kind} ({why})')
 
 
 def request(prompt):

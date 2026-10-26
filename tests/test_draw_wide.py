@@ -67,6 +67,13 @@ class RoleTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             draw_wide.invent('s', 'other', 'Italy', ask=lambda _: json.dumps({'title': 'x\ny'}))
 
+    def test_a_long_duty_or_tools_line_is_kept_on_one_line(self):
+        long = {'title': 'Special Needs Teacher', 'duty': 'Planned and taught lessons for pupils with special educational needs, ' * 2, 'education': 'MEd',
+                'tools': 'IEP writing, sign language, assistive technology, behaviour support plans, parent liaison, multi-agency work'}
+        role = draw_wide.invent('s', 'education', 'Italy', ask=lambda _: json.dumps(long))
+        self.assertEqual(role['title'], 'Special Needs Teacher')
+        self.assertEqual(draw_wide.valid({**long, 'duty': 'x' * 400})[1], 'duty is 400 characters (at most 300)')
+
     def test_a_fixed_title_is_kept(self):
         self.assertEqual(draw_wide.invent('s', 'healthcare', 'Italy', 'First Officer', ask=fake_ai)['title'], 'First Officer')
 
