@@ -93,14 +93,19 @@ test('the credit lane serves install credit while it lasts, then says used up; o
   assert.equal(await proLane(off, A), null);
 });
 
-test('the admin page makes a credit code, lists what it gives, and refuses a bad amount', async () => {
+test('the admin page makes a credit code, names the two kinds apart, and refuses a bad amount', async () => {
   const env = site();
   for (const credit of ['0', '101', 'x']) assert.equal((await make(env, {credit})).status, 400, credit);
   await make(env);
   const page = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
-  assert.match(page, /€10 AI credit/);
-  assert.match(page, /<option value="credit">AI credit<\/option>/);
+  // Named apart in the admin (owner, 27 Oct 2026: "in our admin, they should be distinguished"); the € field shows only for a top-up.
+  assert.match(page, /<option value="pro">Pro upgrade<\/option><option value="credit">AI credit top-up<\/option>/);
+  assert.match(page, /<label class="muted credit-field" hidden>€ of AI credit/);
+  assert.match(page, /onchange="this\.form\.querySelector\('\.credit-field'\)\.hidden=this\.value!=='credit'"/);
+  assert.match(page, /<td class="one-line">€10 top-up<\/td>/);
+  // One line per row (owner, 27 Oct 2026): the short cells never wrap (the Copy icon: test/shared/promo.test.js).
+  assert.match(page, /<td class="one-line">0 of 2<\/td>/);
   await make(env, {code: 'BETA-FAKE-PRO', kind: 'pro'});
   const after = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
-  assert.match(after, /<td>Pro<\/td>/, 'a Pro code still says Pro');
+  assert.match(after, /<td class="one-line">Pro upgrade<\/td>/, 'a Pro code says Pro upgrade');
 });
