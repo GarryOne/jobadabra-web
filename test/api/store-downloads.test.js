@@ -53,6 +53,16 @@ test('no page tells Windows visitors to click "More info → Run anyway" or call
   const dir = new URL('../../web/public/', import.meta.url);
   const pages = readdirSync(dir).filter(name => name.endsWith('.html'));
   assert.ok(pages.length > 10, `positive control: ${pages.length} pages read`);
-  const stale = pages.filter(name => /Run anyway|Not signed by (Apple or )?Microsoft|Neither is signed/i.test(readFileSync(new URL(name, dir), 'utf8')));
+  const stale = pages.filter(name => /Run anyway|Not signed by (Apple or )?Microsoft|Neither is signed|Installers are not signed|your computer asks once/i.test(readFileSync(new URL(name, dir), 'utf8')));
   assert.deepEqual(stale, []);
+});
+
+test('every Windows download link on every page goes through the Store route; the .exe link is only the download page\'s small one', () => {
+  const dir = new URL('../../web/public/', import.meta.url);
+  const pages = readdirSync(dir).filter(name => name.endsWith('.html'));
+  const links = pages.flatMap(name => [...readFileSync(new URL(name, dir), 'utf8').matchAll(/href="([^"]*(?:windows|\.exe)[^"]*)"/gi)]
+    .map(([, href]) => ({name, href})));
+  assert.ok(links.filter(l => l.href.startsWith('/download/windows?')).length >= 8, `positive control: ${links.length} Windows links read`);
+  const wrong = links.filter(({name, href}) => !href.startsWith('/download/windows?') && !(name === 'download.html' && href.startsWith('/download/windows-exe?')));
+  assert.deepEqual(wrong, []);
 });
