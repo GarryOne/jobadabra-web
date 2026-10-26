@@ -27,7 +27,7 @@ on:
         type: string
         default: ''
       public_ref:
-        description: 'The public repo branch or sha to draw on (a PR under test); empty: main'
+        description: 'The public repo branch or full 40-character sha to draw on (a PR under test); empty: main'
         type: string
         default: ''
       engine:
@@ -54,6 +54,7 @@ jobs:
         with:
           path: .private
       - name: Lay the public repo's tree under this one
+        id: tree
         env:
           PUBLIC_REF: ${{ inputs.public_ref }}
         run: .private/tools/tree.sh --ref "${PUBLIC_REF:-main}"
@@ -132,7 +133,7 @@ jobs:
           repositories: jobadabra
           permission-issues: write
       - name: Alarm when the search came back thin
-        if: always()
+        if: always() && steps.tree.outcome == 'success'   # no tree, no scripts: nothing to judge
         env:
           GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -142,7 +143,7 @@ jobs:
           if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
           else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
       - name: Alarm when real installs' searches came back empty (3+ installs per field × country)
-        if: always()
+        if: always() && steps.tree.outcome == 'success'   # no tree, no scripts: a red step that says nothing (26 Oct 2026)
         env:
           GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
