@@ -25,6 +25,11 @@ export function stateOf(code, used, now = Date.now()) {
   if (used >= code.cap) return {text: 'Used up', tone: 'warn'};
   return {text: 'Active', tone: 'good'};
 }
+// A value cell is a chip (owner, 27 Oct 2026: "displayed as chips"): Gives by kind; State green Active, amber Used up, grey Revoked/Expired. Guard: test/shared/promo.test.js.
+const STATE_CHIP = {good: 'good', warn: 'warn', bad: 'off'};
+export const chip = (text, tone) => `<span class="chip ${tone}">${text}</span>`;
+export const stateChip = (code, used, now) => { const state = stateOf(code, used, now); return chip(state.text, STATE_CHIP[state.tone]); };
+export const givesChip = code => chip(gives(code), code.kind === 'credit' ? 'credit' : 'pro');
 
 export async function collect(env, now = new Date()) {
   const codes = (await env.STATS.prepare(`SELECT c.*, (SELECT COUNT(*) FROM pro_promo_uses u WHERE u.code = c.id) + (SELECT COUNT(*) FROM pro_promo_credit_uses k WHERE k.code = c.id) AS used,
@@ -41,8 +46,8 @@ async function usesOf(env, id) {
 export function page({codes = [], wrong = 0, created = null, detail = null, error = '', keyMissing = false, now = Date.now()}) {
   const total = codes.reduce((sum, code) => sum + code.used, 0), active = codes.filter(code => stateOf(code, code.used, now).text === 'Active').length;
   const rows = codes.map(code => {
-    const state = stateOf(code, code.used, now), open = !code.revoked_at;
-    return `<tr><td class="one-line"><a href="/admin/growth/promo-codes?code=${esc(code.id)}"><b>${esc(code.label)}</b></a></td><td>${code.full ? `<span class="code-cell">${copyButton(`c-${esc(code.id)}`)}<span class="full" id="c-${esc(code.id)}">${esc(code.full)}</span></span>` : `…${esc(code.last4)} <span class="muted" title="Made before full codes were kept: re-make it with the Code field to see it">· old code</span>`}</td><td class="one-line"><span class="chip ${code.kind === 'credit' ? 'credit' : 'pro'}">${gives(code)}</span></td><td class="one-line">${code.used} of ${code.cap}</td><td class="one-line">${esc(code.ends_at.slice(0, 10))}</td><td class="one-line" title="${stamp(code.last_used)} UTC">${code.last_used ? esc(String(code.last_used).slice(0, 10)) : 'never'}</td><td class="one-line ${state.tone}">${state.text}</td>
+    const open = !code.revoked_at;
+    return `<tr><td class="one-line"><a href="/admin/growth/promo-codes?code=${esc(code.id)}"><b>${esc(code.label)}</b></a></td><td>${code.full ? `<span class="code-cell">${copyButton(`c-${esc(code.id)}`)}<span class="full" id="c-${esc(code.id)}">${esc(code.full)}</span></span>` : `…${esc(code.last4)} <span class="muted" title="Made before full codes were kept: re-make it with the Code field to see it">· old code</span>`}</td><td class="one-line">${givesChip(code)}</td><td class="one-line">${code.used} of ${code.cap}</td><td class="one-line">${esc(code.ends_at.slice(0, 10))}</td><td class="one-line" title="${stamp(code.last_used)} UTC">${code.last_used ? esc(String(code.last_used).slice(0, 10)) : 'never'}</td><td class="one-line">${stateChip(code, code.used, now)}</td>
 <td class="actions one-line">${open ? `<form method="post" onsubmit="return confirm('Revoke ${esc(code.label)}? ${ends(code)}')"><input type="hidden" name="action" value="revoke"><input type="hidden" name="id" value="${esc(code.id)}"><button class="danger">Revoke</button></form>` : ''}
 <form method="post" onsubmit="return confirm('Delete ${esc(code.label)} and its uses? ${ends(code)}')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="${esc(code.id)}"><button class="danger">Delete</button></form></td></tr>`;
   }).join('');
@@ -52,7 +57,7 @@ export function page({codes = [], wrong = 0, created = null, detail = null, erro
 .card{padding:16px;margin-bottom:12px}h2{margin:0 0 4px}.good{color:#3fb68b}.bad{color:#e5484d}.warn{color:#f5b54a}[hidden]{display:none!important}
 table.codes-table{width:100%}table.codes-table th,table.codes-table td{padding:8px 5px;vertical-align:middle}.actions button{padding:5px 10px;font-size:13px}.one-line{white-space:nowrap}.actions form{display:inline}.actions form+form{margin-left:6px}
 form{display:inline-flex;gap:6px;margin:0;flex-wrap:wrap;align-items:center}label{display:inline-flex;gap:6px;align-items:center}
-.chip{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap}.chip.pro{border-color:#4a3c1c;color:#f5b54a;background:#2a2312}.chip.credit{border-color:#1f5a45;color:#3fb68b;background:#11261e}
+.chip{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap}.chip.pro,.chip.warn{border-color:#4a3c1c;color:#f5b54a;background:#2a2312}.chip.credit,.chip.good{border-color:#1f5a45;color:#3fb68b;background:#11261e}.chip.off{color:#8d949c}
 .code-cell{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
 button.copy{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;background:transparent;border-color:#4a3c1c;color:#f5b54a;flex:none}
 button.copy:hover{background:#2a2312}button.copy svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
@@ -75,7 +80,7 @@ ${created ? `<section class="card created"><h2>New code for ${esc(created.label)
 <section class="card"><h2>Codes</h2><small class="muted">People: who redeemed it of how many may. Dates in UTC.</small><div class="wrap"><table class="codes-table"><tr><th>Label</th><th>Code</th><th>Gives</th><th>People</th><th>Ends</th><th>Last used</th><th>State</th><th></th></tr>
 ${rows || '<tr><td colspan="8" class="muted">No codes yet.</td></tr>'}</table></div></section>
 ${detail ? `<section class="card"><h2>Uses of ${esc(detail.label)}</h2><small class="muted">One row per install: a short id, never the full install id.</small><table><tr><th>Install</th><th>Redeemed (UTC)</th><th>Last seen (UTC)</th><th>${detail.kind === 'credit' ? 'Gave' : 'Pro now'}</th></tr>
-${detail.uses.map(use => `<tr><td>${esc(use.id)}</td><td>${stamp(use.at)}</td><td>${stamp(use.lastSeen)}</td><td>${detail.kind === 'credit' ? gives(detail) : stateOf(detail, 0, now).tone === 'bad' ? 'no' : 'yes'}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Not used yet.</td></tr>'}</table></section>` : ''}
+${detail.uses.map(use => `<tr><td>${esc(use.id)}</td><td>${stamp(use.at)}</td><td>${stamp(use.lastSeen)}</td><td>${detail.kind === 'credit' ? givesChip(detail) : stateOf(detail, 0, now).tone === 'bad' ? chip('no', 'off') : chip('yes', 'good')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Not used yet.</td></tr>'}</table></section>` : ''}
 </main></body></html>`;
 }
 
