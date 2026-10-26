@@ -10,7 +10,7 @@
 # - Sites: data-centre IPs are refused by many boards; a refusal shows as "not reached" and is never retried or worked around (never past a login wall, captcha or 401/403/429).
 # - A re-run of a bad day: Run workflow with that day's seed (YYYY-MM-DD), and the role it drew (draw.json in the artifact) to keep the same role.
 # - The kept artifact is counts only (counts.json, draw.json): the search's top-10 job titles and source names stay out of it.
-# Guard: tests/test_draw_wide.py, test/admin/search-lab-draws.test.js.
+# Guard: tests/test_draw_wide.py, test/admin/search-lab-draws.test.js, test/jobs/search-alarm.test.js.
 name: CI · Random draw (every 2nd day)
 
 on:
@@ -90,7 +90,29 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
-        run: node jobs/persona-search/draw-upload.mjs "$RUNNER_TEMP/draw-out" --build "$PUBLIC_SHA" --branch main
+        run: node jobs/persona-search/draw-upload.mjs "$RUNNER_TEMP/draw-out" --build "$PUBLIC_SHA" --branch main --answer "$RUNNER_TEMP/verdict.json"
+      # The search robot's alarm (jobs/persona-search/draw-alarm.mjs): 0 relevant jobs, a crash, or a floor from the draws' own numbers files or updates one issue per
+      # field × place × path in the app repo (GarryOne/jobadabra, "[auto-search] ..."); a passing draw closes it. The CI GitHub App's token, Issues only.
+      - name: The app repo's token for the alarm
+        id: alarm_token
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true   # no token: the alarm prints what it would file (below), never a red job
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: jobadabra
+          permission-issues: write
+      - name: Alarm when the search came back thin
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -f "$RUNNER_TEMP/draw-out/draw/presses.jsonl" ] || { echo "no search ran: nothing to judge"; exit 0; }
+          if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
       - name: Keep the numbers (counts only, no job titles, companies or log)
         if: always()
         run: |

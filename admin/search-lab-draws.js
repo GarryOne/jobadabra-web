@@ -3,7 +3,7 @@
 // half of the role family's median once MIN_HISTORY earlier draws exist), else Usual. Guard: test/admin/search-lab-draws.test.js.
 import {equal} from '../shared/guard.js';
 
-export const KEEP_DRAWS = 400, WEAK_FLOOR = 10, MIN_HISTORY = 5;
+export const KEEP_DRAWS = 400, WEAK_FLOOR = 10, MIN_HISTORY = 5, MIN_POOL = 10, LOW_SHARE = 0.1;
 const FIELDS = ['first_s', 'tenth_s', 'fit_s', 'in_places', 'scored', 'fit70'];
 const DAY = /^\d{4}-\d\d-\d\d$/, ID = /^[a-z0-9][a-z0-9_-]{0,39}$/, BUILD = /^[0-9a-f]{7,40}$/;
 const text = (value, max) => String(value ?? '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, max);
@@ -54,7 +54,8 @@ export async function ingest(db, row, now = new Date()) {
   await db.prepare(`INSERT OR REPLACE INTO search_lab_draws (draw_date, seed, family, city, country, source, build, state, ${FIELDS.join(', ')}, failed_step, ${more.join(', ')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${FIELDS.map(() => '?').join(', ')}, ?, ${more.map(() => '?').join(', ')})`)
     .bind(clear.draw_date, clear.seed, clear.family, clear.city, clear.country, clear.source, clear.build, clear.state, ...FIELDS.map(field => clear[field]), clear.failed_step, ...more.map(field => clear[field])).run();
   await db.prepare('DELETE FROM search_lab_draws WHERE draw_date NOT IN (SELECT draw_date FROM search_lab_draws ORDER BY draw_date DESC LIMIT ?)').bind(KEEP_DRAWS).run();
-  return {ok: true, stored: 1, at: now.toISOString()};
+  const judged = judge(await draws(db)).find(row => row.draw_date === clear.draw_date) || {};   // the verdict with every earlier draw, for the search robot's alarm
+  return {ok: true, stored: 1, at: now.toISOString(), verdict: judged.verdict, why: judged.why || [], alarm: judged.alarm || [], severity: judged.severity ?? null};
 }
 
 export async function ingestRoute(request, env, now = new Date()) {
@@ -72,18 +73,39 @@ export async function draws(db) {
 
 const median = values => { const sorted = [...values].sort((a, b) => a - b), mid = sorted.length >> 1; return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2; };
 
-// Newest first in, same order out with {state: 'failed'|'weak'|'usual', why: [...]}. A draw is compared with the same family's EARLIER draws only.
+// The value below which the lowest `share` of a list sits (nearest rank).
+export const lowest = (values, share) => { const sorted = [...values].sort((a, b) => a - b); return sorted[Math.max(0, Math.ceil(share * sorted.length) - 1)]; };
+
+// Newest first in, same order out with {verdict: 'failed'|'weak'|'usual', why: [...], alarm: [...], severity}. A draw is compared with EARLIER draws only: the same family's
+// median (5+), and every draw's lowest tenth of relevant jobs and slowest tenth to the first relevant job (10+). `alarm` holds the reasons the search robot files an issue for
+// (jobs/persona-search/draw-alarm.mjs): 0 relevant jobs, a crash, or a floor from the draws' own numbers; the fixed "under 10 jobs" floor shows on the tab only (owner, 26 Oct 2026:
+// floors come from data, not guesses).
 export function judge(rows) {
   return rows.map(row => {
-    if (row.state === 'failed') return {...row, verdict: 'failed', why: [`a step crashed: ${row.failed_step || 'unknown step'}`]};
-    const why = [], before = rows.filter(other => other.family === row.family && other.draw_date < row.draw_date && other.state === 'ok');
+    if (row.state === 'failed') {
+      const why = [`a step crashed: ${row.failed_step || 'unknown step'}`];
+      return {...row, verdict: 'failed', why, alarm: why, severity: 'medium'};
+    }
+    const why = [], alarm = [], before = rows.filter(other => other.family === row.family && other.draw_date < row.draw_date && other.state === 'ok');
+    const pool = rows.filter(other => other.draw_date < row.draw_date && other.state === 'ok');
+    if (row.fit70 === 0) alarm.push('0 relevant jobs (fit 70+) in the places');
+    if (pool.length >= MIN_POOL && row.fit70 > 0) {
+      const floor = lowest(pool.map(other => other.fit70 ?? 0), LOW_SHARE);
+      if (row.fit70 < floor) alarm.push(`${row.fit70} relevant jobs, under the lowest tenth of ${pool.length} draws (${floor})`);
+      const times = pool.map(other => other.fit_s).filter(value => value != null);
+      if (row.fit_s != null && times.length >= MIN_POOL) {
+        const slow = -lowest(times.map(value => -value), LOW_SHARE);
+        if (row.fit_s > slow) alarm.push(`first relevant job at ${row.fit_s} s, slower than the slowest tenth of ${times.length} draws (${slow} s)`);
+      }
+    }
+    why.push(...alarm);
     if (row.first_s == null && (row.path || 'first') === 'first') why.push('no relevant job reached');   // a 2nd search has no first-press times
     if ((row.in_places ?? 0) < WEAK_FLOOR) why.push(`only ${row.in_places ?? 0} jobs in the places (under ${WEAK_FLOOR})`);
     if (before.length >= MIN_HISTORY) {
       const usual = median(before.map(other => other.in_places ?? 0));
       if ((row.in_places ?? 0) < usual / 2) why.push(`jobs in places ${row.in_places ?? 0}, this role's usual ${usual}`);
     }
-    return {...row, verdict: why.length ? 'weak' : 'usual', why};
+    return {...row, verdict: why.length ? 'weak' : 'usual', why, alarm, severity: row.fit70 === 0 ? 'high' : alarm.length ? 'medium' : null};
   });
 }
 
