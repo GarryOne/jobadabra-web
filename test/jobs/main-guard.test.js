@@ -10,7 +10,9 @@ import test from 'node:test';
 import {pathToFileURL} from 'node:url';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
-const SCRIPTS = execFileSync('git', ['ls-files', '*.mjs', '*.js'], {cwd: ROOT, encoding: 'utf8'}).split('\n').filter(Boolean).filter(file => !file.startsWith('test/'));
+// This repo's own folders (as test/brand-wording.test.js): CI runs these tests in the tree joined with the public repo, whose scripts are its own to keep.
+const OWN = /^(web|admin|api|shared|workers|jobs|media|preview|db)\//;
+const SCRIPTS = execFileSync('git', ['ls-files', '*.mjs', '*.js'], {cwd: ROOT, encoding: 'utf8'}).split('\n').filter(file => OWN.test(file));
 
 test('no script finds out it is the entry with a hand-made file:// URL (never true on Windows)', () => {
   const wrong = SCRIPTS.filter(file => /file:\/\/\$\{process\.argv\[1\]\}/.test(fs.readFileSync(path.join(ROOT, file), 'utf8')));
