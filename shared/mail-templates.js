@@ -21,6 +21,13 @@ export const TEMPLATES = {
     button: ({buttons}) => first(buttons),
     text: ({text, buttons, confirmUrl}) => [text, moreText(buttons)].filter(Boolean).join('\n\n') + confirmText(confirmUrl),
     html: ({html, buttons, confirmUrl}) => `${html}${moreHtml(buttons)}${confirmHtml(confirmUrl)}`},
+  // The first mail to a new or changed address (api/account-email.js, once per address ever; owner, 26 Oct 2026: "Can we send an welcome email?"). Data: {confirmUrl}.
+  'welcome': {list: 'service',
+    subject: () => 'Confirm your email for Jobadabra',
+    title: () => 'Your job matches will come here',
+    button: ({confirmUrl}) => (confirmUrl ? {label: 'Confirm your email', url: confirmUrl} : null),
+    text: () => "New job matches, reminders and answers from Jobadabra will come to this address. Confirm it so they keep coming.\n\nDidn't ask for this? Ignore this email.",
+    html: () => `<p>New job matches, reminders and answers from Jobadabra will come to this address. Confirm it so they keep coming.</p>${muted("Didn't ask for this? Ignore this email.")}`},
   // Account mail: the code that proves an address (Pro device codes, sign-in). Data: {code}.
   'account-code': {list: 'service', essential: true,
     subject: () => 'Your Jobadabra code',
