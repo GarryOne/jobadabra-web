@@ -25,7 +25,7 @@ name = "EMAIL"
 [assets]
 directory = "../../web/public"
 binding = "ASSETS"
-# The worker runs first for the pages, so the old host can redirect them (shared/hosts.js legacyPageRedirect); every other path is served as before.
+# The worker runs first for the pages, so each page keeps one address (shared/hosts.js pageRedirect); every other path is served as before.
 run_worker_first = ["/", "/changelog", "/compare", "/coverage", "/download", "/faq", "/features", "/friends", "/how-it-works", "/intelligence", "/platforms", "/pricing", "/privacy", "/ready-live", "/research", "/terms", "/trust", "/*.html", "/media/*", "/images/app/*", "/old/images/app/*"]
 
 # Pro early-access sign-ups.
