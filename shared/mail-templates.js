@@ -6,8 +6,8 @@ import {codeBox, esc, jobRows, jobText, link} from './mail-frame.js';
 // The first button is the frame's one orange button; the others are links under the text.
 const moreHtml = (buttons = []) => buttons.slice(1).map(b => `<p>${link(b.url, b.text)}</p>`).join('');
 const moreText = (buttons = []) => buttons.slice(1).map(b => `${b.text}: ${b.url}`).join('\n');
-const confirmHtml = url => (url ? `<p>${link(url, 'Confirm your email')} so these mails keep coming.</p>` : '');
-const confirmText = url => (url ? `\nConfirm your email so these mails keep coming: ${url}` : '');
+const confirmHtml = url => (url ? `<p>${link(url, 'Confirm your email')} to get every mail at once (until then, one a day).</p>` : '');
+const confirmText = url => (url ? `\nConfirm your email to get every mail at once (until then, one a day): ${url}` : '');
 const first = (buttons = []) => (buttons[0] ? {label: buttons[0].text, url: buttons[0].url} : null);
 
 const SITE = 'https://www.jobadabra.top';
@@ -26,8 +26,8 @@ export const TEMPLATES = {
     subject: () => 'Confirm your email for Jobadabra',
     title: () => 'Your job matches will come here',
     button: ({confirmUrl}) => (confirmUrl ? {label: 'Confirm your email', url: confirmUrl} : null),
-    text: () => "New job matches, reminders and answers from Jobadabra will come to this address. Confirm it so they keep coming.\n\nDidn't ask for this? Ignore this email.",
-    html: () => `<p>New job matches, reminders and answers from Jobadabra will come to this address. Confirm it so they keep coming.</p>${muted("Didn't ask for this? Ignore this email.")}`},
+    text: () => "New job matches, reminders and answers from Jobadabra will come to this address. Confirm it to get every mail at once; until then we send at most one a day.\n\nDidn't ask for this? Ignore this email.",
+    html: () => `<p>New job matches, reminders and answers from Jobadabra will come to this address. Confirm it to get every mail at once; until then we send at most one a day.</p>${muted("Didn't ask for this? Ignore this email.")}`},
   // Account mail: the code that proves an address (Pro device codes, sign-in). Data: {code}.
   'account-code': {list: 'service', essential: true,
     subject: () => 'Your Jobadabra code',

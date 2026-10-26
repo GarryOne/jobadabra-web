@@ -79,6 +79,7 @@ export async function notify(request, env, now = new Date()) {
   const item = {subject: String(body.subject || '').slice(0, 150), html, text, buttons};
   if (body.kind === 'activity') return json(200, await hold(env, account, item, now));   // not new matches, not urgent: waits for the daily or weekly digest (api/mail-held.js)
   const result = await deliver(env, account, item, now);
+  if (result.reason === 'unconfirmed') return json(200, await hold(env, account, item, now));   // today's one mail to an unconfirmed address went: this one waits for the digest, never dropped
   return json(200, result.ok ? {ok: true} : {ok: false, reason: result.reason});
 }
 

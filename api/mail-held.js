@@ -4,7 +4,7 @@ import {addrOf, confirmLink, send} from '../shared/mail.js';
 
 const HOLD_MAX = 100;            // per account: a stuck mailbox cannot grow the table
 const KEEP_DAYS = 14;
-const UNCONFIRMED_MAILS = 2;     // an address nobody confirmed gets two mails ever (the first carries the confirm link)
+const UNCONFIRMED_PER_DAY = 1;   // an unconfirmed address gets one mail a UTC day, each with the confirm link; the rest waits for the digest (owner, 26 Oct 2026: "Soften it", was 2 mails ever)
 export const CADENCES = ['daily', 'weekly'];
 
 // One mail to the account's address, with the confirm link while the address is unconfirmed. -> {ok} or {ok: false, reason}.
@@ -12,8 +12,9 @@ export async function deliver(env, account, {subject, html, text, buttons = []},
   let confirmUrl = null;
   if (!account.email_confirmed_at) {
     const addr = await addrOf(account.email);
-    const {n} = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE addr = ? AND template = 'message' AND status = 'sent'").bind(addr).first();
-    if (n >= UNCONFIRMED_MAILS) return {ok: false, reason: 'unconfirmed'};
+    const day = `${now.toISOString().slice(0, 10)}T00:00:00.000Z`;   // a calendar day, so the morning digest is never blocked by yesterday evening's mail
+    const {n} = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE addr = ? AND template = 'message' AND status = 'sent' AND at >= ?").bind(addr, day).first();
+    if (n >= UNCONFIRMED_PER_DAY) return {ok: false, reason: 'unconfirmed'};
     confirmUrl = await confirmLink(env, account.email);
   }
   return send(env, 'message', account.email, {subject: String(subject || '').slice(0, 150), html, text, buttons, confirmUrl}, {now});

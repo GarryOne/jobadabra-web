@@ -1,5 +1,5 @@
 // The address and the Telegram-style mail (api/account-email.js, api/mail-html.js): making a trial account from an install, refusing a taken or Pro address, the safe HTML subset,
-// two mails to an unconfirmed address, confirming it with a signed link, and the marketing opt-in. Fake sender only.
+// one mail a day to an unconfirmed address (the rest waits for the digest), confirming it with a signed link, and the marketing opt-in. Fake sender only.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -57,7 +57,8 @@ test('changing the address makes a new unconfirmed one on the same devices; the 
   assert.deepEqual([got.email, got.confirmed, got.marketing], ['b@example.com', false, false]);
 });
 
-test('a message is mailed in the Telegram layout with a confirm link; an unconfirmed address gets two mails, then none; confirming lifts it', async () => {
+// Owner, 26 Oct 2026 ("Do we really need a confirmation?" → "Soften it"): an unconfirmed address is never cut off; it gets at most one mail a day and the rest waits for the digest.
+test('a message is mailed in the Telegram layout with a confirm link; an unconfirmed address gets one mail a day, the rest waits for the next digest; confirming lifts it', async () => {
   const {e, sent} = setup();
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 'x', html: card})).reason, 'no_address');
   await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
@@ -65,8 +66,11 @@ test('a message is mailed in the Telegram layout with a confirm link; an unconfi
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: '3 new matches', html: card, buttons: [{text: 'Open', url: 'https://x.example/app'}, {text: 'bad', url: 'javascript:1'}]})).ok, true);
   assert.equal(sent[0].subject, '3 new matches');
   assert.ok(sent[0].html.includes('Data Engineer') && sent[0].html.includes('/confirm?a=') && sent[0].text.includes('Open: https://x.example/app') && !sent[0].text.includes('javascript'));
-  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true);
-  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).reason, 'unconfirmed');
+  const second = await call(notify, e, 'install-aaaa', 'POST', {subject: 'later the same day', html: card});
+  assert.deepEqual([second.ok, second.held, sent.length], [true, true, 1], 'a second mail the same day waits for the digest, never dropped');
+  assert.equal((await sendDigests(e, new Date('2026-10-17T07:00:00Z'))).sent, 1, 'the next day the held mail goes in the digest');
+  assert.equal(sent.at(-1).subject, 'later the same day');
+  assert.ok(sent.at(-1).html.includes('/confirm?a='), 'still with the confirm link');
   const link = await confirmLink(e, 'me@example.com');
   assert.equal((await confirm(new Request(link), e)).status, 200);
   assert.equal((await call(address, e, 'install-aaaa', 'GET')).confirmed, false, 'a GET (a mail scanner) confirms nothing');
@@ -137,8 +141,8 @@ test('a new or changed address gets one welcome mail with the confirm button, on
   assert.equal(sent.at(-1).to, 'new@example.com', 'a changed address is welcomed too');
   await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
   assert.equal(sent.length, 2, 'back to an address already welcomed: no second welcome');
-  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true, 'the welcome is not one of the two mails an unconfirmed address gets');
-  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true);
+  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true, 'the welcome does not use up the day\'s one mail of an unconfirmed address');
+  assert.equal(sent.at(-1).subject, 's');
 });
 
 test('the welcome waits for the kill switch: with mail off the address is saved and nothing is sent', async () => {
