@@ -10,6 +10,7 @@ import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-mode
 import {PRO_PER_MINUTE, chargeCall, proLane} from './pro-ai.js';
 import {aiAccess} from './hosted-budget.js';
 import {runOf} from './hosted.js';
+import {WEB_ACTION, webSearch} from './free-ai-web.js';
 
 // Per install (owner, 16 Oct 2026): 30 calls a minute, $0.30 a day and $3 a month (money, not calls), 1.5M tokens a day. Global: alert at $3 a day, stop at $10 a day, and a month line: alert at $40, stop at $60
 // (the values in force are wrangler.toml's vars; these are the tight defaults. env FREE_AI_INSTALL_MINUTE_CALLS / FREE_AI_ALERT_USD / FREE_AI_STOP_USD / FREE_AI_MONTH_ALERT_USD / FREE_AI_MONTH_STOP_USD / FREE_AI_INSTALL_DAY_USD / FREE_AI_INSTALL_MONTH_USD).
@@ -47,6 +48,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (!access) return error(401, 'Free AI needs this install\'s token. Restart Jobadabra and try again.', 'authentication_error');
   if (path === '/v1/models' && request.method === 'GET') return Response.json({data: [], has_more: false});   // key checks
   if (path !== '/v1/messages' || request.method !== 'POST') return error(404, 'Not available with Free AI.', 'not_found_error');
+  if (request.headers.get('x-jp-action') === WEB_ACTION) return webSearch(request, env, access, now, ctx, fetcher);   // the board web search: its own lane, key and month line (shared/free-ai-web.js)
   const pro = await proLane(env, access.install);   // a Pro account with credit: its own lane (shared/pro-ai.js); null = the Free rules
   if (pro?.blocked) return error(402, pro.blocked, 'billing_error');
 

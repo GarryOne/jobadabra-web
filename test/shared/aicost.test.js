@@ -56,12 +56,15 @@ test('the report gives the cost per step, per user per active day and per month'
   assert.ok(Math.abs(r.monthPerActiveUser - 0.18 * 30) < 1e-6);
 });
 
-test('a failing log never breaks the relay, and the steps match the ones the app sends', async () => {
+test('a failing log never breaks the relay, and the site knows every step the app sends', async () => {
   const e = env(), key = await installKey('bbbb2222-install');
   e.STATS.db.exec('DROP TABLE ai_calls;');
   assert.equal((await ask(e, key, 'score', {input_tokens: 10, output_tokens: 10})).status, 200);
   assert.equal(await record({}, 'x', 'score', 'm', {}, 0.01), false);   // no database bound: nothing to do
   const python = readFileSync(new URL('../../src/ai/providers/anthropic_api.py', import.meta.url), 'utf8');
   const sent = /ACTIONS = \(([^)]*)\)/.exec(python)[1].match(/'([a-z_]+)'/g).map(word => word.replace(/'/g, ''));
-  assert.deepEqual(sent, ACTIONS, 'src/ai/providers/anthropic_api.py ACTIONS and shared/aicost.js ACTIONS must be the same list');
+  // The site lands first (owner, 21 Oct 2026): it has every step the app sends; a step the app does not send yet is only told.
+  assert.deepEqual(sent.filter(step => !ACTIONS.includes(step)), [], 'every step in src/ai/providers/anthropic_api.py ACTIONS is in shared/aicost.js ACTIONS');
+  const ahead = ACTIONS.filter(step => !sent.includes(step));
+  if (ahead.length) console.log(`aicost: steps the app does not send yet: ${ahead.join(', ')}`);
 });

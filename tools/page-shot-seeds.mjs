@@ -23,4 +23,11 @@ export const seeds = {
     }
     await env.STATS.prepare("INSERT INTO pro_promo_codes (id, label, code_hash, last4, cap, ends_at, created_at) VALUES ('promo_old', 'Early list', 'demo-hash', 'ZZZZ', 10, '2999-12-31T23:59:59.999Z', ?)").bind(at).run();
   },
+  'ai-cost-web': async ({env}) => {   // the Free AI board web search this month: $3.50 of its $10 line, 100 searches paid, 40 answered from the shared answers
+    const month = new Date().toISOString().slice(0, 7);
+    env.WEB_SEARCH_ANTHROPIC_KEY = 'demo-not-a-key';
+    await env.WAITLIST.put(`freeai:web:usd:${month}`, String(3.5 * 1e6));
+    await env.WAITLIST.put(`freeai:web:calls:${month}`, '100');
+    await env.WAITLIST.put(`freeai:web:hits:${month}`, '40');
+  },
 };
