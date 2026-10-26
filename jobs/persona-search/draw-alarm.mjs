@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {judge, rowFromDraw} from '../../admin/search-lab-draws.js';
 import {act, body, fingerprint, title, REPO} from './search-alarm.mjs';
+import {pathToFileURL} from 'node:url';
 
 // The draw's case for search-alarm.mjs. `verdict`: the upload's answer ({alarm, why, severity}) or null.
 export function caseOf(info, presses, verdict, run = '') {
@@ -29,4 +30,4 @@ async function main() {
   console.log(`alarm: ${act(c, {pass: !c.why.length, repo: option('--repo', REPO)})} (${fingerprint(c)})`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

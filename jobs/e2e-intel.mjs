@@ -7,6 +7,7 @@ import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {writeFileSync} from 'node:fs';
 import {CAUSES, RULES_VERSION, causeOf, suiteOfJob} from '../admin/e2e-causes.js';
+import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.E2E_INTEL_URL || 'https://www.jobpilotto.top/e2e/data';
@@ -101,4 +102,4 @@ async function main() {
   console.log(`published ${send.runs.length} runs, ${send.fails.length} reds: HTTP ${response.status} ${await response.text()}`);
   if (!response.ok) process.exitCode = 1;
 }
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

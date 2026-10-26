@@ -4,6 +4,7 @@
 //   REPLAYS_PUBLISH_KEY=... GH_TOKEN=... node jobs/persona-search/real-alarm.mjs [--run <url>] [--repo owner/name] [--dry]
 // Guard: test/jobs/real-alarm.test.js.
 import {act, body, fingerprint, title, REPO} from './search-alarm.mjs';
+import {pathToFileURL} from 'node:url';
 
 export const MIN_INSTALLS = 3;
 
@@ -30,4 +31,4 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

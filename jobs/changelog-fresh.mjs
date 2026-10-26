@@ -4,6 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import {zurichHour} from '../admin/build-digest.js';
 import {shouldTell, previousConclusion, tellOwner} from '../admin/ai-refusal.js';
+import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.CHANGELOG_URL || 'https://www.jobpilotto.top/changelog/data';
@@ -36,4 +37,4 @@ async function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main().catch(error => { console.error(`::error::${error.message}`); process.exit(1); });
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main().catch(error => { console.error(`::error::${error.message}`); process.exit(1); });

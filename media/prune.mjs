@@ -5,6 +5,7 @@
 //   node media/prune.mjs <cache> [--keep <kind>=<n>]... [--protect <dir>]...
 import fs from 'node:fs';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 
 // kind: what writes it; keep: how many stay, not counting the one the caller is about to write; group: rules that keep per group (a package cache
 // per folder: desktop, desktop-e2e). The newest are the last written (mtime), never by name: the names are local time, and on 25 Oct 2026 the clocks
@@ -43,7 +44,7 @@ export function pruneCache(root, {keep = {}, protect = [], rules = RULES} = {}) 
   return gone;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const [root, ...rest] = process.argv.slice(2), keep = {}, protect = [];
   for (let i = 0; i < rest.length; i += 2) {
     if (rest[i] === '--keep') { const [kind, n] = rest[i + 1].split('='); keep[kind] = Number(n); } else if (rest[i] === '--protect' && rest[i + 1]) protect.push(rest[i + 1]);
