@@ -16,11 +16,11 @@ import {WEB_ACTION, webSearch} from './free-ai-web.js';
 // (the values in force are wrangler.toml's vars; these are the tight defaults. env FREE_AI_INSTALL_MINUTE_CALLS / FREE_AI_ALERT_USD / FREE_AI_STOP_USD / FREE_AI_MONTH_ALERT_USD / FREE_AI_MONTH_STOP_USD / FREE_AI_INSTALL_DAY_USD / FREE_AI_INSTALL_MONTH_USD).
 export const LIMITS = {trialUsd: 2, perMinute: 30, installDayUsd: 0.3, installMonthUsd: 3, tokensPerDay: 1_500_000, alertUsd: 3, stopUsd: 10, monthAlertUsd: 40, monthStopUsd: 60};
 
-const BUSY = 'Free AI is busy today. Try again tomorrow, or add your own key in Settings → AI engine (Claude or ChatGPT).';
-const ADD_KEY = 'add your own Claude or ChatGPT key in Settings → AI engine.';
+const BUSY = 'Free AI is busy today. Try again tomorrow, or add your own key in Settings → Connections → AI (Claude or ChatGPT).';
+const ADD_KEY = 'add your own Claude or ChatGPT key in Settings → Connections → AI.';
 export const DAY_MESSAGE = `You reached today's Free AI use. It resets tomorrow, or ${ADD_KEY}`;
 export const MONTH_MESSAGE = `You reached this month's Free AI use. It resets next month, or ${ADD_KEY}`;
-export const TRIAL_MESSAGE = `You've used the Free AI included in your trial. Get Pro, or connect your own Claude or ChatGPT key in Settings → AI engine.`;
+export const TRIAL_MESSAGE = `You've used the Free AI included in your trial. Get Pro, or connect your own Claude or ChatGPT key in Settings → Connections → AI.`;
 const BUSY_MONTH = `Free AI is busy this month. Try again next month, or ${ADD_KEY}`;
 const error = (status, message, type = 'api_error') => Response.json({type: 'error', error: {type, message}}, {status});
 const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
@@ -42,7 +42,7 @@ async function who(key, env, now = new Date()) {
 
 export async function freeAi(request, env, now = new Date(), ctx = null, fetcher = fetch) {
   const path = new URL(request.url).pathname.replace(/^\/api\/ai/, '');
-  if (env.FREE_AI === 'off') return error(503, 'Free AI is paused right now. You can add your own key in Settings → AI engine.');
+  if (env.FREE_AI === 'off') return error(503, 'Free AI is paused right now. You can add your own key in Settings → Connections → AI.');
   if (!env.AI || !env.WAITLIST) return error(503, 'Free AI is not available right now.');
   const access = await who(request.headers.get('x-api-key'), env, now);
   if (!access) return error(401, 'Free AI needs this install\'s token. Restart Jobadabra and try again.', 'authentication_error');
@@ -85,7 +85,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
     }
   } catch (caught) {
     if (/daily free allocation|4006/i.test(String(caught?.message))) return error(503, BUSY);
-    if (caught instanceof Unsupported) return error(422, `${caught.message} Add your own key in Settings → AI engine for this step.`, 'invalid_request_error');
+    if (caught instanceof Unsupported) return error(422, `${caught.message} Add your own key in Settings → Connections → AI for this step.`, 'invalid_request_error');
     return error(502, 'Free AI could not answer just now.');
   }
   const message = fromWorkersAi(result, model);
