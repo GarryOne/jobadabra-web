@@ -1,5 +1,5 @@
-// The site's hosts. workers.dev is canonical for installed apps and old engine tags and is never redirected; jobpilotto.top is a
-// replaceable alias (owner, 10 Oct 2026): its bare name sends people to www, nothing on workers.dev changes. Guarded by test/shared/hosts.test.js.
+// The site's hosts. workers.dev serves installed apps and old engine tags: its API is never redirected, only its pages move (27 Oct 2026);
+// jobpilotto.top is a replaceable alias (owner, 10 Oct 2026): its bare name sends people to www. Guarded by test/shared/hosts.test.js.
 export const ALIAS_APEXES = ['jobadabra.top', 'jobpilotto.top'];   // jobadabra.top: the new main address (19 Oct 2026)
 
 // Static pages are served by Workers Assets before this code runs, so the zone's Cloudflare Redirect Rule (<apex>/* -> www, 301, query kept)
@@ -24,11 +24,14 @@ export const OWN_HOSTS = [...ALIAS_APEXES, 'jobpilotto.workers.dev'];
 // page in public/ is missing from either.
 export const MAIN_HOST = 'www.jobadabra.top';
 export const LEGACY_HOSTS = ['www.jobpilotto.top'];   // the bare jobpilotto.top goes through apexRedirect first
+// The workers.dev name moves its pages too (owner, 27 Oct 2026: "https://www.jobpilotto.workers.dev/ this should always redirect (301
+// permanently moved) to jobadabra.top"); its API stays (central-scout.yml PUTs /api/index there). Not in LEGACY_HOSTS: admin-hop reads that.
+const PAGE_MOVED_HOSTS = [...LEGACY_HOSTS, 'www.jobpilotto.workers.dev'];
 export const PAGE_PATHS = ['/', '/changelog', '/compare', '/coverage', '/download', '/faq', '/features', '/friends', '/how-it-works', '/intelligence', '/platforms', '/pricing', '/privacy', '/ready-live', '/research', '/terms', '/trust'];
 export function pageRedirect(request) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   const url = new URL(request.url);
-  if (url.hostname !== MAIN_HOST && !LEGACY_HOSTS.includes(url.hostname)) return null;
+  if (url.hostname !== MAIN_HOST && !PAGE_MOVED_HOSTS.includes(url.hostname)) return null;
   const path = url.pathname.replace(/\.html$/, '').replace(/^\/index$/, '/');
   if (!PAGE_PATHS.includes(path)) return null;
   if (url.hostname === MAIN_HOST && url.protocol === 'https:' && path === url.pathname) return null;   // already its one address
