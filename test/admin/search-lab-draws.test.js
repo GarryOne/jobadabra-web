@@ -86,3 +86,13 @@ test('a wide draw (search robot) keeps its role, place, path, engine, AI dollars
   assert.match(clean({...row, funnel: {looked: -1}}).error, /funnel/);
   assert.match(clean({...row, ai_usd: 'lots'}).error, /ai_usd/);
 });
+
+test('the tab names a wide draw by its role, place, path and funnel', () => {
+  const row = draw(3, {family: 'other', role: 'First Officer', place_kind: 'region', place: 'Europe', city: 'Milan', country: 'Italy', path: 'field-change', engine: 'api', ai_usd: 0.93,
+    funnel: JSON.stringify({kinds: ['finance_admin'], employers_picked: 1025, boards_read: 1, web_searches: 0, looked: 81070}), fit70: 0});
+  const html = page([], [row], 'draws');
+  assert.match(html, /<b>First Officer<\/b> <span class="muted">other<\/span> · Europe \(from Milan\)/);
+  assert.match(html, /field change, 2nd search/);
+  assert.match(html, /kind finance_admin · 1,025 employers · 1 boards · 0 web searches · 81,070 jobs listed · AI \$0\.93/);
+  assert.match(page([], [draw(1)], 'draws'), /<b>nurse<\/b> · Lyon, France/, 'an old draw reads as before');
+});
