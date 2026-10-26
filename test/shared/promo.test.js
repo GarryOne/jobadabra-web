@@ -117,11 +117,13 @@ test('the admin page is the owner\'s: others get 404; a made code is shown once,
   for (const code of codes) assert.ok(!stored.includes(code), 'the code is not stored in plain text');
   assert.ok(/"code_enc":"[^"]+"/.test(stored), 'but it is stored encrypted');
   const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
-  assert.ok(list.includes('1 of 5 people') && codes.every(code => list.includes(code)), 'the owner sees the full code in the list');
+  assert.ok(list.includes('<td class="one-line">1 of 5</td>') && codes.every(code => list.includes(code)), 'the owner sees the full code in the list');
+  // One line per row (owner, 27 Oct 2026): Copy is a small icon at the start of the code.
+  assert.match(list, /<span class="code-cell"><button type="button" class="copy"[^>]*aria-label="Copy the code"[\s\S]*?<\/button><span class="full" id="c-/);
   const other = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: {Authorization: 'Bearer wrong'}}), env, {});
   assert.equal(other.status, 404, 'anyone else gets nothing');
   const keyless = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: undefined}, {})).text();
-  assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('made before full codes: re-make it with the Code field to see it') && keyless.includes("Full codes can't be shown"), 'without the key the code cannot be shown, and the page says why');
+  assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('Made before full codes were kept: re-make it with the Code field to see it') && keyless.includes("Full codes can't be shown"), 'without the key the code cannot be shown, and the page says why');
   const wrongKey = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: 'other'}, {})).text();
   assert.ok(!codes.some(code => wrongKey.includes(code)), 'a wrong key fails closed');
   assert.match(newCode(), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
@@ -160,7 +162,7 @@ test('empty Code still makes a random one; with no key the page says so and fail
   const text = await (await make(env, {code: ''})).text();
   assert.match(text, /\b[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}\b/);
   assert.ok(text.includes("Full codes can't be shown: the site's PROMO_CODE_KEY is not set") && !text.includes('It also stays in the list below'));
-  assert.ok(text.includes('made before full codes: re-make it with the Code field to see it'), 'a row without its copy says how to get it');
+  assert.ok(text.includes('Made before full codes were kept: re-make it with the Code field to see it'), 'a row without its copy says how to get it');
   const keyed = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), site({PROMO_CODE_KEY: 'k', STATS: env.STATS}), {})).text();
   assert.ok(!keyed.includes("Full codes can't be shown"), 'no notice when the key is set');
 });
