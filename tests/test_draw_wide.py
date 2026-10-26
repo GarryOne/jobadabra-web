@@ -189,6 +189,12 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('PUBLIC_REF: ${{ inputs.public_ref }}', step)
         self.assertIn('if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then', step)
 
+    def test_the_log_shows_the_job_boards_the_search_read(self):
+        # 26 Oct 2026: boards_read went 12 -> 0 between a before/after pair and the job log could not say why.
+        step = next(s for s in self.YML.split('      - name: ') if 'run: node jobs/persona-search/board-lines.mjs' in s)
+        self.assertIn('if: always()', step)
+        self.assertIn('node jobs/persona-search/board-lines.mjs "$RUNNER_TEMP/draw-out/draw"', step)
+
     def test_the_kept_artifact_drops_titles_and_sources(self):
         self.assertIn("for(const key of ['top10','sources','local_by_source'])delete row[key]", self.YML)
 
