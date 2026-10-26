@@ -40,13 +40,15 @@ test('the script cuts every apt try, retries once and fails with a message', () 
 });
 
 // Runs the script with a fake sudo, timeout and apt-get on PATH: the first command counts its calls and fails `fails` times before it succeeds.
-function run(fails) {
+function run(fails, {stall = ''} = {}) {
   const bin = mkdtempSync(path.join(os.tmpdir(), 'apt-'));
   const fake = (name, body) => { writeFileSync(path.join(bin, name), `#!/bin/bash\n${body}\n`); chmodSync(path.join(bin, name), 0o755); };
   fake('sudo', 'if [ "$1" = tee ]; then cat >/dev/null; else exec "$@"; fi');
   fake('timeout', 'shift; [ "${1#--kill-after}" != "$1" ] && shift; shift; exec "$@"');
   fake('sleep', 'exit 0');
-  fake('apt-get', `[ "$1" = update ] && exit 0; n=$(cat ${bin}/n 2>/dev/null || echo 0); echo $((n+1)) > ${bin}/n; [ $n -lt ${fails} ] && exit 100; exit 0`);
+  // `stall` = the phase that hangs: it prints apt's last download line and exits 124, as `timeout` does when it cuts a command
+  fake('apt-get', `[ "$1" = update ] && { echo "Hit:1 http://azure.archive.ubuntu.com/ubuntu noble InRelease"; [ "${stall}" = update ] && exit 124; exit 0; }
+n=$(cat ${bin}/n 2>/dev/null || echo 0); echo $((n+1)) > ${bin}/n; [ "${stall}" = install ] && { echo "Get:42 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavcodec60"; exit 124; }; [ $n -lt ${fails} ] && exit 100; exit 0`);
   mkdirSync(path.join(bin, 'apt', 'sources.list.d'), {recursive: true});
   writeFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'URIs: http://azure.archive.ubuntu.com/ubuntu/\n');
   const result = spawnSync('bash', [new URL('tools/apt-install.sh', root).pathname, 'ffmpeg'], {env: {...process.env, PATH: `${bin}:${process.env.PATH}`, APT_DIR: path.join(bin, 'apt')}, encoding: 'utf8'});
@@ -56,7 +58,7 @@ function run(fails) {
 test('a failed first try is retried and the second succeeds', () => {
   const result = run(1);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /ffmpeg ready \(try 2\)/);
+  assert.match(result.stdout, /ffmpeg ready \(try 2, \d+ s\)/);
   assert.match(result.sources, /http:\/\/archive\.ubuntu\.com\/ubuntu/, 'the second try uses another mirror (web #154: the same mirror stalled 3 times)');
 });
 
@@ -70,4 +72,24 @@ test('two failed tries end the step at once with a clear error', () => {
   const result = run(9);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /::error::apt-install: could not install ffmpeg after 2 tries/);
+});
+
+// 26 Oct 2026: main's ffmpeg step stalled ~95 s on both tries at 16:34, 19:07 and 19:21 (green in 14-21 s otherwise) and "apt said:" printed
+// nothing: apt ran with -qq and the try was cut. A failed try now names the phase, cut or exit code, and apt's last download lines.
+test('a stalled install says which phase was cut and the last line apt fetched', () => {
+  const result = run(0, {stall: 'install'});
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /try 1: apt-get install cut after 90 s/);
+  assert.match(result.stderr, /Get:42 http:\/\/azure\.archive\.ubuntu\.com\/ubuntu noble\/universe amd64 libavcodec60/);
+});
+
+test('a stalled update is told apart from a stalled install', () => {
+  const result = run(0, {stall: 'update'});
+  assert.match(result.stderr, /try 1: apt-get update cut after 45 s/);
+  assert.match(result.stderr, /Hit:1 http:\/\/azure/);
+});
+
+test('an apt error is told apart from a cut, and a success says how long it took', () => {
+  assert.match(run(1).stderr, /try 1: apt-get install failed \(exit 100\)/);
+  assert.match(run(0).stdout, /ffmpeg ready \(try 1, \d+ s\)/);
 });
