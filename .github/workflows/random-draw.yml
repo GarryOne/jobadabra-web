@@ -136,7 +136,7 @@ jobs:
         id: alarm_token
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true   # no token: the alarm prints what it would file (below), never a red job
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
