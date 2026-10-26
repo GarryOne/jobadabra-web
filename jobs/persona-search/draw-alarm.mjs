@@ -25,7 +25,7 @@ async function main() {
   const presses = fs.readFileSync(path.join(folder, 'presses.jsonl'), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
   const verdict = file && fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8') || 'null') : null;
   const c = caseOf(JSON.parse(fs.readFileSync(path.join(folder, 'draw.json'), 'utf8')), presses, verdict, option('--run', ''));
-  if (process.argv.includes('--dry')) { console.log(`${c.why.length ? 'WOULD FILE' : 'WOULD PASS'} ${fingerprint(c)}\n${title(c)}\n\n${body(c)}`); return; }
+  if (process.argv.includes('--dry')) { console.log(c.why.length ? `WOULD FILE ${fingerprint(c)}\n${title(c)}\n\n${body(c)}` : `WOULD PASS ${fingerprint(c)} (closes its issue if one is open)`); return; }   // a pass has no issue to print
   console.log(`alarm: ${act(c, {pass: !c.why.length, repo: option('--repo', REPO)})} (${fingerprint(c)})`);
 }
 
