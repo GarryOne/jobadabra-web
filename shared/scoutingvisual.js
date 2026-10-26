@@ -3,7 +3,7 @@
 // fills which kind, and the central scout's last runs. Counts only. Charts: shared/scoutingcharts.js. Tests: test/shared/scoutingvisual.test.js.
 import {C, bars, columns, esc, inkOn, n, shade, sparkline, STEPS, tile} from './scoutingcharts.js';
 import {EUROPE} from './pool-tags.js';
-import {ROLES} from './pool-labels.js';
+import {KINDS, KIND_NAMES} from './pool-labels.js';
 
 export const FLOOR = 25;   // employers per kind and country the scout aims for in the big markets (src/scout_cells.py FLOOR)
 export const BIG = ['de', 'gb', 'fr', 'it', 'es', 'pl', 'nl'], SMALL = ['lu', 'md', 'bg', 'hr', 'ee'];   // src/scout_cells.py BIG, SMALL
@@ -11,11 +11,9 @@ export const BIG = ['de', 'gb', 'fr', 'it', 'es', 'pl', 'nl'], SMALL = ['lu', 'm
 export const floorFor = country => (BIG.includes(country) ? FLOOR : SMALL.includes(country) ? 5 : 10);
 // A count on the colour scale of the big markets: a cell at its own floor takes the colour of 25.
 const scaled = (count, country) => Math.round((count * FLOOR) / floorFor(country));
-export const KINDS = ['software', ...ROLES.slice(ROLES.indexOf('sales_b2b'))];   // src/role_kinds.py KINDS
+export {KINDS};   // src/role_kinds.py KINDS (shared/pool-labels.js)
 export const AIMED = KINDS.filter(kind => !['software', 'other'].includes(kind));   // the kinds the scout fills (src/scout_cells.py AIMED)
-const LABEL = {software: 'Software & IT', sales_b2b: 'B2B sales', sales_retail: 'Retail', logistics: 'Logistics', hospitality: 'Hospitality',
-  healthcare: 'Healthcare', creative_media: 'Creative & media', finance_admin: 'Finance & admin', education: 'Education', trades: 'Trades',
-  other: 'Other', unknown: 'Not counted yet'};
+const LABEL = {...KIND_NAMES, unknown: 'Not counted yet'};
 export const kindName = kind => LABEL[kind] || kind;
 const names = (() => { try { return new Intl.DisplayNames(['en'], {type: 'region'}); } catch { return null; } })();
 export const countryName = code => { try { return names?.of(code.toUpperCase()) || code.toUpperCase(); } catch { return code.toUpperCase(); } };

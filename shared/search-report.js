@@ -4,7 +4,8 @@
 // A city is shown only when 3+ installs share it (k >= 3 at read time). Tests: test/shared/telemetry.test.js.
 import {READ_FIELDS} from './readmethods.js';
 const count = v => Number.isInteger(v) && v >= 0 && v < 1e6;
-export const FAMILIES = ['software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];
+export const FAMILIES = ['software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades',
+  'engineering', 'business_ops', 'manufacturing', 'science', 'customer_service', 'legal', 'aviation_transport', 'public_security', 'other'];
 export const FIELDS = {
   family: v => FAMILIES.includes(v),
   country: v => /^[A-Z]{2}$/.test(v),

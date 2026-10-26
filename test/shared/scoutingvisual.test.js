@@ -56,8 +56,9 @@ test('a cell counts as searched only with 3+ installs; IT families count as soft
 });
 
 test('the kinds are the engine\'s, and the scout aims at every kind but software and other', () => {
-  const engine = readFileSync(new URL('../../src/role_kinds.py', import.meta.url), 'utf8').match(/^KINDS = \((.*)\)$/m)[1];
-  assert.deepEqual(KINDS, [...engine.matchAll(/'([a-z0-9_]+)'/g)].map(m => m[1]));
+  const engine = readFileSync(new URL('../../src/role_kinds.py', import.meta.url), 'utf8').match(/^KINDS = \(([^)]*)\)/m)[1];
+  // the site lands first: its heatmap rows hold every engine kind, maybe more (test/shared/role-kinds.test.js)
+  assert.deepEqual([...engine.matchAll(/'([a-z0-9_]+)'/g)].map(m => m[1]).filter(kind => !KINDS.includes(kind)), []);
   assert.equal(FLOOR, Number(readFileSync(new URL('../../src/scout_cells.py', import.meta.url), 'utf8').match(/^FLOOR = (\d+)/m)[1]));
   assert.deepEqual(AIMED.includes('software') || AIMED.includes('other'), false);
 });

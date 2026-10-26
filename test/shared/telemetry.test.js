@@ -287,5 +287,5 @@ test('a search report keeps only its listed fields, is never a problem, and its 
   assert.equal(JSON.stringify(await problems(e.STATS, 7, new Date('2026-10-19T00:00:00Z'))).includes('Search ('), false);
   const {FAMILIES} = await import('../../shared/search-report.js');
   const py = readFileSync(new URL('../../src/role_kinds.py', import.meta.url), 'utf8').match(/^KINDS = \(([^)]*)\)/m)[1].match(/'(\w+)'/g).map(s => s.slice(1, -1));
-  assert.deepEqual(FAMILIES, py);
+  assert.deepEqual(py.filter(kind => !FAMILIES.includes(kind)), []);   // the site lands first: it keeps every engine kind, maybe more
 });
