@@ -8,11 +8,22 @@ set -uo pipefail
 printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' 'DPkg::Lock::Timeout "60";' 'APT::Install-Recommends "false";' \
   | sudo tee /etc/apt/apt.conf.d/98ci-apt >/dev/null
 cut() { timeout --kill-after=10 "$1" "${@:2}"; }   # a command, ended after $1 seconds
+# The second try uses Ubuntu's own archive instead of the runner's Azure mirror (26 Oct 2026: web #154 failed 3 times in a row on a stalled
+# mirror, 16:13-16:22): a mirror that is down stays down for minutes, so the same mirror again rarely helps.
+apt_dir="${APT_DIR:-/etc/apt}"   # tests point it at a folder of their own
+other_mirror() {
+  for file in "$apt_dir"/sources.list "$apt_dir"/sources.list.d/*.sources; do
+    [ -f "$file" ] && sudo perl -pi -e 's#https?://azure\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' "$file"
+  done
+  echo "apt-install: try 2 on archive.ubuntu.com" >&2
+}
 for attempt in 1 2; do
-  if cut 45 sudo apt-get update -qq && cut 90 sudo apt-get install -y -qq "$@" >/dev/null; then
+  [ "$attempt" = 2 ] && other_mirror
+  log="$(mktemp)"   # apt's own words: shown when a try fails, so a stall names its source (a mirror, a third-party list, a lock)
+  if cut 45 sudo apt-get update -qq >"$log" 2>&1 && cut 90 sudo apt-get install -y -qq "$@" >>"$log" 2>&1; then
     echo "apt-install: $* ready (try $attempt)"; exit 0
   fi
-  echo "apt-install: try $attempt stalled or failed, ${attempt}/2" >&2; sleep 5
+  echo "apt-install: try $attempt stalled or failed, ${attempt}/2; apt said:" >&2; tail -n 15 "$log" >&2; sleep 5
 done
 echo "::error::apt-install: could not install $* after 2 tries, a package mirror stalled or is down; re-run the job" >&2
 exit 1
