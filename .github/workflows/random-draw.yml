@@ -1,21 +1,22 @@
-# RANDOM DRAW EVERY 2ND DAY (owner, 18 Oct 2026, "daily CI job", cut to every 2nd day after the first two draws cost $1.69; Lab Job Search sketch https://claude.ai/artifact/7CCeNanG2kxhGqqRTCAQ3P).
+# RANDOM DRAW, DAILY (owner, 18 Oct 2026, "daily CI job"; every 2nd day from the first API draws ($1.69) until 26 Oct 2026, daily again on Free AI; Lab Job Search sketch https://claude.ai/artifact/7CCeNanG2kxhGqqRTCAQ3P).
 # The search robot (owner, 26 Oct 2026: "why we don't find these gaps with our automatic tooling?"; sketch https://claude.ai/artifact/5PjZZy6TyTBNQZYB6PaofR): the draw is from everywhere
 # (jobs/persona-search/draw_wide.py): any role kind of the app's list with a role the AI makes up, a city, country, region or remote place written as the wizard note, and a path:
 # the first search, a field change then a 2nd search (run.mjs --change-field), or the same search again. A fictional CV, a fresh throwaway install (tools/persona-search/run.mjs
-# --engine api: its own temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts, funnel and AI dollars go to /admin/lab-job-search "Random draws"
-# (jobs/persona-search/draw-upload.mjs, main only). Daily once the measured draws are reported (owner's yes, 26 Oct 2026: about $25-40 a month at most).
+# on Free AI: its own temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts, funnel and AI dollars go to /admin/lab-job-search "Random draws"
+# (jobs/persona-search/draw-upload.mjs, main only). Daily (owner's yes, 26 Oct 2026, "about $25-40 a month at most"): measured on Free AI $0.05-0.16 a draw (mean $0.12,
+# about $3.50 a month) and 14-33 Actions minutes (about 800 a month of the repo's ~4,000).
 # - Synthetic only: nothing is read from or written to a real user's data; its rows are tagged CI and are never mixed with the Real installs tab.
-# - AI: the Anthropic API on its OWN key (secret RANDOM_DRAWS_ANTHROPIC_KEY, Keychain job-pilotto.anthropic.random_draws_key, the Jobadabra Tests workspace). The
-#   monthly cap is that key's workspace spend limit; the job also stops at 45 minutes. OFF until the repository variable RANDOM_DRAWS_ON is "true".
+# - AI: Free AI only (owner, 26 Oct 2026: "I don't want to top up anymore"): the site's handler on the runner on the draws' own Workers AI token (secrets
+#   RANDOM_DRAWS_CF_*), production's per-install cap ($0.50 a draw); the job also stops at 45 minutes. OFF until the repository variable RANDOM_DRAWS_ON is "true".
 # - Sites: data-centre IPs are refused by many boards; a refusal shows as "not reached" and is never retried or worked around (never past a login wall, captcha or 401/403/429).
 # - A re-run of a bad day: Run workflow with that day's seed (YYYY-MM-DD), and the role it drew (draw.json in the artifact) to keep the same role.
 # - The kept artifact is counts only (counts.json, draw.json): the search's top-10 job titles and source names stay out of it.
 # Guard: tests/test_draw_wide.py, test/admin/search-lab-draws.test.js, test/jobs/search-alarm.test.js.
-name: CI · Random draw (every 2nd day)
+name: CI · Random draw (daily)
 
 on:
   schedule:
-    - cron: '30 4 1-31/2 * *'   # every 2nd day (odd days of the month) until the measured draws are reported; then daily
+    - cron: '30 4 * * *'   # daily (measured on Free AI, 26 Oct 2026)
   workflow_dispatch:
     inputs:
       seed:
