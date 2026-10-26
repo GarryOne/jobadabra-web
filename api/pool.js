@@ -87,13 +87,15 @@ const BOARDS = ['jobsch', 'arbeitnow', 'himalayas', 'jobicy', 'adzuna', 'jooble'
 export const HOW = ['ai_idea', 'ai_list', 'jobs_ch', 'wikidata', 'seed', 'hn', 'whiteboards', 'swissdevjobs', 'index', 'own', 'other'];
 const siteOf = value => { try { const url = new URL(String(value || '')); return url.protocol === 'https:' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(url.hostname) ? url.href.slice(0, 200) : null; } catch { return null; } };
 const count = value => (Number.isFinite(value) ? Math.max(0, Math.min(100000, Math.round(value))) : null);
+const seconds = value => (Number.isFinite(value) && value >= 0 ? Math.min(3600, Math.round(value * 10) / 10) : null);   // how long a source's read took (api/source-ranking.js)
 const day = date => date.toISOString().slice(0, 10);
 // D1 bills rows written (2,447 shares a day wrote 6k rows, 12 Oct 2026): a share that changes nothing since the same install's earlier one TODAY writes nothing. `day` still moves
 // once a day: the daily rollup counts "touched in the last day" as who was active (src/contribute.py REFRESH).
 const CHANGED_CONTRIBUTION = `day IS NOT excluded.day OR company IS NOT excluded.company OR matched IS NOT MAX(matched, excluded.matched) OR own IS NOT MAX(own, excluded.own)
   OR roles IS NOT excluded.roles OR regions IS NOT excluded.regions OR countries IS NOT excluded.countries OR metros IS NOT excluded.metros OR families IS NOT excluded.families
   OR (how IS NULL AND excluded.how IS NOT NULL) OR (excluded.jobs IS NOT NULL AND jobs IS NOT excluded.jobs) OR (excluded.hits IS NOT NULL AND hits IS NOT excluded.hits)
-  OR (excluded.site IS NOT NULL AND site IS NOT excluded.site) OR failed IS NOT excluded.failed OR (excluded.out_json IS NOT NULL AND out_json IS NOT excluded.out_json) OR ai_family IS NOT excluded.ai_family`;
+  OR (excluded.site IS NOT NULL AND site IS NOT excluded.site) OR failed IS NOT excluded.failed
+  OR (excluded.local IS NOT NULL AND (local IS NOT excluded.local OR fit70 IS NOT excluded.fit70 OR seconds IS NOT excluded.seconds)) OR (excluded.out_json IS NOT NULL AND out_json IS NOT excluded.out_json) OR ai_family IS NOT excluded.ai_family`;
 
 export async function hashed(env, install) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${env.STATS_SALT || ''}|pool|${install}`));
@@ -123,7 +125,8 @@ export async function contribute(request, env, now = new Date()) {
     if (item.out) drop('out', outDrops(item.out));
     seen.add(`${item.ats}:${item.slug}`);
     feeds.push({ats: item.ats, slug: item.slug, company: item.company.trim().slice(0, 120), matched: item.matched ? 1 : 0, own: item.own ? 1 : 0,
-      how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0, out: outOf(item.out)});
+      how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0, out: outOf(item.out),
+      local: count(item.local), fit70: item.local == null ? null : count(item.fit70) ?? 0, seconds: item.local == null ? null : seconds(item.seconds)});   // jobs located in this install's places (api/source-ranking.js)
   }
   // "No readable job site" (v2): a company name and its website host, both checked; the same key as the scout's (src/scout.py key_for).
   const nofeed = [], keys = new Set();
@@ -145,7 +148,7 @@ export async function contribute(request, env, now = new Date()) {
     if (!host || !kind || (kind === 'jobpage' && !url) || (['layout', 'board', 'browser_read', 'route'].includes(kind) && !body) || facts.has(`${host}|${kind}`) || /^e2e/.test(host)) { drop('sites'); continue; }
     facts.add(`${host}|${kind}`);
     const given = kind === 'board' && item.yield && typeof item.yield === 'object' ? item.yield : null;   // what the board gave this install (PR 6, 18 Oct 2026)
-    sites.push({host, kind, url: ['browser', 'layout', 'browser_read', 'route'].includes(kind) ? null : url, body, yield: given && {in_places: count(given.in_places) ?? 0, fit70: count(given.fit70) ?? 0}});
+    sites.push({host, kind, url: ['browser', 'layout', 'browser_read', 'route'].includes(kind) ? null : url, body, yield: given && {in_places: count(given.in_places) ?? 0, fit70: count(given.fit70) ?? 0, seconds: seconds(given.seconds)}});
   }
   const candidates = cleanCandidates(body.candidates);   // the daily discovery batch's input (shared/discovery-candidates.js)
   drop('candidates', (Array.isArray(body.candidates) ? Math.min(body.candidates.length, MAX_CANDIDATES) : 0) - candidates.length);
@@ -166,26 +169,29 @@ export async function contribute(request, env, now = new Date()) {
   if (kv) await kv.put(minute, String(used + 1), {expirationTtl: 120});
   const today = day(now);
   // matched / own: a one-item share made the same day (matched false) must not undo what that day's jobs check saw.
-  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed, out_json, countries, metros, families, ai_family)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed, out_json, countries, metros, families, ai_family, local, fit70, seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, ats, slug) DO UPDATE SET company = excluded.company,
       matched = CASE WHEN day = excluded.day THEN MAX(matched, excluded.matched) ELSE excluded.matched END,
       own = CASE WHEN day = excluded.day THEN MAX(own, excluded.own) ELSE excluded.own END, day = excluded.day,
       roles = excluded.roles, regions = excluded.regions, countries = excluded.countries, metros = excluded.metros, families = excluded.families, how = COALESCE(how, excluded.how), jobs = COALESCE(excluded.jobs, jobs),
-      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family
+      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family,
+      local = COALESCE(excluded.local, local), fit70 = COALESCE(excluded.fit70, fit70), seconds = CASE WHEN excluded.local IS NULL THEN seconds ELSE excluded.seconds END
       WHERE ${CHANGED_CONTRIBUTION}`)
     .bind(install, today, feed.ats, feed.slug, feed.company, feed.matched, feed.own, roles.join(','), regions.join(','), feed.how, feed.jobs, feed.hits,
-      feed.site, feed.failed, feed.out, ...fine, aiFamily));
+      feed.site, feed.failed, feed.out, ...fine, aiFamily, feed.local, feed.fit70, feed.seconds));
   for (const item of nofeed) {
     statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host, ai_family, outcome) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host), ai_family = excluded.ai_family, outcome = excluded.outcome WHERE day IS NOT excluded.day OR (excluded.host IS NOT NULL AND host IS NOT excluded.host) OR ai_family IS NOT excluded.ai_family OR outcome IS NOT excluded.outcome')
       .bind(install, today, item.key, item.company, item.host, aiFamily, item.outcome));
   }
   for (const item of sites) {
-    statements.push(env.STATS.prepare(`INSERT INTO sitefacts (install, day, host, kind, url, body, in_places, fit70, countries, families) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    statements.push(env.STATS.prepare(`INSERT INTO sitefacts (install, day, host, kind, url, body, in_places, fit70, countries, families, seconds, roles) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body, in_places = excluded.in_places, fit70 = excluded.fit70,
-      countries = excluded.countries, families = excluded.families WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body
-        OR in_places IS NOT excluded.in_places OR fit70 IS NOT excluded.fit70 OR countries IS NOT excluded.countries OR families IS NOT excluded.families`)
-      .bind(install, today, item.host, item.kind, item.url, item.body, item.yield?.in_places ?? null, item.yield?.fit70 ?? null, item.yield ? fine[0] : null, item.yield ? fine[2] : null));
+      countries = excluded.countries, families = excluded.families, seconds = excluded.seconds, roles = excluded.roles WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body
+        OR in_places IS NOT excluded.in_places OR fit70 IS NOT excluded.fit70 OR countries IS NOT excluded.countries OR families IS NOT excluded.families
+        OR seconds IS NOT excluded.seconds OR roles IS NOT excluded.roles`)
+      .bind(install, today, item.host, item.kind, item.url, item.body, item.yield?.in_places ?? null, item.yield?.fit70 ?? null, item.yield ? fine[0] : null, item.yield ? fine[2] : null,
+        item.yield?.seconds ?? null, item.yield ? roles.join(',') : null));
   }
   statements.push(...candidateStatements(env.STATS, install, today, candidates));
   for (const item of boards) {
