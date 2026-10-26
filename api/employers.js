@@ -2,7 +2,6 @@
 // {install, purpose: 'index'}) and at most INDEX_PER_INSTALL_PER_DAY times a day; GET /api/index?summary=1 is public and holds only the counts;
 // PUT /api/index (Bearer INDEX_PUBLISH_KEY) is the private central scout (repo GarryOne/jobadabra-lab) publishing it.
 // Product data only: feeds, quality, last verified. Nothing about any user. Stored as one KV value (binding WAITLIST).
-import {sourceRanking} from './source-ranking.js';
 import {REGIONS, ROLES} from '../shared/pool-labels.js';
 import {poolSnapshot, pooledKeys, storePoolSnapshot} from '../shared/pool-snapshot.js';
 import {COUNTRIES, FAMILIES, METROS} from '../shared/pool-tags.js';
@@ -130,9 +129,8 @@ async function slice(env, regions) {
   const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]').filter(item => !/^e2e/.test(item?.key || ''));   // stored before the filter
   const boards = JSON.parse((await env.WAITLIST?.get(BOARDS_KEY)) || '[]');
   const sites = await agreedSites(env);
-  const ranking = await sourceRanking(env);   // each role kind × country's sources, best first (api/source-ranking.js)
   const generated = (await env.WAITLIST?.get(GENERATED_KEY)) || rows.reduce((last, row) => (row.generated > last ? row.generated : last), '');   // the publish's own time: rows a publish left unchanged keep an older one
-  return JSON.stringify({version: 2, generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards, ...(sites.length ? {sites} : {}), ...(Object.keys(ranking).length ? {ranking} : {})});
+  return JSON.stringify({version: 2, generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards, ...(sites.length ? {sites} : {})});
 }
 
 // Facts about sites that at least SITES_K installs shared in the last 90 days (api/pool.js sitefacts): a company's job page, a site only a
