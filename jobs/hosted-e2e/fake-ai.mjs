@@ -1,18 +1,49 @@
 // A stand-in for Workers AI (env.AI) in the hosted e2e: no model, no cost. A structured ask (response_format json_schema) is answered with a value that fits the schema
-// (numbers high, text "ok", lists empty), so every AI step the engine takes in a scheduled search gets a valid answer; the calls are counted for the debit check.
-export function fromSchema(schema) {
+// (numbers high, text "ok", the first allowed answer), so every AI step the engine takes in a scheduled search gets a valid answer; the calls are counted for the debit check.
+// A list question about numbered items ("1. Zürich, CH" lines, or decide's "### Item 0" blocks) gets one entry per item; the two place questions (src/geo.py: where a
+// string is; src/ai/place_triage.py: is a job location in the person's places) get a fixed answer for the fixture's places (Zurich, Switzerland), "unknown"/"out" for
+// the rest (26 Oct 2026: answered with [], no job was placed once places were the AI's first, and no match reached the inbox). Test: test/jobs/hosted-fake-ai.test.js.
+const ZURICH = {kind: 'city', cc: 'CH', lat: 47.37, lon: 8.54, r_km: 20, where: 'Zurich', country: 'Switzerland', nearest: 'zurich', km: 0, answer: 'best'};
+const SWISS = {kind: 'country', cc: 'CH', lat: 0, lon: 0, r_km: 0, where: '', country: 'Switzerland', nearest: 'zurich', km: -1, answer: 'inside'};
+const REMOTE = {kind: 'remote', cc: '', lat: 0, lon: 0, r_km: 0, where: '', country: '', nearest: 'none', km: -1, answer: 'out'};
+const ELSEWHERE = {kind: 'unknown', cc: '', lat: 0, lon: 0, r_km: 0, where: '', country: '', nearest: 'none', km: -1, answer: 'out'};
+
+function place(text) {
+  if (/z(u|ü|ue)ri/i.test(text)) return ZURICH;
+  if (/remote/i.test(text)) return REMOTE;
+  if (/switzerland|schweiz|suisse|svizzera|\bCH\b|\bBern\b/i.test(text)) return SWISS;
+  return ELSEWHERE;
+}
+
+export function listed(text) {
+  const blocks = [...String(text).matchAll(/^### Item (\d+)\n([^\n]*)/gm)].map(m => ({n: Number(m[1]), text: m[2]}));
+  return blocks.length ? blocks : [...String(text).matchAll(/^(\d+)\. (.+)$/gm)].map(m => ({n: Number(m[1]), text: m[2]}));
+}
+
+export function fromSchema(schema, items = []) {
   if (!schema || typeof schema !== 'object') return null;
   if ('const' in schema) return schema.const;
   if (schema.enum) return schema.enum[0];
   const pick = schema.anyOf || schema.oneOf;
-  if (pick) return fromSchema(pick.find(part => part.type !== 'null') || pick[0]);
+  if (pick) return fromSchema(pick.find(part => part.type !== 'null') || pick[0], items);
   const type = Array.isArray(schema.type) ? schema.type.find(t => t !== 'null') : schema.type;
-  if (type === 'object') return Object.fromEntries(Object.entries(schema.properties || {}).map(([key, part]) => [key, fromSchema(part)]));
-  if (type === 'array') return [];
+  if (type === 'object') return Object.fromEntries(Object.entries(schema.properties || {}).map(([key, part]) => [key, fromSchema(part, items)]));
+  if (type === 'array') {
+    const props = schema.items?.properties || {};
+    const key = ['n', 'index'].find(name => name in props);
+    if (!key) return [];
+    const placed = 'cc' in props || 'nearest' in props;
+    return items.map(item => {
+      const facts = placed ? place(item.text) : {};
+      return Object.fromEntries(Object.entries(props).map(([name, part]) => [name, name === key ? item.n : name in facts ? facts[name] : fromSchema(part)]));
+    });
+  }
   if (type === 'integer' || type === 'number') return Math.min(schema.maximum ?? 85, Math.max(schema.minimum ?? 0, 85));
   if (type === 'boolean') return true;
   return 'ok';
 }
+
+const textOf = content => typeof content === 'string' ? content : Array.isArray(content) ? content.map(part => part?.text || '').join('\n') : '';
 
 export function fakeAi() {
   const calls = [];
@@ -21,7 +52,8 @@ export function fakeAi() {
     async run(model, input) {
       const schema = input.response_format?.json_schema?.schema;
       calls.push({model, structured: !!schema});
-      return {response: JSON.stringify(schema ? fromSchema(schema) : {ok: true}), usage: {prompt_tokens: 1200, completion_tokens: 80}};
+      const asked = (input.messages || []).filter(message => message.role === 'user').map(message => textOf(message.content)).join('\n');
+      return {response: JSON.stringify(schema ? fromSchema(schema, listed(asked)) : {ok: true}), usage: {prompt_tokens: 1200, completion_tokens: 80}};
     },
     async toMarkdown() { return [{data: ''}]; },
   };
