@@ -1,0 +1,12 @@
+{
+ "_about": "The search robot's places beyond the 40 cities of tools/persona-search/draws.json (owner, 26 Oct 2026: 'pilot, Europe: 0 jobs' was never drawn). A region names the countries a home city is picked from; the note says only the region's own word, as a person types it.",
+ "regions": [
+  {"name": "Europe", "countries": ["Austria", "Belgium", "Bulgaria", "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany", "Hungary", "Ireland", "Italy", "Netherlands", "Norway", "Poland", "Portugal", "Romania", "Spain", "Sweden", "Switzerland"]},
+  {"name": "DACH", "countries": ["Germany", "Austria", "Switzerland"]},
+  {"name": "the Nordics", "countries": ["Denmark", "Finland", "Norway", "Sweden"]},
+  {"name": "Benelux", "countries": ["Belgium", "Netherlands"]},
+  {"name": "Iberia", "countries": ["Spain", "Portugal"]},
+  {"name": "Central and Eastern Europe", "countries": ["Poland", "Czechia", "Hungary", "Romania", "Bulgaria", "Croatia"]},
+  {"name": "the EU", "countries": ["Austria", "Belgium", "Bulgaria", "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany", "Hungary", "Ireland", "Italy", "Netherlands", "Poland", "Portugal", "Romania", "Spain", "Sweden"]}
+ ]
+}
