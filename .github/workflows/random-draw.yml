@@ -1,23 +1,33 @@
-# RANDOM DRAW EVERY 2ND DAY (owner, 18 Oct 2026, "daily CI job", cut to every 2nd day after the first two draws cost $1.69; Lab Job Search sketch https://claude.ai/artifact/7CCeNanG2kxhGqqRTCAQ3P): one random role family in one random European city,
-# a fictional CV (tools/persona-search/draw.py, lists in draws.json), a fresh throwaway install through the first "Find jobs" (tools/persona-search/run.mjs --engine api: its own
-# temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts go to /admin/lab-job-search "Random draws" (jobs/persona-search/draw-upload.mjs, main only).
+# RANDOM DRAW EVERY 2ND DAY (owner, 18 Oct 2026, "daily CI job", cut to every 2nd day after the first two draws cost $1.69; Lab Job Search sketch https://claude.ai/artifact/7CCeNanG2kxhGqqRTCAQ3P).
+# The search robot (owner, 26 Oct 2026: "why we don't find these gaps with our automatic tooling?"; sketch https://claude.ai/artifact/5PjZZy6TyTBNQZYB6PaofR): the draw is from everywhere
+# (jobs/persona-search/draw_wide.py): any role kind of the app's list with a role the AI makes up, a city, country, region or remote place written as the wizard note, and a path:
+# the first search, a field change then a 2nd search (run.mjs --change-field), or the same search again. A fictional CV, a fresh throwaway install (tools/persona-search/run.mjs
+# --engine api: its own temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts, funnel and AI dollars go to /admin/lab-job-search "Random draws"
+# (jobs/persona-search/draw-upload.mjs, main only). Daily once the measured draws are reported (owner's yes, 26 Oct 2026: about $25-40 a month at most).
 # - Synthetic only: nothing is read from or written to a real user's data; its rows are tagged CI and are never mixed with the Real installs tab.
-# - AI: the Anthropic API on its OWN key (secret RANDOM_DRAWS_ANTHROPIC_KEY, Keychain job-pilotto.anthropic.random_draws_key, the Jobadabra Tests workspace), one draw every 2nd day. The
-#   monthly cap is that key's workspace spend limit; the job also stops at 25 minutes. OFF until the repository variable RANDOM_DRAWS_ON is "true" (the owner turns it on after
-#   the first measured draw's cost is reported).
+# - AI: the Anthropic API on its OWN key (secret RANDOM_DRAWS_ANTHROPIC_KEY, Keychain job-pilotto.anthropic.random_draws_key, the Jobadabra Tests workspace). The
+#   monthly cap is that key's workspace spend limit; the job also stops at 45 minutes. OFF until the repository variable RANDOM_DRAWS_ON is "true".
 # - Sites: data-centre IPs are refused by many boards; a refusal shows as "not reached" and is never retried or worked around (never past a login wall, captcha or 401/403/429).
-# - A re-run of a bad day: Run workflow with that day's seed (YYYY-MM-DD).
-# - The kept artifact is counts only (counts.json, draw.json): the search's top-10 job titles stay out of it.
-# Guard: tests/test_draw.py, test/admin/search-lab-draws.test.js.
+# - A re-run of a bad day: Run workflow with that day's seed (YYYY-MM-DD), and the role it drew (draw.json in the artifact) to keep the same role.
+# - The kept artifact is counts only (counts.json, draw.json): the search's top-10 job titles and source names stay out of it.
+# Guard: tests/test_draw_wide.py, test/admin/search-lab-draws.test.js.
 name: CI · Random draw (every 2nd day)
 
 on:
   schedule:
-    - cron: '30 4 1-31/2 * *'   # every 2nd day (odd days of the month): about 15 draws a month, about $0.85 each (owner, 18 Oct 2026, $15 cap)
+    - cron: '30 4 1-31/2 * *'   # every 2nd day (odd days of the month) until the measured draws are reported; then daily
   workflow_dispatch:
     inputs:
       seed:
         description: 'Seed, YYYY-MM-DD (empty: today, UTC)'
+        type: string
+        default: ''
+      role:
+        description: 'A fixed role title (a re-run of a gap, e.g. First Officer); empty: the AI makes one up'
+        type: string
+        default: ''
+      public_ref:
+        description: 'The public repo branch or sha to draw on (a PR under test); empty: main'
         type: string
         default: ''
 
@@ -32,13 +42,15 @@ jobs:
   draw:
     if: github.event_name == 'workflow_dispatch' || vars.RANDOM_DRAWS_ON == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45   # a 2-search path takes about twice the first search's 15 minutes
     steps:
       - uses: actions/checkout@v5
         with:
           path: .private
       - name: Lay the public repo's tree under this one
-        run: .private/tools/tree.sh
+        env:
+          PUBLIC_REF: ${{ inputs.public_ref }}
+        run: .private/tools/tree.sh --ref "${PUBLIC_REF:-main}"
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -53,21 +65,27 @@ jobs:
         run: node scripts/stage.mjs --files-only
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
-      - name: Draw the candidate
+      - name: Draw the candidate (any field, place and path; the AI names the role)
         id: draw
         env:
           SEED_INPUT: ${{ inputs.seed }}
-        shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
+          ROLE_INPUT: ${{ inputs.role }}
+          RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
         run: |
+          set -o pipefail   # a failed draw must stop here, not as a missing draw.json in the next step
           seed="${SEED_INPUT:-$(date -u +%F)}"
           echo "seed=$seed" >> "$GITHUB_OUTPUT"
-          python3 tools/persona-search/draw.py "$seed" "$RUNNER_TEMP/draw-out" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Search as that candidate (first Find jobs, live)
+          # --engines api until the Free AI draw lands (its own Workers AI token: secret RANDOM_DRAWS_CF_AI_TOKEN)
+          python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines api ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Search as that candidate (live, the drawn path)
         env:
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
         run: |
           set -o pipefail   # a crash in the harness must fail this step, not just the tee's exit
-          node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses 1 --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log"
+          folder="$RUNNER_TEMP/draw-out/draw"
+          presses=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['presses'])" "$folder/draw.json")
+          field=(); [ -f "$folder/field.json" ] && field=(--change-field "$folder/field.json")
+          node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses "$presses" --note "$folder/note.txt" "${field[@]}" --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log"
       - name: Send the counts to /admin
         if: github.ref == 'refs/heads/main'
         env:
@@ -78,7 +96,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/keep"
           cp "$RUNNER_TEMP/draw-out/draw/draw.json" "$RUNNER_TEMP/keep/" || true
-          node -e "const fs=require('fs');const f=process.argv[1];if(!fs.existsSync(f))process.exit(0);const row=JSON.parse(fs.readFileSync(f,'utf8').split('\\n').filter(Boolean)[0]);delete row.top10;fs.writeFileSync(process.argv[2],JSON.stringify(row))" "$RUNNER_TEMP/draw-out/draw/presses.jsonl" "$RUNNER_TEMP/keep/counts.json"
+          node -e "const fs=require('fs');const f=process.argv[1];if(!fs.existsSync(f))process.exit(0);const rows=fs.readFileSync(f,'utf8').split('\\n').filter(Boolean).map(line=>{const row=JSON.parse(line);for(const key of ['top10','sources','local_by_source'])delete row[key];return row});fs.writeFileSync(process.argv[2],JSON.stringify(rows))" "$RUNNER_TEMP/draw-out/draw/presses.jsonl" "$RUNNER_TEMP/keep/counts.json"
       - uses: actions/upload-artifact@v6
         if: always()
         with:

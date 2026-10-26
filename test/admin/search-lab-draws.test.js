@@ -69,3 +69,30 @@ test('rowFromDraw reads the harness numbers; a crash is FAILED, never thin numbe
   assert.deepEqual([rowFromDraw(info, press, {build: 'abc1234'}).state, rowFromDraw(info, press, {build: 'abc1234'}).first_s], ['ok', 42]);
   assert.equal(rowFromDraw(info, {...press, crashes: [{step: 'Reading job boards', error: 'x'}]}, {build: 'abc1234'}).state, 'failed');
 });
+
+test('a wide draw (search robot) keeps its role, place, path, engine, AI dollars and funnel; the measured search is the last press', async () => {
+  const info = {seed: '2026-11-03', kind: 'other', role: {title: 'First Officer'}, place_kind: 'region', place: 'Europe', city: 'Milan', country: 'Italy', path: 'field-change', engine: 'api'};
+  const first = {in_places: 155, scored_in_places: 106, fit70_in_places: 2, ttfr: {first_in_places_s: 62}, crashes: [], funnel: {ai_usd: 0.61, looked: 9000}};
+  const second = {in_places: 14781, scored_in_places: 3, fit70_in_places: 0, crashes: [], funnel: {ai_usd: 0.32, looked: 81070, web_searches: 0, boards_read: 1, kinds: ['finance_admin'], top10: ['x']}};
+  const row = rowFromDraw(info, [first, second], {build: 'abc1234'});
+  assert.deepEqual([row.family, row.role, row.place, row.path, row.fit70, row.first_s, row.ai_usd], ['other', 'First Officer', 'Europe', 'field-change', 0, null, 0.93]);
+  assert.deepEqual(row.funnel, {looked: 81070, web_searches: 0, boards_read: 1, kinds: ['finance_admin']}, 'fixed counts only, nothing else from the press');
+  const {prepare} = d1();
+  assert.equal((await ingest({prepare}, row)).ok, true);
+  const [kept] = await draws({prepare});
+  assert.deepEqual([kept.place_kind, kept.engine, kept.ai_usd, JSON.parse(kept.funnel).looked], ['region', 'api', 0.93, 81070]);
+  assert.ok(!judge([kept])[0].why.includes('no relevant job reached'), 'a 2nd search is not judged on first-press times');
+  assert.match(clean({...row, path: 'sideways'}).error, /path/);
+  assert.match(clean({...row, funnel: {looked: -1}}).error, /funnel/);
+  assert.match(clean({...row, ai_usd: 'lots'}).error, /ai_usd/);
+});
+
+test('the tab names a wide draw by its role, place, path and funnel', () => {
+  const row = draw(3, {family: 'other', role: 'First Officer', place_kind: 'region', place: 'Europe', city: 'Milan', country: 'Italy', path: 'field-change', engine: 'api', ai_usd: 0.93,
+    funnel: JSON.stringify({kinds: ['finance_admin'], employers_picked: 1025, boards_read: 1, web_searches: 0, looked: 81070}), fit70: 0});
+  const html = page([], [row], 'draws');
+  assert.match(html, /<b>First Officer<\/b> <span class="muted">other<\/span> · Europe \(from Milan\)/);
+  assert.match(html, /field change, 2nd search/);
+  assert.match(html, /kind finance_admin · 1,025 employers · 1 boards · 0 web searches · 81,070 jobs listed · AI \$0\.93/);
+  assert.match(page([], [draw(1)], 'draws'), /<b>nurse<\/b> · Lyon, France/, 'an old draw reads as before');
+});
