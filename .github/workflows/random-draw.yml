@@ -110,6 +110,7 @@ jobs:
           GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -o pipefail
           [ -f "$RUNNER_TEMP/draw-out/draw/presses.jsonl" ] || { echo "no search ran: nothing to judge"; exit 0; }
           if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
           else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
