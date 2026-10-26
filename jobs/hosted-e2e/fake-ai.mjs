@@ -1,8 +1,8 @@
 // A stand-in for Workers AI (env.AI) in the hosted e2e: no model, no cost. A structured ask (response_format json_schema) is answered with a value that fits the schema
 // (numbers high, text "ok", the first allowed answer), so every AI step the engine takes in a scheduled search gets a valid answer; the calls are counted for the debit check.
-// A list question about numbered items ("1. Zürich, CH" lines, or decide's "### Item 0" blocks) gets one entry per item; the two place questions (src/geo.py: where a
-// string is; src/ai/place_triage.py: is a job location in the person's places) get a fixed answer for the fixture's places (Zurich, Switzerland), "unknown"/"out" for
-// the rest (26 Oct 2026: answered with [], no job was placed once places were the AI's first, and no match reached the inbox). Test: test/jobs/hosted-fake-ai.test.js.
+// The two place questions (src/geo.py: where a string is; src/ai/place_triage.py: is a job location in the person's places) get one entry per numbered item, a fixed
+// answer for the fixture's places (Zurich, Switzerland), "unknown"/"out" for the rest (26 Oct 2026: answered with [], no job was placed once places were the AI's first,
+// and no match reached the inbox). Other lists stay empty: the first allowed answer for each item made "zurich" the Geneva metro. Test: test/jobs/hosted-fake-ai.test.js.
 const ZURICH = {kind: 'city', cc: 'CH', lat: 47.37, lon: 8.54, r_km: 20, where: 'Zurich', country: 'Switzerland', nearest: 'zurich', km: 0, answer: 'best'};
 const SWISS = {kind: 'country', cc: 'CH', lat: 0, lon: 0, r_km: 0, where: '', country: 'Switzerland', nearest: 'zurich', km: -1, answer: 'inside'};
 const REMOTE = {kind: 'remote', cc: '', lat: 0, lon: 0, r_km: 0, where: '', country: '', nearest: 'none', km: -1, answer: 'out'};
@@ -31,10 +31,9 @@ export function fromSchema(schema, items = []) {
   if (type === 'array') {
     const props = schema.items?.properties || {};
     const key = ['n', 'index'].find(name => name in props);
-    if (!key) return [];
-    const placed = 'cc' in props || 'nearest' in props;
+    if (!key || !('cc' in props || 'nearest' in props)) return [];
     return items.map(item => {
-      const facts = placed ? place(item.text) : {};
+      const facts = place(item.text);
       return Object.fromEntries(Object.entries(props).map(([name, part]) => [name, name === key ? item.n : name in facts ? facts[name] : fromSchema(part)]));
     });
   }

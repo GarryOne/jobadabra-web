@@ -27,9 +27,8 @@ test('the job-location question answers best for Zurich, inside for Switzerland,
   assert.deepEqual(locations.map(l => [l.n, l.answer]), [[1, 'best'], [2, 'inside'], [3, 'out']]);
 });
 
-test("decide's numbered items get an answer each, from the allowed list", async () => {
-  const {results} = await ask(DECIDE, 'Task: kind\n\n### Item 0\nSRE\n\n### Item 1\nPlatform Engineer');
-  assert.deepEqual(results.map(r => [r.index, r.answer]), [[0, 'software'], [1, 'software']]);
+test("other list questions stay unanswered: a first allowed answer per item would be a wrong one (zurich as the Geneva metro)", async () => {
+  assert.deepEqual(await ask(DECIDE, 'Task: kind\n\n### Item 0\nzurich\n\n### Item 1\nPlatform Engineer'), {results: []});
 });
 
 test('a list with no numbered items stays empty', async () => {
