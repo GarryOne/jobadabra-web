@@ -4,6 +4,7 @@
 import {OFFERS, packageOf, rawToCredit} from './pro-packages.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {promoActive} from './promo.js';
+import {installCredit} from './install-credit.js';
 
 // The key ai_calls.who has for an install (aicost.js digests the install's digest again, keeps 8 characters): join pro_devices.install to ai_calls through it.
 export const aiCallsKey = async install => (await digestOf(await digestOf(install))).slice(0, 8);
@@ -79,9 +80,11 @@ export async function status(request, env) {
   const account = planOn(env) ? await accountOf(env, given.install) : null;   // promo mode: no paid accounts, no offers
   // The offers to show (ids, euro prices, the list price), so the app never hard-codes a number. A trial account is Free until it pays.
   if (!account || account.status !== 'active' || account.plan !== 'pro') {
-    // Pro by a promo code (shared/promo.js): no credit, until the code's end date or its revoke.
-    if (await promoActive(env, given.install)) return Response.json({ok: true, plan: 'pro', package: 'pro', mode: env.PRO_PLAN, hasCredit: false, creditPercent: 0, warn: null, devices: DEVICES_PER_ACCOUNT, offers: planOn(env) ? OFFERS : [], source: 'promo'});
-    return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: planOn(env) ? OFFERS : []});
+    // Credit from credit codes (shared/promo-credit.js): the install's own, whatever the plan; "N% left" as an account's.
+    const held = await installCredit(env, given.install), had = held?.credit_added_micro > 0, left = had ? percentOf(held) : 0;
+    // Pro by a promo code (shared/promo.js): no credit of its own, until the code's end date or its revoke; a credit code adds the install's.
+    if (await promoActive(env, given.install)) return Response.json({ok: true, plan: 'pro', package: 'pro', mode: env.PRO_PLAN, hasCredit: had, creditPercent: left, warn: had ? warnOf(left) : null, devices: DEVICES_PER_ACCOUNT, offers: planOn(env) ? OFFERS : [], source: 'promo'});
+    return Response.json({ok: true, plan: 'free', mode: env.PRO_PLAN, offers: planOn(env) ? OFFERS : [], ...(had ? {credit: {percent: left, warn: warnOf(left)}} : {})});
   }
   // A Pro account that never had credit (the €9 package) has no bar and no "used up" warning.
   const hasCredit = account.credit_added_micro > 0, percent = percentOf(account);

@@ -27,17 +27,35 @@ const num = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
 // The two lines the admin Monetization page shows, read the same way the route enforces them.
 export const monthStopUsd = env => num(env.FREE_AI_MONTH_STOP_USD, LIMITS.monthStopUsd);
 export const trialUsd = env => num(env.FREE_AI_TRIAL_USD, LIMITS.trialUsd);
+export const allowanceOf = env => (env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY));
 // Every line in force: wrangler.toml's vars over the defaults above. The route enforces these and /admin/ai-cost shows them (26 Oct 2026:
 // the page compared an install's day against the $0.30 default while $0.50 was enforced, and showed 140%).
 export const limitsOf = (env = {}) => ({...LIMITS, trialUsd: trialUsd(env), monthStopUsd: monthStopUsd(env), perMinute: num(env.FREE_AI_INSTALL_MINUTE_CALLS, LIMITS.perMinute),
   installDayUsd: num(env.FREE_AI_INSTALL_DAY_USD, LIMITS.installDayUsd), installMonthUsd: num(env.FREE_AI_INSTALL_MONTH_USD, LIMITS.installMonthUsd),
   alertUsd: num(env.FREE_AI_ALERT_USD, LIMITS.alertUsd), stopUsd: num(env.FREE_AI_STOP_USD, LIMITS.stopUsd), monthAlertUsd: num(env.FREE_AI_MONTH_ALERT_USD, LIMITS.monthAlertUsd)});
-const count = async (kv, key) => Number(await kv.get(key)) || 0;
+export const count = async (kv, key) => Number(await kv.get(key)) || 0;
+// The counters for one install (KV), in the order the route reads them.
+export const keysOf = (who, day, month, minute) => ({minute: `freeai:min:${who}:${minute}`, dayUsd: `freeai:dusd:${who}:${day}`, monthUsd: `freeai:musd:${who}:${month}`, tokens: `freeai:tok:${who}:${day}`,
+  usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${who}`});
+// The lines a call is past, in the order the route checks them (also read by GET /api/ai/caps, shared/free-ai-caps.js) -> null or {capped, status, message}.
+// Global: the day's or month's stop, or the daily Workers AI allowance (every install waits). Per install: the trial, then the month, then the day.
+export function busyCap(lines, {microUsd, globalMonth, seen, allowance}) {
+  if (microUsd >= lines.stopUsd * 1e6) return {capped: 'busy', status: 503, message: BUSY};
+  if (globalMonth >= lines.monthStopUsd * 1e6) return {capped: 'busy-month', status: 503, message: BUSY_MONTH};
+  if (seen >= allowance) return {capped: 'busy', status: 503, message: BUSY};
+  return null;
+}
+export function installCap(lines, access, {life, installMonth, installDay, tokens}) {
+  if (!access.license && life >= lines.trialUsd * 1e6) return {capped: 'trial', status: 429, message: TRIAL_MESSAGE};
+  if (installMonth >= lines.installMonthUsd * 1e6) return {capped: 'month', status: 429, message: MONTH_MESSAGE};
+  if (installDay >= lines.installDayUsd * 1e6 || tokens >= lines.tokensPerDay) return {capped: 'day', status: 429, message: DAY_MESSAGE};
+  return null;
+}
 
 export const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
 
 // Apps from before Free AI still send their founder/friend key (JP1.…): it works the same until they update.
-async function who(key, env, now = new Date()) {
+export async function who(key, env, now = new Date()) {
   if (String(key || '').startsWith('HR1.') && env.HOSTED_ALWAYS_ON === 'on') return aiAccess(env, key, runOf, now);   // a hosted container's run token: charged as the install that set the schedule (shared/hosted-budget.js)
   const given = parseKey(key);
   if (given) { const access = await authorize(env, given.install, given.token, 'ai'); return access.ok ? {...access, install: given.install} : null; }   // a trial install: its lifetime budget applies
@@ -58,18 +76,16 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
   if (pro?.blocked) return error(402, pro.blocked, 'billing_error');
 
   const kv = env.WAITLIST, day = now.toISOString().slice(0, 10), month = day.slice(0, 7), minute = now.toISOString().slice(0, 16);
-  const keys = {minute: `freeai:min:${access.who}:${minute}`, dayUsd: `freeai:dusd:${access.who}:${day}`, monthUsd: `freeai:musd:${access.who}:${month}`, tokens: `freeai:tok:${access.who}:${day}`, usd: `freeai:usd:${day}`, globalMonth: `freeai:usdm:${month}`, neurons: `freeai:neu:${day}`, life: `freeai:life:${access.who}`};
+  const keys = keysOf(access.who, day, month, minute);
   const [perMinute, installDay, installMonth, tokens, microUsd, globalMonth, neurons, life] = await Promise.all(Object.values(keys).map(key => count(kv, key)));
   const lines = limitsOf(env);
-  if (!pro && microUsd >= lines.stopUsd * 1e6) return error(503, BUSY);
-  if (!pro && globalMonth >= lines.monthStopUsd * 1e6) return error(503, BUSY_MONTH);
-  const allowance = env.FREE_AI_NEURONS === 'off' ? Infinity : num(env.FREE_AI_NEURONS, FREE_NEURONS_PER_DAY);
-  const account = await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
-  if (!pro && seen >= allowance) return error(503, BUSY);
+  const allowance = allowanceOf(env);
+  const account = pro ? null : await accountNeurons(env, kv, day, now, fetcher), seen = Math.max(neurons, account ?? 0);   // the account's own count includes every caller
+  const busy = pro ? null : busyCap(lines, {microUsd, globalMonth, seen, allowance});
+  if (busy) return error(busy.status, busy.message);
   if (perMinute >= (pro ? PRO_PER_MINUTE : lines.perMinute)) return error(429, 'Free AI: too many requests in a minute. Jobadabra will retry.', 'rate_limit_error');
-  if (!pro && !access.license && life >= lines.trialUsd * 1e6) return error(429, TRIAL_MESSAGE, 'rate_limit_error');
-  if (!pro && installMonth >= lines.installMonthUsd * 1e6) return error(429, MONTH_MESSAGE, 'rate_limit_error');
-  if (!pro && (installDay >= lines.installDayUsd * 1e6 || tokens >= lines.tokensPerDay)) return error(429, DAY_MESSAGE, 'rate_limit_error');
+  const mine = pro ? null : installCap(lines, access, {life, installMonth, installDay, tokens});
+  if (mine) return error(mine.status, mine.message, 'rate_limit_error');
 
   let body;
   try { body = await request.json(); } catch { return error(400, 'Bad request.', 'invalid_request_error'); }
