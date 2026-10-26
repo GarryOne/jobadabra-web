@@ -12,4 +12,12 @@ test('the privacy page has the Google data section Google asks for', () => {
   assert.match(page, /api-services-user-data-policy#limited-use/);
   assert.match(page, /used to train AI models/);
   assert.match(page, /myaccount\.google\.com\/permissions/);
+  assert.match(page.replace(/<[^>]*>/g, ''), /The use of raw or derived user data received from Workspace APIs will adhere to the Google User Data Policy, including the Limited Use requirements\./);
+});
+
+test('the Google section names who receives the data, how it is protected, and how long it is kept', () => {
+  const section = page.slice(page.indexOf('<h2>Google data: Gmail and Calendar</h2>'), page.indexOf('<h2>Website</h2>'));
+  assert.match(section, /<b>Shared with:<\/b>[^]*Anthropic[^]*OpenAI[^]*Cloudflare/);
+  assert.match(section, /<b>How it is protected:<\/b>[^]*keychain[^]*encrypted/i);
+  assert.match(section, /<b>Kept and deleted:<\/b>/);
 });
