@@ -5,6 +5,7 @@ import {DAY_MESSAGE, MONTH_MESSAGE, TRIAL_MESSAGE, freeAi, LIMITS} from '../../s
 import {ACTIONS} from '../../shared/aicost.js';
 import {tokenFor} from '../../shared/guard.js';
 import {OSS, SMALL, STRONG, STEP_MODELS, costUsd, modelFor} from '../../shared/free-ai-models.js';
+import * as models from '../../shared/free-ai-models.js';
 import {asStream, fromWorkersAi, REASONING_ROOM, toWorkersAi, Unsupported} from '../../shared/free-ai-translate.js';
 
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
@@ -110,6 +111,13 @@ test('per step: only the rejection review runs on gpt-oss-120b, every other step
   await call(e, apiKey, undefined, {'x-jp-action': 'kit'});
   assert.deepEqual(e.seen.map(item => item.model), [OSS, SMALL]);
   assert.ok(costUsd(OSS, {input_tokens: 1000, output_tokens: 1000}) > costUsd(SMALL, {input_tokens: 1000, output_tokens: 1000}), 'gpt-oss is priced as itself, not as the small model');
+});
+
+test('per step: the relay asks at the temperature the model table gives (reading steps 0, writing steps the model default)', async () => {
+  // owner, 26 Oct 2026: "Reading + judging steps"; temperatureFor lives in the public model table, so this passes before and after it lands
+  const e = env(), apiKey = await key(), steps = ['score', 'mail', 'tailor', 'cover_letter', ''];
+  for (const action of steps) await call(e, apiKey, undefined, action ? {'x-jp-action': action} : {});
+  assert.deepEqual(e.seen.map(seen => seen.input.temperature), steps.map(action => models.temperatureFor?.(action)));
 });
 
 test('the trial: $2 for the install\'s life, counted apart from the day and month, refused with the trial words', async () => {
