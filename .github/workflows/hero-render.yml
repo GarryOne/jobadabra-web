@@ -81,7 +81,7 @@ jobs:
             [ -f "$file" ] && cp "$file" out/
           done
           cp -R "$set_dir/sheets" out/ 2>/dev/null || true
-          du -k out/* | tee -a "$GITHUB_STEP_SUMMARY"
+          du -k out/*
       - uses: actions/upload-artifact@v6
         if: always()
         with:
