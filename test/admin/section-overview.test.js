@@ -118,6 +118,6 @@ test('Growth and Intelligence: each Overview is the first tab, owner-only, with 
 test('Signups and Monetization tiles use their pages\' own collectors; too few trials is "Too few", not a colour', async () => {
   const [trials] = await HEADLINES['/admin/monetization'](env(), now);
   assert.deepEqual([trials.value, trials.status, trials.few], ['Too few', 'none', true]);
-  const [accounts] = await HEADLINES['/admin/signups'](env(), now);
+  const [accounts] = await HEADLINES['/admin/email'](env(), now);
   assert.equal(accounts.value, '0');
 });

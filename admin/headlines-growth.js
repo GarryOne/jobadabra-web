@@ -48,5 +48,5 @@ async function monetizationTiles(env, now) {
       : {label: 'Profit, 30 days', value: 'No data', sub: 'no sale yet', status: 'none'}];
 }
 
-export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/signups': signupsTiles, '/admin/promo-codes': promoTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
+export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/email': signupsTiles, '/admin/promo-codes': promoTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
 export const INTELLIGENCE = {'/admin/insights': fromCards('insights'), '/admin/brain': fromCards('brain')};

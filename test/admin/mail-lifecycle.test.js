@@ -110,7 +110,7 @@ test('the signups page counts trial accounts and mail, never shows an address, a
   const html = page(data);
   assert.ok(html.includes('Trial accounts') && html.includes('trial-left'));
   assert.ok(!html.includes('example.com'));
-  assert.ok(PAGES.some(item => item.path === '/admin/signups'));
+  assert.ok(PAGES.some(item => item.path === '/admin/email'));
 });
 
 test('with the owner\'s flags off (the default) the trial reminders do not go out and the pause notice has no sales line', async () => {

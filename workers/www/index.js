@@ -39,7 +39,8 @@ import {view as e2eIntelView} from '../../admin/e2e-page.js';
 import {ingest as buildLogIngest, view as buildLogView} from '../../admin/build-log.js';
 import {ingest as prChecksIngest, view as prChecksView} from '../../admin/pr-checks.js';
 import {view as monetizationView} from '../../admin/monetization.js';
-import {launchRoute, view as signupsView} from '../../admin/signups.js';
+import {launchRoute} from '../../admin/signups.js';
+import {view as emailView} from '../../admin/email.js';
 import * as mailLifecycle from '../../admin/mail-lifecycle.js';
 import {ingest as benchmarkIngest, view as benchmarkView} from '../../admin/benchmark.js';
 import {ingest as benchmarkSearchIngest, view as benchmarkSearchView} from '../../admin/benchmark-search.js';
@@ -183,7 +184,7 @@ async function route(request, env, ctx) {
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (admin/test-mail.js)
   // The owner's admin pages (admin/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/website': stats, '/admin/app': telemetryView, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView, '/admin/installs': installsView,
-    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/signups': signupsView, '/admin/promo-codes': promoCodesView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
+    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/email': emailView, '/admin/promo-codes': promoCodesView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
     '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/benchmark-job-search': benchmarkSearchView, '/admin/brain': brainView, '/admin/sentry': sentryView, '/admin/reports': reportsView}[pathname];   // access: the super admin's only (admin/access.js)
   if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (admin/e2e-report.js)
   if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (admin/e2e-report.js)

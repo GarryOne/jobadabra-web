@@ -11,7 +11,7 @@ export const PAGES = [
   {path: '/admin/growth-overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
   {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
-  {path: '/admin/signups', group: 'Growth', question: 'Who signed up with an e-mail, who confirmed it, and what did our mail do?', name: 'Signups', icon: '✉️'},
+  {path: '/admin/email', group: 'Growth', question: 'Who signed up with an e-mail, who can still get our mail, what did it do, and what is waiting to go out?', old: '/admin/signups', name: 'E-mail', icon: '✉️'},
   {path: '/admin/promo-codes', group: 'Growth', question: 'Which promo codes exist, who used them, and when do they end?', name: 'Promo codes', icon: '🎟️'},
   {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
