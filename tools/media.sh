@@ -6,7 +6,7 @@
 #   --background  runs detached, logs to ~/.cache/jobadabra-media/media-<time>.log, prints that path and returns
 #   --check       only says whether the screens changed since the last refresh (changed|same), records nothing
 # MEDIA_REF=<branch> runs this repo's tools from a branch (to try a change before it is merged). Runs in its own worktree (default ~/jobadabra-web-media-run, MEDIA_RUN_DIR) so no checkout changes branch. Demo data only, no AI (the director's
-# plans are committed), nothing of the owner's app. Guard: tests/test_media_refresh.py.
+# plans are committed), nothing of the owner's app. Guard: tests/test_site_media_refresh.py.
 set -euo pipefail
 trap 'echo "media: FAILED at line $LINENO (see the lines above)" >&2' ERR   # a silent stop is never success
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
