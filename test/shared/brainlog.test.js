@@ -1,5 +1,5 @@
 // The product brain's log (shared/brainlog.js): POST /api/brain/log with the scripts' key writes D1 brain_messages; a tap is logged by
-// api/brain.js; /admin/brain lists every message newest first, with the decision's status now, a filter and the full text.
+// api/brain.js; /admin/intelligence/brain lists every message newest first, with the decision's status now, a filter and the full text.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -98,8 +98,8 @@ test('the page: one card per decision, status pills with counts, the filter, the
   assert.match(html, /🧠 Product Brain/);
   assert.equal((html.match(/<article class="card decision">/g) || []).length, 2, 'one card per decision, not per message');
   assert.match(html, /All · 2/);
-  assert.match(html, /href="\/admin\/brain\?status=Approved">Approved · 1/);
-  assert.match(html, /href="\/admin\/brain\?status=Not%20now">Not now · 1/);
+  assert.match(html, /href="\/admin\/intelligence\/brain\?status=Approved">Approved · 1/);
+  assert.match(html, /href="\/admin\/intelligence\/brain\?status=Not%20now">Not now · 1/);
   assert.match(html, /<h3>Ship the brain page<\/h3><p class="text">Evidence: &lt;b&gt;12&lt;\/b&gt; taps lost<\/p>/, 'escaped');
   assert.match(html, /<details class="step-text"><summary>## Explored plan<\/summary><div class="full">## Explored plan\n1. Table\n2. Page/, 'the plan in a toggle');
   const ship = html.slice(html.indexOf('Ship the brain page'));
@@ -122,10 +122,10 @@ test('a Notion link on another Notion domain is kept; a decision with none links
   assert.deepEqual(rows.map(r => r.link), [`https://www.notion.so/${other}`, 'https://app.notion.com/p/abc']);
 });
 
-test('/admin/brain is the owner\'s only: a stranger gets 404, the owner the page, filtered by ?status=', async () => {
+test('/admin/intelligence/brain is the owner\'s only: a stranger gets 404, the owner the page, filtered by ?status=', async () => {
   const e = await seeded();
-  assert.equal((await view(new Request('https://x/admin/brain'), e)).status, 404);
-  const response = await view(new Request('https://x/admin/brain?status=Not%20now', {headers: {Authorization: 'Bearer api'}}), e);
+  assert.equal((await view(new Request('https://x/admin/intelligence/brain'), e)).status, 404);
+  const response = await view(new Request('https://x/admin/intelligence/brain?status=Not%20now', {headers: {Authorization: 'Bearer api'}}), e);
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Post on Reddit/);

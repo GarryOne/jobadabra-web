@@ -1,7 +1,7 @@
 name: CI · Lab Job Search · replay (offline)
 # The Lab Job Search's detector (owner, 18 Oct 2026; PR 2 of the sketch https://claude.ai/artifact/FsAAKdxxXF2wXpD1nbHAuC): each fictional candidate's first search is replayed from its tape
 # (src/search_tape.py: every web and AI answer recorded once; tools/persona-search/tape-store.mjs keeps them encrypted on the private repo's release `search-tapes`), and its numbers are posted to
-# /admin/lab-job-search (PUT /search-lab/rows, main only). $0: no site is visited, no model is called (--no-live: an AI request the tape lacks makes the row FAILED "tape stale", never thin numbers).
+# /admin/job-search/lab (PUT /search-lab/rows, main only). $0: no site is visited, no model is called (--no-live: an AI request the tape lacks makes the row FAILED "tape stale", never thin numbers).
 # Once a day and by hand (owner, 19 Oct 2026: "Let it run once a day, by a schedule, on the CI"; no push, no PR: the per-PR replay and the heal are off). A branch's run is refused by the site: only main moves the page.
 # A tape the search no longer matches shows "No valid replay" on the Lab's Replays tab, never numbers; the Lab's lead is Real installs and Random draws.
 on:
@@ -88,7 +88,7 @@ jobs:
           PY
         env:
           MATRIX_CANDIDATE: ${{ matrix.candidate }}
-      - name: Post the numbers to /admin/lab-job-search
+      - name: Post the numbers to /admin/job-search/lab
         shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
         run: |
           if [ -z "$REPLAYS_PUBLISH_KEY" ]; then echo "search-lab: REPLAYS_PUBLISH_KEY not set: nothing posted"; exit 0; fi

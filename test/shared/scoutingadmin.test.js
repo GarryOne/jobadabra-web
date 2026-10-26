@@ -1,4 +1,4 @@
-// /admin/scouting (shared/scouting-snapshot.js): the central employer list's growth and health, from the site's own tables; counts and names only.
+// /admin/job-search/scouting (shared/scouting-snapshot.js): the central employer list's growth and health, from the site's own tables; counts and names only.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {page} from '../../admin/scoutingadmin.js';

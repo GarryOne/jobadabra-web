@@ -1,4 +1,4 @@
-// What /admin/lab-job-search says about each candidate (owner's decision 3, 18 Oct 2026): the newest run against the last green one. Pure: rows in, states out.
+// What /admin/job-search/lab says about each candidate (owner's decision 3, 18 Oct 2026): the newest run against the last green one. Pure: rows in, states out.
 //   failed   the newest run's step crashed (never thin numbers)
 //   stale    the tape lacks requests this build makes (the page says how many): its numbers are not compared, and it never becomes the last green run
 //   worse    a count (jobs in places, fit 70+) is lower, a time is more than 25 % slower, or a time that was reached is not reached; the control gets no tolerance on times

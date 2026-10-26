@@ -1,4 +1,4 @@
-// The owner's /admin/scouting page: which employers the central scout finds and keeps, from shared/scouting-snapshot.js. Same key or cookie as /admin.
+// The owner's /admin/job-search/scouting page: which employers the central scout finds and keeps, from shared/scouting-snapshot.js. Same key or cookie as /admin.
 // Guarded by test/shared/scoutingadmin.test.js.
 import {FAMILIES, familyLinks, familyParam} from '../shared/engines.js';
 import {viewer} from '../shared/auth.js';
@@ -36,7 +36,7 @@ export function servedSection(served = [], today = new Date()) {
 // A section folded away under its title: the numbers stay one click from the charts (owner, 19 Oct 2026: "too much of raw numbers/text/tables").
 const fold = (title, html) => `<details class="fold"><summary>${title}</summary>${html}</details>`;
 
-export function page(data, url = new URL('https://www.jobadabra.top/admin/scouting'), today = new Date()) {
+export function page(data, url = new URL('https://www.jobadabra.top/admin/job-search/scouting'), today = new Date()) {
   const {feeds} = data;
   const nonIt = feeds.filter(feed => !['software', 'unknown'].includes(topKind(feed))).length;
   const past = history(data.daily, today);
@@ -69,7 +69,7 @@ export function page(data, url = new URL('https://www.jobadabra.top/admin/scouti
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start}.grid2>.card{margin-bottom:0}.grid2{margin-bottom:12px}
 h2.more{margin:22px 0 8px;color:#8d949c;font-weight:600}${CHART_STYLE}
 </style></head><body><main>
-<header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/insights">Insights →</a>${data.family ? ` · what ${esc(FAMILIES[data.family])} installs shared` : ''}</small></div></header>
+<header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/intelligence/insights">Insights →</a>${data.family ? ` · what ${esc(FAMILIES[data.family])} installs shared` : ''}</small></div></header>
 ${familyLinks(url, data.family || '')}
 <div class="verdict">${esc(verdict)}</div>
 ${tiles(data, cells, past)}

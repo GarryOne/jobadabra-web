@@ -1,4 +1,4 @@
-// /admin/benchmark-form-filling: how our form filling compares with other tools on the same fixed forms (owner, 15 Oct 2026). The bake-off (a private repo) sends each scored run once
+// /admin/form-filling/benchmark: how our form filling compares with other tools on the same fixed forms (owner, 15 Oct 2026). The bake-off (a private repo) sends each scored run once
 // (PUT /benchmark/data, Bearer SELFHEAL_PUBLISH_KEY); the site keeps one row per run (benchmark_runs) and, after each write, ONE snapshot row (benchmark_snapshot) the page reads: no table scan per
 // page load (D1 free plan). Tool, form and build names are data from the owner-only write; none is written in this code. Pure maths: admin/benchmark-data.js; the page: admin/benchmark-page.js.
 import {viewer} from '../shared/auth.js';

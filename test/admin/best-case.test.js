@@ -46,7 +46,7 @@ test('Form Learning shows it above the Recipe funnel, and Real Form Filling does
   const env = {STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   pool(env.STATS, 'p1', {no_option: 3, real_click: 2}, 100, new Date().toISOString().slice(0, 10));
   const get = async path => (await worker.fetch(new Request(`https://www.jobpilotto.top${path}`, {headers: {Cookie: 'jp_stats=k3y'}}), env, {})).text();
-  const learning = await get('/admin/form-learning'), real = await get('/admin/real-form-filling');
+  const learning = await get('/admin/form-filling/learning'), real = await get('/admin/form-filling/real-users');
   assert.ok(learning.includes('Learning loop: best case (parked)'));
   assert.ok(learning.indexOf('Learning loop: best case (parked)') < learning.indexOf('Recipe funnel'), 'above the funnel');
   assert.ok(!real.includes('best case'));

@@ -1,4 +1,4 @@
-// /admin/benchmark-form-filling: the scores (raw, product, ceiling), the segments that are never added together, the ingest, the page in each state, and that a page load reads one snapshot row.
+// /admin/form-filling/benchmark: the scores (raw, product, ceiling), the segments that are never added together, the ingest, the page in each state, and that a page load reads one snapshot row.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -72,8 +72,8 @@ test('the page reads ONE snapshot row, never the runs table; closed to anyone bu
   const e = env();
   await put(e, {runs: FIXTURE});
   e.STATS.reads.queries = e.STATS.reads.rows = 0;
-  assert.equal((await call(e, '/admin/benchmark-form-filling')).status, 404);
-  const html = await (await call(e, '/admin/benchmark-form-filling', owner)).text();
+  assert.equal((await call(e, '/admin/form-filling/benchmark')).status, 404);
+  const html = await (await call(e, '/admin/form-filling/benchmark', owner)).text();
   assert.deepEqual([e.STATS.reads.queries, e.STATS.reads.rows], [1, 1]);
   assert.match(html, /Benchmark Form Filling/);
 });
@@ -116,9 +116,9 @@ test('tiles use the shared colour rule: green at 70% or more, amber 50-69, red u
 
 test('the page is in the Form filling menu after Real and Lab, with a question, and the public code names no tool, form host or site', () => {
   const paths = PAGES.filter(p => p.group === 'Form filling').map(p => p.path);
-  const at = paths.indexOf('/admin/benchmark-form-filling');
-  assert.ok(at > 0 && at === paths.indexOf('/admin/lab-form-filling') + 1);
-  assert.match(PAGES.find(p => p.path === '/admin/benchmark-form-filling').question, /\?$/);
+  const at = paths.indexOf('/admin/form-filling/benchmark');
+  assert.ok(at > 0 && at === paths.indexOf('/admin/form-filling/lab') + 1);
+  assert.match(PAGES.find(p => p.path === '/admin/form-filling/benchmark').question, /\?$/);
   for (const file of ['benchmark.js', 'benchmark-data.js', 'benchmark-page.js']) {
     const source = readFileSync(new URL(`../../admin/${file}`, import.meta.url), 'utf8');
     assert.ok(!/https?:\/\/|\.(com|io|ai|org)\b/.test(source.replace(/\/\/.*$/gm, '')), `${file} has a host`);

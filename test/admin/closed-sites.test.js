@@ -1,4 +1,4 @@
-// /admin/scouting closed sites table (site/src/closed-sites.js): reasons, agreement, retry dates, served flag and the page wiring.
+// /admin/job-search/scouting closed sites table (site/src/closed-sites.js): reasons, agreement, retry dates, served flag and the page wiring.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {AGREE, REASONS, deadEndRow, factRow} from '../../shared/closed-sites.js';
@@ -27,12 +27,12 @@ test('the retry date is last seen plus the reason\'s rest, or "due now"', () => 
   assert.equal(retryOn({reason: 'unreachable', last: '2026-10-19'}, today), '2026-10-26');
   assert.equal(retryOn({reason: 'unreachable', last: '2026-10-10'}, today), 'due now');
 });
-test('the section lists every reason as a filter chip with its count and links to /admin/installs', () => {
+test('the section lists every reason as a filter chip with its count and links to /admin/job-search/installs', () => {
   const rows = Object.keys(REASONS).map((reason, i) => ({site: `s${i}.example`, label: '', reason, installs: 3, first: '2026-10-01', last: '2026-10-18', served: true, source: 'dead end'}));
   const html = section(rows, today);
   for (const key of Object.keys(REASONS)) assert.match(html, new RegExp(`data-closed="${key}"[^>]*>${REASONS[key].label} · 1`), key);
   for (const row of rows) assert.match(html, new RegExp(`data-reason="${row.reason}"`));
-  assert.match(html, /href="\/admin\/installs"/);
+  assert.match(html, /href="\/admin\/job-search\/installs"/);
   assert.match(section([], today), /Nothing reported yet/);
 });
 test('the scouting page draws the section and escapes names', () => {

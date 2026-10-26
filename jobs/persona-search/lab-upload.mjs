@@ -1,4 +1,4 @@
-// Sends the persona harness's first press of each candidate to /admin/lab-job-search (owner, 18 Oct 2026; PR 1 of the Job Search lab, by hand until the CI replay exists).
+// Sends the persona harness's first press of each candidate to /admin/job-search/lab (owner, 18 Oct 2026; PR 1 of the Job Search lab, by hand until the CI replay exists).
 //   REPLAYS_PUBLISH_KEY=... node jobs/persona-search/lab-upload.mjs <out> [--build <sha>] [--branch main] [--tape <folder>] [--dry]
 // --tape <folder>: the replay's tape; a tape that lacks what the build asks turns the row into Tape stale (tape-store.mjs staleNote). <out> is run.mjs's output folder (<out>/<name>/presses.jsonl). Counts, seconds and the build sha only; the site refuses any branch but main, so a hand upload says --branch main only for main's build.
 import fs from 'node:fs';

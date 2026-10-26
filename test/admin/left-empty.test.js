@@ -76,7 +76,7 @@ test('both admin pages show the section: Real Form Filling its real-use column, 
   const env = {STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   const today = new Date().toISOString().slice(0, 10);
   card(env.STATS, 'u1', {no_answer: 40}, {install: 'a', day: today}); card(env.STATS, 'p1', {ai_declined: 7}, {source: 'pool', day: today});
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/real-form-filling', {headers: {Cookie: 'jp_stats=k3y'}}), env, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/form-filling/real-users', {headers: {Cookie: 'jp_stats=k3y'}}), env, {})).text();
   assert.match(html, /Why fields were left empty/);
   assert.match(html, /no_answer<span class="cnt">40<\/span>/);
   assert.doesNotMatch(html, /ai_declined/, 'the pool never shows on the real page');

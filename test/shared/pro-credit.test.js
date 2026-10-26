@@ -127,7 +127,7 @@ test('a refund takes the credit back from the balance and from "ever added", flo
   await assert.rejects(addCredit(e, account, 1, 'ai_call', 'x', now), /bad reason/);
 });
 
-test('what /admin/monetization reads: pro_devices.install is the raw telemetry install id and joins ai_calls; paid Pro is kind pro + status paid', async () => {
+test('what /admin/growth/monetization reads: pro_devices.install is the raw telemetry install id and joins ai_calls; paid Pro is kind pro + status paid', async () => {
   const e = env(), install = 'install-pro-09', pro = await proInstall(e, install, 5_000_000);
   assert.equal(row(e, 'SELECT install FROM pro_devices WHERE account = ?', pro.account).install, install, 'the raw id, the same value as telemetry.install');
   await ask(e, pro.key);

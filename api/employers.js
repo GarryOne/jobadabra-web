@@ -305,12 +305,12 @@ async function publish(request, env) {
   // The scout's measured boards, only when it sent some (an absent field keeps what is there); never a reason to refuse the index.
   const boardFacts = boardFactsOf(body.board_facts);
   if (env.STATS && boardFacts.length) await storeBoardFacts(env.STATS, boardFacts, generated.slice(0, 10)).catch(() => false);
-  // The day's snapshot for /admin/scouting's growth: counts only; never a reason to refuse the index.
+  // The day's snapshot for /admin/job-search/scouting's growth: counts only; never a reason to refuse the index.
   if (env.STATS) {
     const pooled = await pooledKeys(env.STATS);
     const date = generated.slice(0, 10);
     await storeSnapshot(env.STATS, date, snapshot(feeds, feeds.filter(feed => pooled.has(`${feed.ats}:${feed.slug}`)).length, nofeed.length)).catch(() => false);
-    await storePoolSnapshot(env.STATS, date, poolSnapshot(feeds, pooled)).catch(() => false);   // what installs add, for /admin/installs (migration 0102)
+    await storePoolSnapshot(env.STATS, date, poolSnapshot(feeds, pooled)).catch(() => false);   // what installs add, for /admin/job-search/installs (migration 0102)
   }
   // The central scout's own numbers for /intel (shared/scouting.js): never a reason to refuse the index.
   if (env.STATS && body.stats) await storeScouting(env.STATS, body.stats, generated.slice(0, 10)).catch(() => false);

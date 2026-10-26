@@ -1,4 +1,4 @@
-// Small server-drawn charts for /admin/scouting (owner, 19 Oct 2026: "It's too much of raw numbers/text/tables"): sparklines, a heat-map
+// Small server-drawn charts for /admin/job-search/scouting (owner, 19 Oct 2026: "It's too much of raw numbers/text/tables"): sparklines, a heat-map
 // colour scale, horizontal bars, columns and one hover tooltip. Plain SVG/HTML strings on the admin's dark surface; no library, no data
 // beyond what the caller passes. Tests: test/scoutingcharts.test.js.
 

@@ -56,7 +56,7 @@ test('the same person on the same day is one visitor; another address is another
   }
   await worker.fetch(request('/download/mac?from=header', {ip: '1.1.1.1'}), e, {});
   await worker.fetch(request('/download/mac?from=header', {ip: '1.1.1.1'}), e, {});
-  const html = await (await worker.fetch(request('/admin/website', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(request('/admin/growth/website', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /Visitors<\/span><b>2<\/b><small class="muted">3 page views/);
   assert.match(html, /Downloaders<\/span><b>1<\/b><small class="muted">2 clicks/);
   assert.match(html, /Conversion<\/span><b>50%/);
@@ -65,26 +65,26 @@ test('the same person on the same day is one visitor; another address is another
 
 test('/stats needs the key, then keeps it in a cookie and out of the address bar', async () => {
   const e = env();
-  assert.equal((await worker.fetch(request('/admin/website'), e, {})).status, 404);
-  assert.equal((await worker.fetch(request('/admin/website?key=wrong'), e, {})).status, 404);
-  const first = await worker.fetch(request('/admin/website?key=k3y&days=7'), e, {});
+  assert.equal((await worker.fetch(request('/admin/growth/website'), e, {})).status, 404);
+  assert.equal((await worker.fetch(request('/admin/growth/website?key=wrong'), e, {})).status, 404);
+  const first = await worker.fetch(request('/admin/growth/website?key=k3y&days=7'), e, {});
   assert.equal(first.status, 302);
-  assert.equal(first.headers.get('Location'), '/admin/website?days=7');
+  assert.equal(first.headers.get('Location'), '/admin/growth/website?days=7');
   // A session cookie, never the key itself (shared/auth.js); the old raw-key cookie is removed.
   const cookies = first.headers.get('Set-Cookie');
   assert.match(cookies, /jp_admin=v1\.\d{10}\.[\w-]+; Path=\/; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict/);
   assert.ok(!cookies.includes('k3y'));
   assert.match(cookies, /jp_stats=; Path=\/; Max-Age=0/);
   const session = cookies.match(/jp_admin=([^;]+)/)[1];
-  assert.equal((await worker.fetch(request('/admin/website', {headers: {Cookie: `jp_admin=${session}`}}), e, {})).status, 200);
-  assert.equal((await worker.fetch(request('/admin/website', {headers: {Cookie: 'jp_stats=k3y'}}), {...e, STATS_KEY: ''}, {})).status, 404);
+  assert.equal((await worker.fetch(request('/admin/growth/website', {headers: {Cookie: `jp_admin=${session}`}}), e, {})).status, 200);
+  assert.equal((await worker.fetch(request('/admin/growth/website', {headers: {Cookie: 'jp_stats=k3y'}}), {...e, STATS_KEY: ''}, {})).status, 404);
 });
 
 test('the waitlist shows on /stats, newest first', async () => {
   const e = {...env(), WAITLIST: {list: async () => ({keys: [
     {name: 'signup:old@example.com', metadata: {at: '2026-09-01T10:00:00Z', role: 'SRE'}},
     {name: 'signup:new@example.com', metadata: {at: '2026-09-20T10:00:00Z', role: '<b>Dev</b>'}}]})}};
-  const html = await (await worker.fetch(request('/admin/website', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(request('/admin/growth/website', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.ok(html.indexOf('new@example.com') < html.indexOf('old@example.com'));
   assert.match(html, /&lt;b&gt;Dev/);
   assert.match(html, /Pro waitlist<\/span><b>2</);

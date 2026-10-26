@@ -1,4 +1,4 @@
-// The owner's /admin/real-form-filling page (admin/formlearning.js): real-use misses per 100 required questions and the recipe funnel, this
+// The owner's /admin/form-filling/real-users page (admin/formlearning.js): real-use misses per 100 required questions and the recipe funnel, this
 // week vs last, from the tables the site already keeps. The form lab was retired 9 Oct 2026: nothing of it is shown.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -45,8 +45,8 @@ test('an app that sends no required count is measured per 100 forms', async () =
 });
 
 test('owner-only: the page is a 404 without the stats key', async () => {
-  assert.equal((await view(new Request('https://x.dev/admin/real-form-filling'), {STATS_KEY: 'secret', STATS: d1()}, now)).status, 404);
-  const ok = await view(new Request('https://x.dev/admin/real-form-filling', {headers: {Authorization: 'Bearer secret'}}), {STATS_KEY: 'secret', STATS: d1()}, now);
+  assert.equal((await view(new Request('https://x.dev/admin/form-filling/real-users'), {STATS_KEY: 'secret', STATS: d1()}, now)).status, 404);
+  const ok = await view(new Request('https://x.dev/admin/form-filling/real-users', {headers: {Authorization: 'Bearer secret'}}), {STATS_KEY: 'secret', STATS: d1()}, now);
   assert.equal(ok.status, 200);
   assert.ok((await ok.text()).includes('Filled (real use)'));
 });
@@ -74,7 +74,7 @@ test('the results block is honest when nothing was reported yet, and the site ac
 });
 
 test('the page links to the applying scorecard, where real use meets the pool\'s tests', () => {
-  assert.match(readFileSync(new URL('../../admin/form-sections.js', import.meta.url), 'utf8'), /href="\/admin\/lab-form-filling">Lab Form Filling → platform scorecard/);
+  assert.match(readFileSync(new URL('../../admin/form-sections.js', import.meta.url), 'utf8'), /href="\/admin\/form-filling\/lab">Lab Form Filling → platform scorecard/);
 });
 
 test('the "*" cross-check flags a board whose marks far exceed the required count', async () => {

@@ -1,4 +1,4 @@
-// /admin/lab-job-search (owner, 18 Oct 2026; sketch https://claude.ai/artifact/FsAAKdxxXF2wXpD1nbHAuC): does a new user get relevant jobs fast, in any role and place, and did our last change make it
+// /admin/job-search/lab (owner, 18 Oct 2026; sketch https://claude.ai/artifact/FsAAKdxxXF2wXpD1nbHAuC): does a new user get relevant jobs fast, in any role and place, and did our last change make it
 // better or worse? PR 1 draws the Lab tab only: one row per fictional candidate from its newest replayed search (admin/search-lab-store.js), judged against its last green run (admin/search-lab-judge.js).
 // Counts, seconds and a build sha: no job, company or CV text. Owner only (a 404 otherwise). Guard: test/admin/search-lab.test.js.
 import {viewer} from '../shared/auth.js';

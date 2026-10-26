@@ -1,4 +1,4 @@
-// The "Report this form" line of /admin/real-form-filling (docs/superpowers/specs/2026-10-15-report-this-form.md §5): how many reports people sent, how many the owner has fetched into the offline
+// The "Report this form" line of /admin/form-filling/real-users (docs/superpowers/specs/2026-10-15-report-this-form.md §5): how many reports people sent, how many the owner has fetched into the offline
 // loop, how many were fixed. Counts only (shared/report-form.js holds no host or page); an empty table, or a database without the table yet, shows nothing. Guard: test/admin/report-counts.test.js.
 import {esc} from '../shared/html.js';
 

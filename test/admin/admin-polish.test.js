@@ -6,11 +6,11 @@ import {filterLinks, withNav} from '../../admin/admin.js';
 import {page as overview} from '../../admin/overview.js';
 
 test('the question sits under the page title, without the yellow label, and the table script is on the page', () => {
-  const html = withNav('<html><head></head><body><main><header><h1>App</h1></header><table></table></main></body></html>', '/admin/app');
+  const html = withNav('<html><head></head><body><main><header><h1>App</h1></header><table></table></main></body></html>', '/admin/growth/app');
   assert.match(html, /<\/header><p class="admin-question">Do the installed apps run well/);
   assert.doesNotMatch(html, /The question this page answers/);
   assert.match(html, /<script>document\.querySelectorAll\('main table'\)/);
-  const bare = withNav('<html><head></head><body><main><p>x</p></main></body></html>', '/admin/sentry');
+  const bare = withNav('<html><head></head><body><main><p>x</p></main></body></html>', '/admin/operations/sentry');
   assert.match(bare, /<\/nav><p class="admin-question">/, 'a page without a header gets it under the menu');
 });
 

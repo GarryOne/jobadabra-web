@@ -1,4 +1,4 @@
-// /admin/monetization: the funnel, the conversion colour, the AI cost per user and the money, from a fake D1 with installs, trials and Pro sales (the Pro tables are a6's contract, migration 0079).
+// /admin/growth/monetization: the funnel, the conversion colour, the AI cost per user and the money, from a fake D1 with installs, trials and Pro sales (the Pro tables are a6's contract, migration 0079).
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -76,10 +76,10 @@ test('the range filter cuts the cohort: installs first seen before the range are
 });
 
 test('the route is owner-only and in the admin nav', async () => {
-  assert.ok(PAGES.some(p => p.path === '/admin/monetization'));
+  assert.ok(PAGES.some(p => p.path === '/admin/growth/monetization'));
   const env = await seed();
-  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/admin/monetization'), env, {})).status, 404);
-  const ok = await worker.fetch(new Request('https://www.jobpilotto.top/admin/monetization', {headers: {Cookie: 'jp_stats=k3y'}}), env, {});
+  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/monetization'), env, {})).status, 404);
+  const ok = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/monetization', {headers: {Cookie: 'jp_stats=k3y'}}), env, {});
   assert.equal(ok.status, 200); assert.match(await ok.text(), /Monetization/);
 });
 

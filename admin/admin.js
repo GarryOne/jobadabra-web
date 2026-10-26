@@ -5,50 +5,68 @@ import {esc} from '../shared/html.js';
 import {viewer} from '../shared/auth.js';
 import {TABLE_TOOLS_SCRIPT, TABLE_TOOLS_STYLE} from './table-tools.js';
 
+// Every page lives at /admin/{group}/{page} (owner, 27 Oct 2026: "normalize all the page urls"): the group's slug, then the menu name's; /admin itself is the home.
+// slug (when set) = the page's part when its menu name would spell it differently (E-mail → email). old = the page's earlier addresses, redirected (test/admin/admin-urls.test.js fails a page off the pattern, or an old address that no longer answers).
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
+export const slugOf = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // overview: true = the section's Overview tab (admin/section-overview.js draws the headline numbers every other page of the group declares in admin/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
   {path: '/admin', group: 'Overview', question: 'Is Jobadabra healthy today, at a glance?', name: 'Overview', icon: '🧭'},
-  {path: '/admin/growth-overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', name: 'Overview', icon: '🧭', overview: true},
-  {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
-  {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
-  {path: '/admin/email', group: 'Growth', question: 'Who signed up with an e-mail, who can still get our mail, what did it do, and what is waiting to go out?', old: '/admin/signups', name: 'E-mail', icon: '✉️'},
-  {path: '/admin/promo-codes', group: 'Growth', question: 'Which promo codes exist, who used them, and when do they end?', name: 'Promo codes', icon: '🎟️'},
-  {path: '/admin/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', name: 'Monetization', icon: '💰'},
-  {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
-  {path: '/admin/form-overview', group: 'Form filling', question: 'How is form filling doing: real users, our recorded sites, the benchmark and the learning loop?', name: 'Overview', icon: '🧭', overview: true},
-  {path: '/admin/real-form-filling', group: 'Form filling', question: 'How well do real users\' forms get filled, and what still trips the filler?', old: ['/smart-form-filling', '/admin/form-filling'], title: 'Real Form Filling', name: 'Real users', icon: '📝'},
-  {path: '/admin/lab-form-filling', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', old: '/admin/applying', title: 'Lab Form Filling', name: 'Lab', icon: '🛡️'},
-  {path: '/admin/benchmark-form-filling', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', name: 'Benchmark', icon: '📏'},
-  {path: '/admin/form-learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', name: 'Learning', icon: '🧬'},
-  {path: '/admin/reports', group: 'Form filling', question: 'Which forms did people report as stuck, and have we fetched them?', title: 'Reported forms', name: 'Reports', icon: '📮'},
-  {path: '/admin/lab-job-search', group: 'Job search', question: 'Does a new user get relevant jobs fast, in any role and place, and did our last change make it better or worse?', title: 'Lab Job Search', name: 'Lab', icon: '🔬'},
-  {path: '/admin/scouting', group: 'Job search', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
-  {path: '/admin/installs', group: 'Job search', question: 'How much do real installs grow and improve our employer list and job search?', name: 'Installs', icon: '🧲'},
-  {path: '/admin/benchmark-job-search', group: 'Job search', question: 'How does our job search compare with other tools on the same random searches across Europe?', title: 'Benchmark Job Search', name: 'Benchmark', icon: '🏁'},
-  {path: '/admin/intelligence-overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', name: 'Overview', icon: '🧭', overview: true},
-  {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
-  {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
+  {path: '/admin/growth/overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', old: ['/admin/growth-overview'], name: 'Overview', icon: '🧭', overview: true},
+  {path: '/admin/growth/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: ['/admin/website', '/stats'], name: 'Website', icon: '🌐'},
+  {path: '/admin/growth/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: ['/admin/app', '/telemetry'], name: 'App', icon: '🖥️'},
+  {path: '/admin/growth/email', group: 'Growth', question: 'Who signed up with an e-mail, who can still get our mail, what did it do, and what is waiting to go out?', old: ['/admin/email', '/admin/signups'], slug: 'email', name: 'E-mail', icon: '✉️'},
+  {path: '/admin/growth/promo-codes', group: 'Growth', question: 'Which promo codes exist, who used them, and when do they end?', old: ['/admin/promo-codes'], name: 'Promo codes', icon: '🎟️'},
+  {path: '/admin/growth/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', old: ['/admin/monetization'], name: 'Monetization', icon: '💰'},
+  {path: '/admin/growth/feedback', group: 'Growth', question: 'What are users telling us?', old: ['/admin/feedback', '/feedback'], name: 'Feedback', icon: '💬'},
+  {path: '/admin/form-filling/overview', group: 'Form filling', question: 'How is form filling doing: real users, our recorded sites, the benchmark and the learning loop?', old: ['/admin/form-overview'], name: 'Overview', icon: '🧭', overview: true},
+  {path: '/admin/form-filling/real-users', group: 'Form filling', question: 'How well do real users\' forms get filled, and what still trips the filler?', title: 'Real Form Filling', old: ['/admin/real-form-filling', '/smart-form-filling'], name: 'Real users', icon: '📝'},
+  {path: '/admin/form-filling/lab', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', title: 'Lab Form Filling', old: ['/admin/lab-form-filling', '/admin/applying'], name: 'Lab', icon: '🛡️'},
+  {path: '/admin/form-filling/benchmark', group: 'Form filling', question: 'How does our form filling compare with other tools on the same forms?', title: 'Benchmark Form Filling', old: ['/admin/benchmark-form-filling'], name: 'Benchmark', icon: '📏'},
+  {path: '/admin/form-filling/learning', group: 'Form filling', question: 'Is the learning loop working: learned fixes, the AI\'s answers per family, proposed answers?', title: 'Form Learning', old: ['/admin/form-learning'], name: 'Learning', icon: '🧬'},
+  {path: '/admin/form-filling/reports', group: 'Form filling', question: 'Which forms did people report as stuck, and have we fetched them?', title: 'Reported forms', old: ['/admin/reports'], name: 'Reports', icon: '📮'},
+  {path: '/admin/job-search/lab', group: 'Job search', question: 'Does a new user get relevant jobs fast, in any role and place, and did our last change make it better or worse?', title: 'Lab Job Search', old: ['/admin/lab-job-search'], name: 'Lab', icon: '🔬'},
+  {path: '/admin/job-search/scouting', group: 'Job search', question: 'Is our central employer list growing, and where is it weak?', old: ['/admin/scouting'], name: 'Scouting', icon: '🛰️'},
+  {path: '/admin/job-search/installs', group: 'Job search', question: 'How much do real installs grow and improve our employer list and job search?', old: ['/admin/installs'], name: 'Installs', icon: '🧲'},
+  {path: '/admin/job-search/benchmark', group: 'Job search', question: 'How does our job search compare with other tools on the same random searches across Europe?', title: 'Benchmark Job Search', old: ['/admin/benchmark-job-search'], name: 'Benchmark', icon: '🏁'},
+  {path: '/admin/intelligence/overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', old: ['/admin/intelligence-overview'], name: 'Overview', icon: '🧭', overview: true},
+  {path: '/admin/intelligence/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: ['/admin/insights', '/intel'], name: 'Insights', icon: '🧠'},
+  {path: '/admin/intelligence/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', old: ['/admin/brain'], slug: 'brain', name: 'Product Brain', icon: '🧠'},
   {path: '/admin/operations/overview', group: 'Operations', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
   {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
   {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
   {path: '/admin/operations/e2e', group: 'Operations', question: 'Where does our e2e fixing time go: which suites go red, and why?', name: 'E2E', icon: '🧪'},
   {path: '/admin/operations/schedules', group: 'Operations', question: 'Are all our scheduled jobs running on time and green?', name: 'Schedules', icon: '⏰'},
-  {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
-  {path: '/admin/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
-  {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin/operations/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: ['/admin/self-healing', '/self-heal'], name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/operations/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', old: ['/admin/sentry'], name: 'Sentry', icon: '🐞'},
+  {path: '/admin/intelligence/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: ['/admin/ai-cost', '/ai-cost'], name: 'AI cost', icon: '💸'},
+  {path: '/admin/operations/access', group: 'Operations', question: 'Who can open these admin pages?', old: ['/admin/access'], name: 'Access', icon: '🔐', superadmin: true},
 ];
-// Old addresses of a page (one or more), and the digest downloads that moved with Real Form Filling: the ONLY place the old paths may still be written (test/web/form-pages.test.js).
+// Old addresses of a page (one or more), a group's own address (its first page), and the sub-routes that moved with their page (the digest downloads,
+// the Lab's videos): the ONLY place the old paths may still be written (test/web/form-pages.test.js).
 const OLD = {...Object.fromEntries(PAGES.flatMap(page => [page.old].flat().filter(Boolean).map(old => [old, page.path]))),
-  '/admin/form-filling/digest.json': '/admin/real-form-filling/digest.json', '/admin/form-filling/digest.md': '/admin/real-form-filling/digest.md'};
+  ...Object.fromEntries(GROUPS.slice(1).map(([name]) => [`/admin/${slugOf(name)}`, PAGES.find(page => page.group === name).path])),
+  ...Object.fromEntries(['/admin/form-filling', '/admin/real-form-filling'].flatMap(old => ['json', 'md'].map(kind => [`${old}/digest.${kind}`, `/admin/form-filling/real-users/digest.${kind}`]))),
+  '/admin/lab-form-filling/video': '/admin/form-filling/lab/video'};
+export const movedTo = pathname => OLD[pathname];
+export const oldPaths = () => Object.keys(OLD);
+
+// A script calling an old address with its key (CI's `curl -s` of the Lab's ?json and the digest, its POST upload to the Lab: none follow a 301) is answered
+// as at the new address, so nothing that calls the site breaks when a page moves; the public repo then moves its links at its own pace.
+export function inPlace(request) {
+  const url = new URL(request.url), target = OLD[url.pathname];
+  if (!target || !request.headers.has('Authorization')) return request;
+  return new Request(`${url.origin}${target}${url.search}`, request);
+}
 
 // An old address: the owner is sent to the new one (query kept, so ?key= and ?days= still work); anyone else gets the 404 they got.
 export async function redirectOld(request, env) {
   const url = new URL(request.url), target = OLD[url.pathname];
-  if (!target || request.method !== 'GET') return null;
+  if (!target) return null;
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
-  return new Response(null, {status: 301, headers: {Location: `${target}${url.search}`, 'Cache-Control': 'no-store'}});
+  // A form sent to an old address (POST) is sent on with its method and body: 308.
+  return new Response(null, {status: request.method === 'GET' || request.method === 'HEAD' ? 301 : 308, headers: {Location: `${target}${url.search}`, 'Cache-Control': 'no-store'}});
 }
 
 // One look on every admin page: the shared base comes after each page's own styles, so the width, type, colours, cards and
@@ -99,7 +117,6 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 // The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
 // Form filling and Engineering, which was renamed Operations again on 18 Oct 2026: Lab and Benchmark are engineering too): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
 // it is a lock link beside "super admin" and only for the super admin.
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
 export function nav(active, who = {role: 'superadmin'}) {
   const isSuper = who.role === 'superadmin';
   const shown = PAGES.filter(page => !page.superadmin);

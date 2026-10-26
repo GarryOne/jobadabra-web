@@ -1,4 +1,4 @@
-// Headline numbers of the Growth and Intelligence pages (admin/headlines.js; drawn by admin/section-overview.js on /admin/growth-overview and /admin/intelligence-overview).
+// Headline numbers of the Growth and Intelligence pages (admin/headlines.js; drawn by admin/section-overview.js on /admin/growth/overview and /admin/intelligence/overview).
 // The weekly series come from the same gatherer as the /admin Overview (admin/overview.js report(): one way to count each number); Signups and Monetization read their own pages' collectors.
 // Most of these numbers are activity, so their status is "none"; a count of a bad thing (problem reports) turns amber when it rose against last week.
 import {report} from './overview.js';
@@ -48,5 +48,5 @@ async function monetizationTiles(env, now) {
       : {label: 'Profit, 30 days', value: 'No data', sub: 'no sale yet', status: 'none'}];
 }
 
-export const GROWTH = {'/admin/website': fromCards('website'), '/admin/app': fromCards('app'), '/admin/email': signupsTiles, '/admin/promo-codes': promoTiles, '/admin/monetization': monetizationTiles, '/admin/feedback': fromCards('feedback')};
-export const INTELLIGENCE = {'/admin/insights': fromCards('insights'), '/admin/brain': fromCards('brain')};
+export const GROWTH = {'/admin/growth/website': fromCards('website'), '/admin/growth/app': fromCards('app'), '/admin/growth/email': signupsTiles, '/admin/growth/promo-codes': promoTiles, '/admin/growth/monetization': monetizationTiles, '/admin/growth/feedback': fromCards('feedback')};
+export const INTELLIGENCE = {'/admin/intelligence/insights': fromCards('insights'), '/admin/intelligence/brain': fromCards('brain')};

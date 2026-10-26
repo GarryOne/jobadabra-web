@@ -1,4 +1,4 @@
-// The owner's page /admin/reports (admin/report-view.js): newest first, counts only, status waiting / fetched / expired, the day's totals, the Mac command; the owner's only (404 for anyone else).
+// The owner's page /admin/form-filling/reports (admin/report-view.js): newest first, counts only, status waiting / fetched / expired, the day's totals, the Mac command; the owner's only (404 for anyone else).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {page, statusOf, view} from '../../admin/report-view.js';
@@ -25,7 +25,7 @@ test('the page lists each report newest first with its status, size and the day\
 test('owner only: 404 without the key, the rows with it', async () => {
   const db = {prepare: sql => ({bind: () => ({all: async () => ({results: sql.includes('form_report_days') ? [{reports: 1, bytes: 2048}] : ROWS})})})};
   const env = {STATS: db, STATS_KEY: 'k', STATS_API_KEY: 'owner-key', STATS_SALT: 's'};
-  assert.equal((await view(new Request('https://x/admin/reports'), env, NOW)).status, 404);
-  const ok = await view(new Request('https://x/admin/reports', {headers: {Authorization: 'Bearer owner-key'}}), env, NOW);
+  assert.equal((await view(new Request('https://x/admin/form-filling/reports'), env, NOW)).status, 404);
+  const ok = await view(new Request('https://x/admin/form-filling/reports', {headers: {Authorization: 'Bearer owner-key'}}), env, NOW);
   assert.equal(ok.status, 200); assert.match(await ok.text(), /abcdef01/);
 });

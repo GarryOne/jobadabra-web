@@ -30,19 +30,20 @@ export async function report(db, now = new Date()) {
   const brain = await rows(db, "SELECT substr(at, 1, 10) AS day, kind FROM brain_messages WHERE kind = 'recommendation' AND at >= ?", from);
   const weekly = list => list.map(row => ({...row}));
   const latest = (list, key) => (week => (week.length ? week.at(-1)[key] : null));
+  // Keyed by the page's address (27 Oct 2026: keyed by its old slug, the form-filling card had read nothing since its 14 Oct rename; test/admin/admin.test.js).
   const cards = {
-    website: [{label: 'visitors', values: byWeek(visits, now, list => new Set(list.map(row => `${row.day}|${row.visitor}`)).size)},
+    '/admin/growth/website': [{label: 'visitors', values: byWeek(visits, now, list => new Set(list.map(row => `${row.day}|${row.visitor}`)).size)},
       {label: 'downloads', values: byWeek(downloads, now, list => list.length)}],
-    app: [app.machines, app.problems],
-    insights: [insights.replies, insights.scores],
-    'self-healing': [{label: 'precision', values: byWeek(weekly(snaps), now, latest(snaps, 'precision')), format: pct}],
-    'ai-cost': [{label: 'scheduled jobs + relay', values: byWeek([...jobCost, ...relay], now, sum('usd')), format: usd, higherIsBetter: false}],
-    'form-filling': [{label: 'required questions filled', values: byWeek(filled, now, ratio('ok', 'n')), format: pct},
+    '/admin/growth/app': [app.machines, app.problems],
+    '/admin/intelligence/insights': [insights.replies, insights.scores],
+    '/admin/operations/self-healing': [{label: 'precision', values: byWeek(weekly(snaps), now, latest(snaps, 'precision')), format: pct}],
+    '/admin/intelligence/ai-cost': [{label: 'scheduled jobs + relay', values: byWeek([...jobCost, ...relay], now, sum('usd')), format: usd, higherIsBetter: false}],
+    '/admin/form-filling/real-users': [{label: 'required questions filled', values: byWeek(filled, now, ratio('ok', 'n')), format: pct},
       {label: 'blind spots per 100', values: byWeek([...blind, ...exposure], now, list => { const base = sum('base')(list); return base ? (100 * sum('blind')(list)) / base : null; }),
         format: v => v.toFixed(1), higherIsBetter: false}],
-    feedback: [app.feedback],
-    scouting: [{label: 'employers in the central list', values: byWeek(index, now, list => (list.length ? list.at(-1).feeds : null))}],
-    brain: [{label: 'recommendations', values: byWeek(brain, now, list => list.length)}],
+    '/admin/growth/feedback': [app.feedback],
+    '/admin/job-search/scouting': [{label: 'employers in the central list', values: byWeek(index, now, list => (list.length ? list.at(-1).feeds : null))}],
+    '/admin/intelligence/brain': [{label: 'recommendations', values: byWeek(brain, now, list => list.length)}],
   };
   const recall = snaps.at(-1)?.recall || null;
 
@@ -50,32 +51,32 @@ export async function report(db, now = new Date()) {
   const attention = [];
   const last = values => values.at(-1), prev = values => values.at(-2);
   const fresh = await rows(db, `SELECT COUNT(*) AS n FROM (SELECT fingerprint FROM telemetry WHERE kind IN ${PROBLEMS} GROUP BY fingerprint HAVING MIN(day) >= ?)`, weekAgo);
-  if (fresh[0]?.n) attention.push({page: '/admin/app', text: `${fresh[0].n} new problem${fresh[0].n === 1 ? '' : 's'} reported by the apps this week`, tone: 'bad'});
-  const r = cards['form-filling'][0].values;
-  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/real-form-filling', text: `Required questions filled fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
-  if (recall && recall.planted && recall.caught < recall.planted) attention.push({page: '/admin/self-healing', text: `Self-healing missed ${recall.planted - recall.caught} of ${recall.planted} planted bugs`, tone: 'bad'});
-  const c = cards['ai-cost'][0].values;
-  if (last(c) != null && prev(c) && last(c) > 1.5 * prev(c) && last(c) - prev(c) > 1) attention.push({page: '/admin/ai-cost', text: `AI cost up from ${usd(prev(c))} to ${usd(last(c))} this week`, tone: 'warn'});
+  if (fresh[0]?.n) attention.push({page: '/admin/growth/app', text: `${fresh[0].n} new problem${fresh[0].n === 1 ? '' : 's'} reported by the apps this week`, tone: 'bad'});
+  const r = cards['/admin/form-filling/real-users'][0].values;
+  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/form-filling/real-users', text: `Required questions filled fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
+  if (recall && recall.planted && recall.caught < recall.planted) attention.push({page: '/admin/operations/self-healing', text: `Self-healing missed ${recall.planted - recall.caught} of ${recall.planted} planted bugs`, tone: 'bad'});
+  const c = cards['/admin/intelligence/ai-cost'][0].values;
+  if (last(c) != null && prev(c) && last(c) > 1.5 * prev(c) && last(c) - prev(c) > 1) attention.push({page: '/admin/intelligence/ai-cost', text: `AI cost up from ${usd(prev(c))} to ${usd(last(c))} this week`, tone: 'warn'});
   const p = app.problems.values;
-  if (last(p) != null && prev(p) != null && last(p) > prev(p)) attention.push({page: '/admin/app', text: `Problem reports up from ${prev(p)} to ${last(p)}`, tone: 'warn'});
+  if (last(p) != null && prev(p) != null && last(p) > prev(p)) attention.push({page: '/admin/growth/app', text: `Problem reports up from ${prev(p)} to ${last(p)}`, tone: 'warn'});
   const f = app.feedback.values;
-  if (last(f)) attention.push({page: '/admin/feedback', text: `${last(f)} feedback message${last(f) === 1 ? '' : 's'} this week`, tone: 'info'});
+  if (last(f)) attention.push({page: '/admin/growth/feedback', text: `${last(f)} feedback message${last(f) === 1 ? '' : 's'} this week`, tone: 'info'});
   // Refused logins this week (a wrong key, a used or removed invite): for the super admin, on the Access page.
   const failed = (await rows(db, 'SELECT COUNT(*) AS n FROM admin_logins WHERE ok = 0 AND day >= ?', weekAgo))[0]?.n || 0;
-  if (failed) attention.unshift({page: '/admin/access', text: `${failed} refused login${failed === 1 ? '' : 's'} this week`, tone: 'bad', superadmin: true});
+  if (failed) attention.unshift({page: '/admin/operations/access', text: `${failed} refused login${failed === 1 ? '' : 's'} this week`, tone: 'bad', superadmin: true});
   return {cards, attention, recall, from, to: dayOf(now)};
 }
 
 export function page(data, who = {role: 'superadmin'}) {
   const attention = data.attention.filter(item => !item.superadmin || who.role === 'superadmin');
   const cards = PAGES.filter(item => item.path !== '/admin' && !item.superadmin).map(item => {   // Access is not a dashboard
-    const key = item.path.slice('/admin/'.length), series = data.cards[key] || [];
+    const series = data.cards[item.path] || [];
     return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.title || item.name)}</h2>${series.map(s => {
       const known = s.values.filter(v => v != null), format = s.format || (v => String(Math.round(v)));
       return `<div class="metric"><small class="muted">${esc(s.label)}</small><div class="line">${known.length >= 2 ? spark(s.values, {...s, width: 140, height: 30})
         : `<span>${known.length ? esc(format(known.at(-1))) : '–'}</span>`}</div></div>`;
     }).join('') || '<p class="muted">No weekly numbers here: open the page →</p>'}
-${key === 'self-healing' && data.recall ? `<small class="muted">recall ${data.recall.caught}/${data.recall.planted} planted bugs</small>` : ''}</a>`;
+${item.path === '/admin/operations/self-healing' && data.recall ? `<small class="muted">recall ${data.recall.caught}/${data.recall.planted} planted bugs</small>` : ''}</a>`;
   }).join('');
   const tone = {bad: '🔴', warn: '🟠', info: '🔵'};
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

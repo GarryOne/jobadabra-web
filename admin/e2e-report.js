@@ -1,6 +1,6 @@
-// The e2e run's HTML report on this site, kept ONLY because the E2E workflows print "/admin/e2e/run/<run>/report" on their GitHub run Summary page and in each suite's
+// The e2e run's HTML report on this site, kept ONLY because the E2E workflows print "/admin/operations/e2e/run/<run>/report" on their GitHub run Summary page and in each suite's
 // table (.github/workflows/e2e*.yml, desktop.yml, desktop/e2e/lib/step-summary.mjs). The /admin/e2e runs page itself was dropped on 15 Oct 2026 (owner: "not useful").
-// /admin/e2e/run/<run>/report sends an admin to the run's Playwright report; /admin/e2e/report/<artifact>/<token>/<file> serves its files out of the e2e-report artifact
+// /admin/operations/e2e/run/<run>/report sends an admin to the run's Playwright report; /admin/operations/e2e/report/<artifact>/<token>/<file> serves its files out of the e2e-report artifact
 // (byte ranges, signed address). Nothing is stored; the GitHub token is the site's GITHUB_TOKEN. Tests: test/admin/e2e-report.test.js.
 import {same, sign, viewer} from '../shared/auth.js';
 
@@ -35,8 +35,8 @@ export function zipEntries(bytes) {
 // One file's bytes as a stream (inflated when it was deflated).
 
 // so a file is read with byte ranges (the zip's directory, then that file's bytes), never the whole artifact. The address carries a signed token for the artifact
-// (/admin/e2e/report/<id>/<token>/<file>): the report's trace viewer fetches from a service worker, which must not depend on the login cookie. Only an admin is
-// ever handed one (/admin/e2e/run/<run>/report checks first); artifacts never change, so files are cached a day.
+// (/admin/operations/e2e/report/<id>/<token>/<file>): the report's trace viewer fetches from a service worker, which must not depend on the login cookie. Only an admin is
+// ever handed one (/admin/operations/e2e/run/<run>/report checks first); artifacts never change, so files are cached a day.
 const TYPES = {html: 'text/html; charset=utf-8', js: 'text/javascript', css: 'text/css', json: 'application/json', zip: 'application/zip', png: 'image/png', jpeg: 'image/jpeg',
   jpg: 'image/jpeg', svg: 'image/svg+xml', ttf: 'font/ttf', woff2: 'font/woff2', webmanifest: 'application/manifest+json', txt: 'text/plain; charset=utf-8', log: 'text/plain; charset=utf-8', md: 'text/plain; charset=utf-8'};
 export const reportToken = (env, id) => sign(env.STATS_KEY, `e2e-report|${id}`);
@@ -81,7 +81,7 @@ async function remoteFile(fetcher, url, entry) {
 }
 const cache = () => (typeof caches === 'undefined' ? null : caches.default);
 export async function reportFile(request, env, fetcher = fetch) {
-  const match = new URL(request.url).pathname.match(/^\/admin\/e2e\/report\/(\d+)\/([\w-]{20,})\/(.*)$/);
+  const match = new URL(request.url).pathname.match(/^\/admin\/(?:operations\/)?e2e\/report\/(\d+)\/([\w-]{20,})\/(.*)$/);
   if (!match || !env.STATS_KEY || !same(match[2], await reportToken(env, match[1]))) return new Response('Not found', {status: 404});
   const file = decodeURIComponent(match[3] || 'index.html') || 'index.html';
   const key = new Request(`https://e2e-report.cache/${match[1]}/${encodeURIComponent(file)}`);
@@ -104,32 +104,32 @@ export async function reportFile(request, env, fetcher = fetch) {
   }
 }
 
-// /admin/e2e/run/<run>/report?suite=<name>: the run's report (a link the suites print on the run's Summary page before the report exists), or a page saying it is
+// /admin/operations/e2e/run/<run>/report?suite=<name>: the run's report (a link the suites print on the run's Summary page before the report exists), or a page saying it is
 // not built yet (refreshing itself while the run goes) or that this run has none.
 export async function runReport(request, env, fetcher = fetch) {
-  const url = new URL(request.url), run = url.pathname.match(/^\/admin\/e2e\/run\/(\d+)\/report$/)?.[1];
+  const url = new URL(request.url), run = url.pathname.match(/^\/admin\/(?:operations\/)?e2e\/run\/(\d+)\/report$/)?.[1];
   if (!run) return new Response('Not found', {status: 404});
   const [info, artifacts] = await Promise.all([json(env, `/actions/runs/${run}`, fetcher), json(env, `/actions/runs/${run}/artifacts?per_page=100`, fetcher)]);
   // ?os=windows: the Windows gate's report (e2e-report-windows; a Windows run before 7 Oct 2026 named it e2e-report). A release run holds both.
   const live = (artifacts.artifacts || []).filter(item => !item.expired);
   const report = url.searchParams.get('os') === 'windows' ? live.find(item => item.name === reportName('Windows')) || live.find(item => item.name === REPORT) : live.find(item => item.name === REPORT);
   const suite = (url.searchParams.get('suite') || '').replace(/[^\w-]/g, '');
-  if (report) return new Response(null, {status: 302, headers: {Location: `/admin/e2e/report/${report.id}/${await reportToken(env, report.id)}/index.html${suite ? `#?q=${encodeURIComponent(suite)}` : ''}`, 'Cache-Control': 'no-store'}});
+  if (report) return new Response(null, {status: 302, headers: {Location: `/admin/operations/e2e/report/${report.id}/${await reportToken(env, report.id)}/index.html${suite ? `#?q=${encodeURIComponent(suite)}` : ''}`, 'Cache-Control': 'no-store'}});
   const going = info.status !== 'completed';
   const text = going ? 'The HTML report is built when the run ends. This page checks again every minute.' : 'This run has no HTML report: it predates the report, the report job failed, or GitHub has deleted it.';
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>E2E report · Admin</title><style>body{margin:0;background:#0b0d10;color:#f4efe3;font:15px/1.5 system-ui,-apple-system,sans-serif}main{max-width:640px;margin:15vh auto;padding:0 16px}a{color:#f5b54a}</style></head>
-<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/self-healing">Admin</a></p></main>${going ? '<script>setInterval(function () { if (!document.hidden) location.reload(); }, 60000);</script>' : ''}</body></html>`,
+<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/operations/self-healing">Admin</a></p></main>${going ? '<script>setInterval(function () { if (!document.hidden) location.reload(); }, 60000);</script>' : ''}</body></html>`,
   {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
 }
 
 // GET /admin/e2e (the page), ?json=1 (the runs), ?steps=<artifact> (a suite's steps.json), /admin/e2e/trace/<artifact>/<trace-file>.zip (for the viewer).
 
-// /admin/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to the E2E tab, /admin/operations/e2e.
+// /admin/operations/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to the E2E tab, /admin/operations/e2e.
 export async function view(request, env, fetcher = fetch) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const {pathname} = new URL(request.url);
-  if (!/^\/admin\/e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/operations/e2e', 'Cache-Control': 'no-store'}});
+  if (!/^\/admin\/(?:operations\/)?e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/operations/e2e', 'Cache-Control': 'no-store'}});
   if (!env.GITHUB_TOKEN) return Response.json({error: 'GITHUB_TOKEN is not set on the site'}, {status: 503, headers: {'Cache-Control': 'no-store'}});
   try { return await runReport(request, env, fetcher); } catch (error) {
     console.log('e2e report', error.message);

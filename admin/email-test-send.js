@@ -1,4 +1,4 @@
-// "Send to test inbox" on /admin/email (owner, 26 Oct 2026: a button that sends a template to a test inbox). POST /admin/email, owner only, from the page (same origin).
+// "Send to test inbox" on /admin/growth/email (owner, 26 Oct 2026: a button that sends a template to a test inbox). POST /admin/growth/email, owner only, from the page (same origin).
 // The ONLY address it ever mails is a test-account-*@jobpilotto.top inbox (admin/test-mail.js isTestAddress): any other `to` is refused, and the default is test-account-admin@. It goes through the real
 // send() (list rules, 6 a day, the log), so it counts in the caps like any mail. The copy that arrives is listed on the page from test_mail. Guard: test/admin/email.test.js.
 import {isOwner} from '../shared/auth.js';
@@ -19,5 +19,5 @@ export async function testSend(request, env) {
   if (!TEMPLATES[template]) return new Response('Unknown template.', {status: 400});
   if (!isTestAddress(to)) return new Response('Test mail goes only to a test-account-*@jobpilotto.top address.', {status: 400});
   const result = await send(env, template, to, SAMPLES[template]);
-  return new Response(null, {status: 303, headers: {Location: `/admin/email?test=${template}:${result.ok ? 'sent' : result.reason}`, 'Cache-Control': 'no-store'}});
+  return new Response(null, {status: 303, headers: {Location: `/admin/growth/email?test=${template}:${result.ok ? 'sent' : result.reason}`, 'Cache-Control': 'no-store'}});
 }

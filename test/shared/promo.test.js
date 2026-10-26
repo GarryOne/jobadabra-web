@@ -21,7 +21,7 @@ function site(extra = {}) {
   return {STATS: d1(), STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', STATS_SALT: 's', PRO_PLAN: 'test', ASSETS: {fetch: () => new Response('asset')},
     WAITLIST: {get: async key => kv.get(key) ?? null, put: async (key, value) => { kv.set(key, value); }, list: async () => ({keys: []})}, ...extra};
 }
-const importCode = (env, fields = {}) => worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
+const importCode = (env, fields = {}) => worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
   body: new URLSearchParams({action: 'import', code: FAKE, label: 'test', cap: '2', ends: '2999-12-31', ...fields})}), env, {});
 const key = async (env, install) => `JPF1.${install}.${await tokenFor(install, env, 'ai')}`;
 const redeem = async (env, install, code, ip = '1.1.1.1') => worker.fetch(new Request(`${ORIGIN}/api/pro/redeem`, {method: 'POST', headers: {'x-api-key': await key(env, install), 'CF-Connecting-IP': ip, 'Content-Type': 'application/json'}, body: JSON.stringify({code})}), env, {});
@@ -78,7 +78,7 @@ test('an expired code is refused only after a right code; Pro by a code ends on 
 test('revoke ends Pro at once, delete removes the code and its uses', async () => {
   const env = site(); await importCode(env); await redeem(env, A, FAKE);
   const id = (await env.STATS.prepare('SELECT id FROM pro_promo_codes').first()).id;
-  const post = fields => worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(fields)}), env, {});
+  const post = fields => worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(fields)}), env, {});
   assert.equal((await post({action: 'revoke', id})).status, 303);
   assert.equal((await status(env, A)).plan, 'free');
   assert.equal((await (await redeem(env, B, FAKE)).json()).error, 'wrong');
@@ -105,8 +105,8 @@ test('nothing exists while PRO_PLAN is off, and the route needs the install key'
 
 test('the admin page is the owner\'s: others get 404; a made code is shown once, only its hash is kept', async () => {
   const env = site({PROMO_CODE_KEY: 'test-key'});
-  assert.equal((await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`), env, {})).status, 404);
-  const made = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
+  assert.equal((await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`), env, {})).status, 404);
+  const made = await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({action: 'generate', label: 'friends', count: '2', cap: '5', ends: '2999-12-31'})}), env, {});
   const text = await made.text();
   const codes = [...text.matchAll(/\b([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})\b/g)].map(m => m[1]);
@@ -116,20 +116,20 @@ test('the admin page is the owner\'s: others get 404; a made code is shown once,
   const stored = JSON.stringify((await env.STATS.prepare('SELECT * FROM pro_promo_codes').all()).results);
   for (const code of codes) assert.ok(!stored.includes(code), 'the code is not stored in plain text');
   assert.ok(/"code_enc":"[^"]+"/.test(stored), 'but it is stored encrypted');
-  const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
+  const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), env, {})).text();
   assert.ok(list.includes('<td class="one-line">1 of 5</td>') && codes.every(code => list.includes(code)), 'the owner sees the full code in the list');
   // One line per row (owner, 27 Oct 2026): Copy is a small icon at the start of the code.
   assert.match(list, /<span class="code-cell"><button type="button" class="copy"[^>]*aria-label="Copy the code"[\s\S]*?<\/button><span class="full" id="c-/);
-  const other = await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: {Authorization: 'Bearer wrong'}}), env, {});
+  const other = await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: {Authorization: 'Bearer wrong'}}), env, {});
   assert.equal(other.status, 404, 'anyone else gets nothing');
-  const keyless = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: undefined}, {})).text();
+  const keyless = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: undefined}, {})).text();
   assert.ok(!codes.some(code => keyless.includes(code)) && keyless.includes('Made before full codes were kept: re-make it with the Code field to see it') && keyless.includes("Full codes can't be shown"), 'without the key the code cannot be shown, and the page says why');
-  const wrongKey = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: 'other'}, {})).text();
+  const wrongKey = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), {...env, PROMO_CODE_KEY: 'other'}, {})).text();
   assert.ok(!codes.some(code => wrongKey.includes(code)), 'a wrong key fails closed');
   assert.match(newCode(), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 });
 
-const make = (env, fields) => worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
+const make = (env, fields) => worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
   body: new URLSearchParams({action: 'generate', label: 'mine', cap: '3', ends: '2999-12-31', ...fields})}), env, {});
 
 test('the owner can type his own code: saved, redeemable in any case or spacing, shown in the list', async () => {
@@ -139,7 +139,7 @@ test('the owner can type his own code: saved, redeemable in any case or spacing,
   const text = await made.text();
   assert.ok(text.includes(mine) && text.includes('It also stays in the list below'));
   assert.equal((await redeem(env, A, 'test own code7')).status, 200, 'normalised like the redeem check');
-  const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
+  const list = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), env, {})).text();
   assert.ok(list.includes(mine), 'full code in the list');
   assert.ok(!JSON.stringify((await env.STATS.prepare('SELECT * FROM pro_promo_codes').all()).results).includes(mine), 'not stored in plain text');
 });
@@ -163,6 +163,6 @@ test('empty Code still makes a random one; with no key the page says so and fail
   assert.match(text, /\b[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}\b/);
   assert.ok(text.includes("Full codes can't be shown: the site's PROMO_CODE_KEY is not set") && !text.includes('It also stays in the list below'));
   assert.ok(text.includes('Made before full codes were kept: re-make it with the Code field to see it'), 'a row without its copy says how to get it');
-  const keyed = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), site({PROMO_CODE_KEY: 'k', STATS: env.STATS}), {})).text();
+  const keyed = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), site({PROMO_CODE_KEY: 'k', STATS: env.STATS}), {})).text();
   assert.ok(!keyed.includes("Full codes can't be shown"), 'no notice when the key is set');
 });

@@ -1,4 +1,4 @@
-// /admin/access: the super admin's page to share the admin pages. Invite someone (a name and how long), copy their link
+// /admin/operations/access: the super admin's page to share the admin pages. Invite someone (a name and how long), copy their link
 // (shown once: only its hash is kept), set a new expiry, or remove them; and every login, good or bad. Admins and anyone else get
 // the usual 404: nobody but the super admin sees or changes access. Changes are POSTs from this page only (same origin, and the
 // session cookie is SameSite=Strict).
@@ -65,7 +65,7 @@ export async function view(request, env, now = Date.now()) {
     else if (action === 'extend' && id) await extend(env, id, days, now);
     else if (action === 'revoke' && id) await revoke(env, id, now);
     else return new Response('Unknown action', {status: 400});
-    if (!created) return new Response(null, {status: 303, headers: {Location: '/admin/access'}});
+    if (!created) return new Response(null, {status: 303, headers: {Location: '/admin/operations/access'}});
   } else if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
   return html(page({list: await people(env.STATS), logins: await recentLogins(env.STATS, 30), created, now}));
 }

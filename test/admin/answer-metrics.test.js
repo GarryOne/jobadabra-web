@@ -51,7 +51,7 @@ test('the rates: kept and left empty per question, wrong field per answer return
   assert.equal(ratesOf(undefined).keptRate, null);
 });
 
-test('/admin/real-form-filling shows the answers per family, this week against last', async () => {
+test('/admin/form-filling/real-users shows the answers per family, this week against last', async () => {
   const {d1: STATS} = d1();
   const now = new Date('2026-10-09T12:00:00Z');
   await store({STATS}, {answers: [entry('cli', {kept: 6})]}, 'install-a0001', new Date('2026-10-01T12:00:00Z'));   // last week

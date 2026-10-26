@@ -2,7 +2,7 @@
 # The search robot (owner, 26 Oct 2026: "why we don't find these gaps with our automatic tooling?"; sketch https://claude.ai/artifact/5PjZZy6TyTBNQZYB6PaofR): the draw is from everywhere
 # (jobs/persona-search/draw_wide.py): any role kind of the app's list with a role the AI makes up, a city, country, region or remote place written as the wizard note, and a path:
 # the first search, a field change then a 2nd search (run.mjs --change-field), or the same search again. A fictional CV, a fresh throwaway install (tools/persona-search/run.mjs
-# on Free AI: its own temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts, funnel and AI dollars go to /admin/lab-job-search "Random draws"
+# on Free AI: its own temp folder, no Keychain/Notion/Telegram, telemetry and sharing off), and the counts, funnel and AI dollars go to /admin/job-search/lab "Random draws"
 # (jobs/persona-search/draw-upload.mjs, main only). Daily (owner's yes, 26 Oct 2026, "about $25-40 a month at most"): measured on Free AI $0.05-0.16 a draw (mean $0.12,
 # about $3.50 a month) and 14-33 Actions minutes (about 800 a month of the repo's ~4,000).
 # - Synthetic only: nothing is read from or written to a real user's data; its rows are tagged CI and are never mixed with the Real installs tab.

@@ -1,5 +1,5 @@
 // The owner's admin area (admin/admin.js, admin/overview.js, admin/trends.js): every private page under /admin with one menu, the old
-// addresses redirected for the owner only, a trend per section of /admin/app and /admin/insights, and the overview.
+// addresses redirected for the owner only, a trend per section of /admin/growth/app and /admin/intelligence/insights, and the overview.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -33,7 +33,7 @@ test('the menu: every page has a group, no group row has more than 7 pages, Acce
   for (const name of names) assert.ok(PAGES.filter(page => page.group === name && !page.superadmin).length <= 7, `${name} row is short`);
   const access = PAGES.find(page => page.superadmin);
   const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';
-  const sup = nav('/admin/website', {role: 'superadmin'}), adm = nav('/admin/website', {role: 'admin', name: 'Ann'});
+  const sup = nav('/admin/growth/website', {role: 'superadmin'}), adm = nav('/admin/growth/website', {role: 'admin', name: 'Ann'});
   assert.ok(sup.includes(`<span class="me">super admin <a href="${access.path}"`));
   assert.ok(!adm.includes(access.path));
   assert.ok(!row(nav('/admin/operations/overview', {role: 'superadmin'})).includes(access.path), 'Access is not in a row');
@@ -41,14 +41,14 @@ test('the menu: every page has a group, no group row has more than 7 pages, Acce
 
 test('Scouting lives in Job search next to the Lab, not in Intelligence, at the same address; its headline moved with it', () => {
   const group = path => PAGES.find(page => page.path === path)?.group;
-  assert.equal(group('/admin/scouting'), 'Job search');
+  assert.equal(group('/admin/job-search/scouting'), 'Job search');
   const names = PAGES.filter(page => page.group === 'Job search').map(page => page.name);
   assert.deepEqual(names.slice(0, 2), ['Lab', 'Scouting']);
   const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';
-  assert.ok(row(nav('/admin/scouting', {role: 'admin', name: 'Ann'})).includes('href="/admin/lab-job-search"'), 'Scouting opens the Job search row');
-  assert.ok(!row(nav('/admin/insights', {role: 'admin', name: 'Ann'})).includes('/admin/scouting'), 'the Intelligence row no longer lists it');
+  assert.ok(row(nav('/admin/job-search/scouting', {role: 'admin', name: 'Ann'})).includes('href="/admin/job-search/lab"'), 'Scouting opens the Job search row');
+  assert.ok(!row(nav('/admin/intelligence/insights', {role: 'admin', name: 'Ann'})).includes('/admin/job-search/scouting'), 'the Intelligence row no longer lists it');
   assert.ok(Object.keys(JOB_SEARCH).every(path => group(path) === 'Job search'), 'every Job search headline belongs to a Job search page');
-  assert.ok(!(path => path in INTELLIGENCE)('/admin/scouting'), 'Intelligence no longer declares it');
+  assert.ok(!(path => path in INTELLIGENCE)('/admin/job-search/scouting'), 'Intelligence no longer declares it');
 });
 
 test('the old addresses send the owner to /admin (query kept); anyone else still gets a 404', async () => {
@@ -85,7 +85,7 @@ test('weeks: today is week 0, oldest first in a series, and the chart marks this
   assert.match(spark([2, 5], {higherIsBetter: false}), /class="down">▲/);
 });
 
-test('each section of /admin/app and /admin/insights has its weeks, from the tables already kept', async () => {
+test('each section of /admin/growth/app and /admin/intelligence/insights has its weeks, from the tables already kept', async () => {
   const e = env(), db = e.STATS.db;
   db.prepare("INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data) VALUES ('2026-10-11', 'x', 'health', 'i1', '0.8', 'mac', 'f', '', '{\"runsOk\":3}'), ('2026-10-04', 'x', 'health', 'i2', '0.8', 'mac', 'f', '', '{}'), ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'boom', 'Boom', '{}')").run();
   db.prepare("INSERT INTO intel_fix_days VALUES ('2026-10-10', 10, 2), ('2026-10-03', 10, 5)").run();
@@ -93,9 +93,9 @@ test('each section of /admin/app and /admin/insights has its weeks, from the tab
   assert.deepEqual([app.machines.values.at(-1), app.machines.values.at(-2), app.helped.values.at(-1), app.problems.values.at(-1)], [1, 1, 3, 1]);
   assert.deepEqual(insights.fixes.values.slice(-2), [0.5, 0.2]);
   for (const series of [...Object.values(app), ...Object.values(insights)]) assert.equal(series.values.length, 8, series.label);
-  const html = await (await get(e, '/admin/app?days=30', owner)).text();
+  const html = await (await get(e, '/admin/growth/app?days=30', owner)).text();
   assert.equal((html.match(/class="trend"/g) || []).length, 8);   // the Notion prompt's trend was retired 25 Oct 2026, the form lab's trend was retired 9 Oct 2026
-  const intel = await (await get(e, '/admin/insights', owner)).text();
+  const intel = await (await get(e, '/admin/intelligence/insights', owner)).text();
   assert.equal((intel.match(/class="trend"/g) || []).length, 9);
 });
 
@@ -109,11 +109,12 @@ test('the overview: a card per page and what needs attention, pulled from their 
   db.prepare("INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES ('2026-10-11T10:00:00Z', '2026-10-11', 'i1', '0.8', 'mac', 'hello', '')").run();
   const data = await report(e.STATS, now);
   const texts = data.attention.map(item => `${item.page} ${item.text}`);
-  for (const want of ['/admin/app 1 new problem', 'Required questions filled fell from 90% to 50%', '/admin/self-healing Self-healing missed 1 of 15', '/admin/feedback 1 feedback message'])
+  for (const want of ['/admin/growth/app 1 new problem', 'Required questions filled fell from 90% to 50%', '/admin/operations/self-healing Self-healing missed 1 of 15', '/admin/growth/feedback 1 feedback message'])
     assert.ok(texts.some(text => text.includes(want)), want);
   const html = await (await get(e, '/admin', owner)).text();
   for (const page of PAGES.filter(p => p.path !== '/admin' && !p.superadmin)) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);
   assert.match(html, /recall 14\/15/);
+  for (const key of Object.keys(data.cards)) assert.ok(PAGES.some(page => page.path === key), `the ${key} card belongs to a page`);
 });
 
 test('an empty database: every page and the overview still render', async () => {
@@ -126,6 +127,6 @@ test('an empty database: every page and the overview still render', async () => 
 test('every admin page has its question, shown under the menu', async () => {
   const {PAGES, withNav} = await import('../../admin/admin.js');
   for (const page of PAGES) assert.ok(page.question && page.question.endsWith('?'), `${page.path} has no question`);
-  const html = withNav('<html><head></head><body><main>x</main></body></html>', '/admin/insights');
+  const html = withNav('<html><head></head><body><main>x</main></body></html>', '/admin/intelligence/insights');
   assert.match(html, /class="admin-question">Does the app make good decisions for users\?</);
 });

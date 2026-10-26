@@ -1,4 +1,4 @@
-// /admin/promo-codes (owner, 25 Oct 2026): make a Pro promo code (one per Make: random, or the owner's own text; with a cap of people and an end date), see every use per install, revoke or delete. Owner only (the usual 404 for anyone else).
+// /admin/growth/promo-codes (owner, 25 Oct 2026): make a Pro promo code (one per Make: random, or the owner's own text; with a cap of people and an end date), see every use per install, revoke or delete. Owner only (the usual 404 for anyone else).
 // A code is kept as a hash (to check redeems) and encrypted with PROMO_CODE_KEY (to show it in full here, owner only); never in plain text (shared/promo.js). Changes are POSTs from this page (same origin). A hidden action "import" (Bearer) loads a code given on stdin, so a code
 // the owner already holds goes in without being shown. Guard: test/admin/promo-codes.test.js.
 import {digestOf} from '../shared/guard.js';
@@ -42,7 +42,7 @@ export function page({codes = [], wrong = 0, created = null, detail = null, erro
   const total = codes.reduce((sum, code) => sum + code.used, 0), active = codes.filter(code => stateOf(code, code.used, now).text === 'Active').length;
   const rows = codes.map(code => {
     const state = stateOf(code, code.used, now), open = !code.revoked_at;
-    return `<tr><td class="one-line"><a href="/admin/promo-codes?code=${esc(code.id)}"><b>${esc(code.label)}</b></a></td><td>${code.full ? `<span class="code-cell">${copyButton(`c-${esc(code.id)}`)}<span class="full" id="c-${esc(code.id)}">${esc(code.full)}</span></span>` : `…${esc(code.last4)} <span class="muted" title="Made before full codes were kept: re-make it with the Code field to see it">· old code</span>`}</td><td class="one-line">${gives(code)}</td><td class="one-line">${code.used} of ${code.cap}</td><td class="one-line">${esc(code.ends_at.slice(0, 10))}</td><td class="one-line" title="${stamp(code.last_used)} UTC">${code.last_used ? esc(String(code.last_used).slice(0, 10)) : 'never'}</td><td class="one-line ${state.tone}">${state.text}</td>
+    return `<tr><td class="one-line"><a href="/admin/growth/promo-codes?code=${esc(code.id)}"><b>${esc(code.label)}</b></a></td><td>${code.full ? `<span class="code-cell">${copyButton(`c-${esc(code.id)}`)}<span class="full" id="c-${esc(code.id)}">${esc(code.full)}</span></span>` : `…${esc(code.last4)} <span class="muted" title="Made before full codes were kept: re-make it with the Code field to see it">· old code</span>`}</td><td class="one-line">${gives(code)}</td><td class="one-line">${code.used} of ${code.cap}</td><td class="one-line">${esc(code.ends_at.slice(0, 10))}</td><td class="one-line" title="${stamp(code.last_used)} UTC">${code.last_used ? esc(String(code.last_used).slice(0, 10)) : 'never'}</td><td class="one-line ${state.tone}">${state.text}</td>
 <td class="actions one-line">${open ? `<form method="post" onsubmit="return confirm('Revoke ${esc(code.label)}? ${ends(code)}')"><input type="hidden" name="action" value="revoke"><input type="hidden" name="id" value="${esc(code.id)}"><button class="danger">Revoke</button></form>` : ''}
 <form method="post" onsubmit="return confirm('Delete ${esc(code.label)} and its uses? ${ends(code)}')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="${esc(code.id)}"><button class="danger">Delete</button></form></td></tr>`;
   }).join('');
@@ -118,7 +118,7 @@ export async function view(request, env, now = new Date()) {
     } else if (action === 'revoke' && id) await env.STATS.prepare('UPDATE pro_promo_codes SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL').bind(now.toISOString(), id).run();
     else if (action === 'delete' && id) { await env.STATS.prepare('DELETE FROM pro_promo_uses WHERE code = ?').bind(id).run(); await env.STATS.prepare('DELETE FROM pro_promo_credit_uses WHERE code = ?').bind(id).run(); await env.STATS.prepare('DELETE FROM pro_promo_codes WHERE id = ?').bind(id).run(); }
     else return new Response('Unknown action', {status: 400});
-    if (!created && !error) return new Response(null, {status: 303, headers: {Location: '/admin/promo-codes'}});
+    if (!created && !error) return new Response(null, {status: 303, headers: {Location: '/admin/growth/promo-codes'}});
   } else if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
   const data = await collect(env, now), open = url.searchParams.get('code'), shown = data.codes.find(code => code.id === open);
   for (const code of data.codes) code.full = await openCode(env, code.code_enc);

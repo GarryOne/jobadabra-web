@@ -19,8 +19,8 @@ const now = Date.parse('2026-10-06T12:00:00Z');
 
 test('a login swaps the key for a signed session that expires; the key itself never sits in a cookie', async () => {
   const env = {STATS_KEY: 'browser-key', STATS: d1()};
-  const response = await remember(new URL('https://x/admin/app?key=browser-key&days=7'), env, req('/admin/app?key=browser-key'), now);
-  assert.equal(response.headers.get('Location'), '/admin/app?days=7');
+  const response = await remember(new URL('https://x/admin/growth/app?key=browser-key&days=7'), env, req('/admin/growth/app?key=browser-key'), now);
+  assert.equal(response.headers.get('Location'), '/admin/growth/app?days=7');
   const cookies = response.headers.getSetCookie();
   assert.ok(cookies.every(c => !c.includes('browser-key')));
   const session = cookies[0].match(/^jp_admin=([^;]+)/)[1];

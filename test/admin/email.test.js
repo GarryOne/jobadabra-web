@@ -1,4 +1,4 @@
-// /admin/email: counts what mail_log, mail_off, mail_held and pro_accounts hold, shows the four switches, lists the page in the menu, and never prints an address (hash only). Fake D1.
+// /admin/growth/email: counts what mail_log, mail_off, mail_held and pro_accounts hold, shows the four switches, lists the page in the menu, and never prints an address (hash only). Fake D1.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -65,8 +65,7 @@ test('the page never contains a full address hash, only the first 8 characters',
 
 test('the window is 7, 30 or 90 days; anything else is 7; the page is in the Growth menu', () => {
   assert.deepEqual([7, 30, 90, 5, 'x', undefined].map(windowOf), [7, 30, 90, 7, 7, 7]);
-  assert.ok(PAGES.some(p => p.path === '/admin/email' && p.group === 'Growth' && p.old === '/admin/signups'));
-  assert.ok(!PAGES.some(p => p.path === '/admin/signups'), 'Signups is merged into E-mail');
+  assert.ok(PAGES.some(p => p.path === '/admin/growth/email' && p.group === 'Growth'));   // Signups merged into it: test/admin/admin-urls.test.js
 });
 
 test('every template has sample data and renders inside the frame, essential ones without an unsubscribe link', () => {
@@ -85,14 +84,14 @@ test('the page shows each template in a sandboxed frame', async () => {
 });
 
 // ---- send to test inbox ----
-const post = (fields, {origin = 'https://www.jobadabra.top', key = 'script-key'} = {}) => new Request('https://www.jobadabra.top/admin/email', {method: 'POST', headers: {Origin: origin, ...(key && {Authorization: `Bearer ${key}`})}, body: new URLSearchParams(fields)});
+const post = (fields, {origin = 'https://www.jobadabra.top', key = 'script-key'} = {}) => new Request('https://www.jobadabra.top/admin/growth/email', {method: 'POST', headers: {Origin: origin, ...(key && {Authorization: `Bearer ${key}`})}, body: new URLSearchParams(fields)});
 const live = async () => { const sent = [], {env} = await fill(); return {sent, env: {...env, STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', EMAIL: {send: async m => { sent.push(m); return {messageId: 'm1'}; }}}}; };
 
 test('a test send mails only the test inbox, through the real sender, and says so on the page', async () => {
   const {env, sent} = await live();
   const response = await view(post({template: 'welcome'}), env);
   assert.equal(response.status, 303);
-  assert.equal(response.headers.get('Location'), '/admin/email?test=welcome:sent');
+  assert.equal(response.headers.get('Location'), '/admin/growth/email?test=welcome:sent');
   assert.deepEqual(sent.map(m => m.to), [TEST_INBOX]);
   assert.match(sent[0].subject, /Confirm your email/);
   assert.match(page(await collect(env, {now}), null, '<p>x</p>'), /test-account-admin@jobpilotto\.top/);
@@ -111,8 +110,8 @@ test('a test send refuses any other address, an unknown template, a stranger and
 
 test('with the MAIL switch off, or for a list the address is not on, the result says why and nothing is sent', async () => {
   const {env, sent} = await live();
-  assert.equal((await view(post({template: 'welcome'}), {...env, MAIL: 'off'})).headers.get('Location'), '/admin/email?test=welcome:off');
-  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'on'})).headers.get('Location'), '/admin/email?test=pro-launch:not_opted_in');
+  assert.equal((await view(post({template: 'welcome'}), {...env, MAIL: 'off'})).headers.get('Location'), '/admin/growth/email?test=welcome:off');
+  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'on'})).headers.get('Location'), '/admin/growth/email?test=pro-launch:not_opted_in');
   assert.equal(sent.length, 0);
 });
 

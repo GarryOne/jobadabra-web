@@ -54,9 +54,9 @@ test('a Codex install\'s form results land in the OpenAI row and under the OpenA
   const all = await report(STATS, now);
   assert.equal(all.results.now.finished, 4);
   assert.deepEqual([all.families.openai.successRate, all.families.claude.successRate], [1, 0]);
-  const html = page(all, new URL('https://www.jobpilotto.top/admin/real-form-filling')) + learningPage(all, new URL('https://www.jobpilotto.top/admin/form-learning'));
+  const html = page(all, new URL('https://www.jobpilotto.top/admin/form-filling/real-users')) + learningPage(all, new URL('https://www.jobpilotto.top/admin/form-filling/learning'));
   assert.match(html, /By AI family, this week/);
-  assert.match(html, /href="\/admin\/real-form-filling\?family=openai"/);
+  assert.match(html, /href="\/admin\/form-filling\/real-users\?family=openai"/);
 });
 
 test('the latest engine per install is one indexed pass over the health rows, never a MAX per row (14 Oct 2026: 730k rows read a day)', async () => {

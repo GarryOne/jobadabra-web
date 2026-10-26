@@ -40,7 +40,7 @@ test('the dropped runs page and its data and trace addresses go to /admin/operat
 });
 
 test('without a GitHub token the run link says why', async () => {
-  const answer = await ask('/admin/e2e/run/5/report', owner, undefined, {STATS_KEY: 'k3y'});
+  const answer = await ask('/admin/operations/e2e/run/5/report', owner, undefined, {STATS_KEY: 'k3y'});
   assert.equal(answer.status, 503);
   assert.match((await answer.json()).error, /GITHUB_TOKEN/);
 });
@@ -80,23 +80,23 @@ const reportGithub = ({status = 'completed', report = true} = {}) => {
   };
 };
 test('the run link: an admin is sent to the report (filtered to a suite); not ready and none say so', async () => {
-  assert.equal((await ask('/admin/e2e/run/5/report', {}, reportGithub())).status, 404, 'admins only');
-  const sent = await ask('/admin/e2e/run/5/report?suite=jobs', owner, reportGithub());
+  assert.equal((await ask('/admin/operations/e2e/run/5/report', {}, reportGithub())).status, 404, 'admins only');
+  const sent = await ask('/admin/operations/e2e/run/5/report?suite=jobs', owner, reportGithub());
   assert.equal(sent.status, 302);
-  assert.equal(sent.headers.get('Location'), `/admin/e2e/report/77/${await reportToken(env, 77)}/index.html#?q=jobs`);
-  const waiting = await ask('/admin/e2e/run/5/report', owner, reportGithub({status: 'in_progress', report: false}));
+  assert.equal(sent.headers.get('Location'), `/admin/operations/e2e/report/77/${await reportToken(env, 77)}/index.html#?q=jobs`);
+  const waiting = await ask('/admin/operations/e2e/run/5/report', owner, reportGithub({status: 'in_progress', report: false}));
   assert.match(await waiting.text(), /built when the run ends[\s\S]*/);
-  assert.match(await (await ask('/admin/e2e/run/5/report', owner, reportGithub({report: false}))).text(), /has no HTML report/);
+  assert.match(await (await ask('/admin/operations/e2e/run/5/report', owner, reportGithub({report: false}))).text(), /has no HTML report/);
 });
 test('report files: the signed address serves them without a cookie; a wrong token or another artifact is a 404', async () => {
   const token = await reportToken(env, 77);
   const get = path => reportFile(new Request(`https://www.jobpilotto.top${path}`), env, reportGithub());
-  const page = await get(`/admin/e2e/report/77/${token}/index.html`);
+  const page = await get(`/admin/operations/e2e/report/77/${token}/index.html`);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('Content-Type'), /text\/html/);
   assert.equal(await page.text(), '<html>the report</html>');
-  assert.match((await get(`/admin/e2e/report/77/${token}/trace/sw.bundle.js`)).headers.get('Content-Type'), /javascript/, 'the viewer\'s service worker needs a script type');
-  assert.equal((await get(`/admin/e2e/report/77/${token}/missing.js`)).status, 404);
-  assert.equal((await get(`/admin/e2e/report/77/${'x'.repeat(43)}/index.html`)).status, 404);
-  assert.equal((await get(`/admin/e2e/report/78/${token}/index.html`)).status, 404, 'a token is for one artifact');
+  assert.match((await get(`/admin/operations/e2e/report/77/${token}/trace/sw.bundle.js`)).headers.get('Content-Type'), /javascript/, 'the viewer\'s service worker needs a script type');
+  assert.equal((await get(`/admin/operations/e2e/report/77/${token}/missing.js`)).status, 404);
+  assert.equal((await get(`/admin/operations/e2e/report/77/${'x'.repeat(43)}/index.html`)).status, 404);
+  assert.equal((await get(`/admin/operations/e2e/report/78/${token}/index.html`)).status, 404, 'a token is for one artifact');
 });
