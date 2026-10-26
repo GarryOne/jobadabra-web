@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read   # the PR's changed files: media tests run only when it touches media
 
 concurrency:
   group: tests-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
@@ -42,10 +43,20 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
         working-directory: desktop
+      - name: Does this PR touch media?   # no: skip ffmpeg, Electron and the media tests (a stalled mirror failed a migration-only PR 4 times, 26 Oct 2026); main and the daily run always run them
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          files="$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --jq '.[].filename')" || files='media/'
+          if printf '%s\n' "$files" | grep -qE '^(media/|desktop/test/media-|tools/(hero|media|apt-install|site-guards)|\.github/workflows/tests\.yml$)'; then echo MEDIA_TOOLS=1; else echo MEDIA_TOOLS=0; fi | tee -a "$GITHUB_ENV"
       - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js); cut and retried, never a hang (web #122: 11m51s)
+        if: env.MEDIA_TOOLS != '0'
         timeout-minutes: 5
         run: .private/tools/apt-install.sh ffmpeg
       - name: Electron and a display for the hero render test   # #100: media-render.test.js draws frames with media/render.cjs; the job skips the binary above
+        if: env.MEDIA_TOOLS != '0'
         timeout-minutes: 8
         working-directory: desktop
         run: ../.private/tools/apt-install.sh xvfb && ELECTRON_SKIP_BINARY_DOWNLOAD='' node node_modules/electron/install.js
@@ -60,4 +71,4 @@ jobs:
           SITE_ROUTES_STRICT: ${{ github.event_name == 'schedule' && '1' || '' }}   # a route the Worker has but public never listed fails the daily run, not a pair in flight
         run: bash tools/check.sh --area site
       - name: Tests that read site files, and the tests of this repo
-        run: xvfb-run -a bash .private/tools/site-guards.sh . .private   # a display for Electron (the render test)
+        run: if [ "${MEDIA_TOOLS:-1}" = 0 ]; then bash .private/tools/site-guards.sh . .private; else xvfb-run -a bash .private/tools/site-guards.sh . .private; fi   # a display for Electron (the render test)

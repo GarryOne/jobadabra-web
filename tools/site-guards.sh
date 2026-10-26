@@ -20,6 +20,13 @@ cd desktop
 [ -d node_modules ] || ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --silent
 node scripts/stage.mjs >/dev/null
 node_files="$( { grep -l "site-private.js" test/*.test.js | grep -v '^test/site-private'; (cd "$priv/desktop" && ls test/*.test.js 2>/dev/null); echo test/plan.test.js; echo test/no-credit-words.test.js; echo test/no-question-mark.test.js; echo test/cost-labels.test.js; } | sort -u | tr '\n' ' ')"
+# A pull request that changes no media file skips the media tests and their ffmpeg/Electron installs (tests.yml "Does this PR touch media?",
+# 26 Oct 2026: a stalled Ubuntu mirror failed a migration-only PR 4 times). Pushes to main and the daily run always run them, never skipped.
+if [ "${MEDIA_TOOLS:-1}" = 0 ]; then
+  skipped="$(printf '%s\n' $node_files | grep '^test/media-' | tr '\n' ' ')"
+  node_files="$(printf '%s\n' $node_files | grep -v '^test/media-' | tr '\n' ' ')"
+  echo "site-guards: this pull request changes no media file: media tests not run here (main and the daily run run them): $skipped"
+fi
 # shellcheck disable=SC2086
 node --test $node_files || status=1
 exit $status
