@@ -32,3 +32,41 @@ test('the landing page links to the platform support page, which lists what is s
   const page = file('platforms.html');
   for (const word of ['Supported', 'Coming next', 'No date yet', 'Edge', 'Gmail', 'Outlook']) assert.ok(page.includes(word), word);
 });
+
+// Search Console, 25-26 Oct 2026: "Duplicate without user-selected canonical" on /changelog, /privacy, /terms (no canonical tag).
+// The class: every page Google should index is in the sitemap, names itself as canonical, and robots.txt lets Google read it.
+const locs = () => [...file('sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+const pageFile = (path) => (path === '/' ? 'index' : path.slice(1)) + '.html';
+
+test('every sitemap page names itself as canonical on https://www.jobadabra.top', () => {
+  for (const loc of locs()) {
+    const url = new URL(loc);
+    assert.equal(url.origin, 'https://www.jobadabra.top', loc);
+    const canonicals = [...file(pageFile(url.pathname)).matchAll(/<link rel="canonical" href="([^"]+)">/g)].map((m) => m[1]);
+    assert.deepEqual(canonicals, [loc], `${pageFile(url.pathname)}: one canonical, its own address`);
+  }
+});
+
+test('every public page is either in the sitemap or marked noindex', async () => {
+  const {readdirSync} = await import('node:fs');
+  const listed = new Set(locs().map((loc) => new URL(loc).pathname));
+  for (const name of readdirSync(new URL('../../web/public', import.meta.url)).filter((f) => f.endsWith('.html'))) {
+    const path = name === 'index.html' ? '/' : '/' + name.replace(/\.html$/, '');
+    const noindex = /<meta name="robots" content="noindex/.test(file(name));
+    assert.ok(listed.has(path) !== noindex, `${name}: ${noindex ? 'noindex but in the sitemap' : 'neither in the sitemap nor noindex'}`);
+  }
+});
+
+test('robots.txt blocks no page the sitemap lists', () => {
+  const blocked = [...file('robots.txt').matchAll(/^Disallow: (\S+)$/gm)].map((m) => m[1]);
+  for (const loc of locs()) {
+    const path = new URL(loc).pathname;
+    assert.ok(!blocked.some((rule) => path.startsWith(rule)), `${path} is disallowed`);
+  }
+});
+
+test('no page links to a page by its .html file: each link uses the one address Google should index', async () => {
+  const {readdirSync} = await import('node:fs');
+  for (const name of readdirSync(new URL('../../web/public', import.meta.url)).filter((f) => f.endsWith('.html')))
+    assert.deepEqual(file(name).match(/href="[^"]*?\b[\w-]+\.html(?:[?#][^"]*)?"/g) || [], [], name);
+});

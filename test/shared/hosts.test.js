@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
-import {apexRedirect, legacyPageRedirect, PAGE_PATHS} from '../../shared/hosts.js';
+import {apexRedirect, pageRedirect, PAGE_PATHS} from '../../shared/hosts.js';
 
 const ask = (host, path, init) => new Request(`https://${host}${path}`, init);
 const API_PATHS = ['/api/index', '/api/notion/start?session=x', '/report/fill-failure', '/telemetry', '/admin', '/privacy', '/'];
@@ -48,14 +48,14 @@ test('jobadabra.top: bare name goes to www, www is served, wrangler attaches bot
 });
 
 test('old www.jobpilotto.top: pages go to www.jobadabra.top, API paths are served (installed apps)', () => {
-  const r = legacyPageRedirect(ask('www.jobpilotto.top', '/compare?x=1'));
+  const r = pageRedirect(ask('www.jobpilotto.top', '/compare?x=1'));
   assert.equal(r.status, 301);
   assert.equal(r.headers.get('Location'), 'https://www.jobadabra.top/compare?x=1');
-  assert.equal(legacyPageRedirect(ask('www.jobpilotto.top', '/index.html')).headers.get('Location'), 'https://www.jobadabra.top/');
+  assert.equal(pageRedirect(ask('www.jobpilotto.top', '/index.html')).headers.get('Location'), 'https://www.jobadabra.top/');
   for (const path of ['/api/index', '/api/ai/x', '/report/telemetry', '/report/fill-failure', '/telemetry/version', '/install', '/admin', '/download/x'])
-    assert.equal(legacyPageRedirect(ask('www.jobpilotto.top', path)), null, path);
-  assert.equal(legacyPageRedirect(ask('www.jobpilotto.top', '/', {method: 'POST'})), null);
-  for (const host of ['www.jobadabra.top', 'www.jobpilotto.workers.dev']) assert.equal(legacyPageRedirect(ask(host, '/compare')), null, host);
+    assert.equal(pageRedirect(ask('www.jobpilotto.top', path)), null, path);
+  assert.equal(pageRedirect(ask('www.jobpilotto.top', '/', {method: 'POST'})), null);
+  for (const host of ['www.jobadabra.top', 'www.jobpilotto.workers.dev']) assert.equal(pageRedirect(ask(host, '/compare')), null, host);
 });
 
 test('every page in public/ is redirected and listed in run_worker_first; a page added later fails here', () => {
@@ -75,4 +75,29 @@ test('every host the site accepts keeps being served: none is dropped', async ()
     const response = await worker.fetch(ask(host, '/privacy.json'), env, {});
     assert.notEqual(response.status, 301, host);
   }
+});
+
+// Search Console, 25-26 Oct 2026: http://www.jobadabra.top/<page> was served (200), so Google saw two copies of each page
+// ("Alternative page with proper canonical tag", "Duplicate without user-selected canonical"). A page has one address.
+test('a page has one address: http, the old host and .html each 301 once to https://www.jobadabra.top/<page>', () => {
+  const at = (url, init) => pageRedirect(new Request(url, init));
+  for (const path of PAGE_PATHS) {
+    const file = path === '/' ? '/index.html' : `${path}.html`;
+    for (const from of [`http://www.jobadabra.top${path}`, `http://www.jobpilotto.top${path}`, `https://www.jobpilotto.top${path}`, `https://www.jobadabra.top${file}`, `http://www.jobadabra.top${file}`]) {
+      const r = at(`${from}?from=x`);
+      assert.equal(r?.status, 301, from);
+      assert.equal(r.headers.get('Location'), `https://www.jobadabra.top${path}?from=x`, from);
+    }
+    assert.equal(at(`https://www.jobadabra.top${path}`), null, `${path} is served`);
+  }
+  for (const path of ['/api/index', '/report/telemetry', '/download/mac', '/admin']) assert.equal(at(`http://www.jobpilotto.top${path}`), null, path);   // installed apps: never redirected
+  assert.equal(at('http://www.jobpilotto.workers.dev/privacy'), null);
+  assert.equal(apexRedirect(new Request('http://jobadabra.top/privacy')).headers.get('Location'), 'https://www.jobadabra.top/privacy');
+});
+
+test('the worker sends that redirect before serving the page', async () => {
+  const env = {ASSETS: {fetch: async () => new Response('page')}};
+  const r = await worker.fetch(new Request('http://www.jobadabra.top/privacy'), env, {});
+  assert.equal(r.status, 301);
+  assert.equal(r.headers.get('Location'), 'https://www.jobadabra.top/privacy');
 });
