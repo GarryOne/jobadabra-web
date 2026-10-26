@@ -46,6 +46,19 @@ export const kindsOf = kinds => {
     .map(([kind, share]) => [kind, Math.round(share * 100) / 100]));
   return Object.keys(out).length ? out : null;
 };
+// How many of a feed's jobs in each country are of each kind (src/scout_index.py kind_counts): installs read an employer only when its jobs in their
+// countries are their kind (owner, 26 Oct 2026). Fixed country and kind ids, whole numbers from 1; anything else is dropped.
+export const kindCountsOf = counts => {
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return null;
+  const out = {};
+  for (const [country, kinds] of Object.entries(counts)) {
+    if (!COUNTRIES.includes(country) || !kinds || typeof kinds !== 'object' || Array.isArray(kinds)) continue;
+    const kept = Object.fromEntries(Object.entries(kinds).filter(([kind, n]) => KINDS.includes(kind) && typeof n === 'number' && number(n, 100000) >= 1)
+      .map(([kind, n]) => [kind, number(n, 100000)]));
+    if (Object.keys(kept).length) out[country] = kept;
+  }
+  return Object.keys(out).length ? out : null;
+};
 // How fresh a feed is (src/scout.py health): fixed fields only, dates and small numbers.
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const freshOf = fresh => {
@@ -88,6 +101,7 @@ export function clean(feeds) {
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
       ...(kindsOf(item.kinds) ? {kinds: kindsOf(item.kinds)} : {}),
+      ...(kindCountsOf(item.kind_counts) ? {kind_counts: kindCountsOf(item.kind_counts)} : {}),
       ...(freshOf(item.fresh) ? {fresh: freshOf(item.fresh)} : {}),
       ...(poolOf(item.pool) ? {pool: poolOf(item.pool)} : {}),
       regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
@@ -308,9 +322,10 @@ async function publish(request, env) {
 }
 
 // Is a feed worth rewriting? (14 Oct 2026: 11.7k feed writes a day, 23k rows, though most feeds only had a new "checked"/"ok" date or a drifting job count.)
-// Rewritten when anything else changed, a date moved 7+ days past the stored one, a count crossed zero or moved more than 25%, or failing started or stopped.
+// Rewritten when anything else changed, a date moved 7+ days past the stored one, a count crossed zero or moved more than 25% (kind counts: each country × kind), or failing started or stopped.
 const DATES_DAYS = 7, COUNT_SHARE = 0.25;
-const stablePart = feed => JSON.stringify({...feed, checked: undefined, jobs: undefined, relevant: undefined,
+const countKeys = counts => (counts ? Object.fromEntries(Object.entries(counts).map(([country, kinds]) => [country, Object.keys(kinds).sort()])) : undefined);
+const stablePart = feed => JSON.stringify({...feed, checked: undefined, jobs: undefined, relevant: undefined, kind_counts: countKeys(feed.kind_counts),
   fresh: feed.fresh ? {failing: (feed.fresh.fails || 0) > 0, trend: feed.fresh.trend, new: feed.fresh.new} : undefined});
 const daysApart = (a, b) => (a && b ? (Date.parse(b) - Date.parse(a)) / 86400000 : a === b ? 0 : Infinity);
 const countMoved = (a, b) => ((a || 0) === 0) !== ((b || 0) === 0) || Math.abs((b || 0) - (a || 0)) > COUNT_SHARE * Math.max(a || 0, b || 0);
@@ -318,7 +333,8 @@ export function worthWriting(stored, feed) {
   if (!stored) return true;
   if (stablePart(stored) !== stablePart(feed)) return true;
   if (daysApart(stored.checked, feed.checked) >= DATES_DAYS || daysApart(stored.fresh?.ok, feed.fresh?.ok) >= DATES_DAYS) return true;
-  return countMoved(stored.jobs, feed.jobs) || countMoved(stored.relevant, feed.relevant) || countMoved(stored.fresh?.jobs, feed.fresh?.jobs);
+  const kindMoved = Object.entries(feed.kind_counts || {}).some(([country, kinds]) => Object.entries(kinds).some(([kind, n]) => countMoved(stored.kind_counts?.[country]?.[kind], n)));
+  return kindMoved || countMoved(stored.jobs, feed.jobs) || countMoved(stored.relevant, feed.relevant) || countMoved(stored.fresh?.jobs, feed.fresh?.jobs);
 }
 
 // Make the D1 index this list, writing only what differs (11 Oct 2026: a full rewrite of ~4.3k feeds, three times a day, wrote 8.5k rows a time and spent a quarter of the free plan's daily
