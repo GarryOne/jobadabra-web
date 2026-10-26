@@ -1,5 +1,5 @@
 // ⌘K on every /admin page (owner, 27 Oct 2026: "a Cmd + K to /admin that will help us navigate very easily to any page/screen/card/tab/section";
-// his first example: "Promo Code" lands on /admin/promo-codes). Owns PALETTE_STYLE and PALETTE_SCRIPT, added to every page by withNav (admin/admin.js).
+// his first example: "Promo Code" lands on the Promo codes page). Owns PALETTE_STYLE and PALETTE_SCRIPT, added to every page by withNav (admin/admin.js).
 // Nothing is listed by hand: the entries are read from the pages themselves: the menu (every page this viewer may open), the tab strips
 // (nav.tabs, role=tab) and the section and card headings (h2, h3; a heading without an id gets one from its words, the same on every load).
 // The open page is read live (also what its script drew); the other pages are read the same way, each opened for a moment in a hidden frame
