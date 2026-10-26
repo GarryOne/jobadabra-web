@@ -10,7 +10,7 @@ const text = (value, max) => String(value ?? '').replace(/[^\p{L}\p{N} .'-]/gu, 
 const count = value => (value == null ? null : Number.isInteger(value) && value >= 0 && value <= 1e7 ? value : undefined);
 // The search robot's draw (jobs/persona-search/draw_wide.py, 26 Oct 2026): what it drew and the funnel of the measured search (tools/persona-search/funnel.py), fixed words and counts only.
 export const PLACE_KINDS = ['city', 'country', 'region', 'remote'], PATHS = ['first', 'field-change', 'again'], ENGINES = ['api', 'free'];
-export const FUNNEL = ['employers_picked', 'employers_in_places', 'employer_sites_read', 'boards_read', 'board_jobs', 'board_relevant', 'web_searches', 'web_found', 'looked', 'matches', 'scored', 'good'];
+export const FUNNEL = ['employers_picked', 'employers_in_places', 'employer_sites_read', 'boards_read', 'board_jobs', 'board_relevant', 'web_searches', 'web_found', 'looked', 'matches', 'scored', 'good', 'ai_refused'];
 const oneOf = (list, value) => (value == null ? null : list.includes(value) ? value : undefined);
 const dollars = value => (value == null ? null : typeof value === 'number' && value >= 0 && value <= 100 ? Math.round(value * 1000) / 1000 : undefined);
 function funnelOf(given) {
@@ -111,12 +111,14 @@ export function judge(rows) {
 
 // The presses of tools/persona-search/presses.jsonl plus draw.json (draw.py's or draw_wide.py's) -> the row to upload. The measured search is the last press (a field change or a
 // repeat is press 2); its times are the first press's (only press 1 has them); the AI dollars add up every press. A crash in any press fails the draw.
+// A Free AI draw (engine 'free', jobs/persona-search/free-ai-local.mjs): its dollars and refused calls are the relay's own meter (info.free_ai), not the engine's Haiku prices.
 export function rowFromDraw(info, presses, {build}) {
-  const list = [presses].flat(), press = list.at(-1), ttfr = list[0].ttfr || {}, crash = list.flatMap(one => one.crashes || [])[0];
-  const spent = list.map(one => one.funnel?.ai_usd).filter(value => typeof value === 'number');
+  const list = [presses].flat(), press = list.at(-1), ttfr = list[0].ttfr || {}, crash = list.flatMap(one => one.crashes || [])[0], free = info.free_ai;
+  const spent = free ? [free.usd] : list.map(one => one.funnel?.ai_usd).filter(value => typeof value === 'number');
+  const refused = free ? {ai_refused: Object.values(free.refused || {}).reduce((sum, n) => sum + n, 0)} : {};
   return {draw_date: info.seed, seed: info.seed, family: info.family || info.kind, city: info.city, country: info.country, build, state: crash ? 'failed' : 'ok', failed_step: crash?.step,
     first_s: list.length === 1 ? ttfr.first_in_places_s ?? null : null, tenth_s: list.length === 1 ? ttfr.tenth_in_places_s ?? null : null, fit_s: list.length === 1 ? ttfr.first_fit70_s ?? null : null,
     in_places: press.in_places ?? null, scored: press.scored_in_places ?? null, fit70: press.fit70_in_places ?? null,
     role: info.role?.title ?? null, place_kind: info.place_kind ?? null, place: info.place ?? null, path: info.path ?? null, engine: info.engine ?? null,
-    ai_usd: spent.length ? Math.round(spent.reduce((sum, value) => sum + value, 0) * 1000) / 1000 : null, funnel: press.funnel ? Object.fromEntries(Object.entries(press.funnel).filter(([key]) => FUNNEL.includes(key) || key === 'kinds')) : null};
+    ai_usd: spent.length ? Math.round(spent.reduce((sum, value) => sum + value, 0) * 1000) / 1000 : null, funnel: press.funnel ? {...Object.fromEntries(Object.entries(press.funnel).filter(([key]) => FUNNEL.includes(key) || key === 'kinds')), ...refused} : null};
 }
