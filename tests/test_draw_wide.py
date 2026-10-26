@@ -15,9 +15,35 @@ import draw_wide  # noqa: E402
 DAYS = [(date(2026, 11, 1) + timedelta(days=i)).isoformat() for i in range(400)]
 
 
+def judging(prompt):
+    return '"same_work"' in prompt
+
+
+def verdict(same=True, kind='aviation_transport', why='all flying'):
+    return json.dumps({'same_work': same, 'kind': kind, 'why': why})
+
+
 def fake_ai(prompt):
-    title = 'First Officer' if 'none of these covers' in prompt else 'Ward Nurse'
+    if judging(prompt):
+        return verdict()
+    title = 'First Officer' if 'none of these covers' in prompt else 'Airline Pilot'
     return json.dumps({'title': title, 'duty': 'Flew short-haul routes as second in command.', 'education': 'ATPL licence', 'tools': 'A320 type rating, CRM'})
+
+
+def scripted(roles, verdicts=None):
+    """An AI that answers the role questions from `roles` and the judge from `verdicts` (default: same work), in order; keeps every prompt it got."""
+    roles, verdicts = iter(roles), iter(verdicts or [])
+    def ask(prompt):
+        ask.prompts.append(prompt)
+        return next(verdicts, verdict()) if judging(prompt) else next(roles)
+    ask.prompts = []
+    return ask
+
+
+FIRST_OFFICER_AML = {'title': 'First Officer', 'duty': 'Monitoring financial transactions to detect and prevent money laundering activities.',
+                     'education': "Bachelor's degree in Finance, AML certification", 'tools': 'AML software, KYC tools, regulatory databases'}
+FIRST_OFFICER_FLYING = {'title': 'First Officer', 'duty': 'Flew A320 short-haul routes as second in command.', 'education': 'ATPL licence',
+                        'tools': 'A320 type rating, CRM, flight planning'}
 
 
 class PickTest(unittest.TestCase):
@@ -62,20 +88,72 @@ class RoleTest(unittest.TestCase):
                 self.assertIn(draw_wide.WORK[kind], words)
 
     def test_a_bad_answer_is_asked_again_then_refused(self):
-        answers = iter(['no json', json.dumps({'title': 'Sound Technician', 'duty': 'Ran live sound.', 'education': 'Diploma', 'tools': 'Mixing desks'})])
-        self.assertEqual(draw_wide.invent('s', 'other', 'Italy', ask=lambda _: next(answers))['title'], 'Sound Technician')
+        ask = scripted(['no json', json.dumps({'title': 'Sound Technician', 'duty': 'Ran live sound.', 'education': 'Diploma', 'tools': 'Mixing desks'})])
+        self.assertEqual(draw_wide.invent('s', 'other', 'Italy', ask=ask)['title'], 'Sound Technician')
         with self.assertRaises(SystemExit):
-            draw_wide.invent('s', 'other', 'Italy', ask=lambda _: json.dumps({'title': 'x\ny'}))
+            draw_wide.invent('s', 'other', 'Italy', ask=lambda prompt: verdict() if judging(prompt) else json.dumps({'title': 'x\ny'}))
 
     def test_a_long_duty_or_tools_line_is_kept_on_one_line(self):
         long = {'title': 'Special Needs Teacher', 'duty': 'Planned and taught lessons for pupils with special educational needs, ' * 2, 'education': 'MEd',
                 'tools': 'IEP writing, sign language, assistive technology, behaviour support plans, parent liaison, multi-agency work'}
-        role = draw_wide.invent('s', 'education', 'Italy', ask=lambda _: json.dumps(long))
+        role = draw_wide.invent('s', 'education', 'Italy', ask=scripted([json.dumps(long)], [verdict(kind='education')]))
         self.assertEqual(role['title'], 'Special Needs Teacher')
         self.assertEqual(draw_wide.valid({**long, 'duty': 'x' * 400})[1], 'duty is 400 characters (at most 300)')
 
     def test_a_fixed_title_is_kept(self):
         self.assertEqual(draw_wide.invent('s', 'healthcare', 'Italy', 'First Officer', ask=fake_ai)['title'], 'First Officer')
+
+
+class CoherentPersonaTest(unittest.TestCase):
+    """26 Oct 2026, runs 40262591897 / 40262594144: a re-run fixed the title "First Officer" on a seed that drew finance_admin, so the AI wrote an
+    anti-money-laundering duty and a finance CV; one build judged the search finance (9 jobs at 70+), the other aviation (0). The AI judges whether the
+    title, duty, education and skills name the same work; a persona that does not is refused and drawn again."""
+
+    def test_a_persona_naming_different_work_is_drawn_again(self):
+        ask = scripted([json.dumps(FIRST_OFFICER_AML), json.dumps(FIRST_OFFICER_FLYING)],
+                       [verdict(False, 'finance_admin', 'a pilot title with an AML duty'), verdict(True, 'aviation_transport')])
+        role = draw_wide.invent('2026-03-28', 'finance_admin', 'France', 'First Officer', ask=ask)
+        self.assertEqual(role['duty'], FIRST_OFFICER_FLYING['duty'])
+        self.assertEqual(role['kind'], 'aviation_transport')
+        self.assertEqual(sum(not judging(p) for p in ask.prompts), 2)   # the role was asked twice
+        judged = [p for p in ask.prompts if judging(p)]
+        for value in FIRST_OFFICER_AML.values():   # the judge saw every CV line of the refused persona
+            self.assertIn(value, judged[0])
+
+    def test_a_persona_never_coherent_is_refused(self):
+        ask = scripted([json.dumps(FIRST_OFFICER_AML)] * 3, [verdict(False)] * 3)
+        with self.assertRaises(SystemExit) as raised:
+            draw_wide.invent('s', 'finance_admin', 'France', 'First Officer', ask=ask)
+        self.assertIn('different work', str(raised.exception))
+
+    def test_a_judge_answer_off_the_list_is_asked_again(self):
+        ask = scripted([json.dumps(FIRST_OFFICER_FLYING)] * 3, [verdict(kind='aviation'), 'no json', json.dumps({'same_work': 'yes', 'kind': 'legal'})])
+        with self.assertRaises(SystemExit):
+            draw_wide.invent('s', 'aviation_transport', 'France', ask=ask)
+        self.assertIsNone(draw_wide.judged_verdict({'same_work': 'yes', 'kind': 'legal', 'why': ''})[0])
+        self.assertIsNone(draw_wide.judged_verdict({'same_work': True, 'kind': 'pilots', 'why': ''})[0])
+
+    def test_the_judge_chooses_from_the_apps_own_kinds(self):
+        prompt = draw_wide.JUDGE_ASK(FIRST_OFFICER_FLYING)
+        for kind in draw_wide.KINDS:
+            self.assertIn(kind, prompt)
+        schema = draw_wide.VERDICT['properties']
+        self.assertEqual(schema['kind']['enum'], list(draw_wide.KINDS))
+        self.assertEqual(schema['same_work']['type'], 'boolean')
+
+    def test_a_fixed_title_asks_for_that_titles_work_not_the_drawn_kind(self):
+        ask = scripted([json.dumps(FIRST_OFFICER_FLYING)])
+        draw_wide.invent('s', 'finance_admin', 'France', 'First Officer', ask=ask)
+        asked = next(p for p in ask.prompts if not judging(p))
+        self.assertIn('First Officer', asked)
+        self.assertNotIn(draw_wide.WORK['finance_admin'], asked)
+
+    def test_the_draw_is_filed_under_the_kind_the_ai_reads(self):
+        with tempfile.TemporaryDirectory() as out:
+            draw = draw_wide.write('2026-03-28', out, role='First Officer', ask=fake_ai)
+        self.assertEqual(draw['kind'], 'aviation_transport')   # what /admin and the alarm call the field
+        self.assertEqual(draw['drawn_kind'], draw_wide.pick('2026-03-28')['kind'])
+        self.assertNotEqual(draw['other_kind'], draw['kind'])
 
 
 class WriteTest(unittest.TestCase):
@@ -110,6 +188,12 @@ class WorkflowTest(unittest.TestCase):
         step = next(s for s in self.YML.split('      - name: ') if 'node jobs/persona-search/draw-alarm.mjs' in s)
         self.assertIn('PUBLIC_REF: ${{ inputs.public_ref }}', step)
         self.assertIn('if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then', step)
+
+    def test_the_log_shows_the_job_boards_the_search_read(self):
+        # 26 Oct 2026: boards_read went 12 -> 0 between a before/after pair and the job log could not say why.
+        step = next(s for s in self.YML.split('      - name: ') if 'run: node jobs/persona-search/board-lines.mjs' in s)
+        self.assertIn('if: always()', step)
+        self.assertIn('node jobs/persona-search/board-lines.mjs "$RUNNER_TEMP/draw-out/draw"', step)
 
     def test_the_kept_artifact_drops_titles_and_sources(self):
         self.assertIn("for(const key of ['top10','sources','local_by_source'])delete row[key]", self.YML)
