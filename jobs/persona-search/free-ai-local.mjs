@@ -1,12 +1,13 @@
 // Free AI for the random draw (owner, 26 Oct 2026: "use claude in chrome. Same account if possible, just different workspace/token/worker"): the site's own
 // Free AI handler (shared/free-ai.js: the same models, translation, per-install caps and board web search lane as /api/ai) served on the runner, so a draw on
 // engine "free" meets what a Free AI user meets, without touching production's counters, alerts or Worker. Its bindings:
-//   - env.AI: Workers AI over REST on the draws' own token (RANDOM_DRAWS_CF_ACCOUNT_ID, RANDOM_DRAWS_CF_AI_TOKEN: Workers AI only, never the site's);
-//   - the web search lane's Anthropic key: the draws' own workspace (RANDOM_DRAWS_ANTHROPIC_KEY), never WEB_SEARCH_ANTHROPIC_KEY;
+//   - env.AI: Workers AI over REST on the caller's own token: FREE_AI_LOCAL_CF_ACCOUNT_ID + FREE_AI_LOCAL_CF_AI_TOKEN (any CI job, e.g. the public e2e on
+//     CI_FREE_AI_CF_TOKEN), else the draws' RANDOM_DRAWS_CF_ACCOUNT_ID + RANDOM_DRAWS_CF_AI_TOKEN. Workers AI only, never the site's;
+//   - the web search lane: off unless FREE_AI_LOCAL_WEB_ANTHROPIC_KEY is given (owner, 26 Oct 2026: "I don't want to top up anymore"), never WEB_SEARCH_ANTHROPIC_KEY;
 //   - KV and D1 in memory (this run only), the caps from workers/www/wrangler.toml [vars] (production's), no Telegram (no alert reaches the owner);
 //   - one throwaway install whose JPF1 key is signed with a salt made for this run.
 // GET /__report: {usd, calls, refused: {status: n}, by_action: {action: usd}} from the run's own ai_calls rows (the site's cost meter).
-//   node jobs/persona-search/free-ai-local.mjs <port> <key file>     (prints "free-ai-local: listening on <port>")
+//   node jobs/persona-search/free-ai-local.mjs <port> <key file> [--install-prefix ci-e2e-]     (prints "free-ai-local: listening on <port>"; prefix default ci-draw-)
 // Guard: test/jobs/free-ai-local.test.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -63,12 +64,20 @@ export function restAi(account, token, fetcher = fetch) {
 }
 
 // The handler's env and the install's JPF1 key. `source`: process.env (the three draw secrets).
-export async function setup(source = process.env, fetcher = fetch) {
-  if (!source.RANDOM_DRAWS_CF_ACCOUNT_ID || !source.RANDOM_DRAWS_CF_AI_TOKEN) throw new Error('free-ai-local: RANDOM_DRAWS_CF_ACCOUNT_ID and RANDOM_DRAWS_CF_AI_TOKEN are needed');
-  const env = {...vars(), AI: restAi(source.RANDOM_DRAWS_CF_ACCOUNT_ID, source.RANDOM_DRAWS_CF_AI_TOKEN, fetcher), WAITLIST: memoryKv(), STATS: memoryD1(),
-    STATS_SALT: crypto.randomBytes(24).toString('hex'), WEB_SEARCH_ANTHROPIC_KEY: source.RANDOM_DRAWS_ANTHROPIC_KEY || ''};
+// The Workers AI account and token: the generic names first (any CI job), then the draws' own.
+export function cloudflare(source = process.env) {
+  const account = source.FREE_AI_LOCAL_CF_ACCOUNT_ID || source.RANDOM_DRAWS_CF_ACCOUNT_ID, token = source.FREE_AI_LOCAL_CF_AI_TOKEN || source.RANDOM_DRAWS_CF_AI_TOKEN;
+  if (!account || !token) throw new Error('free-ai-local: FREE_AI_LOCAL_CF_ACCOUNT_ID + FREE_AI_LOCAL_CF_AI_TOKEN (or RANDOM_DRAWS_CF_ACCOUNT_ID + RANDOM_DRAWS_CF_AI_TOKEN) are needed');
+  return {account, token};
+}
+
+export async function setup(source = process.env, fetcher = fetch, {installPrefix = 'ci-draw-'} = {}) {
+  if (!/^[\w-]{1,40}$/.test(installPrefix)) throw new Error(`free-ai-local: install prefix "${installPrefix}" must be letters, digits, _ or - (at most 40)`);
+  const {account, token} = cloudflare(source);
+  const env = {...vars(), AI: restAi(account, token, fetcher), WAITLIST: memoryKv(), STATS: memoryD1(),
+    STATS_SALT: crypto.randomBytes(24).toString('hex'), WEB_SEARCH_ANTHROPIC_KEY: source.FREE_AI_LOCAL_WEB_ANTHROPIC_KEY || ''};
   if (!env.WEB_SEARCH_ANTHROPIC_KEY) env.FREE_AI_WEB_SEARCH = 'off';
-  const install = `ci-draw-${crypto.randomBytes(6).toString('hex')}`;
+  const install = `${installPrefix}${crypto.randomBytes(6).toString('hex')}`;
   return {env, key: `JPF1.${install}.${await tokenFor(install, env, 'ai')}`};
 }
 
@@ -97,9 +106,9 @@ export function serve(env, fetcher = fetch) {
 }
 
 async function main() {
-  const [port, keyFile] = process.argv.slice(2);
-  if (!port || !keyFile) { console.error('usage: node jobs/persona-search/free-ai-local.mjs <port> <key file>'); process.exit(2); }
-  const {env, key} = await setup();
+  const [port, keyFile] = process.argv.slice(2), at = process.argv.indexOf('--install-prefix');
+  if (!port || !keyFile || port.startsWith('--')) { console.error('usage: node jobs/persona-search/free-ai-local.mjs <port> <key file> [--install-prefix ci-e2e-]'); process.exit(2); }
+  const {env, key} = await setup(process.env, fetch, at > 0 ? {installPrefix: process.argv[at + 1]} : {});
   fs.writeFileSync(keyFile, key, {mode: 0o600});
   serve(env).listen(Number(port), '127.0.0.1', () => console.log(`free-ai-local: listening on ${port}`));
 }
