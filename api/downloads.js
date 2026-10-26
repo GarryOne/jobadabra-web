@@ -1,5 +1,5 @@
-// Website traffic without cookies: page views (POST /api/hit from web/public/track.js) and Download clicks (GET /download/mac|windows|windows-exe|chrome,
-// which records the click and redirects to the GitHub release file or the store listing). Called by visitors and by /install (api/install.js), never by /admin.
+// Website traffic without cookies: page views (POST /api/hit from web/public/track.js) and Download clicks (GET /download/mac|windows,
+// which records the click and redirects to the GitHub release file). Called by visitors and by /install (api/install.js), never by /admin.
 // The /stats page that reads these tables is admin/stats.js. Stored in Cloudflare D1 (binding STATS, tables in migrations/). A visitor is a hash of
 // IP + browser + the day + the secret STATS_SALT: it counts unique people per day and can't be traced back to an address.
 // Guarded by test/api/stats.test.js.
@@ -10,11 +10,7 @@ import {device} from '../shared/device.js';
 const RELEASE = 'https://github.com/GarryOne/jobadabra/releases/latest/download/';
 // The fixed fallback keeps the old alias: every stable release has it (it is uploaded beside Jobadabra-mac-arm64.dmg for a few releases), and the
 // first Jobadabra-named release is not latest yet when this ships. The normal path (versioned, below) already prefers the Jobadabra-* file.
-export const FILES = {mac: 'Job-Pilotto-mac-arm64.dmg', 'windows-exe': 'Job-Pilotto-windows-x64.exe'};
-// Store listings (owner, 26 Oct 2026: "Store first, .exe small"): a Microsoft Store install never shows SmartScreen or Edge's Keep/Delete, and the
-// Store keeps that copy updated; the .exe stays one small link (windows-exe). Guarded by test/api/store-downloads.test.js.
-export const STORES = {windows: 'https://apps.microsoft.com/detail/9NW1JJ7Z90MP',
-  chrome: 'https://chromewebstore.google.com/detail/nmbnjhmpofifgcdalfefddbiihccogoi'};
+export const FILES = {mac: 'Job-Pilotto-mac-arm64.dmg', windows: 'Job-Pilotto-windows-x64.exe'};
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse|curl|wget|python|monitor/i;
 
 const clip = (value, max = 80) => String(value || '').replace(/[^\w.\-/: ]/g, '').slice(0, max);
@@ -61,7 +57,7 @@ export async function hit(request, env, now = new Date()) {
 // version instead of Chrome's "Jobadabra-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
 // cache); if GitHub doesn't answer, the fixed name above still works.
 const VERSIONED = {mac: [/^Jobadabra-\d[\w.-]*-arm64\.dmg$/, /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/],
-  'windows-exe': [/^Jobadabra-\d[\w.-]*-x64\.exe$/, /^Job-Pilotto-\d[\w.-]*-x64\.exe$/]};
+  windows: [/^Jobadabra-\d[\w.-]*-x64\.exe$/, /^Job-Pilotto-\d[\w.-]*-x64\.exe$/]};
 export async function versioned(platform, env, fetcher = globalThis.fetch, cache = globalThis.caches?.default) {
   const api = `https://api.github.com/repos/${env.GITHUB_REPO || 'GarryOne/jobadabra'}/releases/latest`;
   try {
@@ -96,8 +92,8 @@ export async function record(request, env, {platform, button, page = 'unknown', 
 export async function download(request, env, ctx, now = new Date()) {
   const url = new URL(request.url);
   const platform = url.pathname.split('/')[2];
-  if (!FILES[platform] && !STORES[platform]) return new Response('Not found', {status: 404});
-  const target = STORES[platform] || await versioned(platform, env, env.fetcher || globalThis.fetch) || RELEASE + FILES[platform];  // env.fetcher: tests
+  if (!FILES[platform]) return new Response('Not found', {status: 404});
+  const target = await versioned(platform, env, env.fetcher || globalThis.fetch) || RELEASE + FILES[platform];  // env.fetcher: tests
   if (env.STATS && request.method === 'GET' && !isBot(request)) {
     // net: the network's hash, so the app's first start can learn this click's channel (api/attribution.js)
     const save = Promise.all([base(request, env, now), net(request, env)]).then(([row, network]) => env.STATS.prepare(
