@@ -2,7 +2,7 @@
 // production's caps from wrangler.toml, its own cost meter, and nothing sent to the owner (no Telegram) or to production's counters.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {report, restAi, serve, setup, vars} from '../../jobs/persona-search/free-ai-local.mjs';
+import {cloudflare, report, restAi, serve, setup, vars} from '../../jobs/persona-search/free-ai-local.mjs';
 
 const answer = {choices: [{message: {content: 'hi'}, finish_reason: 'stop'}], usage: {prompt_tokens: 1000, completion_tokens: 1000}};
 function fakeCloudflare() {
@@ -33,7 +33,7 @@ test('a call answers like Anthropic, is metered, and a wrong key is refused; not
   const cf = fakeCloudflare(), {env, key} = await setup(SECRETS, cf.fetcher);
   assert.match(key, /^JPF1\.ci-draw-[0-9a-f]{12}\.[0-9a-f]{32}$/);
   assert.ok(!env.BRAIN_BOT_TOKEN && !env.CF_ANALYTICS_TOKEN, 'no alert, no account-wide count');
-  assert.equal(env.WEB_SEARCH_ANTHROPIC_KEY, 'sk-draws');
+  assert.equal(env.WEB_SEARCH_ANTHROPIC_KEY, '', 'no Anthropic spend unless asked: the draws\' key is not the web lane\'s');
   const server = serve(env, cf.fetcher).listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   try {
@@ -91,4 +91,14 @@ test('a hand-started draw never cancels another one waiting: only scheduled draw
   const {readFileSync} = await import('node:fs');
   const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
   assert.match(yml, /group: random-draw-\$\{\{ github\.event_name == 'schedule' && 'schedule' \|\| github\.run_id \}\}/);
+});
+
+test('any CI job can use it: the generic names win over the draws\', an install prefix names its installs, web search only with its own key', async () => {
+  assert.deepEqual(cloudflare({FREE_AI_LOCAL_CF_ACCOUNT_ID: 'ci', FREE_AI_LOCAL_CF_AI_TOKEN: 'ci-t', ...SECRETS}), {account: 'ci', token: 'ci-t'});
+  assert.deepEqual(cloudflare(SECRETS), {account: 'acct', token: 'cf-token'});
+  assert.throws(() => cloudflare({}), /FREE_AI_LOCAL_CF_ACCOUNT_ID/);
+  const {key} = await setup(SECRETS, fakeCloudflare().fetcher, {installPrefix: 'ci-e2e-'});
+  assert.match(key, /^JPF1\.ci-e2e-[0-9a-f]{12}\./);
+  await assert.rejects(setup(SECRETS, fakeCloudflare().fetcher, {installPrefix: 'bad prefix'}), /install prefix/);
+  assert.equal((await setup({...SECRETS, FREE_AI_LOCAL_WEB_ANTHROPIC_KEY: 'sk-web'}, fakeCloudflare().fetcher)).env.WEB_SEARCH_ANTHROPIC_KEY, 'sk-web');
 });
