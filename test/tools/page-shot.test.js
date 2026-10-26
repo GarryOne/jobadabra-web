@@ -18,3 +18,11 @@ test('page-shot renders /admin/promo-codes styled at two widths and never writes
     assert.ok(!fs.existsSync(path.join(out, 'bad-1440.png')));
   } finally { fs.rmSync(out, {recursive: true, force: true}); }
 });
+
+test('page-shot renders a public page (/download) styled: the old-host redirect to www.jobadabra.top is served locally', {skip: !fs.existsSync(chrome) && 'no Chrome'}, () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'page-shot-'));
+  try {
+    execFileSync('node', ['tools/page-shot.mjs', '--path', '/download', '--width', '390', '--name', 'p', '--out', out], {stdio: 'pipe'});
+    assert.ok(fs.statSync(path.join(out, 'p-390.png')).size > 10000);
+  } finally { fs.rmSync(out, {recursive: true, force: true}); }
+});

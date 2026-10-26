@@ -49,3 +49,14 @@ test('a bad platform is a 404; no address or no database answers no source', asy
   assert.equal(await ask(e, 'mac', '', '2026-10-02T10:05:00Z'), null);
   assert.equal((await (await attribution(new Request('https://x/api/attribution?platform=mac', {headers: {'CF-Connecting-IP': '1.1.1.1'}}), {})).json()).source, null);
 });
+
+test('a Windows app finds its click from the Microsoft Store button or the small .exe link', async () => {
+  for (const path of ['windows', 'windows-exe']) {
+    const e = env();
+    await download(new Request(`https://www.jobadabra.top/download/${path}?from=download&src=reddit-devops`,
+      {headers: {'CF-Connecting-IP': '1.2.3.4', 'User-Agent': BROWSER}}), e, null, new Date('2026-10-01T10:00:00Z'));
+    assert.equal(await ask(e, 'windows', '1.2.3.4', '2026-10-01T10:05:00Z'), 'reddit-devops', path);
+    assert.equal(await ask(e, 'mac', '1.2.3.4', '2026-10-01T10:05:00Z'), null, `${path} is not a Mac click`);
+  }
+  assert.equal((await attribution(new Request('https://www.jobadabra.top/api/attribution?platform=windows-exe'), env())).status, 404, 'the app only says mac or windows');
+});
