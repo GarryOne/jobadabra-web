@@ -106,3 +106,12 @@ test('any CI job can use it: the generic names win over the draws\', an install 
   await assert.rejects(setup(SECRETS, fakeCloudflare().fetcher, {installPrefix: 'bad prefix'}), /install prefix/);
   assert.equal((await setup({...SECRETS, FREE_AI_LOCAL_WEB_ANTHROPIC_KEY: 'sk-web'}, fakeCloudflare().fetcher)).env.WEB_SEARCH_ANTHROPIC_KEY, 'sk-web');
 });
+
+test('the draw runs daily, on Free AI, and its header says what a day costs', async () => {
+  const {readFileSync} = await import('node:fs');
+  const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
+  assert.match(yml, /- cron: '30 4 \* \* \*'/);
+  assert.match(yml, /name: CI · Random draw \(daily\)/);
+  assert.match(yml, /Actions minutes \(about 800 a month/);
+  assert.ok(!/secrets\.RANDOM_DRAWS_ANTHROPIC_KEY|Jobadabra Tests workspace/.test(yml), 'no Anthropic key read, none described');
+});
