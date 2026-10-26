@@ -6,6 +6,7 @@
 import {execFileSync} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
 import {RULES_VERSION, prRow} from '../admin/ops-categories.js';
+import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.OPS_URL || 'https://www.jobpilotto.top/ops/data';
@@ -42,4 +43,4 @@ async function main() {
   console.log(`published ${rows.length}: HTTP ${response.status} ${await response.text()}`);
   if (!response.ok) process.exitCode = 1;
 }
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

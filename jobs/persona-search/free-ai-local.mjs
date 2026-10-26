@@ -16,6 +16,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {Readable} from 'node:stream';
 import {freeAi} from '../../shared/free-ai.js';
 import {tokenFor} from '../../shared/guard.js';
+import {pathToFileURL} from 'node:url';
 
 const HERE = new URL('../../', import.meta.url);
 
@@ -113,4 +114,4 @@ async function main() {
   serve(env).listen(Number(port), '127.0.0.1', () => console.log(`free-ai-local: listening on ${port}`));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

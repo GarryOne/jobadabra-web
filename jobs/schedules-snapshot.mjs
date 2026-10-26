@@ -6,6 +6,7 @@
 import {execFileSync} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
 import {billedWeight, parseWorkerCrons, parseWorkflow, RUN_DOTS} from '../shared/schedules-model.js';
+import {pathToFileURL} from 'node:url';
 
 const REPOS = (process.env.SCHEDULES_REPOS || 'GarryOne/jobadabra,GarryOne/jobadabra-web,GarryOne/jobadabra-lab').split(',');
 const WORKER_REPO = 'GarryOne/jobadabra', WORKER_FILE = 'worker/src/scheduler.js';
@@ -63,4 +64,4 @@ async function main() {
   console.log(`published: HTTP ${response.status} ${await response.text()}`);
   if (!response.ok) process.exitCode = 1;
 }
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

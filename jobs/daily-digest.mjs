@@ -9,6 +9,7 @@ import {MODEL, countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from
 import {post} from '../admin/build-digest-telegram.js';
 import {AiRefused, isRefusal, reportRefusal} from '../admin/ai-refusal.js';
 import {usageCost} from '../desktop/e2e/lib/vision.mjs';
+import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.DIGEST_URL || 'https://www.jobpilotto.top/digest/data';
@@ -65,4 +66,4 @@ async function main() {
   if (!arg('out') && !publishKey) for (const item of results) console.log(item.markdown);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main().catch(error => { console.error(`::error::${error.message}`); process.exit(1); });
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main().catch(error => { console.error(`::error::${error.message}`); process.exit(1); });
