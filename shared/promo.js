@@ -60,7 +60,7 @@ async function over(env, key, limit, now) {
   return false;
 }
 
-// POST /api/pro/redeem {code} with x-api-key: JPF1.<install>.<token> -> {ok: true, already?, credit?: euros (a credit code)} or {ok: false, error: 'wrong' | 'expired' | 'used_up' | 'limit'}.
+// POST /api/pro/redeem {code} with x-api-key: JPF1.<install>.<token> -> {ok: true, already?, credit?: euros (a credit code)} or {ok: false, error: 'wrong' | 'expired' | 'used_up' | 'limit' | 'pro_only' (a credit code on a Free install)}.
 export async function redeem(request, env, now = new Date()) {
   if (!promoOn(env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
@@ -76,9 +76,16 @@ export async function redeem(request, env, now = new Date()) {
     return json({ok: false, error: 'wrong'}, 400);
   }
   if (!live(hit, now)) return json({ok: false, error: 'expired'}, 400);
-  if (hit.kind === 'credit') { const result = await redeemCredit(env, given.install, hit, now); return json(result, result.ok ? 200 : 400); }   // AI credit, the plan unchanged (shared/promo-credit.js)
   const mine = await accountOf(env, given.install);
-  if ((mine && mine.status === 'active' && mine.plan === 'pro') || await promoActive(env, given.install, now)) return json({ok: true, already: true});
+  const pro = (mine && mine.status === 'active' && mine.plan === 'pro') || await promoActive(env, given.install, now);
+  // AI credit, the plan unchanged (shared/promo-credit.js), for Pro only (owner, 27 Oct 2026: "Only Pro can add AI credit, because if they need that ... they need to pay the
+  // Pro version"): a Free install hears pro_only and keeps its code untouched.
+  if (hit.kind === 'credit') {
+    if (!pro) return json({ok: false, error: 'pro_only'}, 400);
+    const result = await redeemCredit(env, given.install, hit, now);
+    return json(result, result.ok ? 200 : 400);
+  }
+  if (pro) return json({ok: true, already: true});
   await env.STATS.prepare('DELETE FROM pro_promo_uses WHERE install = ?').bind(given.install).run();   // an old, dead code of this install gives way
   const made = await env.STATS.prepare('INSERT INTO pro_promo_uses (install, code, at, last_seen) SELECT ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM pro_promo_uses WHERE code = ?) < ?')
     .bind(given.install, hit.id, now.toISOString(), now.toISOString(), hit.id, hit.cap).run();

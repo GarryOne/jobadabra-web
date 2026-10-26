@@ -30,15 +30,26 @@ const redeem = async (env, install, code) => (await worker.fetch(new Request(`${
   headers: {'x-api-key': await key(env, install), 'CF-Connecting-IP': '1.1.1.1', 'Content-Type': 'application/json'}, body: JSON.stringify({code})}), env, {})).json();
 const status = async (env, install) => (await worker.fetch(new Request(`${ORIGIN}/api/pro/status`, {headers: {'x-api-key': await key(env, install)}}), env, {})).json();
 const A = 'install-aaaaaaaa', B = 'install-bbbbbbbb', C = 'install-cccccccc';
+// Credit codes are Pro's (owner, 27 Oct 2026): an install becomes Pro by a fake Pro code first.
+const pro = async (env, ...installs) => { await make(env, {code: 'BETA-FAKE-PRO', kind: 'pro', cap: '10'}); for (const install of installs) assert.equal((await redeem(env, install, 'BETA-FAKE-PRO')).ok, true); };
 
-test('a credit code adds its euros to a Free install, once; the plan stays Free; a second code stacks', async () => {
+test('only Pro can add AI credit: a Free install hears pro_only and nothing is added or used (owner, 27 Oct 2026)', async () => {
+  const env = site();
+  await make(env);
+  assert.deepEqual(await redeem(env, A, 'TOPUP-FAKE-TEN'), {ok: false, error: 'pro_only'});
+  assert.equal(await installCredit(env, A), null);
+  assert.equal((await env.STATS.prepare('SELECT COUNT(*) AS n FROM pro_promo_credit_uses').first()).n, 0, 'the code keeps its places');
+  assert.equal((await status(env, A)).plan, 'free');
+});
+
+test('a credit code adds its euros to a Pro install, once; the plan stays as it was; a second code stacks', async () => {
   const env = site();
   assert.equal((await make(env)).status, 200);
-  assert.equal((await status(env, A)).credit, undefined, 'no credit before');
+  await pro(env, A);
+  assert.equal((await status(env, A)).creditPercent, 0, 'no credit before');
   assert.deepEqual(await redeem(env, A, 'topup fake ten'), {ok: true, credit: 10});
-  const free = await status(env, A);
-  assert.equal(free.plan, 'free', 'AI credit only (owner, 26 Oct 2026)');
-  assert.deepEqual(free.credit, {percent: 100, warn: null});
+  const after = await status(env, A);
+  assert.deepEqual([after.plan, after.source, after.hasCredit, after.creditPercent], ['pro', 'promo', true, 100], 'AI credit only (owner, 26 Oct 2026)');
   assert.deepEqual(await redeem(env, A, 'TOPUP-FAKE-TEN'), {ok: true, already: true, credit: 10}, 'the same code twice adds nothing');
   assert.equal((await installCredit(env, A)).credit_micro, 10_000_000);
   await make(env, {code: 'TOPUP-FAKE-FIVE', credit: '5'});
@@ -51,16 +62,15 @@ test('a credit code adds its euros to a Free install, once; the plan stays Free;
 
 test('a promo Pro install with a credit code has credit (the app no longer blocks it)', async () => {
   const env = site();
-  await make(env, {code: 'BETA-FAKE-PRO', kind: 'pro'}); await make(env);
-  await redeem(env, A, 'BETA-FAKE-PRO');
+  await make(env); await pro(env, A);
   assert.deepEqual([(await status(env, A)).hasCredit, (await status(env, A)).creditPercent], [false, 0], 'Pro by a code: no credit (the owner\'s case)');
   await redeem(env, A, 'TOPUP-FAKE-TEN');
-  const pro = await status(env, A);
-  assert.deepEqual([pro.plan, pro.source, pro.hasCredit, pro.creditPercent, pro.warn], ['pro', 'promo', true, 100, null]);
+  const now = await status(env, A);
+  assert.deepEqual([now.plan, now.source, now.hasCredit, now.creditPercent, now.warn], ['pro', 'promo', true, 100, null]);
 });
 
 test('the cap, the end date and a revoke hold for credit codes', async () => {
-  const env = site(); await make(env, {cap: '1'});
+  const env = site(); await make(env, {cap: '1'}); await pro(env, A, B, C);
   assert.equal((await redeem(env, A, 'TOPUP-FAKE-TEN')).ok, true);
   assert.deepEqual(await redeem(env, B, 'TOPUP-FAKE-TEN'), {ok: false, error: 'used_up'});
   await make(env, {code: 'TOPUP-FAKE-LATE'});
@@ -69,14 +79,15 @@ test('the cap, the end date and a revoke hold for credit codes', async () => {
   assert.equal(await installCredit(env, C), null);
 });
 
-test('the credit lane serves install credit while it lasts, then the Free rules; off with the plan switch off', async () => {
-  const env = site(); await make(env); await redeem(env, A, 'TOPUP-FAKE-TEN');
+test('the credit lane serves install credit while it lasts, then says used up; off with the plan switch off', async () => {
+  const env = site(); await make(env); await pro(env, A); await redeem(env, A, 'TOPUP-FAKE-TEN');
   assert.deepEqual(await proLane(env, A), {install: A});
   assert.equal(await proLane(env, B), null, 'no credit: the Free rules');
   await chargeCall(env, {install: A}, 6_000_000, 'score');   // $6 raw = more than €10 at our prices
   assert.ok((await installCredit(env, A)).credit_micro <= 0);
-  assert.equal(await proLane(env, A), null, 'used up: the Free rules again, never blocked (the plan is Free)');
-  assert.deepEqual((await status(env, A)).credit, {percent: 0, warn: 0});
+  assert.equal(await proLane(env, A), null, 'used up: no credit lane');
+  const used = await status(env, A);
+  assert.deepEqual([used.hasCredit, used.creditPercent, used.warn], [true, 0, 0], 'the app hears "used up" (warn 0) and offers Top up');
   await redeem(env, A, 'TOPUP-FAKE-TEN');
   const off = site({PRO_PLAN: 'off'}); await off.STATS.prepare("INSERT INTO install_credit (install, credit_micro, credit_added_micro, updated_at) VALUES (?, 1000000, 1000000, 'x')").bind(A).run();
   assert.equal(await proLane(off, A), null);
