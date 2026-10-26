@@ -120,6 +120,12 @@ class SdkTest(unittest.TestCase):
         if not any(p.kind == p.VAR_KEYWORD for p in params.values()):
             self.assertLessEqual(set(draw_wide.request('x')), set(params))
 
+    def test_the_role_call_asks_like_the_engine_with_room_to_think(self):
+        call = draw_wide.request('x')
+        self.assertEqual(call['output_config']['format']['type'], 'json_schema')
+        self.assertEqual(call['output_config'].get('effort'), 'low')
+        self.assertGreaterEqual(call['max_tokens'], 2000)   # Haiku 5.5's thinking counts towards it
+
     def test_every_step_that_tees_fails_with_its_pipe(self):
         for step in WorkflowTest.YML.split('      - name: '):
             if '| tee' in step:

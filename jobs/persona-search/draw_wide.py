@@ -121,9 +121,15 @@ def invent(seed, kind, country, title='', ask=None):
     raise SystemExit(f'draw_wide: no valid role from the AI for kind {kind} ({why})')
 
 
+SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': list(('title', 'duty', 'education', 'tools')),
+          'properties': {key: {'type': 'string'} for key in ('title', 'duty', 'education', 'tools')}}
+
+
 def request(prompt):
-    """The Messages call's arguments: only ones the installed SDK takes (26 Oct 2026: it refused temperature and the first measured draw died)."""
-    return {'model': MODEL, 'max_tokens': 400, 'messages': [{'role': 'user', 'content': prompt}]}
+    """The Messages call's arguments, as the engine asks Haiku (src/ai/engine.structured): a JSON schema, low effort, and room for Haiku 5.5's thinking in
+    max_tokens (26 Oct 2026: the SDK refused temperature, then 400 tokens left no answer after the thinking: three measured draws died)."""
+    from src.ai import engine
+    return {'model': MODEL, 'max_tokens': 4000, 'messages': [{'role': 'user', 'content': prompt}], 'output_config': engine.structured(SCHEMA, MODEL, 'low')}
 
 
 def claude(prompt):
