@@ -3,12 +3,12 @@
 // in places and scoring 70+, how many searches it took to reach a 70+, set beside the lab's median so a real number has the lab's to be read against.
 // A city is shown only when 3+ installs share it (k >= 3, read time). Counts, seconds and fixed words only. Guard: test/admin/search-lab-real.test.js.
 import {esc} from '../shared/html.js';
+import {KIND_NAMES} from '../shared/pool-labels.js';
 import {TIME_NAMES} from './search-lab-judge.js';
 import {TONE_COLOR, median} from './search-lab-visuals.js';
 
 export const MIN_CITY_INSTALLS = 3, DAYS = 90;
-const FAMILY_NAMES = {software: 'Software & IT', sales_b2b: 'B2B sales', sales_retail: 'Retail sales', logistics: 'Logistics', hospitality: 'Hospitality', healthcare: 'Healthcare',
-  creative_media: 'Creative & media', finance_admin: 'Finance & admin', education: 'Education', trades: 'Trades', other: 'Other'};
+const FAMILY_NAMES = {...KIND_NAMES, sales_retail: 'Retail sales'};
 const fmt = value => (value == null ? '–' : Number(value).toLocaleString('en-US'));
 const clock = value => (value == null ? 'not reached' : value < 60 ? `${value} s` : `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`);
 
