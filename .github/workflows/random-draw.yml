@@ -142,11 +142,13 @@ jobs:
         if: always() && steps.tree.outcome == 'success'   # no tree, no scripts: nothing to judge
         env:
           GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
+          PUBLIC_REF: ${{ inputs.public_ref }}   # a draw pinned to a branch or an old sha judges that build, not main: it never files or closes
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -o pipefail
           [ -f "$RUNNER_TEMP/draw-out/draw/presses.jsonl" ] || { echo "no search ran: nothing to judge"; exit 0; }
-          if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ -z "$PUBLIC_REF" ] || echo "Drawn on $PUBLIC_REF, not main: the alarm only says what it would do" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
           else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
       - name: Alarm when real installs' searches came back empty (3+ installs per field × country)
         if: always() && steps.tree.outcome == 'success'   # no tree, no scripts: a red step that says nothing (26 Oct 2026)

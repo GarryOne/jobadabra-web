@@ -105,6 +105,12 @@ class WorkflowTest(unittest.TestCase):
         for flag in ('--presses "$presses"', '--note "$folder/note.txt"', '--change-field "$folder/field.json"', '--engine api'):
             self.assertIn(flag, self.YML)
 
+    def test_a_draw_pinned_off_main_never_files_or_closes_issues(self):
+        # 26 Oct 2026: a "before" draw on an old sha would reopen a gap main had fixed; a PR-under-test draw could close one main still has.
+        step = next(s for s in self.YML.split('      - name: ') if 'node jobs/persona-search/draw-alarm.mjs' in s)
+        self.assertIn('PUBLIC_REF: ${{ inputs.public_ref }}', step)
+        self.assertIn('if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then', step)
+
     def test_the_kept_artifact_drops_titles_and_sources(self):
         self.assertIn("for(const key of ['top10','sources','local_by_source'])delete row[key]", self.YML)
 
