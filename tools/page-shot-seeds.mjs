@@ -73,6 +73,10 @@ export const seeds = {
       await env.STATS.prepare('INSERT INTO pro_promo_uses (code, install, at, last_seen) VALUES (?, ?, ?, ?)').bind(row.id, `demo-install-${n}-${i}`, at, at).run();
     }
     await env.STATS.prepare("INSERT INTO pro_promo_codes (id, label, code_hash, last4, cap, ends_at, created_at) VALUES ('promo_old', 'Early list', 'demo-hash', 'ZZZZ', 10, '2999-12-31T23:59:59.999Z', ?)").bind(at).run();
+    // An AI-credit code (shared/promo-credit.js) once its migration is in: €10 per person, 1 of 20 used. Skipped on an older tree (the before shot).
+    const credit = await call('/admin/promo-codes', form({action: 'import', code: 'DEMO-TOPUP-TEN', label: 'Friends top-up', cap: '20', ends: '2999-12-31', kind: 'credit', credit: '10'}));
+    const topup = await env.STATS.prepare("SELECT id FROM pro_promo_codes WHERE label = 'Friends top-up'").first();
+    if (credit && topup?.id) await env.STATS.prepare('INSERT INTO pro_promo_credit_uses (code, install, at) VALUES (?, ?, ?)').bind(topup.id, 'demo-install-credit', at).run().catch(() => {});
   },
   'ai-cost-web': async ({env}) => {   // the Free AI board web search this month: $3.50 of its $10 line, 100 searches paid, 40 answered from the shared answers
     const month = new Date().toISOString().slice(0, 7);

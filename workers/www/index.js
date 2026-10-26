@@ -69,6 +69,7 @@ import {view as reportsView} from '../../admin/report-view.js';
 import * as recipeLibrary from '../../api/recipes.js';
 import * as triageQueue from '../../api/triage.js';
 import {freeAi} from '../../shared/free-ai.js';
+import {caps as freeAiCaps} from '../../shared/free-ai-caps.js';
 import * as mail from '../../shared/mail.js';
 import * as mailUnsub from '../../api/mail-unsub.js';
 import * as mailHeld from '../../api/mail-held.js';
@@ -242,6 +243,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/feedback') return feedback(request, env);
   if (pathname === '/api/report-form' || pathname.startsWith('/api/report-form/')) return reportForm(request, env, pathname);   // "Report this form": an encrypted recording from an install (shared/report-form.js)
   if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
+  if (pathname === '/api/ai/caps') return freeAiCaps(request, env);   // where this install stands with our AI: credit, or the Free line it is past (shared/free-ai-caps.js)
   if (pathname.startsWith('/api/ai/')) return freeAi(request, env, new Date(), ctx);
   if (pathname === '/email-settings') return mailSettings.settings(request, env);   // the signed e-mail settings page (api/mail-settings.js)
   if (pathname === '/unsubscribe') return mailUnsub.unsubscribe(request, env);   // one-click unsubscribe from a mail list (api/mail-unsub.js)

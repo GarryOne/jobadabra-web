@@ -1,8 +1,9 @@
 // Pro promo codes (owner, 25 Oct 2026): POST /api/pro/redeem checks the typed code against the hashes of the codes made on /admin/promo-codes, counts the use against that code's cap and end
-// date, and from then on /api/pro/status says Pro for that install while the code is neither revoked nor past its end date. No account, no e-mail, no AI credit. Only a hash of the code is checked; the code is also kept encrypted (PROMO_CODE_KEY) for the owner's page, never in plain text.
+// date, and from then on /api/pro/status says Pro for that install while the code is neither revoked nor past its end date. No account, no e-mail, no AI credit; a code of kind 'credit' adds AI credit instead (shared/promo-credit.js). Only a hash of the code is checked; the code is also kept encrypted (PROMO_CODE_KEY) for the owner's page, never in plain text.
 // Hidden (404) while PRO_PLAN is off. Guards: test/shared/promo.test.js.
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {accountOf, promoOn} from './pro.js';
+import {redeemCredit} from './promo-credit.js';
 
 export const TRIES_PER_INSTALL = 5, TRIES_PER_IP = 20;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 32 characters: no 0/O/1/I, and 256 divides by 32, so a random byte maps evenly
@@ -59,7 +60,7 @@ async function over(env, key, limit, now) {
   return false;
 }
 
-// POST /api/pro/redeem {code} with x-api-key: JPF1.<install>.<token> -> {ok: true, already?} or {ok: false, error: 'wrong' | 'expired' | 'used_up' | 'limit'}.
+// POST /api/pro/redeem {code} with x-api-key: JPF1.<install>.<token> -> {ok: true, already?, credit?: euros (a credit code)} or {ok: false, error: 'wrong' | 'expired' | 'used_up' | 'limit'}.
 export async function redeem(request, env, now = new Date()) {
   if (!promoOn(env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
@@ -67,8 +68,6 @@ export async function redeem(request, env, now = new Date()) {
   if (!access?.ok) return json({ok: false, error: 'unauthorized'}, 401);
   const typed = normalize((await request.json().catch(() => ({}))).code);
   if (await over(env, `i:${access.who}`, TRIES_PER_INSTALL, now) || await over(env, `ip:${await digestOf(request.headers.get('CF-Connecting-IP') || 'unknown')}`, TRIES_PER_IP, now)) return json({ok: false, error: 'limit'}, 429);
-  const mine = await accountOf(env, given.install);
-  if ((mine && mine.status === 'active' && mine.plan === 'pro') || await promoActive(env, given.install, now)) return json({ok: true, already: true});
   const hash = await hashOf(env, typed), codes = (await env.STATS.prepare('SELECT * FROM pro_promo_codes').all()).results || [];
   let hit = null;
   for (const code of codes) if (equal(code.code_hash, hash)) hit = code;   // every hash is compared, so the time does not say which one matched
@@ -77,6 +76,9 @@ export async function redeem(request, env, now = new Date()) {
     return json({ok: false, error: 'wrong'}, 400);
   }
   if (!live(hit, now)) return json({ok: false, error: 'expired'}, 400);
+  if (hit.kind === 'credit') { const result = await redeemCredit(env, given.install, hit, now); return json(result, result.ok ? 200 : 400); }   // AI credit, the plan unchanged (shared/promo-credit.js)
+  const mine = await accountOf(env, given.install);
+  if ((mine && mine.status === 'active' && mine.plan === 'pro') || await promoActive(env, given.install, now)) return json({ok: true, already: true});
   await env.STATS.prepare('DELETE FROM pro_promo_uses WHERE install = ?').bind(given.install).run();   // an old, dead code of this install gives way
   const made = await env.STATS.prepare('INSERT INTO pro_promo_uses (install, code, at, last_seen) SELECT ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM pro_promo_uses WHERE code = ?) < ?')
     .bind(given.install, hit.id, now.toISOString(), now.toISOString(), hit.id, hit.cap).run();
