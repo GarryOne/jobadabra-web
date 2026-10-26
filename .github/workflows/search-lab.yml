@@ -77,7 +77,7 @@ jobs:
         if: always()
         shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
         run: |
-          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
           import collections, json, os, urllib.parse
           path = os.path.join(os.environ['RUNNER_TEMP'], 'tape', 'missing.jsonl')
           rows = [json.loads(line) for line in open(path)] if os.path.exists(path) else []
@@ -91,8 +91,8 @@ jobs:
       - name: Post the numbers to /admin/lab-job-search
         shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
         run: |
-          if [ -z "$REPLAYS_PUBLISH_KEY" ]; then echo "search-lab: REPLAYS_PUBLISH_KEY not set: nothing posted" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
-          node jobs/persona-search/lab-upload.mjs "$RUNNER_TEMP/out" --tape "$RUNNER_TEMP/tape" --build "$PUBLIC_SHA" --branch main 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -z "$REPLAYS_PUBLISH_KEY" ]; then echo "search-lab: REPLAYS_PUBLISH_KEY not set: nothing posted"; exit 0; fi
+          node jobs/persona-search/lab-upload.mjs "$RUNNER_TEMP/out" --tape "$RUNNER_TEMP/tape" --build "$PUBLIC_SHA" --branch main 2>&1
       - name: End red when the search crashed
         if: steps.replay.outcome == 'failure'
         run: exit 1

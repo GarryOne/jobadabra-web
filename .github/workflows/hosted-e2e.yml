@@ -55,4 +55,4 @@ jobs:
         run: node jobs/hosted-e2e/run.mjs 2>&1 | tee hosted-e2e.log
       - name: The scenario's steps
         if: always()
-        run: grep '^hosted-e2e:' hosted-e2e.log >> "$GITHUB_STEP_SUMMARY" || true
+        run: grep '^hosted-e2e:' hosted-e2e.log || true

@@ -38,4 +38,4 @@ jobs:
         run: |
           set -o pipefail
           sleep 10
-          node tools/probe-routes.mjs https://www-staging.jobpilotto.workers.dev https://www.jobpilotto.workers.dev | tee -a "$GITHUB_STEP_SUMMARY"
+          node tools/probe-routes.mjs https://www-staging.jobpilotto.workers.dev https://www.jobpilotto.workers.dev

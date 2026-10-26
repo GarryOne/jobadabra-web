@@ -49,4 +49,4 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          { echo '### Changelog publish'; echo '```'; cat "$RUNNER_TEMP/changelog.log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '### Changelog publish'; echo '```'; cat "$RUNNER_TEMP/changelog.log"; echo '```'; }

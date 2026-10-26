@@ -85,7 +85,7 @@ jobs:
         run: |
           set -o pipefail
           if [ -z "$RANDOM_DRAWS_CF_AI_TOKEN" ] || [ -z "$RANDOM_DRAWS_CF_ACCOUNT_ID" ]; then
-            echo "Free AI: no token (secrets RANDOM_DRAWS_CF_AI_TOKEN, RANDOM_DRAWS_CF_ACCOUNT_ID): no draw today (the API engine is parked)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Free AI: no token (secrets RANDOM_DRAWS_CF_AI_TOKEN, RANDOM_DRAWS_CF_ACCOUNT_ID): no draw today (the API engine is parked)"
             echo "on=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           node jobs/persona-search/free-ai-local.mjs 8787 "$RUNNER_TEMP/free.key" > "$RUNNER_TEMP/free-ai.log" 2>&1 &
@@ -104,8 +104,8 @@ jobs:
           set -o pipefail   # a failed draw must stop here, not as a missing draw.json in the next step
           seed="${SEED_INPUT:-$(date -u +%F)}"
           echo "seed=$seed" >> "$GITHUB_OUTPUT"
-          if [ -n "$ENGINE_INPUT" ] && [ "$ENGINE_INPUT" != free ]; then echo "Engine $ENGINE_INPUT: parked (owner, 26 Oct 2026: \"I don't want to top up anymore\"): this draw runs on Free AI" | tee -a "$GITHUB_STEP_SUMMARY"; fi
-          RANDOM_DRAWS_ANTHROPIC_KEY="$(cat "$RUNNER_TEMP/free.key")" python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines free ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$ENGINE_INPUT" ] && [ "$ENGINE_INPUT" != free ]; then echo "Engine $ENGINE_INPUT: parked (owner, 26 Oct 2026: \"I don't want to top up anymore\"): this draw runs on Free AI"; fi
+          RANDOM_DRAWS_ANTHROPIC_KEY="$(cat "$RUNNER_TEMP/free.key")" python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines free ${ROLE_INPUT:+--role "$ROLE_INPUT"}
       - name: Search as that candidate (live, the drawn path)
         if: steps.free.outputs.on == 'true'
         run: |
@@ -118,7 +118,7 @@ jobs:
           node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses "$presses" --note "$folder/note.txt" "${field[@]}" --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log" || status=$?
           curl -sf http://127.0.0.1:8787/__report > "$folder/free-ai.json"
           node -e "const fs=require('fs');const [d,f]=process.argv.slice(1);const draw=JSON.parse(fs.readFileSync(d));draw.free_ai=JSON.parse(fs.readFileSync(f));fs.writeFileSync(d,JSON.stringify(draw))" "$folder/draw.json" "$folder/free-ai.json"
-          echo "Free AI: $(cat "$folder/free-ai.json")" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Free AI: $(cat "$folder/free-ai.json")"
           exit "$status"
       # boards_read explained (26 Oct 2026: a before/after pair went 12 -> 0 with no log): the engine's "Job boards…" lines of each press, board names and
       # counts only (jobs/persona-search/board-lines.mjs cuts the roles' search words and links); also after a crashed search.
@@ -152,9 +152,9 @@ jobs:
         run: |
           set -o pipefail
           [ -f "$RUNNER_TEMP/draw-out/draw/presses.jsonl" ] || { echo "no search ran: nothing to judge"; exit 0; }
-          [ -z "$PUBLIC_REF" ] || echo "Drawn on $PUBLIC_REF, not main: the alarm only says what it would do" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
-          else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          [ -z "$PUBLIC_REF" ] || echo "Drawn on $PUBLIC_REF, not main: the alarm only says what it would do"
+          if [ -n "$GH_TOKEN" ] && [ -z "$PUBLIC_REF" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL"
+          else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry; fi
       - name: Alarm when real installs' searches came back empty (3+ installs per field × country)
         if: always() && steps.tree.outcome == 'success'   # no tree, no scripts: a red step that says nothing (26 Oct 2026)
         env:
@@ -164,8 +164,8 @@ jobs:
         run: |
           set -o pipefail
           [ -n "$REPLAYS_PUBLISH_KEY" ] || { echo "no key: real installs not read"; exit 0; }
-          if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/real-alarm.mjs --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
-          else node jobs/persona-search/real-alarm.mjs --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/real-alarm.mjs --run "$RUN_URL"
+          else node jobs/persona-search/real-alarm.mjs --run "$RUN_URL" --dry; fi
       - name: Keep the numbers (counts only, no job titles, companies or log)
         if: always()
         run: |

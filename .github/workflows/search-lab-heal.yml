@@ -80,7 +80,7 @@ jobs:
         run: |
           set -o pipefail
           if [ -n "$ASKED" ]; then echo "candidate=$ASKED" >> "$GITHUB_OUTPUT"; echo "heal-pick: asked by hand for $ASKED"
-          else node tools/persona-search/heal.mjs pick 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          else node tools/persona-search/heal.mjs pick 2>&1; fi
 
   heal:
     needs: pick
@@ -141,7 +141,7 @@ jobs:
         if: always()
         run: |
           set -o pipefail
-          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
           import json, os
           folder = os.path.join(os.environ['RUNNER_TEMP'], 'new')
           rows = [json.loads(line) for line in open(os.path.join(folder, 'ai.jsonl'))] if os.path.exists(os.path.join(folder, 'ai.jsonl')) else []
@@ -160,13 +160,13 @@ jobs:
           cp "$RUNNER_TEMP/old/draft.json" "$RUNNER_TEMP/new/draft.json"
           echo '{"engine": "api", "wait_scale": 1}' > "$RUNNER_TEMP/new/replay.json"   # how every replay of this tape runs (tools/persona-search/run.mjs): its own engine, the recorded pace
           mkdir -p "$RUNNER_TEMP/verify"
-          node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          node tools/persona-search/heal.mjs verify "$CANDIDATE" "$RUNNER_TEMP/new" "$RUNNER_TEMP/verify" 2>&1
       - name: Publish the new tape (it is then the newest of that candidate)
         if: github.event_name != 'workflow_dispatch' || inputs.publish
         env:
           GH_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_WRITE_TOKEN }}
         shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
-        run: node tools/persona-search/tape-store.mjs publish "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node tools/persona-search/tape-store.mjs publish "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1
       - name: Replay it now, so the Lab page shows the healed row
         if: github.event_name != 'workflow_dispatch' || inputs.publish
         run: gh workflow run search-lab.yml --ref main
@@ -176,4 +176,4 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_WRITE_TOKEN }}
         shell: bash   # -eo pipefail: a failing job behind `| tee` fails the step (default bash -e returns tee's status)
-        run: node tools/persona-search/tape-store.mjs publish-debug "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node tools/persona-search/tape-store.mjs publish-debug "$CANDIDATE" "$RUNNER_TEMP/new" 2>&1
