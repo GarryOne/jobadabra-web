@@ -10,7 +10,11 @@ cd "${GITHUB_WORKSPACE:-.}"
 git init -q .
 git remote add origin "${PUBLIC_REPO_URL:-https://github.com/GarryOne/jobadabra.git}"
 # shellcheck disable=SC2086
-git fetch -q $depth origin "$ref"
+if ! git fetch -q $depth origin "$ref"; then
+  # 26 Oct 2026: a draw pinned to "944a661" died here on "couldn't find remote ref"; GitHub fetches a commit only by its full sha.
+  if [[ "$ref" =~ ^[0-9a-f]{4,39}$ ]]; then echo "tree.sh: '$ref' is a short sha: pass the full 40-character sha (git rev-parse $ref)" >&2; fi
+  exit 128
+fi
 git checkout -q -f FETCH_HEAD
 # Until the public PR that moves the shared tables public (branch site-private-repo-move) is merged, main lacks files the site imports: use that branch. A merged and deleted branch ends this by itself.
 # shellcheck disable=SC2086

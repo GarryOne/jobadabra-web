@@ -31,3 +31,11 @@ test('the daily draw runs it after its own alarm, with the same token and the pi
   assert.match(step, /set -o pipefail/);
   assert.match(step, /real-alarm\.mjs --run "\$RUN_URL" --dry/);
 });
+
+test('both alarms run after a failed search but never without the laid tree (their scripts live in it)', () => {
+  const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
+  assert.match(yml, /- name: Lay the public repo's tree under this one\n\s+id: tree/);
+  const alarms = yml.split('      - name: ').filter(step => step.startsWith('Alarm when'));
+  assert.equal(alarms.length, 2);
+  for (const step of alarms) assert.match(step, /if: always\(\) && steps\.tree\.outcome == 'success'/, step.split('\n')[0]);
+});
