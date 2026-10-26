@@ -2,6 +2,8 @@
 from everywhere, where tools/persona-search/draw.py picks one of 20 fixed jobs in one of 40 cities.
 - Field: any role kind of the app's own list (src/role_kinds.py KINDS, read live, so a split of "other" is drawn the day it lands), and a specific role in it that the
   AI makes up (a "First Officer" or a "sound technician", not the kind's most common title). One small call on the draw's own key (Haiku, about $0.001).
+- Coherent persona: a 2nd call judges whether the title, duty, education and skills name one kind of work, and which kind; a persona that does not is refused
+  and asked again (26 Oct 2026: a fixed "First Officer" got a finance CV). The draw is filed under the AI's kind (drawn_kind keeps the seed's pick).
 - Place: a city, a country, a region (places.json: Europe, DACH, ...) or remote, written as the wizard note a person types ("Jobs anywhere in Europe").
 - Path: the first search (half the draws), a field change then a 2nd search on the same install (run.mjs --change-field), or the same search again at once.
 - Engine: the API key or Free AI, every other day (a date seed); --engines narrows it.
@@ -103,44 +105,85 @@ def valid(found):
     return role, ''
 
 
+def judged_verdict(found):
+    """(verdict, why not): the judge's answer as kept ({same_work: bool, kind: one of KINDS, why}), or None and the reason."""
+    if not isinstance(found, dict) or not isinstance(found.get('same_work'), bool):
+        return None, 'the judge did not say yes or no'
+    if found.get('kind') not in KINDS:
+        return None, f"the judge's kind {found.get('kind')!r} is not one of the app's kinds"
+    return {'same_work': found['same_work'], 'kind': found['kind'], 'why': ' '.join(str(found.get('why') or '').split())[:200]}, ''
+
+
+def JUDGE_ASK(role):
+    """The judge's question (the AI decides, owner 26 Oct 2026): do the CV's lines name one kind of work, and which of the app's kinds is it."""
+    kinds = '; '.join(f'{kind} ({WORK[kind]})' for kind in KINDS)
+    return ('A made-up job seeker\'s CV has these lines. Title: "{title}". What they did: {duty} Education: {education}. Skills: {tools}.\n'
+            'Do the title, what they did, the education and the skills all describe the same kind of work (one job a real person holds)? '
+            'And which one of these kinds of work is the title\'s: {kinds}?\n'
+            'Answer only JSON: {{"same_work": true or false, "kind": one kind id from the list, "why": a few words}}.').format(kinds=kinds, **role)
+
+
+def parsed(text, check):
+    """(kept, why not) for one JSON answer through its check."""
+    match = re.search(r'\{.*\}', text or '', re.S)
+    if not match:
+        return None, 'no JSON in the answer'
+    try:
+        return check(json.loads(match.group(0)))
+    except ValueError:
+        return None, 'the JSON does not parse'
+
+
 def invent(seed, kind, country, title='', ask=None):
-    """{title, duty, education, tools} for a role of this kind; `title` fixes the title (a re-run of a gap found earlier). `ask(prompt) -> text` is the model."""
-    fixed = f'The title is "{title}". ' if title else ''
-    prompt = ASK.format(country=country, work=kind_words(kind), seed=seed, fixed=fixed)
+    """{title, duty, education, tools, kind} for a role of this kind; `title` fixes the title (a re-run of a gap found earlier) and the role is then that
+    title's work, whatever kind was drawn. `ask(prompt) -> text` is the model (both questions; the judge's prompt carries "same_work").
+    The AI then judges the persona: title, duty, education and skills naming different work are refused and asked again (26 Oct 2026: a fixed "First
+    Officer" on a finance_admin seed got an anti-money-laundering duty, and the before/after pair searched different things). `kind` in the answer is the
+    AI's reading of the title, the field the draw is filed under."""
+    work = f'the work a "{title}" does' if title else kind_words(kind)
+    fixed = f'The title is "{title}"; the duty, education and skills are that job\'s. ' if title else ''
+    prompt = ASK.format(country=country, work=work, seed=seed, fixed=fixed)
     why = ''
     for _ in range(3):
-        text = (ask or claude)(prompt)
-        match = re.search(r'\{.*\}', text or '', re.S)
-        try:
-            role, why = valid(json.loads(match.group(0))) if match else (None, 'no JSON in the answer')
-        except ValueError:
-            role, why = None, 'the JSON does not parse'
+        role, why = parsed((ask or claude)(prompt), valid)
         if role:
-            return {**role, 'title': title or role['title']}
+            role = {**role, 'title': title or role['title']}
+            verdict, why = parsed((ask or judge)(JUDGE_ASK(role)), judged_verdict)
+            if verdict and verdict['same_work']:
+                return {**role, 'kind': verdict['kind']}
+            if verdict:
+                why = f"title, duty and CV name different work: {verdict['why'] or 'no reason given'}"
         print(f'draw_wide: role answer refused ({why}), asking again', file=sys.stderr)
     raise SystemExit(f'draw_wide: no valid role from the AI for kind {kind} ({why})')
 
 
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': list(('title', 'duty', 'education', 'tools')),
           'properties': {key: {'type': 'string'} for key in ('title', 'duty', 'education', 'tools')}}
+VERDICT = {'type': 'object', 'additionalProperties': False, 'required': ['same_work', 'kind', 'why'],
+           'properties': {'same_work': {'type': 'boolean'}, 'kind': {'type': 'string', 'enum': list(KINDS)}, 'why': {'type': 'string'}}}
 
 
-def request(prompt):
+def request(prompt, schema=SCHEMA):
     """The Messages call's arguments, as the engine asks Haiku (src/ai/engine.structured): a JSON schema, low effort, and room for Haiku 5.5's thinking in
     max_tokens (26 Oct 2026: the SDK refused temperature, then 400 tokens left no answer after the thinking: three measured draws died)."""
     from src.ai import engine
-    return {'model': MODEL, 'max_tokens': 4000, 'messages': [{'role': 'user', 'content': prompt}], 'output_config': engine.structured(SCHEMA, MODEL, 'low')}
+    return {'model': MODEL, 'max_tokens': 4000, 'messages': [{'role': 'user', 'content': prompt}], 'output_config': engine.structured(schema, MODEL, 'low')}
 
 
-def claude(prompt):
+def claude(prompt, schema=SCHEMA):
     """One call on the key in RANDOM_DRAWS_ANTHROPIC_KEY: in CI the Free AI relay's throwaway JPF1 key, the SDK pointed at it by ANTHROPIC_BASE_URL
     (random-draw.yml, owner 26 Oct 2026: Free AI only); never a user's or the production key."""
     import anthropic
     key = os.environ.get('RANDOM_DRAWS_ANTHROPIC_KEY')
     if not key:
         raise SystemExit('draw_wide: RANDOM_DRAWS_ANTHROPIC_KEY is not set (or pass --role and --other with a fixed role)')
-    answer = anthropic.Anthropic(api_key=key).messages.create(**request(prompt))
+    answer = anthropic.Anthropic(api_key=key).messages.create(**request(prompt, schema))
     return ''.join(block.text for block in answer.content if getattr(block, 'type', '') == 'text')
+
+
+def judge(prompt):
+    """The persona judge's call: the same key and model, the verdict's schema."""
+    return claude(prompt, VERDICT)
 
 
 def cv(draw):
@@ -160,6 +203,10 @@ def cv(draw):
 def write(seed, out, engines=ENGINES, role='', other='', ask=None):
     draw = pick(seed, engines)
     draw['role'] = invent(seed, draw['kind'], draw['country'], role, ask)
+    if draw['role']['kind'] != draw['kind']:   # filed under the work the persona does (/admin's field, the alarm's issue), the seed's pick kept beside it
+        draw['drawn_kind'], draw['kind'] = draw['kind'], draw['role']['kind']
+        if draw['other_kind'] == draw['kind']:
+            draw['other_kind'] = draw['drawn_kind']
     folder = Path(out) / 'draw'
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'cv.pdf').write_bytes(pdf(cv(draw)))
