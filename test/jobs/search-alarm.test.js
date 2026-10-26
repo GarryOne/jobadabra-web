@@ -77,3 +77,15 @@ test('the workflow files with an Issues-only app token on main and prints the is
   assert.match(yml, /draw-alarm\.mjs "\$RUNNER_TEMP\/draw-out" --verdict "\$RUNNER_TEMP\/verdict\.json" --run "\$RUN_URL" --dry/);
   assert.match(yml, /draw-upload\.mjs .* --answer "\$RUNNER_TEMP\/verdict\.json"/);
 });
+
+test('a dry run of a passing draw says it would pass and prints no issue body', async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path'), {spawnSync} = await import('node:child_process');
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'draw-alarm-')), folder = path.join(out, 'draw');
+  fs.mkdirSync(folder);
+  fs.writeFileSync(path.join(folder, 'draw.json'), JSON.stringify(PILOT_INFO));
+  fs.writeFileSync(path.join(folder, 'presses.jsonl'), `${JSON.stringify({...PILOT_PRESS, fit70_in_places: 3})}\n`);
+  const run = spawnSync(process.execPath, [new URL('../../jobs/persona-search/draw-alarm.mjs', import.meta.url).pathname, out, '--dry'], {encoding: 'utf8'});
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /^WOULD PASS search-other-europe-first/);
+  assert.ok(!run.stdout.includes('Below the floor'), 'no empty issue body on a pass');
+});
