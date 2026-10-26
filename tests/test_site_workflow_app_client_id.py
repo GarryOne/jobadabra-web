@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-if (ROOT / '.private' / '.github').is_dir():   # CI runs this repo's tests in the public tree, with this repo at .private: its own workflows only (as test_workflow_secrets.py)
+if (ROOT / '.private' / '.github').is_dir():   # CI runs this repo's tests in the public tree, with this repo at .private: its own workflows only (as test_site_workflow_secrets.py)
     ROOT = ROOT / '.private'
 
 

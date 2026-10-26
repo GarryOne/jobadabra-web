@@ -20,7 +20,7 @@ The public repo keeps only the app's hook `JOB_PILOTTO_DEMO_DIR` (desktop/lib/de
 - [x] Renderer: zoom, cursor, click ring from the log; MP4/WebM/phone/GIF/poster within budget (proof: desktop/test/media-camera.test.js)
 - [x] Stills + close-ups (WebP), manifest, checks (fictional e-mails only, dark, the form filled, capture rate) (proof: desktop/test/media-check.test.js)
 - [x] Director (`direct.mjs`) + plans folder (proof: media/plans/hero.json)
-- [x] CI workflow, in this repo since 20 Oct 2026: daily check, Mac recording, refresh PR (proof: tests/test_media_refresh.py)
+- [x] CI workflow, in this repo since 20 Oct 2026: daily check, Mac recording, refresh PR (proof: tests/test_site_media_refresh.py)
 - [x] Nurse-in-Lyon persona (owner, 20 Oct 2026), the media's default; dates shift to the recording week; the default person's words refused (proof: desktop/test/media-persona.test.js)
 - [x] Stills fill the window (CDP capture), close-ups at 2x, Strategy waited for, extension poster = the filled form (proof: desktop/test/media-persona.test.js, desktop/test/media-camera.test.js)
 - [ ] apply-split (browser + app side by side) for /how-it-works

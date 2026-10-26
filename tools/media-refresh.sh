@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The last step of tools/media.sh (the one local command that makes the site's media): copies a fresh media set over the files web/public/media already holds
 # (the site picks which pieces it shows; a new piece is listed, never added), records the public screens it was made from (.public-media), commits
-# on the branch media-refresh and opens or updates its PR for the owner. Guarded by tests/test_media_refresh.py.
+# on the branch media-refresh and opens or updates its PR for the owner. Guarded by tests/test_site_media_refresh.py.
 # Usage, from this repo's root: tools/media-refresh.sh <media set> <public tree> <public sha> [--no-push]
 set -euo pipefail
 set_dir="$1"; tree="$2"; sha="$3"; push=yes

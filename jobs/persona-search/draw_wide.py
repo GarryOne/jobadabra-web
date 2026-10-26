@@ -9,7 +9,7 @@ from everywhere, where tools/persona-search/draw.py picks one of 20 fixed jobs i
 - Engine: the API key or Free AI, every other day (a date seed); --engines narrows it.
 Synthetic only: every name, mail and employer is invented. Same seed, same pick (the AI's role is kept in draw.json, so a re-run can pass it back with --role).
 Usage (joined tree, from its root): python3 jobs/persona-search/draw_wide.py <seed> <out> [--engines api,free] [--role <title>] [--other <title>]
-  -> <out>/draw/: cv.pdf, note.txt, field.json (field change only), draw.json; prints draw.json. Guard: tests/test_draw_wide.py.
+  -> <out>/draw/: cv.pdf, note.txt, field.json (field change only), draw.json; prints draw.json. Guard: tests/test_site_draw_wide.py.
 """
 import datetime
 import hashlib

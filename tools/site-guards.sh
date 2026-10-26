@@ -12,6 +12,8 @@ status=0
 public_tree="$PWD"
 shadowed="$(cd "$priv" && git ls-files tests desktop/test desktop/e2e/test test 2>/dev/null | while read -r file; do if git -C "$public_tree" cat-file -e "HEAD:$file" 2>/dev/null; then echo "$file"; fi; done)"
 if [ -n "$shadowed" ]; then echo "::error::these tests of this repo have the path of a public test and would replace it (rename them site_*): $shadowed"; status=1; fi
+# Names are split by repo (public docs/site-test-names.json): every test here carries the site's prefix, so no public test can take its path later.
+node "$priv/tools/site-test-names.mjs" "$public_tree" "$priv" || status=1
 python_files="$( { grep -l "needs_site" tests/*.py | grep -v site_private.py; (cd "$priv" && ls tests/test_*.py 2>/dev/null); } | sort -u)"
 for file in $python_files; do
   python3 -m unittest discover -s tests -p "$(basename "$file")" || status=1
