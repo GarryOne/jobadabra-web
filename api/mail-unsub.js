@@ -1,11 +1,11 @@
 // Unsubscribe and bounces for shared/mail.js. GET /unsubscribe?a=<address digest>&l=<service|marketing>&t=<signed token> shows a one-button page (a mail scanner opening the link changes nothing);
 // POST on the same URL (the button, or a mail client's one-click List-Unsubscribe-Post) turns that list off. Bounce/complaint events from the Email Sending queue turn every list off.
 // Both also set the columns on pro_accounts (service_mail_off_at, marketing_opt_in). Guard: test/shared/mail.test.js.
+import {cardPage} from '../shared/card-page.js';
 import {digestOf, equal, tokenFor} from '../shared/guard.js';
 
 const LISTS = ['service', 'marketing'];
-export const page = (title, body, status = 200) => new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>`
-  + `<body style="font:16px system-ui;max-width:28rem;margin:4rem auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1>${body}`, {status, headers: {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store'}});
+export const page = (title, body, status = 200) => cardPage({title, body, status, tone: status >= 400 ? 'bad' : ''});   // the site's one card (shared/card-page.js)
 const MEANING = {service: 'the daily search mails (new matches, reminders)', marketing: 'product news and offers'};
 
 // Turns a list ('service' | 'marketing' | 'all') off for an address digest.
@@ -23,7 +23,7 @@ export async function unsubscribe(request, env, now = new Date()) {
     return page('Done', `<p>You will get no more mail about ${MEANING[list]}.</p>`);
   }
   if (request.method !== 'GET') return page('Not allowed', '', 405);
-  return page('Stop these mails?', `<p>This stops ${MEANING[list]}.</p><form method="post"><button style="font:inherit;padding:.5rem 1rem">Stop these mails</button></form>`);
+  return page('Stop these mails?', `<p>This stops ${MEANING[list]}.</p><form method="post"><button>Stop these mails</button></form>`);
 }
 
 // One Email Sending event (queue message body): a hard bounce or a complaint turns the address off for good.

@@ -4,6 +4,7 @@
 // the member's OpenID profile ONCE, drops the token, and keeps only that profile in KV for 10 minutes under a hash of the session id; the app
 // collects it once with POST /api/linkedin/token (deleted on read). Configuration: LINKEDIN_CLIENT_ID (var) and LINKEDIN_CLIENT_SECRET
 // (secret), see wrangler.toml. Guarded by test/api/linkedin.test.js.
+import {cardPage} from '../shared/card-page.js';
 const TTL = 600;
 const SESSION = /^[A-Za-z0-9_-]{32,128}$/;
 export const CALLBACK = '/api/linkedin/callback';
@@ -14,14 +15,7 @@ async function sha256(text) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-function page(title, text, ok) {
-  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title}</title><style>body{font:16px/1.5 system-ui,-apple-system,sans-serif;background:#eef3f7;color:#0f1b2d;display:grid;place-items:center;min-height:90vh;margin:0}
-main{background:#fff;border-radius:16px;padding:32px 36px;max-width:440px;box-shadow:0 10px 30px rgba(15,30,50,.12);text-align:center}
-h1{font-size:22px;margin:0 0 8px;color:${ok ? '#0e7c7b' : '#b42318'}}p{margin:0;color:#4c5d72}</style>
-<main><h1>${title}</h1><p>${text}</p></main>`;
-  return new Response(html, {status: ok ? 200 : 400, headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
-}
+const page = (title, text, ok) => cardPage({title, body: `<p>${text}</p>`, tone: ok ? 'ok' : 'bad', status: ok ? 200 : 400});   // the site's one card (shared/card-page.js)
 const configured = env => env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET && env.WAITLIST;
 
 // GET /api/linkedin/start?session=… -> LinkedIn's consent page.
