@@ -74,3 +74,12 @@ test('a source without its seconds ranks after the timed ones by jobs per run, a
   assert.equal(proven[1].source, `lever:f${MAX_PROVEN + 4}`, 'then by jobs per run');
   assert.equal(proven[1].per_min, null);
 });
+
+test('the index an install downloads carries the ranking', async () => {
+  const env = setup();
+  await post(env, share('install-aaaa1111', [feed('good', {local: 6, seconds: 3})]));
+  await worker.fetch(new Request('https://www.jobpilotto.top/api/index', {method: 'PUT', headers: {Authorization: 'Bearer k3y', 'Content-Type': 'application/json'},
+    body: JSON.stringify({feeds: [{company: 'Co good', ats: 'lever', slug: 'good', regions: ['europe']}]})}), env, {});
+  const got = await (await worker.fetch(new Request('https://www.jobpilotto.top/api/index?regions=europe', {headers: {Authorization: 'Bearer k3y'}}), env, {})).json();
+  assert.deepEqual(got.ranking['finance_admin|de'].proven.map(s => s.source), ['lever:good']);
+});
