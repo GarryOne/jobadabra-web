@@ -6,6 +6,8 @@ import {test} from 'node:test';
 import {PAGES} from '../../admin/admin.js';
 import {collect, hashOf, SWITCHES, windowOf} from '../../admin/email-data.js';
 import {page} from '../../admin/email.js';
+import {previews, SAMPLES} from '../../admin/email-preview.js';
+import {TEMPLATES} from '../../shared/mail-templates.js';
 import {addrOf} from '../../shared/mail.js';
 
 const sql = file => readFileSync(new URL(`../../db/migrations/${file}`, import.meta.url), 'utf8');
@@ -63,4 +65,19 @@ test('the window is 7, 30 or 90 days; anything else is 7; the page is in the Gro
   assert.deepEqual([7, 30, 90, 5, 'x', undefined].map(windowOf), [7, 30, 90, 7, 7, 7]);
   assert.ok(PAGES.some(p => p.path === '/admin/email' && p.group === 'Growth' && p.old === '/admin/signups'));
   assert.ok(!PAGES.some(p => p.path === '/admin/signups'), 'Signups is merged into E-mail');
+});
+
+test('every template has sample data and renders inside the frame, essential ones without an unsubscribe link', () => {
+  for (const name of Object.keys(TEMPLATES)) assert.ok(SAMPLES[name], `${name} has a sample in admin/email-preview.js`);
+  const all = previews();
+  assert.equal(all.length, Object.keys(TEMPLATES).length);
+  for (const mail of all) { assert.ok(!mail.error, `${mail.name}: ${mail.error}`); assert.ok(mail.subject && mail.html.includes('Jobadabra')); }
+  assert.ok(!all.find(m => m.name === 'account-code').html.includes('unsubscribe'));
+  assert.ok(all.find(m => m.name === 'digest').html.includes('unsubscribe'));
+});
+
+test('the page shows each template in a sandboxed frame', async () => {
+  const {env} = await fill();
+  const html = page(await collect(env, {now}));
+  assert.equal((html.match(/<iframe sandbox/g) || []).length, Object.keys(TEMPLATES).length);
 });

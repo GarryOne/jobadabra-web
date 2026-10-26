@@ -1,6 +1,6 @@
 // One page, rendered through the REAL Worker (workers/www/index.js) on demo data, shot at every width and theme, and refused when it is unstyled
 // (owner, 25 Oct 2026: jobadabra-web#92's Before/After images were the admin page as raw HTML, rendered without the layout that adds its CSS).
-//   tools/site-run.sh node tools/page-shot.mjs --path /admin/promo-codes --width 1440,390 --theme dark,light --out <dir> [--name before] [--seed promo-codes] [--full]
+//   tools/site-run.sh node tools/page-shot.mjs --path /admin/promo-codes --width 1440,390 --theme dark,light --out <dir> [--name before] [--seed promo-codes] [--full] [--scroll '<selector>']
 // Writes <dir>/<name>-<width>[-<theme>].png (theme in the name only when more than one). Exit 1 when the page is unstyled (nothing is written for it).
 // The data is an in-memory database built from db/migrations/ plus a seed (tools/page-shot-seeds.mjs); the owner login is the test key. The live site is never contacted:
 // every request to another host is blocked. Run inside the overlay (tools/site-run.sh), from the checkout of the tree to shoot (before: a worktree of the old commit).
@@ -76,7 +76,10 @@ try {
     const reasons = unstyledReasons({...seen, failed: bad, status: response.status()});
     const file = path.join(out, `${name}-${width}${themes.length > 1 ? `-${theme}` : ''}.png`);
     if (reasons.length) { failed = true; console.error(`UNSTYLED ${pagePath} at ${width}px ${theme}: ${reasons.join('; ')}`); }
-    else { await page.screenshot({path: file, fullPage: !!args.full}); console.log(file); }
+    else {
+      if (args.scroll) { await page.locator(String(args.scroll)).first().scrollIntoViewIfNeeded(); await page.waitForTimeout(500); }   // --scroll '<selector>': shoot that part of the page (a full-page shot leaves iframes blank)
+      await page.screenshot({path: file, fullPage: !!args.full}); console.log(file);
+    }
     await context.close();
   }
 } finally { await browser.close(); server.close(); }
