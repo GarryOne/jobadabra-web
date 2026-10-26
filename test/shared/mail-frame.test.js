@@ -25,6 +25,7 @@ const SAMPLES = {
   'message': {subject: 'Rejection from Acme', html: '<b>Acme said no</b>', text: 'Acme said no', buttons: [{text: 'Open the job', url: 'https://x.example/job'}, {text: 'See why', url: 'https://x.example/why'}], confirmUrl: 'https://x.example/confirm'},
   'account-code': {code: '482913'},
   'digest': {matches, total: 3},
+  'welcome': {confirmUrl: 'https://www.jobadabra.top/confirm?a=0123456789abcdef&t=abc'},
   'trial-left': {left: 4},
   'trial-ending': {days: 2, pricingUrl: 'https://www.jobadabra.top/pricing'},
   'always-on-paused': {reason: 'trial-over', pricingUrl: 'https://www.jobadabra.top/pricing', pro: false},

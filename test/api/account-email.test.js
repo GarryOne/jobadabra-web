@@ -61,6 +61,7 @@ test('a message is mailed in the Telegram layout with a confirm link; an unconfi
   const {e, sent} = setup();
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 'x', html: card})).reason, 'no_address');
   await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
+  sent.length = 0;   // the welcome mail (its own test below)
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: '3 new matches', html: card, buttons: [{text: 'Open', url: 'https://x.example/app'}, {text: 'bad', url: 'javascript:1'}]})).ok, true);
   assert.equal(sent[0].subject, '3 new matches');
   assert.ok(sent[0].html.includes('Data Engineer') && sent[0].html.includes('/confirm?a=') && sent[0].text.includes('Open: https://x.example/app') && !sent[0].text.includes('javascript'));
@@ -80,6 +81,7 @@ test('a message is mailed in the Telegram layout with a confirm link; an unconfi
 test('an empty message and a person who switched the service list off send nothing', async () => {
   const {e, sent} = setup();
   await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
+  sent.length = 0;   // the welcome mail (its own test below)
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: ''})).status, 400);
   e.STATS.db.prepare('UPDATE pro_accounts SET service_mail_off_at = ?').run('2026-10-16');
   assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).reason, 'unsubscribed');
@@ -89,6 +91,7 @@ test('an empty message and a person who switched the service list off send nothi
 test('an "activity" message waits for the digest; one mail a day with everything, weekly on Mondays for a weekly account; matches and the rest go at once', async () => {
   const {e, sent} = setup(), mon = new Date('2026-10-19T06:00:00Z'), tue = new Date('2026-10-20T06:00:00Z');
   await call(address, e, 'install-held', 'PUT', {email: 'me@example.com'});
+  sent.length = 0;   // the welcome mail (its own test below)
   e.STATS.db.prepare('UPDATE pro_accounts SET email_confirmed_at = ?').run('2026-10-01');
   const first = await call(notify, e, 'install-held', 'POST', {subject: 'Matches', html: card}); assert.equal(first.ok, true);   // new matches: at once
   assert.equal(sent.length, 1);
@@ -118,4 +121,29 @@ test('GET says whether mail is sending: the app must not promise an e-mail the k
   assert.equal((await call(address, e, 'install-aaaa', 'GET')).sending, false);
   e.MAIL = 'on'; delete e.EMAIL;
   assert.equal((await call(address, e, 'install-aaaa', 'GET')).sending, false, 'no sender bound');
+});
+
+// Owner, 26 Oct 2026: "Can we send an welcome email?": saving an address sent nothing; the confirm link waited for the first real mail (a digest, maybe a day later).
+test('a new or changed address gets one welcome mail with the confirm button, once per address ever; re-saving sends nothing', async () => {
+  const {e, sent} = setup();
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'me@example.com');
+  assert.match(sent[0].subject, /confirm/i);
+  assert.ok(sent[0].html.includes('/confirm?a=') && sent[0].text.includes('Confirm your email: https://'), 'the confirm link is the button');
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com', cadence: 'weekly'});
+  assert.equal(sent.length, 1, 'a re-save (cadence, opt-in) sends nothing');
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'new@example.com'});
+  assert.equal(sent.at(-1).to, 'new@example.com', 'a changed address is welcomed too');
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
+  assert.equal(sent.length, 2, 'back to an address already welcomed: no second welcome');
+  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true, 'the welcome is not one of the two mails an unconfirmed address gets');
+  assert.equal((await call(notify, e, 'install-aaaa', 'POST', {subject: 's', html: card})).ok, true);
+});
+
+test('the welcome waits for the kill switch: with mail off the address is saved and nothing is sent', async () => {
+  const {e, sent} = setup();
+  e.MAIL = 'off';
+  assert.equal((await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'})).ok, true);
+  assert.equal(sent.length, 0);
 });

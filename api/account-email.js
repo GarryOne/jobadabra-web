@@ -2,7 +2,7 @@
 // (x-api-key: JPF1.<install>.<token>). PUT/GET /api/account/email makes or reads the trial account; POST /api/notify/email mails a Telegram-style message to it;
 // /confirm confirms the address. An address another account already holds is refused here (joining it takes a code sent to that address, the device sign-in). Guard: test/api/account-email.test.js.
 import {authorize, digestOf, equal, tokenFor} from '../shared/guard.js';
-import {confirmLink, validAddress, clean} from '../shared/mail.js';
+import {addrOf, confirmLink, send, validAddress, clean} from '../shared/mail.js';
 import {fromTelegram} from './mail-html.js';
 import {CADENCES, deliver, hold} from './mail-held.js';
 import {page} from './mail-unsub.js';
@@ -35,22 +35,34 @@ export async function address(request, env, now = new Date()) {
   const hash = await digestOf(email);
   if (account && account.plan === 'pro') return json(409, {ok: false, error: 'pro'});   // a Pro account's address changes only through its own sign-in
   const holder = await env.STATS.prepare('SELECT id FROM pro_accounts WHERE email_hash = ?').bind(hash).first();
+  let fresh = false;   // a new or changed address: welcomed with the confirm button
   if (account && account.email_hash !== hash) {
     if (holder) return json(409, {ok: false, error: 'taken'});
     const id = `acc_${hash}`;   // a changed address is a new, unconfirmed one: same devices, same trial start
     await env.STATS.prepare('UPDATE pro_accounts SET id = ?, email_hash = ?, email = ?, email_confirmed_at = NULL, service_mail_off_at = NULL WHERE id = ?').bind(id, hash, email, account.id).run();
     await env.STATS.prepare('UPDATE pro_devices SET account = ? WHERE account = ?').bind(id, account.id).run();
     account = {...account, id};
+    fresh = true;
   } else if (!account) {
     if (holder) return json(409, {ok: false, error: 'taken'});
     const id = await createAccount(env, email, now, {plan: 'trial'});
     const linked = await link(env, id, install, now);
     if (!linked.ok) return json(409, {ok: false, error: linked.error});
     account = {id};
+    fresh = true;
   }
+  if (fresh) await welcome(env, email, now);
   if (typeof body.marketing === 'boolean') await setMarketing(env, account.id, body.marketing, now);
   if (CADENCES.includes(body.cadence)) await env.STATS.prepare('UPDATE pro_accounts SET digest_cadence = ? WHERE id = ?').bind(body.cadence, account.id).run();   // how often the digest comes: daily or weekly
   return json(200, {ok: true});
+}
+
+// The welcome mail with the confirm button, once per address ever (an address switched back and forth is not mailed again). It never fails the save: send() refuses
+// quietly (mail off, the daily limit) and the confirm link still rides on the first real mail (api/mail-held.js deliver).
+async function welcome(env, email, now) {
+  if (!env.STATS) return;
+  const before = await env.STATS.prepare("SELECT 1 AS y FROM mail_log WHERE addr = ? AND template = 'welcome' AND status = 'sent'").bind(await addrOf(email)).first();
+  if (!before) await send(env, 'welcome', email, {confirmUrl: await confirmLink(env, email)}, {now});
 }
 
 // POST /api/notify/email {subject, html, buttons?: [{text, url}], kind?: 'activity'}: 'activity' is held for the digest, anything else goes at once; `html` is the Telegram HTML the engine built (tgcard.py); only a safe subset reaches the mail (mail-html.js).
