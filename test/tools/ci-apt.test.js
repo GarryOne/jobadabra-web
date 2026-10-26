@@ -2,7 +2,7 @@
 // Every workflow installs through tools/apt-install.sh (a cut on each try, a retry, a clear failure), and every step that calls it has its own timeout-minutes.
 // This loops over all workflow files, so a new apt-get anywhere fails here. Guards: tools/apt-install.sh, .github/workflows/*.yml.
 import assert from 'node:assert/strict';
-import {chmodSync, mkdtempSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -47,13 +47,23 @@ function run(fails) {
   fake('timeout', 'shift; [ "${1#--kill-after}" != "$1" ] && shift; shift; exec "$@"');
   fake('sleep', 'exit 0');
   fake('apt-get', `[ "$1" = update ] && exit 0; n=$(cat ${bin}/n 2>/dev/null || echo 0); echo $((n+1)) > ${bin}/n; [ $n -lt ${fails} ] && exit 100; exit 0`);
-  return spawnSync('bash', [new URL('tools/apt-install.sh', root).pathname, 'ffmpeg'], {env: {...process.env, PATH: `${bin}:${process.env.PATH}`}, encoding: 'utf8'});
+  mkdirSync(path.join(bin, 'apt', 'sources.list.d'), {recursive: true});
+  writeFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'URIs: http://azure.archive.ubuntu.com/ubuntu/\n');
+  const result = spawnSync('bash', [new URL('tools/apt-install.sh', root).pathname, 'ffmpeg'], {env: {...process.env, PATH: `${bin}:${process.env.PATH}`, APT_DIR: path.join(bin, 'apt')}, encoding: 'utf8'});
+  return {...result, sources: readFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'utf8')};
 }
 
 test('a failed first try is retried and the second succeeds', () => {
   const result = run(1);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ffmpeg ready \(try 2\)/);
+  assert.match(result.sources, /http:\/\/archive\.ubuntu\.com\/ubuntu/, 'the second try uses another mirror (web #154: the same mirror stalled 3 times)');
+});
+
+test('a first try that works keeps the runner\'s own mirror', () => {
+  const result = run(0);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.sources, /azure\.archive\.ubuntu\.com/);
 });
 
 test('two failed tries end the step at once with a clear error', () => {
