@@ -7,6 +7,7 @@ import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
 import {tokenFor} from '../../shared/guard.js';
 import {newCode} from '../../shared/promo.js';
+import {givesChip, stateChip} from '../../admin/promo-codes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -165,4 +166,13 @@ test('empty Code still makes a random one; with no key the page says so and fail
   assert.ok(text.includes('Made before full codes were kept: re-make it with the Code field to see it'), 'a row without its copy says how to get it');
   const keyed = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), site({PROMO_CODE_KEY: 'k', STATS: env.STATS}), {})).text();
   assert.ok(!keyed.includes("Full codes can't be shown"), 'no notice when the key is set');
+});
+
+// Every value cell is a chip (owner, 27 Oct 2026: "this column values/cells should be displayed as chips"): each State the page can draw, and each kind in Gives.
+test('the admin draws every state and every kind as a chip: green Active, amber Used up, grey Revoked and Expired', () => {
+  const now = Date.parse('2026-10-27T12:00:00Z'), code = {ends_at: '2026-12-31T23:59:59Z', cap: 2};
+  const cases = [[code, 0, 'good">Active'], [code, 2, 'warn">Used up'], [{...code, revoked_at: '2026-10-01'}, 0, 'off">Revoked'], [{...code, ends_at: '2026-10-01T00:00:00Z'}, 0, 'off">Expired']];
+  for (const [row, used, want] of cases) assert.equal(stateChip(row, used, now), `<span class="chip ${want}</span>`);
+  assert.equal(givesChip({kind: 'credit', credit_eur: 10}), '<span class="chip credit">€10 top-up</span>');
+  assert.equal(givesChip({kind: 'pro'}), '<span class="chip pro">Pro upgrade</span>');
 });

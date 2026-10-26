@@ -102,10 +102,12 @@ test('the admin page makes a credit code, names the two kinds apart, and refuses
   assert.match(page, /<option value="pro">Pro upgrade<\/option><option value="credit">AI credit top-up<\/option>/);
   assert.match(page, /<label class="muted credit-field" hidden>€ of AI credit/);
   assert.match(page, /onchange="this\.form\.querySelector\('\.credit-field'\)\.hidden=this\.value!=='credit'"/);
-  assert.match(page, /<td class="one-line">€10 top-up<\/td>/);
+  // Gives is a chip, one colour per kind (owner, 27 Oct 2026: "this column values/cells should be displayed as chips").
+  assert.match(page, /<td class="one-line"><span class="chip credit">€10 top-up<\/span><\/td>/);
+  assert.match(page, /\.chip\{[^}]*white-space:nowrap/, 'a chip never wraps');
   // One line per row (owner, 27 Oct 2026): the short cells never wrap (the Copy icon: test/shared/promo.test.js).
   assert.match(page, /<td class="one-line">0 of 2<\/td>/);
   await make(env, {code: 'BETA-FAKE-PRO', kind: 'pro'});
   const after = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), env, {})).text();
-  assert.match(after, /<td class="one-line">Pro upgrade<\/td>/, 'a Pro code says Pro upgrade');
+  assert.match(after, /<td class="one-line"><span class="chip pro">Pro upgrade<\/span><\/td>/, 'a Pro code says Pro upgrade, in the Pro colour');
 });
