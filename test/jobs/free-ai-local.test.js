@@ -84,3 +84,9 @@ test('the workflow alternates engines and runs a free draw through the local rel
   assert.match(yml, /JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
   assert.match(yml, /\|\| status=\$\?[\s\S]*__report[\s\S]*draw\.free_ai=[\s\S]*exit "\$status"/);
 });
+
+test('a hand-started draw never cancels another one waiting: only scheduled draws share a queue', async () => {
+  const {readFileSync} = await import('node:fs');
+  const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
+  assert.match(yml, /group: random-draw-\$\{\{ github\.event_name == 'schedule' && 'schedule' \|\| github\.run_id \}\}/);
+});

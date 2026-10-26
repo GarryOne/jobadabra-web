@@ -38,8 +38,10 @@ on:
 permissions:
   contents: read
 
+# Scheduled draws queue one at a time; each hand-started draw runs on its own (26 Oct 2026: GitHub keeps one waiting run per group, so a second
+# dispatch from another session silently cancelled a queued measurement).
 concurrency:
-  group: random-draw
+  group: random-draw-${{ github.event_name == 'schedule' && 'schedule' || github.run_id }}
   cancel-in-progress: false
 
 jobs:
