@@ -1,6 +1,6 @@
 // The /ai-cost page: the owner's view of what the product's scheduled jobs spend on AI.
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {RANGES, byKey, ingest, page, rangeOf, read, since, spent, summarize, view} from '../../admin/jobcost.js';
 
@@ -211,7 +211,7 @@ test('/admin/ai-cost shows each install\'s day and month use against its limits,
   assert.equal(summary.monthUsd, 1.8);
   assert.deepEqual(summary.perInstall.map(row => [row.who, +row.day.toFixed(2), +row.month.toFixed(2)]), [['aaaa1111', 0.15, 1.5], ['bbbb2222', 0, 0.3]]);
   const html = freeSection(summary, 'last 30 days');
-  assert.match(html, /This month \$1\.80 of \$60 \(alert at \$40\)/); assert.match(html, /aaaa1111<\/td><td class="n">\$0\.15<\/td><td class="n">50%<\/td><td class="n">\$1\.50<\/td><td class="n">50%/);
+  assert.match(html, /This month \$1\.80 of \$60 \(alert at \$40\)/); assert.match(html, /aaaa1111<\/td><td class="n">\$0\.15<\/td><td class="n">50%<\/td><td class="n">0\.00M<\/td><td class="n">0%<\/td><td class="n">\$1\.50<\/td><td class="n">50%/);
 });
 
 test('Free AI section shows the account\'s own neuron count from Cloudflare when it is known, and nothing when it is not', async () => {
@@ -220,4 +220,21 @@ test('Free AI section shows the account\'s own neuron count from Cloudflare when
   assert.match(freeSection(summary, 'last 30 days', 11014.4), /Account today: 11014 neurons \(from Cloudflare\)/);
   assert.doesNotMatch(freeSection(summary, 'last 30 days', null), /Account today/);
   assert.doesNotMatch(freeSection(summary, 'last 30 days'), /Account today/);
+});
+
+test('/admin/ai-cost compares each install with the lines in force (wrangler.toml), money and tokens, as the route enforces them', async () => {
+  const {freeSection, freeSummary} = await import('../../admin/free-ai-cost.js');
+  const {limitsOf} = await import('../../shared/free-ai.js');
+  const toml = readFileSync(new URL('../../workers/www/wrangler.toml', import.meta.url), 'utf8');
+  const env = Object.fromEntries([...toml.matchAll(/^(FREE_AI_[A-Z_]+) = "([^"]*)"/gm)].map(([, key, value]) => [key, value]));
+  const lines = limitsOf(env);
+  assert.equal(lines.installDayUsd, Number(env.FREE_AI_INSTALL_DAY_USD)); assert.equal(lines.installMonthUsd, Number(env.FREE_AI_INSTALL_MONTH_USD));
+  assert.equal(lines.monthStopUsd, Number(env.FREE_AI_MONTH_STOP_USD)); assert.equal(lines.monthAlertUsd, Number(env.FREE_AI_MONTH_ALERT_USD));
+  // 26 Oct 2026: $0.42 and 2.5M tokens in a day showed as "140%" of $0.30 while $0.50 was enforced; the stop came from the tokens line.
+  const model = '@cf/qwen/qwen3-30b-a3b-fp8', now = new Date('2026-10-26T15:00:00Z');
+  const summary = freeSummary([{day: '2026-10-26', who: 'db510466', action: 'scout', model, calls: 958, tokens_in: 2_000_000, tokens_out: 500_000, micro_usd: 420000}], now);
+  const html = freeSection(summary, 'last 30 days', null, null, limitsOf({FREE_AI_INSTALL_DAY_USD: '0.50', FREE_AI_INSTALL_MONTH_USD: '5', FREE_AI_MONTH_STOP_USD: '200', FREE_AI_MONTH_ALERT_USD: '100'}));
+  assert.match(html, /<th>of \$0\.5<\/th><th>Tokens today<\/th><th>of 1\.5M<\/th>/);
+  assert.match(html, /db510466<\/td><td class="n">\$0\.42<\/td><td class="n">84%<\/td><td class="n">2\.5M<\/td><td class="n">167%<\/td>/);
+  assert.match(html, /of \$200 \(alert at \$100\) · per install: \$0\.5 or 1\.5M tokens a day, \$5 a month/);
 });

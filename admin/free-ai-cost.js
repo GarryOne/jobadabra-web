@@ -2,6 +2,7 @@
 // jobs' Claude and OpenAI spend: it is not billed by Anthropic, so it stays out of their total. Counts and money only, per step.
 import {FREE_NEURONS_PER_DAY, neuronsOf} from '../shared/free-ai-models.js';
 import {LIMITS} from '../shared/free-ai.js';
+const millions = n => `${(n / 1e6).toFixed(n < 1e6 ? 2 : 1)}M`;
 const esc = text => String(text).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const money = n => `$${(Number(n) || 0).toFixed(n && n < 0.1 ? 4 : 2)}`;
 
@@ -18,8 +19,8 @@ export function freeSummary(rows, now = new Date(), days = 30) {
     const step = steps[row.action] ||= {action: row.action, calls: 0, usd: 0, tokensIn: 0, tokensOut: 0};
     step.calls += row.calls; step.usd += cost; step.tokensIn += row.tokens_in || 0; step.tokensOut += row.tokens_out || 0;
     usd += cost; calls += row.calls; installs.add(row.who);
-    if (row.day.startsWith(month)) { monthUsd += cost; (mine_[row.who] ||= {who: row.who, day: 0, month: 0}).month += cost; }   // per install: use today and this month (the id is a digest, no personal data)
-    if (row.day === today) { (mine_[row.who] ||= {who: row.who, day: 0, month: 0}).day += cost; todayUsd += cost; todayCalls += row.calls; todayInstalls.add(row.who); }
+    if (row.day.startsWith(month)) { monthUsd += cost; (mine_[row.who] ||= {who: row.who, day: 0, month: 0, tokens: 0}).month += cost; }   // per install: use today and this month (the id is a digest, no personal data)
+    if (row.day === today) { const own = mine_[row.who] ||= {who: row.who, day: 0, month: 0, tokens: 0}; own.day += cost; own.tokens += (row.tokens_in || 0) + (row.tokens_out || 0); todayUsd += cost; todayCalls += row.calls; todayInstalls.add(row.who); }
   }
   const todayNeurons = Math.round(neuronsOf(todayUsd));
   return {todayNeurons, allowancePct: Math.round(100 * todayNeurons / FREE_NEURONS_PER_DAY), days, usd, calls, installs: installs.size, todayUsd, todayCalls, todayInstalls: todayInstalls.size,
@@ -35,12 +36,13 @@ export async function trialUse(kv, budgetUsd = LIMITS.trialUsd) {
   } catch { return null; }
 }
 
-export function freeSection(summary, label, accountNeurons = null, trial = null) {
+// lines: the limits in force (shared/free-ai.js limitsOf(env)): an install's day ends at whichever of its two day lines (money, tokens) it reaches first.
+export function freeSection(summary, label, accountNeurons = null, trial = null, lines = LIMITS) {
   const rows = summary.steps.map(step => `<tr><td>${esc(step.action)}</td><td class="n">${step.calls}</td><td class="n">${step.tokensIn + step.tokensOut}</td><td class="n">${money(step.usd)}</td><td class="n">${money(step.calls ? step.usd / step.calls : 0)}</td></tr>`).join('');
   return `<section class="card"><h2>🆓 Free AI (Workers AI)</h2><small class="muted">Not billed by Anthropic: counted by the site's relay, per step. Today ${summary.todayNeurons} of ${FREE_NEURONS_PER_DAY} neurons (${summary.allowancePct}%) of the free plan · ${money(summary.todayUsd)} · ${summary.todayCalls} calls · ${summary.todayInstalls} installs (${money(summary.perInstallToday)} each)${accountNeurons == null ? '' : ` · Account today: ${Math.round(accountNeurons)} neurons (from Cloudflare)`}</small>
 ${trial ? `<p class="muted">Trial budget $${trial.budgetUsd} per install, for life: ${trial.at} at it, ${trial.near} near it (80%+), of ${trial.installs} with use</p>` : ''}
-<p class="muted">This month ${money(summary.monthUsd)} of $${LIMITS.monthStopUsd} (alert at $${LIMITS.monthAlertUsd}) · per install: $${LIMITS.installDayUsd} a day, $${LIMITS.installMonthUsd} a month</p>
-${summary.perInstall.length ? `<div class="wrap"><table><tr><th>Install</th><th>Today</th><th>of $${LIMITS.installDayUsd}</th><th>This month</th><th>of $${LIMITS.installMonthUsd}</th></tr>${summary.perInstall.slice(0, 30).map(row => `<tr><td>${esc(row.who)}</td><td class="n">${money(row.day)}</td><td class="n">${Math.round(100 * row.day / LIMITS.installDayUsd)}%</td><td class="n">${money(row.month)}</td><td class="n">${Math.round(100 * row.month / LIMITS.installMonthUsd)}%</td></tr>`).join('')}</table></div>` : ''}
+<p class="muted">This month ${money(summary.monthUsd)} of $${lines.monthStopUsd} (alert at $${lines.monthAlertUsd}) · per install: $${lines.installDayUsd} or ${millions(lines.tokensPerDay)} tokens a day, $${lines.installMonthUsd} a month</p>
+${summary.perInstall.length ? `<div class="wrap"><table><tr><th>Install</th><th>Today</th><th>of $${lines.installDayUsd}</th><th>Tokens today</th><th>of ${millions(lines.tokensPerDay)}</th><th>This month</th><th>of $${lines.installMonthUsd}</th></tr>${summary.perInstall.slice(0, 30).map(row => `<tr><td>${esc(row.who)}</td><td class="n">${money(row.day)}</td><td class="n">${Math.round(100 * row.day / lines.installDayUsd)}%</td><td class="n">${millions(row.tokens || 0)}</td><td class="n">${Math.round(100 * (row.tokens || 0) / lines.tokensPerDay)}%</td><td class="n">${money(row.month)}</td><td class="n">${Math.round(100 * row.month / lines.installMonthUsd)}%</td></tr>`).join('')}</table></div>` : ''}
 ${summary.calls ? `<div class="wrap"><table><tr><th>Step</th><th>Calls · ${esc(label.toLowerCase())}</th><th>Tokens</th><th>Cost</th><th>Per call</th></tr>${rows}
 <tr class="total"><td>Total</td><td class="n">${summary.calls}</td><td class="n">${summary.steps.reduce((n, s) => n + s.tokensIn + s.tokensOut, 0)}</td><td class="n">${money(summary.usd)}</td><td class="n">${money(summary.calls ? summary.usd / summary.calls : 0)}</td></tr></table></div>` : '<p class="muted">No Free AI calls yet.</p>'}</section>`;
 }
