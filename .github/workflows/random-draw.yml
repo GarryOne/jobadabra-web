@@ -30,12 +30,18 @@ on:
         description: 'The public repo branch or sha to draw on (a PR under test); empty: main'
         type: string
         default: ''
+      engine:
+        description: 'api or free (Free AI on the runner, jobs/persona-search/free-ai-local.mjs); empty: alternate by date'
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
+# Scheduled draws queue one at a time; each hand-started draw runs on its own (26 Oct 2026: GitHub keeps one waiting run per group, so a second
+# dispatch from another session silently cancelled a queued measurement).
 concurrency:
-  group: random-draw
+  group: random-draw-${{ github.event_name == 'schedule' && 'schedule' || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -70,22 +76,43 @@ jobs:
         env:
           SEED_INPUT: ${{ inputs.seed }}
           ROLE_INPUT: ${{ inputs.role }}
+          ENGINE_INPUT: ${{ inputs.engine }}
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
+          HAS_FREE_AI: ${{ secrets.RANDOM_DRAWS_CF_AI_TOKEN != '' && secrets.RANDOM_DRAWS_CF_ACCOUNT_ID != '' }}
         run: |
           set -o pipefail   # a failed draw must stop here, not as a missing draw.json in the next step
           seed="${SEED_INPUT:-$(date -u +%F)}"
           echo "seed=$seed" >> "$GITHUB_OUTPUT"
-          # --engines api until the Free AI draw lands (its own Workers AI token: secret RANDOM_DRAWS_CF_AI_TOKEN)
-          python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines api ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
+          engines="${ENGINE_INPUT:-api,free}"
+          if [ "$HAS_FREE_AI" != true ] && [ "$engines" != api ]; then echo "Free AI: no token (secrets RANDOM_DRAWS_CF_AI_TOKEN, RANDOM_DRAWS_CF_ACCOUNT_ID): this draw runs on the API engine" | tee -a "$GITHUB_STEP_SUMMARY"; engines=api; fi
+          python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines "$engines" ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
+      # Engine "free": the site's Free AI handler on this runner (jobs/persona-search/free-ai-local.mjs: Workers AI on the draws' own token, production's caps,
+      # its own meter, no Telegram); the engine reaches it through the test-run base URL, with a throwaway install's JPF1 key, as a Free AI user's app does.
       - name: Search as that candidate (live, the drawn path)
         env:
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
+          RANDOM_DRAWS_CF_ACCOUNT_ID: ${{ secrets.RANDOM_DRAWS_CF_ACCOUNT_ID }}
+          RANDOM_DRAWS_CF_AI_TOKEN: ${{ secrets.RANDOM_DRAWS_CF_AI_TOKEN }}
         run: |
           set -o pipefail   # a crash in the harness must fail this step, not just the tee's exit
           folder="$RUNNER_TEMP/draw-out/draw"
-          presses=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['presses'])" "$folder/draw.json")
+          read -r presses engine < <(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(d['presses'],d.get('engine','api'))" "$folder/draw.json")
           field=(); [ -f "$folder/field.json" ] && field=(--change-field "$folder/field.json")
-          node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses "$presses" --note "$folder/note.txt" "${field[@]}" --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log"
+          if [ "$engine" = free ]; then
+            node jobs/persona-search/free-ai-local.mjs 8787 "$RUNNER_TEMP/free.key" > "$RUNNER_TEMP/free-ai.log" 2>&1 &
+            for _ in $(seq 1 30); do grep -q listening "$RUNNER_TEMP/free-ai.log" && break; sleep 1; done
+            grep -q listening "$RUNNER_TEMP/free-ai.log" || { cat "$RUNNER_TEMP/free-ai.log"; exit 1; }
+            export RANDOM_DRAWS_ANTHROPIC_KEY="$(cat "$RUNNER_TEMP/free.key")" ANTHROPIC_BASE_URL=http://127.0.0.1:8787/api/ai JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http://127.0.0.1:8787/api/ai
+            unset RANDOM_DRAWS_CF_AI_TOKEN
+          fi
+          status=0   # a crashed search still reports what Free AI spent, then fails the step
+          node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses "$presses" --note "$folder/note.txt" "${field[@]}" --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log" || status=$?
+          if [ "$engine" = free ]; then
+            curl -sf http://127.0.0.1:8787/__report > "$folder/free-ai.json"
+            node -e "const fs=require('fs');const [d,f]=process.argv.slice(1);const draw=JSON.parse(fs.readFileSync(d));draw.free_ai=JSON.parse(fs.readFileSync(f));fs.writeFileSync(d,JSON.stringify(draw))" "$folder/draw.json" "$folder/free-ai.json"
+            echo "Free AI: $(cat "$folder/free-ai.json")" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
       - name: Send the counts to /admin
         if: github.ref == 'refs/heads/main'
         env:

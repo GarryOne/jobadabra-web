@@ -23,7 +23,7 @@ export const labels = c => [LABEL, 'kind:search-gap', `source:${c.source}`, `sev
 const FUNNEL_ROWS = [['Employers picked', f => (f.employers_picked == null ? null : `${num(f.employers_picked)} of ${num(f.employers_in_places)}`)],
   ['… for the kinds', f => (f.kinds?.length ? f.kinds.join(', ') : null)], ['Employer sites read', f => f.employer_sites_read], ['Job boards read', f => f.boards_read],
   ['Board jobs · relevant', f => `${num(f.board_jobs)} · ${num(f.board_relevant)}`], ['Web searches · sources found', f => `${num(f.web_searches)} · ${num(f.web_found)}`],
-  ['Jobs listed', f => f.looked], ['Title matches', f => f.matches]];
+  ['Jobs listed', f => f.looked], ['Title matches', f => f.matches], ['AI calls refused (Free AI caps)', f => f.ai_refused]];
 
 export function body(c) {
   const lines = [`**Below the floor:** ${c.why.join('; ')}.`, '',
