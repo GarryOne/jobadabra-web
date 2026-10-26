@@ -27,7 +27,8 @@ export async function address(request, env, now = new Date()) {
   let account = await accountOf(env, install);
   if (request.method === 'GET') {
     return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
-      sending: env.MAIL === 'on' && !!env.EMAIL});   // the kill switch (shared/mail.js): the app says so instead of promising a mail
+      sending: env.MAIL === 'on' && !!env.EMAIL,
+      unconfirmedStopped: !!(account?.email_hash && await env.STATS.prepare("SELECT 1 AS y FROM mail_off WHERE addr = ? AND list = 'service' AND reason = 'unconfirmed'").bind(account.email_hash).first())});   // 14 days unconfirmed (api/mail-held.js)   // the kill switch (shared/mail.js): the app says so instead of promising a mail
   }
   if (request.method !== 'PUT') return json(405, {ok: false});
   const body = await request.json().catch(() => ({})), email = clean(body.email);
@@ -79,6 +80,7 @@ export async function notify(request, env, now = new Date()) {
   const item = {subject: String(body.subject || '').slice(0, 150), html, text, buttons};
   if (body.kind === 'activity') return json(200, await hold(env, account, item, now));   // not new matches, not urgent: waits for the daily or weekly digest (api/mail-held.js)
   const result = await deliver(env, account, item, now);
+  if (result.reason === 'unconfirmed') return json(200, await hold(env, account, item, now));   // today's one mail to an unconfirmed address went: this one waits for the digest, never dropped
   return json(200, result.ok ? {ok: true} : {ok: false, reason: result.reason});
 }
 
@@ -88,6 +90,7 @@ export async function confirm(request, env, now = new Date()) {
   if (!/^[0-9a-f]{16}$/.test(addr) || !equal(token, await tokenFor(addr, env, 'confirm'))) return page('This link does not work', '<p>It may be cut off. Open the link from the mail again.</p>', 400);
   if (request.method === 'POST') {
     await env.STATS.prepare('UPDATE pro_accounts SET email_confirmed_at = ? WHERE email_hash = ? AND email_confirmed_at IS NULL').bind(now.toISOString(), addr).run();
+    await env.STATS.prepare("DELETE FROM mail_off WHERE addr = ? AND list = 'service' AND reason = 'unconfirmed'").bind(addr).run();   // the 14-day stop ends
     return page('Email confirmed', '<p>Thank you. Your mails will keep coming.</p>');
   }
   if (request.method !== 'GET') return page('Not allowed', '', 405);
