@@ -81,7 +81,7 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
       const [page] = await env.AI.toMarkdown([{name: 'cv.pdf', blob: new Blob([bytes], {type: 'application/pdf'})}]);
       return page?.data || '';
     };
-    const input = await toWorkersAi(body, readPdf);
+    const input = await toWorkersAi(body, readPdf, request.headers.get('x-jp-action') || '');   // the step picks the temperature (reading steps 0; desktop/lib/free-ai-models.js temperatureFor)
     result = await env.AI.run(model, input);
     // Live (16 Oct 2026, 1 of 30): the model looped on whitespace to the token limit. A structured ask gets one more try, and both attempts are paid for.
     if (input.response_format && !isJson(fromWorkersAi(result, model).content[0].text)) {
