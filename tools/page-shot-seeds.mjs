@@ -64,6 +64,16 @@ export const seeds = {
       await env.STATS.prepare('INSERT INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)').bind('greenhouse', `demo-${n}`, ',europe,', JSON.stringify(feed), '2026-10-25T00:00:00Z').run();
     }
   },
+  'closed-sites': async ({env}) => {   // made-up closed sites for /admin/scouting (27 Oct 2026, table tools): 52 dead ends (refused, unreachable, no feed) and 12 browser-only or gone pages, over 6 weeks
+    const day = n => new Date(Date.parse('2026-10-26T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
+    for (let n = 1; n <= 52; n++) {
+      const outcome = n % 5 === 0 ? 'refused' : n % 7 === 0 ? 'unreachable' : null, installs = outcome ? 1 + n % 4 : 1;
+      for (let i = 0; i < installs; i++) await env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host, outcome) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(`demo-install-${i}`, day((n * 3 + i) % 42), `demo-${n}`, `Demo employer ${n}`, `jobs.demo-${n}.example`, outcome).run();
+    }
+    for (let n = 1; n <= 12; n++) for (let i = 0; i < 1 + n % 4; i++) await env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind) VALUES (?, ?, ?, ?)')
+      .bind(`demo-install-${i}`, day((n * 5 + i) % 40), `careers.demo-site-${n}.example`, n % 3 ? 'browser' : 'dead').run();
+  },
   'promo-codes': async ({env, call}) => {   // three codes in the list: active with uses, used up, and one made before full codes were kept
     await call('/admin/promo-codes', form({action: 'import', code: 'DEMO-CODE-ONE1', label: 'Friends and family', cap: '20', ends: '2999-12-31'}));
     await call('/admin/promo-codes', form({action: 'import', code: 'DEMO-CODE-TWO2', label: 'Beta testers', cap: '2', ends: '2999-12-31'}));

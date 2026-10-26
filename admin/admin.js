@@ -3,6 +3,7 @@
 // a session cookie (shared/auth.js isOwner). The pages keep their own code; this file adds the menu and the small trend charts they share.
 import {esc} from '../shared/html.js';
 import {viewer} from '../shared/auth.js';
+import {TABLE_TOOLS_SCRIPT, TABLE_TOOLS_STYLE} from './table-tools.js';
 
 // overview: true = the section's Overview tab (admin/section-overview.js draws the headline numbers every other page of the group declares in admin/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
@@ -136,9 +137,9 @@ export function question(active) {
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
 export function withNav(html, active, who) {
   // The question goes under the page's own title (owner, 7 Oct 2026: a muted line, no yellow label); a page without a header gets it under the menu.
-  let out = String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
+  let out = String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}\n${TABLE_TOOLS_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
   out = out.includes('</header>') ? out.replace('</header>', `</header>${question(active)}`) : out.replace('</nav>', `</nav>${question(active)}`);
-  return out.replace('</body>', `<script>${TABLE_SCRIPT}</script></body>`);
+  return out.replace('</body>', `<script>${TABLE_SCRIPT}\n${TABLE_TOOLS_SCRIPT}</script></body>`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
 export async function adminPage(response, active, who) {
