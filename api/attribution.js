@@ -6,8 +6,6 @@
 const DAY = 86400000;
 export const WINDOW_DAYS = 7, KEEP_DAYS = 8;
 const SLUG = /^[a-z0-9][a-z0-9_.-]{0,39}$/;   // = desktop/lib/install-source.js
-// The app says its OS; a Windows app came from the Microsoft Store button (windows) or the small .exe link (windows-exe).
-const CLICKS = {mac: ['mac'], windows: ['windows', 'windows-exe']};
 
 export async function net(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || '';
@@ -18,12 +16,12 @@ export async function net(request, env) {
 
 export async function attribution(request, env, now = new Date()) {
   const platform = new URL(request.url).searchParams.get('platform');
-  if (request.method !== 'GET' || !Object.hasOwn(CLICKS, platform || '')) return new Response('Not found', {status: 404});
+  if (request.method !== 'GET' || !['mac', 'windows'].includes(platform)) return new Response('Not found', {status: 404});
   const headers = {'Cache-Control': 'no-store'};
   const hash = env.STATS && await net(request, env);
   if (!hash) return Response.json({source: null}, {headers});
-  const row = await env.STATS.prepare(`SELECT source FROM downloads WHERE net = ? AND platform IN (${CLICKS[platform].map(() => '?').join(', ')}) AND at >= ? ORDER BY at DESC LIMIT 1`)
-    .bind(hash, ...CLICKS[platform], new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString()).first();
+  const row = await env.STATS.prepare('SELECT source FROM downloads WHERE net = ? AND platform = ? AND at >= ? ORDER BY at DESC LIMIT 1')
+    .bind(hash, platform, new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString()).first();
   const source = String(row?.source || '').toLowerCase();
   console.log(JSON.stringify({area: 'attribution', platform, matched: !!row, source: SLUG.test(source) ? source : null}));
   return Response.json({source: SLUG.test(source) ? source : null}, {headers});
