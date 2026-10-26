@@ -4,8 +4,11 @@ import {viewer} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
 import {collect as accountsOf} from './signups.js';
 import {collect, windowOf, WINDOWS} from './email-data.js';
+import {previews} from './email-preview.js';
 
 const n = value => (Number(value) || 0).toLocaleString('en-US');
+
+const templateCard = (mail, sent) => `<section class="card tpl"><h2>${esc(mail.name)}</h2><p class="muted">${esc(mail.list)}${mail.essential ? ' · essential' : ''} · sent ${n(sent)} in the window</p>${mail.error ? `<p>Cannot render: ${esc(mail.error)}</p>` : `<p><b>${esc(mail.subject)}</b></p><iframe sandbox title="${esc(mail.name)}" srcdoc="${esc(mail.html)}"></iframe>`}</section>`;
 
 export function page(data, accounts = null) {
   const tile = (label, value, note) => `<section class="card tile"><span class="muted">${label}</span><b>${n(value)}</b><span class="muted">${note}</span></section>`;
@@ -16,7 +19,7 @@ export function page(data, accounts = null) {
   const switches = data.switches.map(s => `<span class="pill ${s.on ? 'on' : 'off'}">${esc(s.name)} ${s.on ? 'on' : 'off'}</span>`).join(' ');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>E-mail · Admin</title>
 <style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}h2{margin:0 0 8px}.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:16px}
-.pill{display:inline-block;padding:1px 10px;border-radius:99px;border:1px solid currentColor;font-size:13px}.pill.on{color:#4cc38a}.pill.off{color:#ff7b70}.days{display:flex;align-items:flex-end;gap:2px;height:80px}.days i{flex:1;min-width:2px;border-radius:2px 2px 0 0}.days .s{background:#ff8a4c}.days .r{background:#ff7b70;opacity:.7}</style></head><body><main>
+.pill{display:inline-block;padding:1px 10px;border-radius:99px;border:1px solid currentColor;font-size:13px}.pill.on{color:#4cc38a}.pill.off{color:#ff7b70}.tpl iframe{width:100%;height:540px;border:1px solid #2c3340;border-radius:8px;background:#fff}.days{display:flex;align-items:flex-end;gap:2px;height:80px}.days i{flex:1;min-width:2px;border-radius:2px 2px 0 0}.days .s{background:#ff8a4c}.days .r{background:#ff7b70;opacity:.7}</style></head><body><main>
 <header><h1>✉️ E-mail</h1><span class="muted">What our e-mail did · ${windows}</span></header>
 <section class="card" style="margin-bottom:16px"><h2>Switches</h2>${switches} <span class="muted">· ${n(data.today)} of ${n(data.dayMax)} sent in the last 24 h · 6 a day per address · change them in Cloudflare</span></section>
 ${accounts ? `<div class="tiles">${tile('Trial accounts', accounts.trial, 'gave an address')}${tile('Confirmed', accounts.confirmed, 'clicked the first mail')}${tile('Unconfirmed', accounts.unconfirmed, 'follow up')}${tile('Always on paused', accounts.paused, 'hosted schedule paused')}${tile('Converted to Pro', accounts.converted, 'trial accounts that paid')}</div>` : ''}
@@ -26,6 +29,7 @@ ${accounts ? `<div class="tiles">${tile('Trial accounts', accounts.trial, 'gave 
 ${table('Why mail was not sent', ['Reason', 'Mails'], data.refused.map(r => [esc(r.reason), n(r.n)]))}</div>
 <div class="pair">${table('Addresses', ['Group', 'Accounts'], [['Confirmed', n(data.confirmed)], ['Unconfirmed', n(data.unconfirmed)], ['Product news opt-in', n(data.optIn)]])}
 ${table('Stopped (all time)', ['Reason', 'List', 'Addresses'], data.offReasons.map(r => [esc(r.reason), esc(r.list), n(r.n)]))}</div>
+<h2>Templates, as the person sees them <span class="muted">(sample data, example links)</span></h2><div class="pair tpls">${previews().map(mail => templateCard(mail, data.byTemplate.find(r => r.template === mail.name)?.sent || 0)).join('')}</div>
 ${table('Last 10 refusals and failures', ['When (UTC)', 'Address (hash)', 'Template', 'Why'], data.recent.map(r => [esc(r.at.slice(0, 16).replace('T', ' ')), `<code>${esc(r.addr)}</code>`, esc(r.template), esc(r.status)]))}
 </main></body></html>`;
 }

@@ -50,6 +50,16 @@ async function record(env, now, addr, list, template, status, id = null) {
   await env.STATS?.prepare('INSERT INTO mail_log (at, addr, list, template, status, message_id) VALUES (?, ?, ?, ?, ?, ?)').bind(now.toISOString(), addr, list, template, status, id).run().catch(() => {});
 }
 
+// The subject, text, html and headers of a mail: the template's content inside the frame. `links` = {stop, settings} (none for an essential mail). Also what /admin/email shows (admin/email-preview.js).
+export function compose(template, data = {}, links = null) {
+  const spec = TEMPLATES[template];
+  const why = spec.essential ? 'A security email: sent even if you stopped other emails.'
+    : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Jobadabra with this address.';
+  const frame = {title: spec.title(data), why, button: spec.button?.(data) || null, links};
+  const headers = links ? {'List-Unsubscribe': `<${links.stop}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'} : undefined;
+  return {subject: spec.subject(data), text: frameText({...frame, body: spec.text(data)}), html: frameHtml({...frame, body: spec.html(data)}), headers};
+}
+
 export async function send(env, template, to, data = {}, {now = new Date()} = {}) {
   const spec = TEMPLATES[template];
   if (!spec) return {ok: false, reason: 'bad_template'};
@@ -63,13 +73,8 @@ export async function send(env, template, to, data = {}, {now = new Date()} = {}
     const all = await env.STATS.prepare("SELECT COUNT(*) AS n FROM mail_log WHERE status = 'sent' AND at >= ?").bind(since).first();
     if (mine.n >= DAILY_MAX || all.n >= Number(env.MAIL_DAY_MAX || GLOBAL_DAY_MAX)) { await record(env, now, addr, spec.list, template, 'rate'); return {ok: false, reason: 'rate'}; }
     const stop = spec.essential ? null : await stopLink(env, to, spec.list);
-    const why = spec.essential ? 'A security email: sent even if you stopped other emails.'
-      : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Jobadabra with this address.';
-    const frame = {title: spec.title(data), why, button: spec.button?.(data) || null, links: stop && {stop, settings: await settingsLink(env, to)}};
-    const text = frameText({...frame, body: spec.text(data)});
-    const html = frameHtml({...frame, body: spec.html(data)});
-    const headers = stop ? {'List-Unsubscribe': `<${stop}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'} : undefined;
-    const result = await env.EMAIL.send({from: FROM[spec.list], to: clean(to), subject: spec.subject(data), text, html, ...(headers && {headers})});
+    const {subject, text, html, headers} = compose(template, data, stop && {stop, settings: await settingsLink(env, to)});
+    const result = await env.EMAIL.send({from: FROM[spec.list], to: clean(to), subject, text, html, ...(headers && {headers})});
     await record(env, now, addr, spec.list, template, 'sent', result?.messageId || null);
     return {ok: true, id: result?.messageId || null};
   } catch (error) {
