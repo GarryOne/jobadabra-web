@@ -183,7 +183,7 @@ test('the owner\'s page shows the access guard: what hit a limit or a decoy, onl
   e.STATS.db.prepare("INSERT INTO anomalies (day, kind, who, n, detail) VALUES (?, 'honeypot', 'abcdef0123456789', 2, 'x')").run(day);
   e.STATS.db.prepare("INSERT INTO revoked (who, reason, created_at) VALUES ('abcdef0123456789', 'asked for a honeypot', ?)").run(new Date().toISOString());
   const html = await page();
-  assert.match(html, /honeypot<\/td><td><code>abcdef0123456789<\/code><\/td><td>2/);
+  assert.match(html, /honeypot<\/span><\/td><td><code>abcdef0123456789<\/code><\/td><td>2/);
   assert.match(html, /Revoked: <code>abcdef0123456789<\/code> \(asked for a honeypot\)/);
 });
 

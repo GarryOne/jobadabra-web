@@ -32,7 +32,7 @@ test('the kind × country table counts European employers per country and marks 
   const many = Array.from({length: 25}, (_, i) => ({company: `Care ${i}`, ats: 'lever', slug: `care${i}`, kinds: {healthcare: 0.9}, countries: ['de', 'us']}));
   const html = page({feeds: [...many, ...feeds], daily: [], sharing7: 0, sharing30: 0, shared: 0, routes: [], useful: [], dead: [], deadTotal: 0, central: null});
   const table = html.split('class="countries"')[1].split('</table>')[0];
-  const row = kind => table.match(new RegExp(`<tr><td>${kind}</td>(.*?)</tr>`))[1];
+  const row = kind => table.match(new RegExp(`<tr><td>(?:<span class="chip">)?${kind}(?:</span>)?</td>(.*?)</tr>`))[1];
   const cell = (kind, i) => row(kind).match(/<td>(.*?)<\/td>/g)[i];
   assert.match(cell('healthcare', 1), /class="">25</, 'Germany: 25 healthcare employers, at the floor');
   assert.match(cell('healthcare', 0), /class="thin">0</, 'Switzerland: none, a gap');

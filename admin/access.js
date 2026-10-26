@@ -4,6 +4,7 @@
 // session cookie is SameSite=Strict).
 import {GUEST_DAYS, extend, invite, isOwner, people, recentLogins, remember, revoke} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
+import {CHIP_STYLE, chip} from './chip.js';
 
 const NOT_FOUND = () => new Response('Not found', {status: 404});
 const html = body => new Response(body, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
@@ -22,13 +23,13 @@ export function page({list = [], logins = [], created = null, now = Date.now()})
   const fromToday = GUEST_DAYS.map(n => `<option value="${n}"${n === 30 ? ' selected' : ''}>${n} days</option>`).join('');
   const rows = list.map(person => {
     const status = statusOf(person, now), open = !person.revoked_at;
-    return `<tr><td><b>${esc(person.name)}</b></td><td class="${status.tone}">${status.text}</td><td>${day(person.expires_at)}</td><td>${date(person.last_seen)}</td><td>${day(person.created_at)}</td>
+    return `<tr><td><b>${esc(person.name)}</b></td><td>${chip(status.text, status.tone)}</td><td>${day(person.expires_at)}</td><td>${date(person.last_seen)}</td><td>${day(person.created_at)}</td>
 <td class="actions">${open ? `<form method="post"><input type="hidden" name="action" value="extend"><input type="hidden" name="id" value="${esc(person.id)}"><select name="days" aria-label="New expiry for ${esc(person.name)}">${fromToday}</select><button>Set expiry</button></form>
 <form method="post" onsubmit="return confirm('Remove ${esc(person.name)}? Their access ends now; a new invite brings them back.')"><input type="hidden" name="action" value="revoke"><input type="hidden" name="id" value="${esc(person.id)}"><button class="danger">Remove</button></form>` : ''}</td></tr>`;
   }).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Access · Admin</title><link rel="icon" href="/favicon-32.png">
-<style>
+<style>${CHIP_STYLE}
 .card{padding:16px;margin-bottom:12px}h2{margin:0 0 4px}.good{color:#3fb68b}.bad{color:#e5484d}.warn{color:#f5b54a}
 th,td{padding:8px 6px;vertical-align:middle}.actions{display:flex;gap:6px;white-space:nowrap}form{display:inline-flex;gap:6px;margin:0}@media (max-width:560px){form.invite{display:flex;flex-direction:column;align-items:stretch}form.invite>*{width:100%;box-sizing:border-box}}
 input[type=text],select{background:#0b0d10;color:#f4efe3;border:1px solid #262c33;border-radius:8px;padding:7px 9px;font:inherit}

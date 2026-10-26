@@ -4,6 +4,7 @@ import {viewer} from '../shared/auth.js';   // admins (invited) read this page t
 import {isOwner, remember} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
 import {equal} from '../shared/guard.js';
+import {CHIP_STYLE, chip} from './chip.js';
 import {changesSection, dayLabel, TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
 
 // 2-3 Oct 2026, from GitHub Actions logs. Fixer: claude-code-action's own total_cost_usd. Finder: estimated (the review then dropped usage).
@@ -32,7 +33,7 @@ export const PRINCIPLES = [
 ];
 export function principlesSection() {
   return `<details class="card reference"><summary><h2>🧭 How the loop works and learns</h2><small class="muted">The rules it follows, what each one came from, and whether it is new</small></summary><div class="wrap"><table><tr><th>Principle</th><th>In practice</th><th>Status</th><th>Where</th></tr>
-${PRINCIPLES.map(([rule, practice, status, where]) => `<tr><td><b>${esc(rule)}</b></td><td>${esc(practice)}</td><td>${status === 'new' ? '🆕 new' : status === 'in force' ? '✅ in force' : esc(status)}</td><td class="muted">${esc(where)}</td></tr>`).join('')}
+${PRINCIPLES.map(([rule, practice, status, where]) => `<tr><td><b>${esc(rule)}</b></td><td>${esc(practice)}</td><td>${status === 'new' ? chip('new', 'warn') : status === 'in force' ? chip('in force', 'good') : chip(esc(status))}</td><td class="muted">${esc(where)}</td></tr>`).join('')}
 </table></div></details>`;
 }
 
@@ -101,6 +102,10 @@ ${PERIODS.map(block).join('\n')}
 <small class="muted">Real = confirmed by the verdict pass or a person, or closed by a fix. False = a false positive or a test mistake. Unclear = closed as "not seen twice" or with a note: neither proven real nor false.</small></section>`;
 }
 
+// One caught bug: severity and status are chips (high red, medium amber, low grey; fixed green, queued amber).
+const SEVERITY_TONE = {high: 'bad', medium: 'warn', low: 'off'};
+export const bugRow = bug => `<tr><td><a href="${esc(bug.url)}">#${bug.number}</a></td><td>${esc(bug.title)}</td><td class="muted">${esc(bug.detector)}</td><td>${chip(esc(bug.severity), SEVERITY_TONE[bug.severity])}</td><td>${bug.status === 'fixed' ? chip('fixed', 'good') : chip('queued', 'warn')}</td></tr>`;
+
 export function liveSection(live, history = [], now = new Date()) {
   if (!live) return `<section class="card"><h2>🩺 The loop, live</h2><p class="muted">No numbers published yet: they arrive every 3 hours from CI (self-heal-stats.yml).</p></section>`;
   const t = live.totals || {}, fixer = live.fixer || {}, cost = live.cost || {}, recall = live.recall;
@@ -147,7 +152,7 @@ ${trend.map(row => `<tr><td>${esc(row.day)}</td><td class="n">${num(row.totals?.
 ${(live.daily || []).slice(-14).reverse().map(row => `<tr><td>${esc(row.day)}</td><td class="n">${row.filed}</td><td class="n">${row.real}</td><td class="n">${row.falsePositive}</td></tr>`).join('')}
 </table></div></section></div>
 <section class="card"><h2>🐞 Real bugs it caught (latest)</h2><div class="wrap"><table><tr><th>#</th><th>Bug</th><th>Found by</th><th>Severity</th><th>Status</th></tr>
-${(live.notable || []).map(bug => `<tr><td><a href="${esc(bug.url)}">#${bug.number}</a></td><td>${esc(bug.title)}</td><td class="muted">${esc(bug.detector)}</td><td>${esc(bug.severity)}</td><td>${bug.status === 'fixed' ? '✅ fixed' : '⏳ queued'}</td></tr>`).join('')}
+${(live.notable || []).map(bugRow).join('')}
 </table></div></section>`;
 }
 
@@ -176,7 +181,7 @@ async function snapshots(env) {
 export function page(_legacy, live = null, history = []) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Self-healing · Admin</title><link rel="icon" href="/favicon-32.png">
-<style>
+<style>${CHIP_STYLE}
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--teal:#5ec4b6;--s1:#3987e5;--s2:#d95926;--s3:#199e70}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
 main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size:24px}h2{margin:0;font-size:15px}
