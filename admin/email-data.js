@@ -1,0 +1,34 @@
+// The numbers behind /admin/email (owner, 26 Oct 2026: "a section for emailing... stats, data, templates"): what our e-mail did, who can still get it, and what waits for the digest.
+// Counts and short hashes only, never an address (mail_log keeps the hash; pro_accounts is only counted). Guard: tests/test_site_admin_email.js.
+const DAY = 24 * 60 * 60 * 1000;
+export const WINDOWS = [7, 30, 90];
+export const SWITCHES = ['MAIL', 'MARKETING_MAIL', 'TRIAL_REMINDERS', 'MAIL_LAUNCH'];   // the flags shared/mail.js and admin/mail-lifecycle.js read; "on" or anything else (= off)
+
+const one = async (env, sql, ...args) => (await env.STATS.prepare(sql).bind(...args).first().catch(() => null)) || {n: 0};
+const many = async (env, sql, ...args) => (await env.STATS.prepare(sql).bind(...args).all().catch(() => ({results: []}))).results || [];
+
+export const windowOf = value => (WINDOWS.includes(Number(value)) ? Number(value) : 7);
+export const hashOf = addr => String(addr || '').slice(0, 8);   // addr is already a digest (shared/mail.js addrOf); 8 characters tell two rows apart and nothing else
+
+export async function collect(env, {days = 7, now = new Date()} = {}) {
+  const since = new Date(now.getTime() - days * DAY).toISOString();
+  const [perDay, byTemplate, refused, recent, offReasons, confirmed, unconfirmed, optIn, held, heldOldest, today] = await Promise.all([
+    many(env, "SELECT substr(at, 1, 10) AS day, SUM(status = 'sent') AS sent, SUM(status != 'sent') AS refused FROM mail_log WHERE at >= ? GROUP BY day ORDER BY day", since),
+    many(env, "SELECT template, SUM(status = 'sent') AS sent, SUM(status != 'sent') AS refused, MAX(CASE WHEN status = 'sent' THEN at END) AS last FROM mail_log WHERE at >= ? GROUP BY template ORDER BY sent DESC", since),
+    many(env, "SELECT status AS reason, COUNT(*) AS n FROM mail_log WHERE status != 'sent' AND at >= ? GROUP BY status ORDER BY n DESC", since),
+    many(env, "SELECT at, addr, template, status FROM mail_log WHERE status != 'sent' ORDER BY at DESC LIMIT 10"),
+    many(env, 'SELECT reason, list, COUNT(*) AS n FROM mail_off GROUP BY reason, list ORDER BY n DESC'),
+    one(env, 'SELECT COUNT(*) AS n FROM pro_accounts WHERE email_confirmed_at IS NOT NULL'),
+    one(env, 'SELECT COUNT(*) AS n FROM pro_accounts WHERE email_confirmed_at IS NULL'),
+    one(env, 'SELECT COUNT(*) AS n FROM pro_accounts WHERE marketing_opt_in = 1'),
+    one(env, 'SELECT COUNT(*) AS n, COUNT(DISTINCT account) AS accounts FROM mail_held'),
+    one(env, 'SELECT MIN(at) AS at, 0 AS n FROM mail_held'),
+    one(env, "SELECT COUNT(*) AS n FROM mail_log WHERE status = 'sent' AND at >= ?", new Date(now.getTime() - DAY).toISOString()),
+  ]);
+  const sent = perDay.reduce((total, row) => total + (row.sent || 0), 0), notSent = perDay.reduce((total, row) => total + (row.refused || 0), 0);
+  const failed = refused.find(row => row.reason === 'failed')?.n || 0;
+  const stopped = offReasons.filter(row => row.reason === 'bounce' || row.reason === 'complaint').reduce((total, row) => total + row.n, 0);
+  return {days, sent, notSent, failed, stopped, perDay, byTemplate, refused, recent: recent.map(row => ({...row, addr: hashOf(row.addr)})), offReasons,
+    confirmed: confirmed.n, unconfirmed: unconfirmed.n, optIn: optIn.n, held: {items: held.n, accounts: held.accounts || 0, oldest: heldOldest.at || null}, today: today.n,
+    switches: SWITCHES.map(name => ({name, on: env[name] === 'on'})), dayMax: Number(env.MAIL_DAY_MAX || 3000)};
+}
