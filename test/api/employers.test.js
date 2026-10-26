@@ -253,6 +253,28 @@ test('a feed\'s mix of kinds is kept only in its fixed shape', () => {
   assert.equal('kinds' in none, false);
 });
 
+// How many of a feed's jobs in each country are of each kind (src/scout_index.py kind_counts; owner, 26 Oct 2026: an employer is read only when
+// its jobs in the person's countries are their kind): fixed country and kind ids, whole numbers; anything else is dropped.
+test('a feed\'s kind counts per country are kept only in their fixed shape', () => {
+  const [kept, odd, none] = clean([
+    {company: 'An Airline', ats: 'greenhouse', slug: 'airline', kind_counts: {ch: {aviation_transport: 12.4, hospitality: 3, hacking: 2, legal: 0, trades: '4'}, xx: {software: 9}, de: {software: -1}}},
+    {company: 'Odd', ats: 'greenhouse', slug: 'odd', kind_counts: [['ch', 3]]},
+    {company: 'None', ats: 'greenhouse', slug: 'none'}]);
+  assert.deepEqual(kept.kind_counts, {ch: {aviation_transport: 12, hospitality: 3}});
+  assert.equal('kind_counts' in odd, false);
+  assert.equal('kind_counts' in none, false);
+});
+
+test('a feed is not rewritten for a small drift in its kind counts, only for a new kind or country or a count moved past 25%', async () => {
+  const {worthWriting} = await import('../../api/employers.js');
+  const base = {company: 'Acme', ats: 'greenhouse', slug: 'acme', jobs: 40, kind_counts: {ch: {aviation_transport: 20, hospitality: 4}}};
+  assert.equal(worthWriting(base, {...base, kind_counts: {ch: {aviation_transport: 22, hospitality: 4}}}), false, 'counts within 25%');
+  assert.equal(worthWriting(base, {...base, kind_counts: {ch: {aviation_transport: 30, hospitality: 4}}}), true, 'a count moved past 25%');
+  assert.equal(worthWriting(base, {...base, kind_counts: {ch: {aviation_transport: 20, hospitality: 4, legal: 1}}}), true, 'a new kind');
+  assert.equal(worthWriting(base, {...base, kind_counts: {ch: {aviation_transport: 20, hospitality: 4}, de: {software: 3}}}), true, 'a new country');
+  assert.equal(worthWriting({...base, kind_counts: undefined}, base), true, 'counted for the first time');
+});
+
 test('a feed\'s freshness is kept only in its fixed shape', () => {
   const [kept, odd] = clean([
     {company: 'Coop', ats: 'successfactors', slug: 'jobs.coop.ch', fresh: {ok: '2026-10-06', fails: 2, jobs: 3200, trend: 'up', new: '2026-10-06', extra: 'x'}},
