@@ -79,7 +79,9 @@ test('a Free AI draw row takes its dollars and refusals from the relay, not the 
 test('the workflow alternates engines and runs a free draw through the local relay, keeping its meter even when the search fails', async () => {
   const {readFileSync} = await import('node:fs');
   const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
-  assert.match(yml, /--engines "\$\{ENGINE_INPUT:-api,free\}"/);
+  assert.match(yml, /engines="\$\{ENGINE_INPUT:-api,free\}"/);
+  assert.match(yml, /HAS_FREE_AI: \$\{\{ secrets\.RANDOM_DRAWS_CF_AI_TOKEN != '' && secrets\.RANDOM_DRAWS_CF_ACCOUNT_ID != '' \}\}/);
+  assert.match(yml, /"\$HAS_FREE_AI" != true[^\n]*Free AI: no token[^\n]*engines=api/, 'no token: one clear line and the API engine, never a red draw');
   assert.match(yml, /free-ai-local\.mjs 8787/);
   assert.match(yml, /JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
   assert.match(yml, /\|\| status=\$\?[\s\S]*__report[\s\S]*draw\.free_ai=[\s\S]*exit "\$status"/);

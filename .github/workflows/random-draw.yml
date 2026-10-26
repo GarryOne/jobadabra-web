@@ -78,11 +78,14 @@ jobs:
           ROLE_INPUT: ${{ inputs.role }}
           ENGINE_INPUT: ${{ inputs.engine }}
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
+          HAS_FREE_AI: ${{ secrets.RANDOM_DRAWS_CF_AI_TOKEN != '' && secrets.RANDOM_DRAWS_CF_ACCOUNT_ID != '' }}
         run: |
           set -o pipefail   # a failed draw must stop here, not as a missing draw.json in the next step
           seed="${SEED_INPUT:-$(date -u +%F)}"
           echo "seed=$seed" >> "$GITHUB_OUTPUT"
-          python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines "${ENGINE_INPUT:-api,free}" ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
+          engines="${ENGINE_INPUT:-api,free}"
+          if [ "$HAS_FREE_AI" != true ] && [ "$engines" != api ]; then echo "Free AI: no token (secrets RANDOM_DRAWS_CF_AI_TOKEN, RANDOM_DRAWS_CF_ACCOUNT_ID): this draw runs on the API engine" | tee -a "$GITHUB_STEP_SUMMARY"; engines=api; fi
+          python3 jobs/persona-search/draw_wide.py "$seed" "$RUNNER_TEMP/draw-out" --engines "$engines" ${ROLE_INPUT:+--role "$ROLE_INPUT"} | tee -a "$GITHUB_STEP_SUMMARY"
       # Engine "free": the site's Free AI handler on this runner (jobs/persona-search/free-ai-local.mjs: Workers AI on the draws' own token, production's caps,
       # its own meter, no Telegram); the engine reaches it through the test-run base URL, with a throwaway install's JPF1 key, as a Free AI user's app does.
       - name: Search as that candidate (live, the drawn path)
