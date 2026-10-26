@@ -12,7 +12,8 @@ cut() { timeout --kill-after=10 "$1" "${@:2}"; }   # a command, ended after $1 s
 # mirror, 16:13-16:22): a mirror that is down stays down for minutes, so the same mirror again rarely helps.
 apt_dir="${APT_DIR:-/etc/apt}"   # tests point it at a folder of their own
 other_mirror() {
-  for file in "$apt_dir"/sources.list "$apt_dir"/sources.list.d/*.sources; do
+  # GitHub's Ubuntu runners keep their mirrors in apt-mirrors.txt (the sources say mirror+file:): without it try 2 still fetched from azure (run 40389661253)
+  for file in "$apt_dir"/sources.list "$apt_dir"/sources.list.d/*.sources "$apt_dir"/apt-mirrors.txt; do
     [ -f "$file" ] && sudo perl -pi -e 's#https?://azure\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' "$file"
   done
   echo "apt-install: try 2 on archive.ubuntu.com" >&2

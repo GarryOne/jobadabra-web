@@ -50,16 +50,19 @@ function run(fails, {stall = ''} = {}) {
   fake('apt-get', `[ "$1" = update ] && { echo "Hit:1 http://azure.archive.ubuntu.com/ubuntu noble InRelease"; [ "${stall}" = update ] && exit 124; exit 0; }
 n=$(cat ${bin}/n 2>/dev/null || echo 0); echo $((n+1)) > ${bin}/n; [ "${stall}" = install ] && { echo "Get:42 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavcodec60"; exit 124; }; [ $n -lt ${fails} ] && exit 100; exit 0`);
   mkdirSync(path.join(bin, 'apt', 'sources.list.d'), {recursive: true});
-  writeFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'URIs: http://azure.archive.ubuntu.com/ubuntu/\n');
+  writeFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'URIs: mirror+file:/etc/apt/apt-mirrors.txt\n');
+  // GitHub's Ubuntu runners list their mirrors here, the sources only point at it (26 Oct 2026 run 40389661253: try 2 still fetched from azure)
+  writeFileSync(path.join(bin, 'apt', 'apt-mirrors.txt'), 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\n');
   const result = spawnSync('bash', [new URL('tools/apt-install.sh', root).pathname, 'ffmpeg'], {env: {...process.env, PATH: `${bin}:${process.env.PATH}`, APT_DIR: path.join(bin, 'apt')}, encoding: 'utf8'});
-  return {...result, sources: readFileSync(path.join(bin, 'apt', 'sources.list.d', 'ubuntu.sources'), 'utf8')};
+  return {...result, sources: readFileSync(path.join(bin, 'apt', 'apt-mirrors.txt'), 'utf8')};
 }
 
 test('a failed first try is retried and the second succeeds', () => {
   const result = run(1);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ffmpeg ready \(try 2, \d+ s\)/);
-  assert.match(result.sources, /http:\/\/archive\.ubuntu\.com\/ubuntu/, 'the second try uses another mirror (web #154: the same mirror stalled 3 times)');
+  assert.doesNotMatch(result.sources, /azure/, 'the second try uses another mirror (web #154: the same mirror stalled 3 times), also in the runner\'s mirror list');
+  assert.match(result.sources, /archive\.ubuntu\.com\/ubuntu/);
 });
 
 test('a first try that works keeps the runner\'s own mirror', () => {
