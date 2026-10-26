@@ -19,10 +19,11 @@ other_mirror() {
 }
 for attempt in 1 2; do
   [ "$attempt" = 2 ] && other_mirror
-  if cut 45 sudo apt-get update -qq && cut 90 sudo apt-get install -y -qq "$@" >/dev/null; then
+  log="$(mktemp)"   # apt's own words: shown when a try fails, so a stall names its source (a mirror, a third-party list, a lock)
+  if cut 45 sudo apt-get update -qq >"$log" 2>&1 && cut 90 sudo apt-get install -y -qq "$@" >>"$log" 2>&1; then
     echo "apt-install: $* ready (try $attempt)"; exit 0
   fi
-  echo "apt-install: try $attempt stalled or failed, ${attempt}/2" >&2; sleep 5
+  echo "apt-install: try $attempt stalled or failed, ${attempt}/2; apt said:" >&2; tail -n 15 "$log" >&2; sleep 5
 done
 echo "::error::apt-install: could not install $* after 2 tries, a package mirror stalled or is down; re-run the job" >&2
 exit 1
