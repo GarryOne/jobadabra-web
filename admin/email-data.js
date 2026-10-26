@@ -25,10 +25,11 @@ export async function collect(env, {days = 7, now = new Date()} = {}) {
     one(env, 'SELECT MIN(at) AS at, 0 AS n FROM mail_held'),
     one(env, "SELECT COUNT(*) AS n FROM mail_log WHERE status = 'sent' AND at >= ?", new Date(now.getTime() - DAY).toISOString()),
   ]);
+  const testMail = await many(env, 'SELECT received_at, to_addr, subject FROM test_mail ORDER BY received_at DESC LIMIT 5');   // test-account-* inboxes only (admin/test-mail.js)
   const sent = perDay.reduce((total, row) => total + (row.sent || 0), 0), notSent = perDay.reduce((total, row) => total + (row.refused || 0), 0);
   const failed = refused.find(row => row.reason === 'failed')?.n || 0;
   const stopped = offReasons.filter(row => row.reason === 'bounce' || row.reason === 'complaint').reduce((total, row) => total + row.n, 0);
-  return {days, sent, notSent, failed, stopped, perDay, byTemplate, refused, recent: recent.map(row => ({...row, addr: hashOf(row.addr)})), offReasons,
+  return {days, testMail, sent, notSent, failed, stopped, perDay, byTemplate, refused, recent: recent.map(row => ({...row, addr: hashOf(row.addr)})), offReasons,
     confirmed: confirmed.n, unconfirmed: unconfirmed.n, optIn: optIn.n, held: {items: held.n, accounts: held.accounts || 0, oldest: heldOldest.at || null}, today: today.n,
     switches: SWITCHES.map(name => ({name, on: env[name] === 'on'})), dayMax: Number(env.MAIL_DAY_MAX || 3000)};
 }

@@ -9,11 +9,13 @@ import {page} from '../../admin/email.js';
 import {previews, SAMPLES} from '../../admin/email-preview.js';
 import {TEMPLATES} from '../../shared/mail-templates.js';
 import {addrOf} from '../../shared/mail.js';
+import {TEST_INBOX} from '../../admin/email-test-send.js';
+import {view} from '../../admin/email.js';
 
 const sql = file => readFileSync(new URL(`../../db/migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0079_pro.sql', '0082_pro_trial.sql', '0083_mail.sql', '0085_mail_held.sql']) db.exec(sql(file));
+  for (const file of ['0078_test_mail.sql', '0079_pro.sql', '0082_pro_trial.sql', '0083_mail.sql', '0085_mail_held.sql']) db.exec(sql(file));
   const statement = (text, args = []) => ({bind: (...values) => statement(text, values), run: async () => db.prepare(text).run(...args),
     all: async () => ({results: db.prepare(text).all(...args)}), first: async () => db.prepare(text).get(...args) ?? null});
   return {db, prepare: text => statement(text)};
@@ -80,4 +82,42 @@ test('the page shows each template in a sandboxed frame', async () => {
   const {env} = await fill();
   const html = page(await collect(env, {now}));
   assert.equal((html.match(/<iframe sandbox/g) || []).length, Object.keys(TEMPLATES).length);
+});
+
+// ---- send to test inbox ----
+const post = (fields, {origin = 'https://www.jobadabra.top', key = 'script-key'} = {}) => new Request('https://www.jobadabra.top/admin/email', {method: 'POST', headers: {Origin: origin, ...(key && {Authorization: `Bearer ${key}`})}, body: new URLSearchParams(fields)});
+const live = async () => { const sent = [], {env} = await fill(); return {sent, env: {...env, STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', EMAIL: {send: async m => { sent.push(m); return {messageId: 'm1'}; }}}}; };
+
+test('a test send mails only the test inbox, through the real sender, and says so on the page', async () => {
+  const {env, sent} = await live();
+  const response = await view(post({template: 'welcome'}), env);
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('Location'), '/admin/email?test=welcome:sent');
+  assert.deepEqual(sent.map(m => m.to), [TEST_INBOX]);
+  assert.match(sent[0].subject, /Confirm your email/);
+  assert.match(page(await collect(env, {now}), null, '<p>x</p>'), /test-account-admin@jobpilotto\.top/);
+});
+
+test('a test send refuses any other address, an unknown template, a stranger and a foreign origin', async () => {
+  const {env, sent} = await live();
+  assert.equal((await view(post({template: 'welcome', to: 'real.person@example.com'}), env)).status, 400);
+  assert.equal((await view(post({template: 'welcome', to: 'test-account-x@jobpilotto.top.evil.com'}), env)).status, 400);
+  assert.equal((await view(post({template: 'nope'}), env)).status, 400);
+  assert.equal((await view(post({template: 'welcome'}, {key: 'wrong'}), env)).status, 404);
+  assert.equal((await view(post({template: 'welcome'}, {key: ''}), env)).status, 404);
+  assert.equal((await view(post({template: 'welcome'}, {origin: 'https://evil.example'}), env)).status, 404);
+  assert.equal(sent.length, 0);
+});
+
+test('with the MAIL switch off, or for a list the address is not on, the result says why and nothing is sent', async () => {
+  const {env, sent} = await live();
+  assert.equal((await view(post({template: 'welcome'}), {...env, MAIL: 'off'})).headers.get('Location'), '/admin/email?test=welcome:off');
+  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'on'})).headers.get('Location'), '/admin/email?test=pro-launch:not_opted_in');
+  assert.equal(sent.length, 0);
+});
+
+test('every template card has its own button, and only a known notice word is printed', async () => {
+  const {env} = await fill();
+  const html = page(await collect(env, {now}));
+  assert.equal((html.match(/<button type="submit">Send to test inbox/g) || []).length, Object.keys(TEMPLATES).length);
 });
