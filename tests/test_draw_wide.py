@@ -100,3 +100,20 @@ class WorkflowTest(unittest.TestCase):
 
     def test_the_kept_artifact_drops_titles_and_sources(self):
         self.assertIn("for(const key of ['top10','sources','local_by_source'])delete row[key]", self.YML)
+
+
+class SdkTest(unittest.TestCase):
+    def test_the_role_call_uses_only_arguments_the_installed_sdk_takes(self):
+        import importlib.util
+        import inspect
+        if not importlib.util.find_spec('anthropic'):
+            self.skipTest('no anthropic package here (CI installs requirements.txt)')
+        from anthropic.resources.messages import Messages
+        params = inspect.signature(Messages.create).parameters
+        if not any(p.kind == p.VAR_KEYWORD for p in params.values()):
+            self.assertLessEqual(set(draw_wide.request('x')), set(params))
+
+    def test_every_step_that_tees_fails_with_its_pipe(self):
+        for step in WorkflowTest.YML.split('      - name: '):
+            if '| tee' in step:
+                self.assertIn('set -o pipefail', step, step.splitlines()[0])

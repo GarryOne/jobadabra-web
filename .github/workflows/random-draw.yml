@@ -72,6 +72,7 @@ jobs:
           ROLE_INPUT: ${{ inputs.role }}
           RANDOM_DRAWS_ANTHROPIC_KEY: ${{ secrets.RANDOM_DRAWS_ANTHROPIC_KEY }}
         run: |
+          set -o pipefail   # a failed draw must stop here, not as a missing draw.json in the next step
           seed="${SEED_INPUT:-$(date -u +%F)}"
           echo "seed=$seed" >> "$GITHUB_OUTPUT"
           # --engines api until the Free AI draw lands (its own Workers AI token: secret RANDOM_DRAWS_CF_AI_TOKEN)

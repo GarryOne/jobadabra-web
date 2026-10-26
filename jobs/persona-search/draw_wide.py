@@ -111,13 +111,18 @@ def invent(seed, kind, country, title='', ask=None):
     raise SystemExit(f'draw_wide: no valid role from the AI for kind {kind}')
 
 
+def request(prompt):
+    """The Messages call's arguments: only ones the installed SDK takes (26 Oct 2026: it refused temperature and the first measured draw died)."""
+    return {'model': MODEL, 'max_tokens': 400, 'messages': [{'role': 'user', 'content': prompt}]}
+
+
 def claude(prompt):
     """One Haiku call on the draw's own key (RANDOM_DRAWS_ANTHROPIC_KEY, the Jobadabra Tests workspace), never a user's or the production key."""
     import anthropic
     key = os.environ.get('RANDOM_DRAWS_ANTHROPIC_KEY')
     if not key:
         raise SystemExit('draw_wide: RANDOM_DRAWS_ANTHROPIC_KEY is not set (or pass --role and --other with a fixed role)')
-    answer = anthropic.Anthropic(api_key=key).messages.create(model=MODEL, max_tokens=400, temperature=0, messages=[{'role': 'user', 'content': prompt}])
+    answer = anthropic.Anthropic(api_key=key).messages.create(**request(prompt))
     return ''.join(block.text for block in answer.content if getattr(block, 'type', '') == 'text')
 
 
