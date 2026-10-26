@@ -47,7 +47,7 @@ import {ingest as benchmarkSearchIngest, view as benchmarkSearchView} from '../.
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from '../../admin/jobcost.js';
 import {digestView, view as realFormFillingView} from '../../admin/real-form-filling.js';
 import {view as formLearningView} from '../../admin/form-learning.js';
-import {adminPage, redirectOld} from '../../admin/admin.js';
+import {adminPage, inPlace, redirectOld} from '../../admin/admin.js';
 import {reportFile as e2eReportFile, view as e2eView} from '../../admin/e2e-report.js';
 import {view as applyingView} from '../../admin/applying.js';
 import {view as sentryView} from '../../admin/sentry.js';
@@ -175,6 +175,7 @@ async function route(request, env, ctx) {
   if (page) return page;
   const hop = await hopOut(request, env);   // the owner's sign-in carried from the old host to www.jobadabra.top (shared/admin-hop.js)
   if (hop) return hop;
+  request = inPlace(request);   // a script calling an old admin address with its key is answered as at the new one; a browser is redirected below (admin/admin.js)
   const {pathname} = new URL(request.url);
   if (pathname === '/admin/hop') return hopIn(request, env);
   if (pathname.startsWith('/download/')) return downloads.download(request, env, ctx);
@@ -184,13 +185,15 @@ async function route(request, env, ctx) {
   if (pathname === '/admin/mail/launch') return launchRoute(request, env);   // the Pro-launch mail, by hand (admin/signups.js)
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (admin/test-mail.js)
   // The owner's admin pages (admin/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
-  const admin = {'/admin': overviewView, '/admin/website': stats, '/admin/app': telemetryView, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView, '/admin/installs': installsView,
-    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-overview': sectionOverview('/admin/form-overview', 'Form filling overview'), '/admin/growth-overview': sectionOverview('/admin/growth-overview', 'Growth overview'), '/admin/intelligence-overview': sectionOverview('/admin/intelligence-overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/monetization': monetizationView, '/admin/email': emailView, '/admin/promo-codes': promoCodesView, '/admin/real-form-filling': realFormFillingView, '/admin/form-learning': formLearningView, '/admin/feedback': feedbackView,
-    '/admin/access': accessView, '/admin/lab-form-filling': applyingView, '/admin/lab-job-search': searchLabView, '/admin/benchmark-form-filling': benchmarkView, '/admin/benchmark-job-search': benchmarkSearchView, '/admin/brain': brainView, '/admin/sentry': sentryView, '/admin/reports': reportsView}[pathname];   // access: the super admin's only (admin/access.js)
-  if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page); the dropped runs page redirects (admin/e2e-report.js)
-  if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (admin/e2e-report.js)
+  const admin = {'/admin': overviewView, '/admin/growth/website': stats, '/admin/growth/app': telemetryView, '/admin/intelligence/insights': intelligenceView, '/admin/job-search/scouting': scoutingView, '/admin/job-search/installs': installsView,
+    '/admin/operations/overview': opsView, '/admin/operations/schedules': schedulesView, '/admin/form-filling/overview': sectionOverview('/admin/form-filling/overview', 'Form filling overview'), '/admin/growth/overview': sectionOverview('/admin/growth/overview', 'Growth overview'), '/admin/intelligence/overview': sectionOverview('/admin/intelligence/overview', 'Intelligence overview'), '/admin/operations/build-log': buildLogView, '/admin/operations/pr-checks': prChecksView, '/admin/operations/e2e': e2eIntelView, '/admin/operations/self-healing': selfHealView, '/admin/intelligence/ai-cost': jobCostView, '/admin/growth/monetization': monetizationView, '/admin/growth/email': emailView, '/admin/growth/promo-codes': promoCodesView, '/admin/form-filling/real-users': realFormFillingView, '/admin/form-filling/learning': formLearningView, '/admin/growth/feedback': feedbackView,
+    '/admin/operations/access': accessView, '/admin/form-filling/lab': applyingView, '/admin/job-search/lab': searchLabView, '/admin/form-filling/benchmark': benchmarkView, '/admin/job-search/benchmark': benchmarkSearchView, '/admin/intelligence/brain': brainView, '/admin/operations/sentry': sentryView, '/admin/form-filling/reports': reportsView}[pathname];   // access: the super admin's only (admin/access.js)
+  // A run's HTML report (the link on GitHub's Summary page) and its files (a signed address, no cookie needed), under the E2E page; the old /admin/e2e/… addresses
+  // stay answered in place, not redirected: years of Summary pages print them and the report's service worker carries no cookie (admin/e2e-report.js).
+  if (pathname === '/admin/e2e' || pathname.startsWith('/admin/e2e/run/') || pathname.startsWith('/admin/operations/e2e/run/')) return e2eView(request, env);
+  if (pathname.startsWith('/admin/e2e/report/') || pathname.startsWith('/admin/operations/e2e/report/')) return e2eReportFile(request, env);
   if (pathname === '/admin/join') return join(request, env);   // an invite link
-  if (pathname === '/admin/real-form-filling/digest.json' || pathname === '/admin/real-form-filling/digest.md') return digestView(request, env);
+  if (pathname === '/admin/form-filling/real-users/digest.json' || pathname === '/admin/form-filling/real-users/digest.md') return digestView(request, env);
   if (admin) {
     const who = await viewer(request, env);
     return adminPage(await admin(request, env), pathname, who || undefined);
@@ -209,7 +212,7 @@ async function route(request, env, ctx) {
   if (pathname === '/applying/discovery-input' && request.method === 'GET') return discoveryInput(request, env);   // the daily discovery batch's input (Bearer REPLAYS_PUBLISH_KEY, shared/discovery-candidates.js)
   if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);
   if (pathname === '/applying/video' && request.method === 'PUT') return videoIngest(request, env);   // CI's pool run: one fill video per row (Bearer REPLAYS_PUBLISH_KEY, admin/lab-video.js)
-  if (pathname === '/admin/lab-form-filling/video' && request.method === 'GET') return videoView(request, env);   // the owner streams it (admin/lab-video.js)
+  if (pathname === '/admin/form-filling/lab/video' && request.method === 'GET') return videoView(request, env);   // the owner streams it (admin/lab-video.js)
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, admin/applying-replays.js)
   if (pathname === '/e2e/data' && (request.method === 'PUT' || request.method === 'GET')) return e2eIntelIngest(request, env);   // CI publishes finished e2e runs and their red suites (Bearer SELFHEAL_PUBLISH_KEY, admin/e2e-intel.js)
   if (pathname === '/changelog/data' && (request.method === 'PUT' || request.method === 'GET')) return changelogIngest(request, env);   // CI publishes each new version's What's new entry (Bearer SELFHEAL_PUBLISH_KEY, admin/changelog-store.js)

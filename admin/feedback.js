@@ -1,4 +1,4 @@
-// The owner's /admin/feedback page: live, newest on top. Same key or cookie as /admin. Guarded by test/shared/feedback.test.js.
+// The owner's /admin/growth/feedback page: live, newest on top. Same key or cookie as /admin. Guarded by test/shared/feedback.test.js.
 import {viewer, remember} from '../shared/auth.js';
 import {feedbackList} from '../shared/feedback.js';
 

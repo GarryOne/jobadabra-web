@@ -19,7 +19,7 @@ const bucket = () => {
 const env = (extra = {}) => ({LAB_FILLS: bucket(), REPLAYS_PUBLISH_KEY: KEY, STATS_API_KEY: 'owner-key', STATS_KEY: 'k', ...extra});
 const put = (e, {name = 'Ashby form in an embedded app', secs = 72, size = 1000, type = 'video/webm', key = KEY, now = new Date('2026-10-18T10:00:00Z')} = {}) => videoIngest(
   new Request(`https://x.test/applying/video?name=${encodeURIComponent(name)}&secs=${secs}`, {method: 'PUT', headers: {Authorization: `Bearer ${key}`, 'Content-Type': type}, body: new Uint8Array(size).fill(7)}), e, now);
-const get = (e, query, headers = {}, auth = 'owner-key') => videoView(new Request(`https://x.test/admin/lab-form-filling/video${query}`, {headers: {...(auth ? {Authorization: `Bearer ${auth}`} : {}), ...headers}}), e);
+const get = (e, query, headers = {}, auth = 'owner-key') => videoView(new Request(`https://x.test/admin/form-filling/lab/video${query}`, {headers: {...(auth ? {Authorization: `Bearer ${auth}`} : {}), ...headers}}), e);
 
 test('only the publish key writes; no key, a wrong key or no bucket never stores a byte', async () => {
   const e = env();

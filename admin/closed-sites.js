@@ -1,7 +1,7 @@
 
 import {AGREE, REASONS} from '../shared/closed-sites.js';
 
-// /admin/scouting "Closed sites": sites and boards installs found refused, browser-only, unreachable, page gone or without a feed, with who agrees and when each is tried again (owner, 20 Oct 2026). Host names, counts and dates only. Tests: test/closed-sites.test.js.
+// /admin/job-search/scouting "Closed sites": sites and boards installs found refused, browser-only, unreachable, page gone or without a feed, with who agrees and when each is tried again (owner, 20 Oct 2026). Host names, counts and dates only. Tests: test/closed-sites.test.js.
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
 export const retryOn = (row, today = new Date()) => {
   const date = new Date(Date.parse(row.last) + REASONS[row.reason].rest * 86400000).toISOString().slice(0, 10);
@@ -15,7 +15,7 @@ export function section(rows = [], today = new Date()) {
 <td><span class="pill">${REASONS[row.reason].label}</span></td><td class="n">${row.installs}</td><td>${esc(row.first)}</td><td>${esc(row.last)}</td><td>${retryOn(row, today)}</td><td>${row.served ? 'yes' : 'not yet'}</td></tr>`).join('');
   const served = sorted.filter(row => row.served).length;
   return `<section class="card" id="closed-sites"><h2>🚧 Closed sites · ${sorted.length}</h2>
-<small class="muted">Sites and boards installs found refused, browser-only, unreachable, gone or without a feed. ${served} of ${sorted.length} are served, so installs skip them until the retry date. How often installs skipped: <a href="/admin/installs">/admin/installs</a>.</small>
+<small class="muted">Sites and boards installs found refused, browser-only, unreachable, gone or without a feed. ${served} of ${sorted.length} are served, so installs skip them until the retry date. How often installs skipped: <a href="/admin/job-search/installs">/admin/job-search/installs</a>.</small>
 <div class="filters seg" style="margin:10px 0 0">${chip('', 'All', sorted.length)}${Object.entries(REASONS).map(([key, {label}]) => chip(key, label, count(key))).join('')}</div>
 <div class="scroll"><table><tr><th>Site or board</th><th>Reason</th><th>Installs agreeing</th><th>First seen</th><th>Last seen</th><th>Next retry</th><th>Served</th></tr>
 ${body || '<tr><td colspan="7" class="muted">Nothing reported yet.</td></tr>'}</table></div>

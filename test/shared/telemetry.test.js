@@ -30,7 +30,7 @@ test('reports are stored, and the same problem from two users (other line number
   const rows = e.STATS.db.prepare('SELECT fingerprint, summary, data FROM telemetry').all();
   assert.equal(new Set(rows.filter(r => r.summary.startsWith('TypeError')).map(r => r.fingerprint)).size, 1);
   assert.ok(!rows.some(r => r.data.includes('igor@gmail.com')));  // scrubbed again on the server
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /TypeError: Cannot read properties/);
   assert.match(html, /<td><b>2<\/b><\/td>/);  // two users
   assert.match(html, /src\.ai\.prep build: JSONDecodeError/);
@@ -38,7 +38,7 @@ test('reports are stored, and the same problem from two users (other line number
 
 test('without the key the page does not exist; junk is refused', async () => {
   const e = env();
-  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/admin/app'), e, {})).status, 404);
+  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app'), e, {})).status, 404);
   assert.equal((await send(e, [{kind: 'nonsense', install: 'x'}])).status, 400);
 });
 
@@ -53,7 +53,7 @@ test('the daily run drops reports older than 90 days and files nothing (owner, 2
 test('an advice event is counted but is no problem row (private issue #24 was "Advice visit on strategy: taken")', async () => {
   const e = env();
   await send(e, [{kind: 'advice', install: 'install-aaaa', version: '0.7.10', platform: 'win32', at: new Date().toISOString(), advice: 'visit', where: 'strategy', act: 'taken'}]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.ok(!/Advice visit on strategy/.test(html));
 });
 
@@ -63,7 +63,7 @@ test('each problem says its newest build; one seen only on older builds than any
   const e = env();
   const failed = (install, version, error) => ({kind: 'run_failed', install, version, platform: 'darwin', at: new Date().toISOString(), job: 'src.focus remind', code: 1, error});
   await send(e, [failed('install-aaaa', '0.7.16', 'old trouble'), crash('install-bbbb', '0.7.37')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /<th>Newest build<\/th>/);
   assert.match(html, /<span class="newest">on 0\.7\.37<\/span>/);
   assert.match(html, /<tr class="old">[\s\S]*old builds only · 0\.7\.16/);
@@ -82,7 +82,7 @@ test('How it helped: each install\'s latest daily totals, summed', async () => {
   const e = env();
   const health = (install, at, applied, interviews) => ({kind: 'health', install, version: '0.4.1', platform: 'darwin', at, applied, interviews, offers: 0, formsFilled: 3});
   await send(e, [health('install-aaaa', '2026-09-28T08:00:00Z', 5, 0), health('install-aaaa', '2026-09-29T08:00:00Z', 7, 1), health('install-bbbb', '2026-09-29T09:00:00Z', 2, 1)]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📨 Applications<\/span><b>9<\/b>/);   // 7 (latest of the first install) + 2
   assert.match(html, /🧑‍💻 Interviews<\/span><b>2<\/b>/);
   assert.match(html, /all 2 installs reporting/);
@@ -90,17 +90,17 @@ test('How it helped: each install\'s latest daily totals, summed', async () => {
 
 test('the key, given once on either page, opens both (the cookie is for the whole site)', async () => {
   const e = env();
-  const first = await worker.fetch(new Request('https://www.jobpilotto.top/admin/website?key=k3y'), e, {});
+  const first = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/website?key=k3y'), e, {});
   const cookie = first.headers.get('Set-Cookie');
   assert.match(cookie, /Path=\/;/);
-  const later = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
+  const later = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
   assert.equal(later.status, 200);
 });
 
 test('an install whose report has no counts yet shows "–", not 0', async () => {
   const e = env();
   await send(e, [{kind: 'health', install: 'install-cccc', version: '0.4.0', platform: 'darwin', at: '2026-09-29T08:00:00Z', ai: true}]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📨 Applications<\/span><b>–<\/b>/);
   assert.match(html, /No counts yet/);
 });
@@ -129,12 +129,12 @@ test('the private page counts feedback and links to the Feedback page (no copy o
   const e = env();
   e.STATS.db.prepare('INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.5.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
-  const open = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  const open = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   const html = await open.text();
-  assert.match(html, /1 message in the last 30 days · <a href="\/admin\/feedback">Open Feedback →<\/a>/);
-  assert.doesNotMatch(html, /Setup took 20/, 'the messages live on /admin/feedback only');
+  assert.match(html, /1 message in the last 30 days · <a href="\/admin\/growth\/feedback">Open Feedback →<\/a>/);
+  assert.doesNotMatch(html, /Setup took 20/, 'the messages live on /admin/growth/feedback only');
   assert.doesNotMatch(html, /ana@example\.com/);
-  const closed = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app'), e, {});
+  const closed = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app'), e, {});
   assert.equal(closed.status, 404);
 });
 
@@ -146,7 +146,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
     step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'hosted'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /🚦 Setup funnel/);
   assert.match(html, /median time to finish: 12 min/);
   assert.match(html, /1 used Free AI/);
@@ -177,7 +177,7 @@ test('a control report reads as one problem per fingerprint, outcome and reason,
 test('the owner\'s page shows the access guard: what hit a limit or a decoy, only as digests', async () => {
   const e = env();
   e.STATS.db.exec(readFileSync(new URL('../../db/migrations/0008_guard.sql', import.meta.url), 'utf8'));
-  const page = async () => (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const page = async () => (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(await page(), /Access guard[\s\S]*Nothing odd/);
   const day = new Date().toISOString().slice(0, 10);
   e.STATS.db.prepare("INSERT INTO anomalies (day, kind, who, n, detail) VALUES (?, 'honeypot', 'abcdef0123456789', 2, 'x')").run(day);
@@ -191,7 +191,7 @@ test('Machines reporting counts each install once, however many versions it ran'
   const e = env();
   const ev = (install, version, platform) => ({kind: 'health', install, version, platform, at: '2026-09-29T08:00:00Z'});
   await send(e, [ev('install-aaaa', '0.4.0', 'darwin'), ev('install-aaaa', '0.4.1', 'darwin'), ev('install-aaaa', '0.4.2', 'darwin'), ev('install-bbbb', '0.4.2', 'win32')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /Machines reporting<\/span><b>2<\/b><small class="muted">2 ever seen · 1 (macOS|Windows), 1 (macOS|Windows)/);
 });
 
@@ -199,7 +199,7 @@ test('Machines table: the version each install runs now, and the versions it has
   const e = env();
   const ev = (version, at) => ({kind: 'health', install: 'install-aaaa', version, platform: 'darwin', at});
   await send(e, [ev('0.4.0', '2026-09-28T08:00:00Z'), ev('0.4.2', '2026-09-30T08:00:00Z'), ev('0.4.1', '2026-09-29T08:00:00Z')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /<span class="v now">0\.4\.2<\/span>/);
   assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><\/td>/);   // earlier versions only; the current one is the amber chip
 });
@@ -216,7 +216,7 @@ test('Channels: machines, finished setup and active, by the channel each install
   const {channels} = await import('../../shared/telemetry.js');
   const rows = await channels(e.STATS, 30, new Date('2026-10-01T00:00:00Z'));
   assert.deepEqual(rows.map(r => [r.source, r.machines, r.done, r.active]), [['reddit-devops', 2, 1, 1], ['unknown', 1, 0, 0]]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📣 Channels/);   // (the page reads the last 30 days from today, so only the heading is checked here)
 });
 
@@ -229,13 +229,13 @@ test('advice events are accepted and grouped by kind, place and act (7 Oct 2026)
 // The app opened a form tab and the extension had to take it (desktop/lib/tab-expect.js): taken or the step that failed.
 const tab = (install, outcome, platform = 'win32', version = '0.7.2') => ({kind: 'tab', install, version, platform, at: '2026-10-12T20:00:00Z', outcome, ms: 21000});
 
-test('form-tab reports: taken ones count in the rate, misses are problems, /admin/app shows rate by OS and version', async () => {
+test('form-tab reports: taken ones count in the rate, misses are problems, /admin/growth/app shows rate by OS and version', async () => {
   const e = env();
   const events = [tab('install-aaaa', 'taken'), tab('install-aaaa', 'taken'), tab('install-bbbb', 'extension_silent'), tab('install-cccc', 'tab_not_taken'), tab('install-dddd', 'taken', 'darwin', '0.7.4')];
   assert.equal((await send(e, events)).status, 200);
   assert.match(describe(tab('x', 'tab_not_taken')).summary, /tab_not_taken/);
   assert.notEqual(describe(tab('x', 'extension_silent')).key, describe(tab('x', 'tab_not_taken')).key);   // two different problems
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /Form tabs/);
   assert.match(html, /Windows[^]*?0\.7\.2[^]*?<td>4<\/td><td>2<\/td>\s*<td>50%<\/td>/);   // 4 opened on Windows 0.7.2, 2 taken
   assert.match(html, /extension_silent/);
@@ -250,7 +250,7 @@ test('a report stores the country Cloudflare saw (two letters only) and the mach
   await post(undefined, [crash('install-cccc3333')]);
   const rows = Object.fromEntries(e.STATS.db.prepare('SELECT install, country FROM telemetry').all().map(r => [r.install, r.country]));
   assert.deepEqual(rows, {'install-aaaa1111': 'CH', 'install-bbbb2222': null, 'install-cccc3333': null});
-  const page = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  const page = await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   assert.match(await page.text(), /<th>Country<\/th>[^]*<td>CH<\/td>/);
 });
 
@@ -261,7 +261,7 @@ test('a machine is "in use" after 2+ days or anything past setup/health; one set
   const e = env();
   await send(e, [{kind: 'setup', install: 'install-once1111', version: '0.7.0', platform: 'win32', at: '2026-10-12T10:00:00Z', step: 'start'},
     {kind: 'setup', install: 'install-used2222', version: '0.7.0', platform: 'win32', at: '2026-10-12T10:00:00Z', step: 'start'}, crash('install-used2222')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/growth/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /tried once/);
   assert.match(html, /in use/);
 });

@@ -1,4 +1,4 @@
-// /admin/scouting "Bot checks": what installs' browsers met on sites that refused the engine, by ladder step (owner, 21 Oct 2026). Counts and host numbers only. Guards shared/bot-checks.js and admin/bot-checks.js.
+// /admin/job-search/scouting "Bot checks": what installs' browsers met on sites that refused the engine, by ladder step (owner, 21 Oct 2026). Counts and host numbers only. Guards shared/bot-checks.js and admin/bot-checks.js.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {summarize} from '../../shared/bot-checks.js';

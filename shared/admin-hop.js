@@ -16,7 +16,7 @@ export async function hopOut(request, env, now = Date.now()) {
   if ((request.method !== 'GET' && request.method !== 'HEAD') || !env.STATS_KEY) return null;
   const url = new URL(request.url);
   if (!LEGACY_HOSTS.includes(url.hostname) || !(url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) return null;
-  if (/^\/admin\/(join|hop|e2e\/report\/)/.test(url.pathname) || request.headers.get('Authorization') || url.searchParams.has('key')) return null;
+  if (/^\/admin\/(join|hop|(?:operations\/)?e2e\/report\/)/.test(url.pathname) || request.headers.get('Authorization') || url.searchParams.has('key')) return null;
   if (!(request.headers.get('Accept') || '').includes('text/html')) return null;
   if (!await validSession(env, cookieOf(request), now)) return null;
   const to = url.pathname + url.search;

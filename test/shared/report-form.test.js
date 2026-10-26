@@ -86,13 +86,13 @@ test('the day\'s total holds when every install id is new: 50 reports and 200 MB
 const telegram = () => { const calls = []; return {calls, fetcher: async (url, init) => { calls.push({url, body: JSON.parse(init.body)}); return {ok: true}; }}; };
 const tellEnv = () => env({BRAIN_BOT_TOKEN: 'bot-token', BRAIN_CHAT_ID: '42'});
 
-test('each stored report sends the owner exactly one Telegram message: counts only, a link to /admin/reports', async () => {
+test('each stored report sends the owner exactly one Telegram message: counts only, a link to /admin/form-filling/reports', async () => {
   const e = tellEnv(), fake = telegram();
   assert.equal((await upload(e, {fetcher: fake.fetcher})).status, 200);
   assert.equal(fake.calls.length, 1);
   const {url, body} = fake.calls[0];
   assert.equal(url, 'https://api.telegram.org/botbot-token/sendMessage'); assert.equal(body.chat_id, '42');
-  assert.match(body.text, /^📮 <b>A form was reported<\/b> · Stalled on the form · 12 page responses · install [0-9a-f]{8} · 10:00 UTC\n<a href="https:\/\/www\.jobadabra\.top\/admin\/reports">/);
+  assert.match(body.text, /^📮 <b>A form was reported<\/b> · Stalled on the form · 12 page responses · install [0-9a-f]{8} · 10:00 UTC\n<a href="https:\/\/www\.jobadabra\.top\/admin\/form-filling\/reports">/);
   assert.ok(!body.text.includes(INSTALL), 'the install only by a short digest');
   assert.deepEqual(body.text.replace(/<[^>]*>/g, '').match(/https?:\/\/[^\s]*/g) || [], [], 'no URL in the visible text');
 });

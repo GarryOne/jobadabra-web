@@ -1,4 +1,4 @@
-// /admin/benchmark-job-search: the shares, the rounds and kinds, the missed-by-job-system table, the ingest (key, bad rows, one row per run, one snapshot) and that a page load reads one snapshot row.
+// /admin/job-search/benchmark: the shares, the rounds and kinds, the missed-by-job-system table, the ingest (key, bad rows, one row per run, one snapshot) and that a page load reads one snapshot row.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -65,12 +65,12 @@ test('the page reads ONE snapshot row, never the runs table; closed to anyone bu
   const e = env();
   await put(e, {runs: FIXTURE});
   e.STATS.reads.queries = e.STATS.reads.rows = 0;
-  assert.equal((await call(e, '/admin/benchmark-job-search')).status, 404);
-  const html = await (await call(e, '/admin/benchmark-job-search?round=r1', owner)).text();
+  assert.equal((await call(e, '/admin/job-search/benchmark')).status, 404);
+  const html = await (await call(e, '/admin/job-search/benchmark?round=r1', owner)).text();
   assert.deepEqual([e.STATS.reads.queries, e.STATS.reads.rows], [1, 1]);
   assert.match(html, /Benchmark Job Search/);
   assert.match(html, /system-a/);
-  assert.ok(PAGES.some(entry => entry.path === '/admin/benchmark-job-search' && entry.group === 'Job search'));
+  assert.ok(PAGES.some(entry => entry.path === '/admin/job-search/benchmark' && entry.group === 'Job search'));
 });
 
 test('the page says so when there is no data, and shows an older round when asked', () => {

@@ -1,4 +1,4 @@
-// /admin/benchmark-job-search: our job search against other tools on the same random role × city searches (owner, 20 Oct 2026). The bake-off's search-bench (a private repo) sends each scored
+// /admin/job-search/benchmark: our job search against other tools on the same random role × city searches (owner, 20 Oct 2026). The bake-off's search-bench (a private repo) sends each scored
 // tool-on-persona once (PUT /benchmark-search/data, Bearer SELFHEAL_PUBLISH_KEY); the site keeps one row per run (benchmark_search_runs) and, after each write, ONE snapshot row (benchmark_search_snapshot)
 // the page reads: no table scan per page load (D1 free plan). Tool, persona and job-system names are data from the owner-only write. Pure maths: admin/benchmark-search-data.js; the page: admin/benchmark-search-page.js.
 import {remember, viewer} from '../shared/auth.js';

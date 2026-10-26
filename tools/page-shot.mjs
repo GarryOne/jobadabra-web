@@ -1,6 +1,6 @@
 // One page, rendered through the REAL Worker (workers/www/index.js) on demo data, shot at every width and theme, and refused when it is unstyled
 // (owner, 25 Oct 2026: jobadabra-web#92's Before/After images were the admin page as raw HTML, rendered without the layout that adds its CSS).
-//   tools/site-run.sh node tools/page-shot.mjs --path /admin/promo-codes --width 1440,390 --theme dark,light --out <dir> [--name before] [--seed promo-codes] [--full] [--scroll '<selector>']
+//   tools/site-run.sh node tools/page-shot.mjs --path /admin/growth/promo-codes --width 1440,390 --theme dark,light --out <dir> [--name before] [--seed promo-codes] [--full] [--scroll '<selector>']
 // Writes <dir>/<name>-<width>[-<theme>].png (theme in the name only when more than one). Exit 1 when the page is unstyled (nothing is written for it).
 // The data is an in-memory database built from db/migrations/ plus a seed (tools/page-shot-seeds.mjs); the owner login is the test key. The live site is never contacted:
 // every request to another host is blocked. Run inside the overlay (tools/site-run.sh), from the checkout of the tree to shoot (before: a worktree of the old commit).
@@ -12,7 +12,7 @@ import {launchChromium, workerServer} from './worker-server.mjs';
 const args = Object.fromEntries(process.argv.slice(2).join(' ').split(/\s*--/).filter(Boolean).map(part => { const [k, ...v] = part.split(' '); return [k, v.join(' ') || true]; }));
 const root = process.cwd();
 const pagePath = args.path, out = path.resolve(args.out || '.');
-if (!pagePath || !pagePath.startsWith('/')) { console.error('usage: tools/site-run.sh node tools/page-shot.mjs --path /admin/promo-codes [--width 1440,390] [--theme dark,light] --out <dir> [--name before] [--seed promo-codes] [--full]'); process.exit(2); }
+if (!pagePath || !pagePath.startsWith('/')) { console.error('usage: tools/site-run.sh node tools/page-shot.mjs --path /admin/growth/promo-codes [--width 1440,390] [--theme dark,light] --out <dir> [--name before] [--seed promo-codes] [--full]'); process.exit(2); }
 const widths = String(args.width || '1440,390').split(',').map(Number), themes = String(args.theme || 'dark').split(','), name = args.name || 'shot';
 let site;
 try { site = await workerServer(root, args.seed ? [args.seed] : []); } catch (error) { console.error(error.message); process.exit(2); }

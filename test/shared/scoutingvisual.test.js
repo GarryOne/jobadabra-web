@@ -1,4 +1,4 @@
-// /admin/scouting's data to iterate on and its charts (shared/scoutingvisual.js, scoutingcharts.js, scouting.js run log; owner, 19 Oct 2026:
+// /admin/job-search/scouting's data to iterate on and its charts (shared/scoutingvisual.js, scoutingcharts.js, scouting.js run log; owner, 19 Oct 2026:
 // "store enough data ... where we're strong, where we're weak", "add more graphs", "too much of raw numbers/text/tables").
 import assert from 'node:assert/strict';
 import {test} from 'node:test';

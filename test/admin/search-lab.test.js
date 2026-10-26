@@ -1,4 +1,4 @@
-// /admin/lab-job-search (PR 1 of the Job Search lab): the upload (key, main only, checks), the judge (failed / worse / new / working, the 25 % band, the control), the page in each state, the menu.
+// /admin/job-search/lab (PR 1 of the Job Search lab): the upload (key, main only, checks), the judge (failed / worse / new / working, the 25 % band, the control), the page in each state, the menu.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -124,14 +124,14 @@ test('the Lab screen draws a card, time bars, funnel meters and a sparkline per 
 test('the route: owner only, the page is in the "Job search" group, the group is in the menu', async () => {
   const env = {STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 's', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   await ingest(env.STATS, [row('a', 1, {label: 'Finance · Amsterdam'})]);
-  const get = (headers = {}) => worker.fetch(new Request('https://www.jobpilotto.top/admin/lab-job-search', {headers}), env, {});
+  const get = (headers = {}) => worker.fetch(new Request('https://www.jobpilotto.top/admin/job-search/lab', {headers}), env, {});
   assert.equal((await get()).status, 404);
   const shown = await get({Cookie: 'jp_stats=k3y'});
   assert.equal(shown.status, 200);
   const html = await shown.text();
   assert.match(html, /Real installs/, 'the page opens on the live numbers');
-  assert.match(await (await get({Cookie: 'jp_stats=k3y'}).then(() => worker.fetch(new Request('https://www.jobpilotto.top/admin/lab-job-search?tab=lab', {headers: {Cookie: 'jp_stats=k3y'}}), env, {}))).text(), /Finance · Amsterdam/);
+  assert.match(await (await get({Cookie: 'jp_stats=k3y'}).then(() => worker.fetch(new Request('https://www.jobpilotto.top/admin/job-search/lab?tab=lab', {headers: {Cookie: 'jp_stats=k3y'}}), env, {}))).text(), /Finance · Amsterdam/);
   assert.match(html, /🔎 Job search/, 'the menu has the group');
   assert.ok(GROUPS.some(([name]) => name === 'Job search'));
-  assert.equal(PAGES.find(item => item.path === '/admin/lab-job-search').group, 'Job search');
+  assert.equal(PAGES.find(item => item.path === '/admin/job-search/lab').group, 'Job search');
 });

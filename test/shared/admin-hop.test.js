@@ -10,7 +10,7 @@ const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? n
 const env = () => ({STATS_KEY: 'owner-key', WAITLIST: kv()});
 const page = (host, path, headers = {}) => new Request(`https://${host}${path}`, {headers: {Accept: 'text/html', ...headers}});
 const owner = async e => ({Cookie: `${SESSION_COOKIE}=${await sessionToken(e, now)}`});
-async function hopUrl(e, path = '/admin/ai-cost?days=7') {
+async function hopUrl(e, path = '/admin/intelligence/ai-cost?days=7') {
   const out = await hopOut(page('www.jobpilotto.top', path, await owner(e)), e, now);
   assert.equal(out.status, 302);
   return out.headers.get('Location');
@@ -22,7 +22,7 @@ test('a signed-in owner on the old host is hopped once, and lands signed in on t
   assert.ok(!location.includes('owner-key'));
   const first = await hopIn(page('www.jobadabra.top', new URL(location).pathname + new URL(location).search), e, now + 1000);
   assert.equal(first.status, 302);
-  assert.equal(first.headers.get('Location'), '/admin/ai-cost?days=7');
+  assert.equal(first.headers.get('Location'), '/admin/intelligence/ai-cost?days=7');
   const cookie = first.headers.get('Set-Cookie');
   assert.match(cookie, /^jp_admin=v1\./);
   assert.equal(await isOwner(page('www.jobadabra.top', '/admin', {Cookie: cookie.split(';')[0]}), e, now + 2000), true);
@@ -37,7 +37,7 @@ test('an expired, forged or re-aimed token is a 404', async () => {
   const t = u.searchParams.get('t'), to = u.searchParams.get('to');
   assert.equal((await ask(t, to, now + 61000)).status, 404);   // expired
   assert.equal((await ask(t.slice(0, -2) + (t.endsWith('xx') ? 'yy' : 'xx'), to)).status, 404);   // forged signature
-  assert.equal((await ask(t, '/admin/access')).status, 404);   // signed for another path
+  assert.equal((await ask(t, '/admin/operations/access')).status, 404);   // signed for another path
   assert.equal((await hopIn(page('www.jobadabra.top', '/admin/hop'), e, now)).status, 404);
   const other = {...e, STATS_KEY: 'other'};
   assert.equal((await hopIn(page('www.jobadabra.top', `/admin/hop?t=${encodeURIComponent(t)}&to=${encodeURIComponent(to)}`), other, now + 1000)).status, 404);
@@ -46,7 +46,7 @@ test('an expired, forged or re-aimed token is a 404', async () => {
 
 test('to must be a same-origin /admin path', () => {
   for (const to of ['https://evil.example/admin', '//evil.example', '/admin//evil.example', '/admin/../x', '/other', '/admin\\x', 'admin', '', '/admin?next=https://x']) assert.equal(safeTo(to), false, to);
-  for (const to of ['/admin', '/admin/ai-cost?days=7', '/admin/operations/e2e']) assert.equal(safeTo(to), true, to);
+  for (const to of ['/admin', '/admin/intelligence/ai-cost?days=7', '/admin/operations/e2e']) assert.equal(safeTo(to), true, to);
 });
 
 test('only an owner cookie on an old host, asking for a page, is hopped', async () => {
@@ -57,7 +57,7 @@ test('only an owner cookie on an old host, asking for a page, is hopped', async 
   assert.equal(await hopOut(page('www.jobpilotto.workers.dev', '/admin', c), e, now), null);
   assert.equal(await hopOut(page('www.jobpilotto.top', '/admin', {...c, Authorization: 'Bearer x'}), e, now), null);   // scripts
   assert.equal(await hopOut(page('www.jobpilotto.top', '/admin?key=k', c), e, now), null);
-  assert.equal(await hopOut(page('www.jobpilotto.top', '/admin/app', {...c, Accept: 'application/json'}), e, now), null);   // a fetch, not a page
+  assert.equal(await hopOut(page('www.jobpilotto.top', '/admin/growth/app', {...c, Accept: 'application/json'}), e, now), null);   // a fetch, not a page
   assert.equal(await hopOut(new Request('https://www.jobpilotto.top/admin', {method: 'POST', headers: {Accept: 'text/html', ...c}}), e, now), null);
   assert.equal(await hopOut(page('www.jobpilotto.top', '/api/index', c), e, now), null);
 });

@@ -1,4 +1,4 @@
-// The scouting numbers behind /admin/scouting: the day's snapshot of the employer list (counts only, with each kind), its storage and the gathering of what the page shows.
+// The scouting numbers behind /admin/job-search/scouting: the day's snapshot of the employer list (counts only, with each kind), its storage and the gathering of what the page shows.
 // Published by api/employers.js, drawn by admin/scoutingadmin.js. Guarded by test/shared/scoutingadmin.test.js.
 import {LATEST_FAMILY} from './engines.js';
 import {load as loadScouting} from './scouting.js';

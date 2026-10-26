@@ -50,7 +50,7 @@ async function record(env, now, addr, list, template, status, id = null) {
   await env.STATS?.prepare('INSERT INTO mail_log (at, addr, list, template, status, message_id) VALUES (?, ?, ?, ?, ?, ?)').bind(now.toISOString(), addr, list, template, status, id).run().catch(() => {});
 }
 
-// The subject, text, html and headers of a mail: the template's content inside the frame. `links` = {stop, settings} (none for an essential mail). Also what /admin/email shows (admin/email-preview.js).
+// The subject, text, html and headers of a mail: the template's content inside the frame. `links` = {stop, settings} (none for an essential mail). Also what /admin/growth/email shows (admin/email-preview.js).
 export function compose(template, data = {}, links = null) {
   const spec = TEMPLATES[template];
   const why = spec.essential ? 'A security email: sent even if you stopped other emails.'

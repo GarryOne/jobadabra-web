@@ -1,4 +1,4 @@
-// Headline numbers of the Form filling pages: Real users, Lab, Benchmark, Learning (admin/headlines.js; drawn on /admin/form-overview by admin/section-overview.js).
+// Headline numbers of the Form filling pages: Real users, Lab, Benchmark, Learning (admin/headlines.js; drawn on /admin/form-filling/overview by admin/section-overview.js).
 // Reuses what each page reads: the left-empty model (fill cards + the thin-data rule), the Lab's own tiles (applying.data), the benchmark snapshot row, the learning answer/recipe tables.
 // Real use under 3 installs is "Too few": a tile with the raw counts, never a percentage (shared/thin-data.js).
 import {byWeek, ratio, since} from './admin.js';
@@ -69,4 +69,4 @@ async function reports(env) {
   return [{label: 'Reported forms waiting', value: num(row?.waiting), sub: `${num(row?.n)} reported in the last 30 days`, status: 'none'}];
 }
 
-export const FORM_FILLING = {'/admin/reports': reports, '/admin/real-form-filling': realUsers, '/admin/lab-form-filling': lab, '/admin/benchmark-form-filling': benchmark, '/admin/form-learning': learning};
+export const FORM_FILLING = {'/admin/form-filling/reports': reports, '/admin/form-filling/real-users': realUsers, '/admin/form-filling/lab': lab, '/admin/form-filling/benchmark': benchmark, '/admin/form-filling/learning': learning};

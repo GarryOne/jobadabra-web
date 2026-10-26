@@ -2,8 +2,8 @@
 // group a job into an area, judge its health. No network, no D1; the collector (jobs/schedules-snapshot.mjs) and the page (src/schedules.js) both use it. Guard: test/schedules.test.js.
 
 export const AREAS = [
-  {id: 'healing', label: 'Self-healing', hint: 'UI Finder, form-filling loop, Sentry fixer', link: '/admin/self-healing'},
-  {id: 'search', label: 'Job search & scouting', hint: 'Scouting, search lab, random draws, daily digest', link: '/admin/lab-job-search'},
+  {id: 'healing', label: 'Self-healing', hint: 'UI Finder, form-filling loop, Sentry fixer', link: '/admin/operations/self-healing'},
+  {id: 'search', label: 'Job search & scouting', hint: 'Scouting, search lab, random draws, daily digest', link: '/admin/job-search/lab'},
   {id: 'other', label: 'Everything else', hint: 'Builds, watchdogs, cost and site jobs', link: ''}];
 // File names (without .yml) per area; a new job lands in "Everything else" until it is listed here (test/schedules.test.js lists the unlisted ones in its failure text).
 const HEALING = ['ui-findings', 'ui-fix', 'ui-verdict', 'ui-ranking', 'finder-review', 'sentry-fix', 'fix-verdicts', 'issue-fixed', 'page-cases', 'record-sites', 'watch-live', 'harness', 'harness-daily', 'judge-exam', 'self-heal-stats', 'search-lab-heal', 'form-learning', 'e2e-intel', 'hosted-e2e'];

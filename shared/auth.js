@@ -6,7 +6,7 @@
 // breaks before the scripts have moved to the new key. Every ?key= login, good or bad, is logged (admin_logins): when, where
 // from (country, device), never the key. Anyone without access gets the same 404 as a page that does not exist.
 // Roles: the super admin (the owner: STATS_KEY or the scripts' key) and admins (invited). The super admin makes a personal invite
-// link on /admin/access (a name and an expiry). Opened, it gives that person a session of their own (v2: signed with their
+// link on /admin/operations/access (a name and an expiry). Opened, it gives that person a session of their own (v2: signed with their
 // id); every request checks they are still invited and not expired, so Remove takes effect at once. An admin reads every admin
 // page; only the super admin manages access (invites, expiry, removal) and calls the APIs.
 import {device} from './device.js';

@@ -1,4 +1,4 @@
-// /admin/installs (src/installsimpact.js): what installs add to the employer list, from fixture rows in a real SQLite; counts and names only.
+// /admin/job-search/installs (src/installsimpact.js): what installs add to the employer list, from fixture rows in a real SQLite; counts and names only.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -56,7 +56,7 @@ test('the page answers in its verdict and tiles from fixture rows, and shows the
   assert.match(html, /2 of 4 employers \(50%\) came from installs, holding 48% of the open jobs\. Installs skipped 12 steps in 30 days/);
   assert.match(html, /Steps skipped, 30 days<\/span><b>12<\/b>/);
   assert.match(html, /Boards found by installs<\/span><b>1<\/b>/);
-  assert.match(html, /<td>places<\/td><td>5<\/td><td>12<\/td><td>12<\/td>/, 'the per-kind table from /admin/scouting is reused');
+  assert.match(html, /<td>places<\/td><td>5<\/td><td>12<\/td><td>12<\/td>/, 'the per-kind table from /admin/job-search/scouting is reused');
   assert.doesNotMatch(html, /<script>[^<]*http/, 'no external call');
 });
 
@@ -68,6 +68,6 @@ test('an empty database still renders, and the chart needs two days', async () =
 });
 
 test('the page needs the admin login', async () => {
-  const response = await view(new Request('https://www.jobadabra.top/admin/installs'), {STATS: d1()});
+  const response = await view(new Request('https://www.jobadabra.top/admin/job-search/installs'), {STATS: d1()});
   assert.equal(response.status, 404);
 });

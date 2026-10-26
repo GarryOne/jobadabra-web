@@ -1,4 +1,4 @@
-// /admin/lab-form-filling's "Replay vs live (prototype)" (admin/applying-fidelity.js): the verdict rule, the one-row store, the 404 without the key, and a page that carries the section.
+// /admin/form-filling/lab's "Replay vs live (prototype)" (admin/applying-fidelity.js): the verdict rule, the one-row store, the 404 without the key, and a page that carries the section.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';

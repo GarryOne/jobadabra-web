@@ -1,9 +1,9 @@
-// Sort, search and pages on every long admin table (owner, 27 Oct 2026: "let's add pagination/ordering/filtering to this table", on /admin/scouting
+// Sort, search and pages on every long admin table (owner, 27 Oct 2026: "let's add pagination/ordering/filtering to this table", on /admin/job-search/scouting
 // Closed sites, 276 rows on one page; then: every long admin table). admin/admin.js withNav adds TABLE_TOOLS_STYLE and TABLE_TOOLS_SCRIPT to every page,
 // after TABLE_SCRIPT. A table gets the tools when it has more than TOOLS_MIN body rows in one plain grid (one header row on top, no merged cells):
 // a click on a header sorts (numbers as numbers, dates as dates, ▲/▼ and aria-sort), a search box keeps the rows holding every word, pages of PER rows.
 // A page's own filter (rows it sets `hidden`, as the Closed sites reason chips do) combines with them: the tools only count and page the rows it left.
-// A table opts out with data-no-tools; one whose page sorts it already (th.sortable, as /admin/lab-form-filling draws them) is left alone. Tests: test/admin/table-tools.test.js (the functions, the Closed sites table in a browser) and
+// A table opts out with data-no-tools; one whose page sorts it already (th.sortable, as /admin/form-filling/lab draws them) is left alone. Tests: test/admin/table-tools.test.js (the functions, the Closed sites table in a browser) and
 // tools/admin-table-tools.mjs (every admin page on demo data: each long table gets them, nothing breaks, phone taps ≥ 40 px).
 export const TOOLS_MIN = 25, PER = 25;
 

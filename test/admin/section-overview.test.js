@@ -49,10 +49,10 @@ test('Operations loaders read the rows their pages keep', async () => {
   db.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?)').run('2026-10-15', '2026-10-15T09:00:00Z', JSON.stringify({totals: {real: 73, judged: 181, precision: 40}, fixer: {landed: 21, opened: 24, open: 0}, recall: {caught: 21, planted: 22, missed: ['dead-button']}}));
   db.prepare('INSERT INTO digest_days (day, groups, open_line, numbers, drafts, usd, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?)').run('2026-10-15', '[{"t":1},{"t":2}]', '', '[1,2,3]', '2026-10-15T10:00:00Z');
   db.prepare('INSERT INTO ai_cost_runs (job, run_id, day, at, usd, calls) VALUES (?, ?, ?, ?, ?, 1)').run('self-heal', 'r1', '2026-10-15', '2026-10-15T08:00:00Z', 8.15);
-  const [heal, fixer] = await HEADLINES['/admin/self-healing'](e, now);
+  const [heal, fixer] = await HEADLINES['/admin/operations/self-healing'](e, now);
   assert.deepEqual([heal.value, heal.status, heal.sub.includes('dead-button'), fixer.value], ['40%', 'warn', true, '21']);
   assert.deepEqual((await HEADLINES['/admin/operations/build-log'](e, now))[0].sub, '2 goals');
-  assert.equal((await HEADLINES['/admin/ai-cost'](e, now))[0].value, '$8.15');
+  assert.equal((await HEADLINES['/admin/intelligence/ai-cost'](e, now))[0].value, '$8.15');
 });
 
 test('the E2E tile counts reds and runs of the last 7 days and names the top cause', async () => {
@@ -77,19 +77,19 @@ test('the Operations Overview draws the section tiles above the time page', asyn
 test('Form filling: real use under 3 installs says "Too few" with its counts, 3 installs give a percentage', async () => {
   const e = env(), card = (id, install) => e.STATS.db.prepare("INSERT INTO fill_cards (id, day, board, required, filled, install, source) VALUES (?, '2026-10-14', 'b', 10, 8, ?, 'user')").run(id, install);
   card('a', 'i1'); card('b', 'i1');
-  const [few] = await HEADLINES['/admin/real-form-filling'](e, now);
+  const [few] = await HEADLINES['/admin/form-filling/real-users'](e, now);
   assert.deepEqual([few.value, few.status, few.few, few.sub.includes('2 forms from 1 install')], ['Too few', 'none', true, true]);
   card('c', 'i2'); card('d', 'i3');
-  const [enough] = await HEADLINES['/admin/real-form-filling'](e, now);
+  const [enough] = await HEADLINES['/admin/form-filling/real-users'](e, now);
   assert.deepEqual([enough.value, enough.status], ['80%', 'good']);
 });
 
 test('Form filling: the benchmark tile reads the stored snapshot and the learning tiles read the recipe table', async () => {
   const e = env();
   e.STATS.db.prepare('INSERT INTO benchmark_snapshot (id, at, body) VALUES (1, ?, ?)').run('2026-10-15T00:00:00Z', JSON.stringify({segments: {'thin:user': {tools: [{tool: 'Our extension', ours: true, raw: 81}, {tool: 'Other', ours: false, raw: 70}], trend: [{raw: 60}, {raw: 81}]}}}));
-  const [bench] = await HEADLINES['/admin/benchmark-form-filling'](e, now);
+  const [bench] = await HEADLINES['/admin/form-filling/benchmark'](e, now);
   assert.deepEqual([bench.value, bench.status, bench.series], ['81% vs 70%', 'none', [60, 81]]);
-  const rows = await HEADLINES['/admin/form-learning'](e, now);
+  const rows = await HEADLINES['/admin/form-filling/learning'](e, now);
   assert.equal(rows.find(tile => tile.label === 'Learned recipes').value, '0');
 });
 
@@ -111,13 +111,13 @@ test('Growth and Intelligence: each Overview is the first tab, owner-only, with 
   }
   const e = env();
   e.STATS.db.prepare("INSERT INTO telemetry (day, install, kind, data, at, version, platform, fingerprint, summary) VALUES ('2026-10-14', 'i1', 'health', '{}', '2026-10-14T00:00:00Z', '1', 'mac', '', '')").run();
-  const [machines] = await HEADLINES['/admin/app'](e, now);
+  const [machines] = await HEADLINES['/admin/growth/app'](e, now);
   assert.deepEqual([machines.label, machines.value], ['Active installs', '1']);
 });
 
 test('Signups and Monetization tiles use their pages\' own collectors; too few trials is "Too few", not a colour', async () => {
-  const [trials] = await HEADLINES['/admin/monetization'](env(), now);
+  const [trials] = await HEADLINES['/admin/growth/monetization'](env(), now);
   assert.deepEqual([trials.value, trials.status, trials.few], ['Too few', 'none', true]);
-  const [accounts] = await HEADLINES['/admin/email'](env(), now);
+  const [accounts] = await HEADLINES['/admin/growth/email'](env(), now);
   assert.equal(accounts.value, '0');
 });

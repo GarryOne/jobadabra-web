@@ -23,7 +23,7 @@ function site(extra = {}) {
   return {STATS: d1(), STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', STATS_SALT: 's', PRO_PLAN: 'promo', ASSETS: {fetch: () => new Response('asset')},
     WAITLIST: {get: async key => kv.get(key) ?? null, put: async (key, value) => { kv.set(key, value); }, list: async () => ({keys: []})}, ...extra};
 }
-const make = (env, fields = {}) => worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
+const make = (env, fields = {}) => worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {method: 'POST', headers: {...OWNER, Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded'},
   body: new URLSearchParams({action: 'import', code: 'TOPUP-FAKE-TEN', label: 'test', cap: '2', ends: '2999-12-31', kind: 'credit', credit: '10', ...fields})}), env, {});
 const key = async (env, install) => `JPF1.${install}.${await tokenFor(install, env, 'ai')}`;
 const redeem = async (env, install, code) => (await worker.fetch(new Request(`${ORIGIN}/api/pro/redeem`, {method: 'POST',
@@ -97,7 +97,7 @@ test('the admin page makes a credit code, names the two kinds apart, and refuses
   const env = site();
   for (const credit of ['0', '101', 'x']) assert.equal((await make(env, {credit})).status, 400, credit);
   await make(env);
-  const page = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
+  const page = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), env, {})).text();
   // Named apart in the admin (owner, 27 Oct 2026: "in our admin, they should be distinguished"); the € field shows only for a top-up.
   assert.match(page, /<option value="pro">Pro upgrade<\/option><option value="credit">AI credit top-up<\/option>/);
   assert.match(page, /<label class="muted credit-field" hidden>€ of AI credit/);
@@ -106,6 +106,6 @@ test('the admin page makes a credit code, names the two kinds apart, and refuses
   // One line per row (owner, 27 Oct 2026): the short cells never wrap (the Copy icon: test/shared/promo.test.js).
   assert.match(page, /<td class="one-line">0 of 2<\/td>/);
   await make(env, {code: 'BETA-FAKE-PRO', kind: 'pro'});
-  const after = await (await worker.fetch(new Request(`${ORIGIN}/admin/promo-codes`, {headers: OWNER}), env, {})).text();
+  const after = await (await worker.fetch(new Request(`${ORIGIN}/admin/growth/promo-codes`, {headers: OWNER}), env, {})).text();
   assert.match(after, /<td class="one-line">Pro upgrade<\/td>/, 'a Pro code says Pro upgrade');
 });

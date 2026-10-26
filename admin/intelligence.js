@@ -1,4 +1,4 @@
-// The owner's /admin/insights page: what the installs teach about the job search, from shared/intelligence.js. Same key or cookie as /admin.
+// The owner's /admin/intelligence/insights page: what the installs teach about the job search, from shared/intelligence.js. Same key or cookie as /admin.
 // Guarded by test/shared/intelligence.test.js.
 import {filterLinks, trendChip} from './admin.js';
 import {viewer} from '../shared/auth.js';
@@ -45,7 +45,7 @@ ${data.replies.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><
 <section class="card"><h2>🧭 Which sources give useful jobs?${chip(data, 'sources')}</h2><small class="muted">Per source kind (job systems, job boards, aggregators): the share of jobs scored 70+, acted on or dismissed, how many acted ones got a call, and how many hours after posting the jobs were found. "other" is every company site.</small>
 <table><tr><th>Source</th><th>Jobs seen</th><th>Scored 70+</th><th>Acted on</th><th>Dismissed</th><th>Heard back (of acted)</th><th>Hours posted → found</th></tr>
 ${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td>${pct(row.goodShare)}</td><td>${pct(row.actedShare)}</td><td>${pct(row.dismissedShare)}</td><td>${pct(row.heardShare)}</td><td>${row.hours == null ? '—' : Math.round(row.hours)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No snapshots yet.</td></tr>'}</table></section>
-<section class="card"><h2>🛰️ Scouting</h2><small class="muted">The central employer list (its growth, the pool, coverage, freshness) has its own page: <a href="/admin/scouting">Scouting →</a></small></section>
+<section class="card"><h2>🛰️ Scouting</h2><small class="muted">The central employer list (its growth, the pool, coverage, freshness) has its own page: <a href="/admin/job-search/scouting">Scouting →</a></small></section>
 <section class="card"><h2>✏️ Answers people change${chip(data, 'fixes')}</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
 <table><tr><th>Question wording</th><th>Filled</th><th>Changed by hand</th></tr>
 ${data.fixes.map(row => `<tr><td>${esc(row.label)}</td><td>${row.filled}</td><td><b>${pct(row.rate)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported by enough people yet.</td></tr>'}</table></section>

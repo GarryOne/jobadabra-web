@@ -1,4 +1,4 @@
-// The numbers behind /admin/email (owner, 26 Oct 2026: "a section for emailing... stats, data, templates"): what our e-mail did, who can still get it, and what waits for the digest.
+// The numbers behind /admin/growth/email (owner, 26 Oct 2026: "a section for emailing... stats, data, templates"): what our e-mail did, who can still get it, and what waits for the digest.
 // Counts and short hashes only, never an address (mail_log keeps the hash; pro_accounts is only counted). Guard: tests/test_site_admin_email.js.
 const DAY = 24 * 60 * 60 * 1000;
 export const WINDOWS = [7, 30, 90];

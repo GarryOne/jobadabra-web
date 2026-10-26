@@ -41,7 +41,7 @@ export function weaknessesSection(d) {
   if (!d) return '';
   const sample = d.sample, thin = isThin(sample);
   return `<section class="card"><h2>🎯 Top weaknesses</h2><small class="muted">Ranked by impact (forms affected × required questions lost). The full digest, with evidence per release, for people and the weekly AI pass:
-<a href="/admin/real-form-filling/digest.md">Markdown</a> · <a href="/admin/real-form-filling/digest.json">JSON</a></small>
+<a href="/admin/form-filling/real-users/digest.md">Markdown</a> · <a href="/admin/form-filling/real-users/digest.json">JSON</a></small>
 ${thin ? `<p><b>${esc(thinWords(sample))}.</b> <span class="muted">Not ranked; ${d.thisWeek.forms} forms · ${d.thisWeek.required} required questions this week.</span></p>`
   : `<ol>${d.weaknesses.slice(0, 5).map(w => `<li><b>${esc(w.title)}</b> <span class="muted">· impact ${w.impact} · ${esc(w.area.split(':')[0])}</span></li>`).join('') || '<li class="muted">Nothing ranked yet.</li>'}</ol>`}</section>`;
 }
@@ -95,7 +95,7 @@ ${tile('🕳️ Blind spots (real use)', thin ? 'Too few' : haveUse ? num(blindN
 // What the fill missed in real use, per 100 required questions (form_exposure and fill_reasons, source 'user'); the per-platform link goes to the Lab page's scorecard.
 export function realUseSection(data) {
   const sample = data.learning?.sample, thin = isThin(sample);
-  return `<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. ${thin ? `<b>${esc(thinWords(sample))}:</b> counts only, no rate. ` : ''}Per platform, against the pool's tests: <a href="/admin/lab-form-filling">Lab Form Filling → platform scorecard</a>.</small>
+  return `<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. ${thin ? `<b>${esc(thinWords(sample))}:</b> counts only, no rate. ` : ''}Per platform, against the pool's tests: <a href="/admin/form-filling/lab">Lab Form Filling → platform scorecard</a>.</small>
 <div class="wrap"><table><tr><th>Why</th><th>Kind</th><th class="n">This week</th><th class="n">Per 100</th><th></th><th class="n">Last week</th></tr>
 ${data.use.reasons.filter(x => x.now || x.before).map(x => `<tr><td>${esc(x.text)}</td><td class="muted">${esc(x.group)}</td><td class="n">${x.now}</td><td class="n">${thin ? '–' : num(x.rateNow)}</td><td>${thin ? '' : trend(x.rateNow, x.rateBefore, false)}</td><td class="n muted">${thin ? '–' : num(x.rateBefore)}</td></tr>`).join('')
   || '<tr><td colspan="6" class="muted">Nothing reported yet.</td></tr>'}</table></div></section>`;

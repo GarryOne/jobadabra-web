@@ -15,11 +15,11 @@ test('every admin page fits a 390px phone', t => {
 });
 
 test('on a phone the menu is one bar: where you are, and ☰ listing every page by group', () => {
-  const html = nav('/admin/lab-form-filling', {role: 'superadmin'});
+  const html = nav('/admin/form-filling/lab', {role: 'superadmin'});
   const menu = html.match(/<details class="admin-menu">.*<\/details>/s)?.[0] || '';
   assert.match(menu, /<span class="here">Form filling › 🛡️ Lab Form Filling<\/span>/);
-  assert.match(menu, /href="\/admin\/lab-form-filling" aria-current="page"/);
-  for (const path of ['/admin', '/admin/email', '/admin/self-healing', '/admin/ai-cost', '/admin/access']) assert.ok(menu.includes(`href="${path}"`), `the ☰ menu lists ${path}`);
-  assert.ok(!nav('/admin', {role: 'admin', name: 'Ann'}).includes('/admin/access'), 'Access stays the super admin\'s');
+  assert.match(menu, /href="\/admin\/form-filling\/lab" aria-current="page"/);
+  for (const path of ['/admin', '/admin/growth/email', '/admin/operations/self-healing', '/admin/intelligence/ai-cost', '/admin/operations/access']) assert.ok(menu.includes(`href="${path}"`), `the ☰ menu lists ${path}`);
+  assert.ok(!nav('/admin', {role: 'admin', name: 'Ann'}).includes('/admin/operations/access'), 'Access stays the super admin\'s');
   assert.match(NAV_STYLE, /@media \(max-width:700px\)\{\.admin-nav>div\{display:none\}\.admin-menu\{display:block\}/, 'the rows hide and the bar shows under 700px');
 });

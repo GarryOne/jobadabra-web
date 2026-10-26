@@ -1,4 +1,4 @@
-// Charts for /admin/installs: the employer list over time split into the central scout's part and what installs added. Plain SVG strings
+// Charts for /admin/job-search/installs: the employer list over time split into the central scout's part and what installs added. Plain SVG strings
 // on the admin's dark surface, hover text through the page's [data-tip] tooltip. Tests: test/installsimpact.test.js.
 import {C, esc, n} from '../shared/scoutingcharts.js';
 

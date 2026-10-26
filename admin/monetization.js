@@ -1,4 +1,4 @@
-// /admin/monetization (owner, 16 Oct 2026): Free vs Pro in five seconds: the verdict tiles (installs, trials completed, activated, Pro buyers, conversion with its colour), the funnel bars,
+// /admin/growth/monetization (owner, 16 Oct 2026): Free vs Pro in five seconds: the verdict tiles (installs, trials completed, activated, Pro buyers, conversion with its colour), the funnel bars,
 // the AI cost per free and per Pro user, and the money once the Pro tables exist. The numbers are admin/monetization-data.js; the lines and fixed costs are admin/monetization-config.js. Counts only, never an e-mail.
 import {viewer} from '../shared/auth.js';
 import {filterLinks} from './admin.js';

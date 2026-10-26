@@ -1,5 +1,5 @@
 // One number per week for each section of the admin pages (oldest week first), from the tables the site already keeps. Each series
-// says what it counts; a section with no data yet shows empty bars, never an error. Used by /admin/app, /admin/insights and the
+// says what it counts; a section with no data yet shows empty bars, never an error. Used by /admin/growth/app, /admin/intelligence/insights and the
 // /admin overview (admin/admin.js draws them).
 import {byWeek, ratio, since, sum} from './admin.js';
 

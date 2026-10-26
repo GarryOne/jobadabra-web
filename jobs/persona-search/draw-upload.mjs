@@ -1,4 +1,4 @@
-// Sends the daily draw (its presses: the last is the measured search, AI dollars of all) to /admin/lab-job-search "Random draws" (owner, 18 Oct 2026; .github/workflows/random-draw.yml). Counts, seconds and the build sha only.
+// Sends the daily draw (its presses: the last is the measured search, AI dollars of all) to /admin/job-search/lab "Random draws" (owner, 18 Oct 2026; .github/workflows/random-draw.yml). Counts, seconds and the build sha only.
 //   REPLAYS_PUBLISH_KEY=... node jobs/persona-search/draw-upload.mjs <out> [--build <sha>] [--branch main] [--answer <file>] [--dry]
 // <out> is run.mjs's output folder for the name "draw" (<out>/draw/presses.jsonl, draw.json from draw.py). The site refuses any branch but main.
 import fs from 'node:fs';

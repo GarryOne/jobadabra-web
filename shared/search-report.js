@@ -14,7 +14,7 @@ export const FIELDS = {
   engine: v => ['api', 'cli', 'openai', 'codex'].includes(v),
   trigger: v => ['first', 'you', 'schedule', 'telegram', 'other'].includes(v),
   result: v => ['done', 'failed', 'stopped'].includes(v),   // a search that did not finish sends only this, its engine and its trigger
-  ...READ_FIELDS,   // read_<method>_<measure>: how its sources were read (shared/readmethods.js; /admin/scouting)
+  ...READ_FIELDS,   // read_<method>_<measure>: how its sources were read (shared/readmethods.js; /admin/job-search/scouting)
 };
 const ENVELOPE = ['kind', 'at', 'install', 'version', 'platform', 'os', 'source'];
 

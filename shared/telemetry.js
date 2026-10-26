@@ -1,5 +1,5 @@
 // Technical reports from Jobadabra apps (desktop/lib/telemetry.js scrubs them before sending): what is kept (D1 "telemetry", 90 days) and how it is read.
-// The POST that stores them is api/telemetry.js, the /admin/app page is admin/telemetry.js, and a daily run (scheduled) drops old reports
+// The POST that stores them is api/telemetry.js, the /admin/growth/app page is admin/telemetry.js, and a daily run (scheduled) drops old reports
 // (problems are no longer filed as issues since 20 Oct 2026). Design: Notion "📡 Technical reports (telemetry) — design".
 // Guarded by test/shared/telemetry.test.js.
 import {installsByEngine} from './engines.js';
@@ -133,7 +133,7 @@ export async function funnel(db, days, now = new Date()) {
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
 
 // Daily (Worker cron): drop reports older than 90 days. The top problems are no longer sent to the private triage (owner, 20 Oct 2026: 0 of
-// 18 such issues led to a fix; Sentry and its fixer handle crashes and failed runs): they stay counted here, on /admin/app.
+// 18 such issues led to a fix; Sentry and its fixer handle crashes and failed runs): they stay counted here, on /admin/growth/app.
 export async function daily(env, now = new Date()) {
   if (!env.STATS) return 0;
   await env.STATS.prepare('DELETE FROM telemetry WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_DAYS * 86400000))).run();

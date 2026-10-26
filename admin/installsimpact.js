@@ -7,7 +7,7 @@ import {servedSection} from './scoutingadmin.js';
 import {stacked} from './installscharts.js';
 import {all, day, jobsOf, pooledKeys, isPooled} from '../shared/pool-snapshot.js';
 
-// /admin/installs: what real installs add to the product, above all the central employer list (owner, 20 Oct 2026: "the impact of real
+// /admin/job-search/installs: what real installs add to the product, above all the central employer list (owner, 20 Oct 2026: "the impact of real
 // users/installation over our product growth ... especially on the scouting/job search"). Employers an install shared, the open jobs they
 // hold, the kind × country cells installs filled, steps installs skipped thanks to the pool (pool_served_day), boards and dead ends.
 // Counts and names only, never a job text. Tests: test/admin/installsimpact.test.js.
@@ -70,7 +70,7 @@ export function page(data, now = new Date()) {
 <meta name="robots" content="noindex"><title>Installs · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>.card{padding:16px;margin-bottom:12px;min-width:0}td{padding:7px 4px}.verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:12px}.grid2>.card{margin-bottom:0}.legend i.sw{width:10px;height:10px;border-radius:2px}${CHART_STYLE}</style></head><body><main>
-<header><div><h1>🧲 What installs add</h1><small class="muted">Counts and names only. <a href="/admin/scouting">Scouting →</a></small></div></header>
+<header><div><h1>🧲 What installs add</h1><small class="muted">Counts and names only. <a href="/admin/job-search/scouting">Scouting →</a></small></div></header>
 <div class="verdict">${esc(verdict)}</div>
 <div class="tiles">
 ${tile('Employers from installs', n(pooledNow.length), {spark: daily.map(row => row.from_pool), delta: delta('from_pool'), note: `${pct(pooledNow.length, total)} of the list`})}

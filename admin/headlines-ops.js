@@ -10,7 +10,7 @@ const all = async (env, sql, ...binds) => { try { return env.STATS ? (await env.
 const json = text => { try { return JSON.parse(text) || {}; } catch { return {}; } };
 const num = value => (Number(value) || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
 
-// Self-healing: the newest daily snapshot (what /admin/self-healing shows as "The loop, live") and the weekly precision from the stored days.
+// Self-healing: the newest daily snapshot (what /admin/operations/self-healing shows as "The loop, live") and the weekly precision from the stored days.
 async function selfHealing(env, now) {
   const rows = (await all(env, 'SELECT day, body FROM selfheal_snapshots WHERE day >= ? ORDER BY day', since(now))).map(row => ({day: row.day, ...json(row.body)}));
   const live = rows.at(-1);
@@ -73,4 +73,4 @@ async function e2e(env, now) {
   return [{label: 'E2E reds, 7 days', value: `${num(reds)} of ${num(runs)}`, sub: top ? `top cause: ${top[0]} (${top[1]})` : 'no failures', status: !runs ? 'none' : share < 0.1 ? 'good' : share < 0.3 ? 'warn' : 'bad'}];
 }
 
-export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/e2e': e2e, '/admin/operations/schedules': schedules, '/admin/self-healing': selfHealing, '/admin/sentry': sentry, '/admin/ai-cost': aiCost};
+export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/e2e': e2e, '/admin/operations/schedules': schedules, '/admin/operations/self-healing': selfHealing, '/admin/operations/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
