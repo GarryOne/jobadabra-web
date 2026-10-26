@@ -133,7 +133,8 @@ def request(prompt):
 
 
 def claude(prompt):
-    """One Haiku call on the draw's own key (RANDOM_DRAWS_ANTHROPIC_KEY, the Jobadabra Tests workspace), never a user's or the production key."""
+    """One call on the key in RANDOM_DRAWS_ANTHROPIC_KEY: in CI the Free AI relay's throwaway JPF1 key, the SDK pointed at it by ANTHROPIC_BASE_URL
+    (random-draw.yml, owner 26 Oct 2026: Free AI only); never a user's or the production key."""
     import anthropic
     key = os.environ.get('RANDOM_DRAWS_ANTHROPIC_KEY')
     if not key:

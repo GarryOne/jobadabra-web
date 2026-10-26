@@ -76,15 +76,19 @@ test('a Free AI draw row takes its dollars and refusals from the relay, not the 
   assert.equal(rowFromDraw({...info, engine: 'api', free_ai: undefined}, [{crashes: [], funnel: {ai_usd: 0.9}}], {build: null}).ai_usd, 0.9);
 });
 
-test('the workflow alternates engines and runs a free draw through the local relay, keeping its meter even when the search fails', async () => {
+test('the draws run on Free AI only: the relay answers the role and the search, the API engine is parked, no token is one line and no red run', async () => {
   const {readFileSync} = await import('node:fs');
   const yml = readFileSync(new URL('../../.github/workflows/random-draw.yml', import.meta.url), 'utf8');
-  assert.match(yml, /engines="\$\{ENGINE_INPUT:-api,free\}"/);
-  assert.match(yml, /HAS_FREE_AI: \$\{\{ secrets\.RANDOM_DRAWS_CF_AI_TOKEN != '' && secrets\.RANDOM_DRAWS_CF_ACCOUNT_ID != '' \}\}/);
-  assert.match(yml, /"\$HAS_FREE_AI" != true[^\n]*Free AI: no token[^\n]*engines=api/, 'no token: one clear line and the API engine, never a red draw');
-  assert.match(yml, /free-ai-local\.mjs 8787/);
-  assert.match(yml, /JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
-  assert.match(yml, /\|\| status=\$\?[\s\S]*__report[\s\S]*draw\.free_ai=[\s\S]*exit "\$status"/);
+  const step = name => yml.slice(yml.indexOf(`- name: ${name}`), yml.indexOf('- name: ', yml.indexOf(`- name: ${name}`) + 9));
+  assert.ok(yml.indexOf('- name: Free AI on this runner') < yml.indexOf('- name: Draw the candidate'));
+  assert.match(step('Free AI on this runner'), /no token[^\n]*no draw today[\s\S]*on=false[^\n]*exit 0/);
+  assert.match(step('Draw the candidate'), /--engines free/);
+  assert.match(step('Draw the candidate'), /ANTHROPIC_BASE_URL: http:\/\/127\.0\.0\.1:8787\/api\/ai/);
+  assert.match(step('Draw the candidate'), /parked/);
+  assert.ok(!/secrets\.RANDOM_DRAWS_ANTHROPIC_KEY/.test(yml), 'no Anthropic spend: the draws never read the Anthropic key');
+  for (const name of ['Draw the candidate', 'Search as that candidate', 'Send the counts to /admin']) assert.match(step(name), /steps\.free\.outputs\.on == 'true'/, name);
+  assert.match(step('Search as that candidate'), /JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
+  assert.match(step('Search as that candidate'), /\|\| status=\$\?[\s\S]*__report[\s\S]*draw\.free_ai=[\s\S]*exit "\$status"/);
 });
 
 test('a hand-started draw never cancels another one waiting: only scheduled draws share a queue', async () => {
