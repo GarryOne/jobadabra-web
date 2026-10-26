@@ -38,4 +38,4 @@ jobs:
         run: |
           set -o pipefail
           sleep 10
-          node tools/probe-routes.mjs https://www-staging.jobpilotto.workers.dev https://www.jobpilotto.workers.dev
+          node tools/probe-routes.mjs https://www-staging.jobpilotto.workers.dev https://www.jobadabra.top   # not workers.dev: its pages 301 there since 27 Oct 2026
