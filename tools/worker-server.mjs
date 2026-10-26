@@ -8,6 +8,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
 import {DatabaseSync} from 'node:sqlite';
+import {MAIN_HOST} from '../shared/hosts.js';
 
 export const ORIGIN = 'https://www.jobpilotto.top', KEY = 'page-shot-key';
 const TYPES = {'.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.mp4': 'video/mp4', '.webm': 'video/webm'};
@@ -33,7 +34,7 @@ export async function workerServer(root, seedNames = []) {
   const env = {STATS: d1(root), STATS_KEY: 'page-shot-browser-key', STATS_API_KEY: KEY, STATS_SALT: 's', PRO_PLAN: 'test', PROMO_CODE_KEY: 'page-shot-code-key', ASSETS,
     WAITLIST: {get: async k => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, list: async () => ({keys: []}), delete: async k => { kv.delete(k); }}};
   const worker = (await import(pathToFileURL(path.join(root, 'workers/www/index.js')))).default;
-  const call = (pathname, init = {}) => worker.fetch(new Request(`${ORIGIN}${pathname}`, {...init, headers: {Authorization: `Bearer ${KEY}`, Origin: ORIGIN, 'User-Agent': 'Mozilla/5.0 (Macintosh)', ...init.headers}}), env, {waitUntil: () => {}});
+  const call = (pathname, init = {}, origin = ORIGIN) => worker.fetch(new Request(`${origin}${pathname}`, {...init, headers: {Authorization: `Bearer ${KEY}`, Origin: ORIGIN, 'User-Agent': 'Mozilla/5.0 (Macintosh)', ...init.headers}}), env, {waitUntil: () => {}});
   const {seeds} = await import(pathToFileURL(path.join(root, 'tools/page-shot-seeds.mjs')));
   const names = seedNames === 'all' ? Object.keys(seeds) : [seedNames].flat().filter(Boolean);
   for (const name of names) {
@@ -43,7 +44,11 @@ export async function workerServer(root, seedNames = []) {
   const server = http.createServer(async (req, res) => {   // the browser talks to this; the Worker sees the real origin and the owner login
     const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await new Promise(resolve => { const parts = []; req.on('data', c => parts.push(c)); req.on('end', () => resolve(Buffer.concat(parts))); });
     try {
-      const response = await call(req.url, {method: req.method, body, headers: {'Content-Type': req.headers['content-type'] || 'text/plain'}});
+      const init = {method: req.method, body, headers: {'Content-Type': req.headers['content-type'] || 'text/plain'}};
+      let response = await call(req.url, init);
+      // A public page (/download) is sent from the old host to https://www.jobadabra.top/<page> (shared/hosts.js); serve it here instead of the live site.
+      const moved = response.status === 301 && new URL(response.headers.get('location') || '/', ORIGIN);
+      if (moved && moved.hostname === MAIN_HOST) response = await call(moved.pathname + moved.search, init, moved.origin);
       res.writeHead(response.status, Object.fromEntries([...response.headers].filter(([k]) => k !== 'content-encoding' && k !== 'set-cookie')));
       res.end(Buffer.from(await response.arrayBuffer()));
     } catch (error) { res.writeHead(500, {'Content-Type': 'text/plain'}).end(String(error?.stack || error)); }
