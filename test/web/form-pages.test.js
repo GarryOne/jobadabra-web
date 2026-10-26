@@ -1,7 +1,7 @@
 // The three form-filling admin pages (owner, 14 Oct 2026): Real Form Filling and Lab Form Filling side by side in Form filling, with Benchmark and Learning; the old addresses only redirect.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync, readdirSync} from 'node:fs';
+import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
@@ -56,9 +56,11 @@ test('the old addresses redirect the owner to the new pages, the digest too, and
 });
 
 // The class: no file links an old page path (every /admin/… address in the redirect list, so a page moved later is covered too). The redirect list (admin/admin.js) is the one place; migrations and the dated specs are history and are never rewritten.
-// Only this repo's files (SITE_REPO_DIR, set by tools/site-run.sh and site-guards.sh): the public repo moves its links after the site lands, and until then the redirects answer them.
+// Only this repo's files (SITE_REPO_DIR from tools/site-run.sh and site-guards.sh; CI's "Site tests" step has this repo's checkout in .private): the public repo moves its
+// links after the site lands, and until then the redirects answer them.
 test('no tracked file names an old page path except the redirect list', () => {
-  const root = process.env.SITE_REPO_DIR ? `${process.env.SITE_REPO_DIR}/` : new URL('../../', import.meta.url).pathname;
+  const tree = new URL('../../', import.meta.url).pathname;
+  const root = process.env.SITE_REPO_DIR ? `${process.env.SITE_REPO_DIR}/` : existsSync(`${tree}.private/.git`) ? `${tree}.private/` : tree;
   const files = execFileSync('git', ['ls-files', '-z'], {cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}).split('\0').filter(Boolean);
   const skip = file => file.startsWith('db/migrations/') || file.startsWith('site/src/') || file.startsWith('docs/superpowers/') || file === 'admin/admin.js' || file === 'test/web/form-pages.test.js' || file === 'test/admin/admin-urls.test.js' || /\.(png|jpe?g|gif|webp|ico|woff2?|zip|pdf)$/.test(file);
   const names = oldPaths().filter(path => path.startsWith('/admin/')).map(path => path.slice('/admin/'.length).replace(/[.]/g, '\\.'));

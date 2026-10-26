@@ -115,6 +115,9 @@ test('the overview: a card per page and what needs attention, pulled from their 
   for (const page of PAGES.filter(p => p.path !== '/admin' && !p.superadmin)) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);
   assert.match(html, /recall 14\/15/);
   for (const key of Object.keys(data.cards)) assert.ok(PAGES.some(page => page.path === key), `the ${key} card belongs to a page`);
+  // The section Overviews read the same cards by key (admin/headlines-*.js fromCards): a key that is not a card shows an empty tile.
+  for (const file of readdirSync(new URL('../../admin/', import.meta.url)).filter(name => /^headlines.*\.js$/.test(name)))
+    for (const [, key] of readFileSync(new URL(`../../admin/${file}`, import.meta.url), 'utf8').matchAll(/fromCards\('([^']+)'\)/g)) assert.ok(key in data.cards, `${file}: fromCards('${key}') is a card`);
 });
 
 test('an empty database: every page and the overview still render', async () => {
