@@ -1,5 +1,5 @@
 """The CI App's token is minted by its Client ID (the repo variable CI_APP_CLIENT_ID), never the deprecated `app-id` input (owner, 26 Oct 2026)."""
-# create-github-app-token@v3: "Input 'app-id' has been deprecated... Use 'client-id'". The public repo's tests/test_workflow_app_client_id.py guards its own workflows.
+# create-github-app-token@v3: "Input 'app-id' has been deprecated... Use 'client-id'". The public repo's tests/test_workflow_app_client_id.py guards its own workflows; this one is named site_* so it never replaces it in the joined tree (tools/site-guards.sh).
 import re
 import unittest
 from pathlib import Path
