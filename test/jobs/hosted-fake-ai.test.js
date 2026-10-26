@@ -31,6 +31,13 @@ test("other list questions stay unanswered: a first allowed answer per item woul
   assert.deepEqual(await ask(DECIDE, 'Task: kind\n\n### Item 0\nzurich\n\n### Item 1\nPlatform Engineer'), {results: []});
 });
 
+test("the title question picks the titles with the search's own role words, never its ruled-out ones", async () => {
+  const FIT = {type: 'object', required: ['fit'], properties: {fit: {type: 'array', items: {type: 'integer'}}}};
+  const search = JSON.stringify({role_words: ['site reliability', '\\bsre\\b', 'platform engineer'], words_ruled_out: ['\\bintern(ship)?\\b']});
+  const {fit} = await ask(FIT, `The search (JSON): ${search}\nThe titles:\n1. Site Reliability Engineer\n2. Accountant\n3. Platform Engineer Intern\n4. SRE Lead`);
+  assert.deepEqual(fit, [1, 4]);
+});
+
 test('a list with no numbered items stays empty', async () => {
   assert.deepEqual(await ask({type: 'object', properties: {tags: {type: 'array', items: {type: 'string'}}}}, 'no list here'), {tags: []});
 });

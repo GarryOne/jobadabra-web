@@ -2,7 +2,9 @@
 // (numbers high, text "ok", the first allowed answer), so every AI step the engine takes in a scheduled search gets a valid answer; the calls are counted for the debit check.
 // The two place questions (src/geo.py: where a string is; src/ai/place_triage.py: is a job location in the person's places) get one entry per numbered item, a fixed
 // answer for the fixture's places (Zurich, Switzerland), "unknown"/"out" for the rest (26 Oct 2026: answered with [], no job was placed once places were the AI's first,
-// and no match reached the inbox). Other lists stay empty: the first allowed answer for each item made "zurich" the Geneva metro. Test: test/jobs/hosted-fake-ai.test.js.
+// and no match reached the inbox). The title question (src/ai/title_triage.py: the numbers of the titles that fit) gets the titles holding one of the search's own
+// role words and none of its ruled-out words, read from the question. Other lists stay empty: the first allowed answer for each item made "zurich" the Geneva metro.
+// Test: test/jobs/hosted-fake-ai.test.js.
 const ZURICH = {kind: 'city', cc: 'CH', lat: 47.37, lon: 8.54, r_km: 20, where: 'Zurich', country: 'Switzerland', nearest: 'zurich', km: 0, answer: 'best'};
 const SWISS = {kind: 'country', cc: 'CH', lat: 0, lon: 0, r_km: 0, where: '', country: 'Switzerland', nearest: 'zurich', km: -1, answer: 'inside'};
 const REMOTE = {kind: 'remote', cc: '', lat: 0, lon: 0, r_km: 0, where: '', country: '', nearest: 'none', km: -1, answer: 'out'};
@@ -20,14 +22,21 @@ export function listed(text) {
   return blocks.length ? blocks : [...String(text).matchAll(/^(\d+)\. (.+)$/gm)].map(m => ({n: Number(m[1]), text: m[2]}));
 }
 
-export function fromSchema(schema, items = []) {
+function fitting(items, asked) {
+  const search = JSON.parse(String(asked).match(/^The search \(JSON\): (.+)$/m)?.[1] || '{}');
+  const has = (text, words) => (words || []).some(word => { try { return new RegExp(word, 'i').test(text); } catch { return text.toLowerCase().includes(String(word).toLowerCase()); } });
+  return items.filter(item => has(item.text, search.role_words) && !has(item.text, search.words_ruled_out)).map(item => item.n);
+}
+
+export function fromSchema(schema, items = [], asked = '') {
   if (!schema || typeof schema !== 'object') return null;
   if ('const' in schema) return schema.const;
   if (schema.enum) return schema.enum[0];
   const pick = schema.anyOf || schema.oneOf;
-  if (pick) return fromSchema(pick.find(part => part.type !== 'null') || pick[0], items);
+  if (pick) return fromSchema(pick.find(part => part.type !== 'null') || pick[0], items, asked);
   const type = Array.isArray(schema.type) ? schema.type.find(t => t !== 'null') : schema.type;
-  if (type === 'object') return Object.fromEntries(Object.entries(schema.properties || {}).map(([key, part]) => [key, fromSchema(part, items)]));
+  if (type === 'object') return Object.fromEntries(Object.entries(schema.properties || {}).map(([key, part]) =>
+    [key, key === 'fit' && part.type === 'array' ? fitting(items, asked) : fromSchema(part, items, asked)]));
   if (type === 'array') {
     const props = schema.items?.properties || {};
     const key = ['n', 'index'].find(name => name in props);
@@ -52,7 +61,7 @@ export function fakeAi() {
       const schema = input.response_format?.json_schema?.schema;
       calls.push({model, structured: !!schema});
       const asked = (input.messages || []).filter(message => message.role === 'user').map(message => textOf(message.content)).join('\n');
-      return {response: JSON.stringify(schema ? fromSchema(schema, listed(asked)) : {ok: true}), usage: {prompt_tokens: 1200, completion_tokens: 80}};
+      return {response: JSON.stringify(schema ? fromSchema(schema, listed(asked), asked) : {ok: true}), usage: {prompt_tokens: 1200, completion_tokens: 80}};
     },
     async toMarkdown() { return [{data: ''}]; },
   };
