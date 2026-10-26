@@ -114,6 +114,17 @@ jobs:
           [ -f "$RUNNER_TEMP/draw-out/draw/presses.jsonl" ] || { echo "no search ran: nothing to judge"; exit 0; }
           if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
           else node jobs/persona-search/draw-alarm.mjs "$RUNNER_TEMP/draw-out" --verdict "$RUNNER_TEMP/verdict.json" --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
+      - name: Alarm when real installs' searches came back empty (3+ installs per field × country)
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.alarm_token.outputs.token }}
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -o pipefail
+          [ -n "$REPLAYS_PUBLISH_KEY" ] || { echo "no key: real installs not read"; exit 0; }
+          if [ -n "$GH_TOKEN" ]; then node jobs/persona-search/real-alarm.mjs --run "$RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          else node jobs/persona-search/real-alarm.mjs --run "$RUN_URL" --dry | tee -a "$GITHUB_STEP_SUMMARY"; fi
       - name: Keep the numbers (counts only, no job titles, companies or log)
         if: always()
         run: |

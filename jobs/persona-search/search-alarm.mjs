@@ -6,7 +6,7 @@
 import {execFileSync} from 'node:child_process';
 
 export const REPO = 'GarryOne/jobadabra', LABEL = 'auto-search';
-const PATH_WORDS = {first: 'first search', 'field-change': 'field change, 2nd search', again: 'same search again'};
+const PATH_WORDS = {first: 'first search', 'field-change': 'field change, 2nd search', again: 'same search again', real: 'real installs, latest search'};
 const slug = text => String(text || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 40) || 'any';
 const num = value => (value == null ? '–' : Number(value).toLocaleString('en-US'));
 
