@@ -66,6 +66,12 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ endsWith(github.actor, '[bot]') && '' || github.event.pull_request.title }}   # the "[xx] " session tag (public tools/pr-body-check.py)
         run: printf '%s' "$BODY" | python3 tools/pr-body-check.py   # the public repo's own check, from the joined tree: the same layout the owner reads in 2-5 seconds
+      - name: playwright-core for the phone checks   # test/admin/admin-no-sideways.test.js and test/web/no-sideways.test.js open pages at 390 px in the runner's Google Chrome; without it they skip (26 Oct 2026, admin on a phone)
+        timeout-minutes: 3
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright-core@1.63.0
+          echo "PLAYWRIGHT_CORE=$RUNNER_TEMP/pw/node_modules/playwright-core" >> "$GITHUB_ENV"
+          echo "CHROME=$(command -v google-chrome)" >> "$GITHUB_ENV"
       - name: Site tests
         env:
           SITE_ROUTES_STRICT: ${{ github.event_name == 'schedule' && '1' || '' }}   # a route the Worker has but public never listed fails the daily run, not a pair in flight

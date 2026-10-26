@@ -3,6 +3,31 @@ import {ACTIONS} from '../shared/aicost.js';
 const form = fields => ({method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(fields)});
 
 export const seeds = {
+  'lab-form-filling': async ({env}) => {   // made-up recorded sites on the usual form platforms, a week of smoke runs: fills, a left field, a bot check, a regression (26 Oct 2026, admin on a phone)
+    const {ingest} = await import('../admin/applying.js');
+    const hosts = ['job-boards.greenhouse.io', 'jobs.lever.co', 'demo.wd5.myworkdayjobs.com', 'jobs.ashbyhq.com', 'apply.workable.com', 'career5.successfactors.eu', 'jobs.smartrecruiters.com', 'careers.demo-company.example'];
+    const sites = hosts.flatMap((host, i) => [0, 1].map(j => ({name: `Demo site ${i * 2 + j + 1}`, start_host: host, signature: `posting>form@${host}#${j ? 'form' : 'ready'}`})));
+    const today = new Date();
+    await ingest(env.STATS, {kind: 'pool', day: today.toISOString().slice(0, 10), rows: sites}, today);
+    for (let back = 6; back >= 0; back--) {
+      const at = new Date(today.getTime() - back * 86400000), day = at.toISOString().slice(0, 10);
+      await ingest(env.STATS, {kind: 'smoke', day, version: `0.9.${190 + 6 - back}`, rows: sites.map((site, n) => ({name: site.name, host: site.start_host,
+        reached: n % 7 === 3 ? 'code/bot' : n % 5 === 4 ? 'form' : 'ready', filled: 6 + (n * 3 + back) % 9, left: (n + back) % 4 === 0 ? 1 : 0, regression: back === 0 && n === 5}))}, at);
+    }
+  },
+  'self-healing': async ({env}) => {   // made-up snapshots of the self-healing loop over 10 days, with long issue titles and detector names (26 Oct 2026, admin on a phone)
+    const today = Date.now();
+    for (let back = 9; back >= 0; back--) {
+      const at = new Date(today - back * 86400000).toISOString(), real = 20 + back;
+      const body = {schema: 1, at, totals: {filed: 95 - back, fixed: 19, queued: real - 19, falsePositive: 22, duplicate: 10, harness: 6, unclear: 25, open: 6, real, precision: 54},
+        byDetector: ['AI screenshot review', 'AI code review of the latest merged pull requests', 'Recorded replay mismatch', 'Console errors'].map((detector, i) => ({detector, filed: 38 - i * 7, fixed: 4 + i, queued: 7, falsePositive: 10 - i, duplicate: 3, harness: i, unclear: 6, open: 1})),
+        fixer: {opened: 8, merged: 2, landed: 5, closed: 4, open: 0}, verdicts: {real: 9, falsePositive: 8}, cost: {usd: 1.06, runs: 12, byJob: {review: 0.6, fixer: 0.46}, perRealBug: 0.04},
+        recall: {planted: 13, caught: 11, missed: ['page-overflow', 'a11y-contrast']}, daily: [{day: at.slice(0, 10), filed: 33, real: 20, falsePositive: 9}],
+        notable: [1, 2, 3, 4].map(n => ({number: 100 + n, title: `Demo issue ${n}: a long made-up title that names a component, the symptom and where_it_happens_in_some/long/path/file-name.js`, url: `https://github.com/demo/demo/issues/${100 + n}`,
+          detector: 'AI code review', status: n % 2 ? 'fixed' : 'queued', severity: 'medium'}))};
+      await env.STATS.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET at = excluded.at, body = excluded.body').bind(at.slice(0, 10), at, JSON.stringify(body)).run();
+    }
+  },
   email: async ({env}) => {   // made-up mail for /admin/email (26 Oct 2026): 14 days of sends and refusals under made-up address hashes, a bounce, an unconfirmed stop, two held items
     const templates = ['digest', 'digest', 'digest', 'welcome', 'account-code', 'message'], why = ['rate', 'unsubscribed', 'not_opted_in', 'suppressed', 'failed'];
     const today = Date.now();

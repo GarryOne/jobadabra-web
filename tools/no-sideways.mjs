@@ -10,7 +10,8 @@ const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const arg = name => (process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : null);
 const web = path.resolve(arg('web') || path.join(repo, 'web/public'));
 const width = Number(arg('width')) || 390;
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// CHROME (CI points it at the runner's Google Chrome: tests.yml), else the Mac's, else the runner's; playwright's own download is never installed on CI.
+const CHROME = [process.env.CHROME, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find(file => file && fs.existsSync(file)) || '';
 
 // playwright-core: PLAYWRIGHT_CORE (a path), else the public tree's e2e kit (tools/site-run.sh builds .overlay), else this repo.
 const load = () => {

@@ -62,12 +62,17 @@ th,td{padding:10px 8px;vertical-align:top}td.num,td.n,th.num,th.n{text-align:rig
 .filters{display:flex;gap:6px;flex-wrap:wrap}.filter{color:#8d949c;text-decoration:none;padding:5px 10px;border:1px solid #262c33;border-radius:999px;font-size:13px;background:transparent;font-weight:400}
 .filter:hover{color:#f4efe3}.filter.on{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight:600}
 .seg button{border-radius:999px;border-color:#262c33;color:#8d949c}.seg button[aria-pressed=true]{background:#f5b54a;border-color:#f5b54a;color:#0b0d10;font-weight:600}
-@media (max-width:700px){main .card{overflow-x:auto}main table.wide{min-width:600px}.card{padding:14px}}`;
+.table-scroll{overflow-x:auto}
+@media (max-width:700px){main .card{overflow-x:auto}main table.wide{min-width:600px}.card{padding:14px}
+main{overflow-wrap:break-word}main img,main svg,main video,main canvas,main iframe{max-width:100%}main pre{white-space:pre-wrap;overflow-wrap:anywhere}
+main .tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}main .tabs::-webkit-scrollbar{display:none}main .tabs>*{flex:none}
+main .filter,main .tabs a,main .seg button{min-height:40px;display:inline-flex;align-items:center}}`;
 
 // What CSS alone can't do, on every admin page: a number column's header aligned like its numbers, dates on one line, a table
-// with only its "nothing yet" row shown without its header, and wide tables (4+ columns) scrolling inside their card on a phone.
+// with only its "nothing yet" row shown without its header, and wide tables (4+ columns) scrolling inside their card on a phone
+// (a wide table outside any card gets a box of its own that scrolls, so the page never does: owner, 26 Oct 2026).
 export const TABLE_SCRIPT = `document.querySelectorAll('main table').forEach(t=>{const rows=[...t.rows],head=rows.find(r=>r.querySelector('th'));
-if(head&&head.cells.length>=4)t.classList.add('wide');const body=rows.filter(r=>r!==head&&r.querySelector('td'));
+if(head&&head.cells.length>=4){t.classList.add('wide');if(!t.closest('.card,.table-scroll')){const box=document.createElement('div');box.className='table-scroll';t.before(box);box.append(t)}}const body=rows.filter(r=>r!==head&&r.querySelector('td'));
 if(head&&body.length===1&&body[0].cells.length===1&&body[0].cells[0].colSpan>1)head.hidden=true;
 if(head)[...head.cells].forEach((th,i)=>{const cells=body.map(r=>r.cells[i]).filter(Boolean);if(cells.length&&cells.every(c=>c.classList.contains('num')||c.classList.contains('n')||!c.textContent.trim()))th.classList.add('num')});
 body.forEach(r=>[...r.cells].forEach(c=>{if(/^\\d{4}-\\d\\d-\\d\\d( \\d\\d:\\d\\d)?( UTC)?$/.test(c.textContent.trim()))c.classList.add('nowrap')}))});`;
@@ -75,13 +80,20 @@ body.forEach(r=>[...r.cells].forEach(c=>{if(/^\\d{4}-\\d\\d-\\d\\d( \\d\\d:\\d\\
 export const filterLinks = (options, current) => `<nav class="filters" aria-label="Filter">${options.map(([value, label, href]) =>
   `<a class="filter${value === current ? ' on' : ''}" href="${esc(href)}"${value === current ? ' aria-current="true"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
 export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:#0b0d10ee;backdrop-filter:blur(6px);border-bottom:1px solid #262c33;margin:0 0 18px}
-.admin-nav div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
+.admin-nav>div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
 .admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
 .admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
 .trend .up{color:#3fb68b}.trend .down{color:#e5484d}
 .admin-nav .admin-sub{padding-top:0;font-size:13px}.admin-nav .admin-sub a[aria-current]{background:#1b2027;color:#f5b54a}
-.admin-question{margin:-10px 0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}`;
+.admin-question{margin:-10px 0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}
+.admin-menu{display:none;font:15px/1.3 system-ui,-apple-system,sans-serif}.admin-menu summary{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 16px;list-style:none;cursor:pointer}
+.admin-menu summary::-webkit-details-marker{display:none}.admin-menu .here{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f5b54a;font-weight:600}
+.admin-menu .burger{font-size:20px;color:#f4efe3;width:40px;height:40px;display:grid;place-items:center;border:1px solid #262c33;border-radius:10px}.admin-menu[open] .burger{background:#1b2027}
+.admin-menu .list{max-height:calc(100vh - 56px);overflow-y:auto;padding:0 16px 14px;border-top:1px solid #262c33}.admin-menu h3{margin:14px 0 4px;font-size:12px;font-weight:600;color:#8d949c;text-transform:uppercase;letter-spacing:.04em}
+.admin-menu .group{display:grid;grid-template-columns:1fr 1fr;gap:4px}.admin-menu .group a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;background:#14181d;color:#f4efe3;white-space:normal}
+.admin-menu .group a[aria-current]{background:#f5b54a;color:#0b0d10}.admin-menu .me{display:block;margin:14px 0 0;font-size:13px}
+@media (max-width:700px){.admin-nav>div{display:none}.admin-menu{display:block}.admin-nav{margin-bottom:14px}.admin-question{margin-top:-8px}}`;
 
 // The menu for this viewer, in five groups (owner, 6 Oct 2026: one row of eleven pages had grown too long; 17 Oct 2026: Operations had ten, split in
 // Form filling and Engineering, which was renamed Operations again on 18 Oct 2026: Lab and Benchmark are engineering too): the groups on the first row, the pages of the open group on a second (at most 6); the Access page is not in a row,
@@ -100,7 +112,21 @@ export function nav(active, who = {role: 'superadmin'}) {
   const pages = shown.filter(page => page.group === open);
   const second = pages.length > 1 ? `<div class="admin-sub">${pages.map(page =>
     `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
-  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}${access ? ` <a href="${access.path}"${access.path === active ? ' aria-current="page"' : ''} title="${esc(access.name)}" aria-label="${esc(access.name)}">${access.icon}</a>` : ''}</span></div>${second}</nav>`;
+  const lock = access ? ` <a href="${access.path}"${access.path === active ? ' aria-current="page"' : ''} title="${esc(access.name)}" aria-label="${esc(access.name)}">${access.icon}</a>` : '';
+  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}${lock}</span></div>${second}${phoneMenu(active, shown, open, me, lock)}</nav>`;
+}
+// On a phone the two rows give way to one bar (owner, 26 Oct 2026: "a horrible responsiveness in admin"; the rows wrapped to 5-6 lines, 150-212 px,
+// pinned while scrolling): the open group and page, and ☰ that lists every page by group in 44 px taps. Shown by NAV_STYLE under 700 px only.
+function phoneMenu(active, shown, open, me, lock) {
+  const here = PAGES.find(page => page.path === active);
+  const label = here ? `${here.group === here.name ? '' : `${esc(here.group)} › `}${here.icon} ${esc(here.title || here.name)}` : 'Admin';
+  const groups = GROUPS.map(([name, icon]) => {
+    const pages = shown.filter(page => page.group === name);
+    return pages.length ? `<h3>${icon} ${esc(name)}</h3><div class="group">${pages.map(page =>
+      `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
+  }).join('');
+  return `<details class="admin-menu"><summary><b>✈</b><span class="here">${label}</span><span class="burger" aria-label="All admin pages">☰</span></summary>`
+    + `<div class="list">${groups}<span class="me">${esc(me)}${lock}</span></div></details>`;
 }
 // The question a page answers, under the menu on every page (owner, 6 Oct 2026): what to read it for, in one line.
 export function question(active) {
