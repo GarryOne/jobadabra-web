@@ -151,3 +151,20 @@ test('the welcome waits for the kill switch: with mail off the address is saved 
   assert.equal((await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'})).ok, true);
   assert.equal(sent.length, 0);
 });
+
+// Owner, 26 Oct 2026 ("Stop after 14 days"): daily mail to a typed-in address nobody confirms must end; confirming later starts it again.
+test('an address unconfirmed for 14 days after its first mail gets no more mail; the app is told; confirming starts it again', async () => {
+  const {e, sent} = setup();
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});   // the welcome, 16 Oct
+  const send = async iso => (await notify(new Request('https://x/api', {method: 'POST', headers: {'x-api-key': await keyOf('install-aaaa')}, body: JSON.stringify({subject: iso, html: card})}), e, new Date(iso))).json();
+  assert.equal((await send('2026-10-29T10:00:00Z')).ok, true, 'day 13: still mailed');
+  const late = await send('2026-10-31T10:00:00Z');
+  assert.deepEqual([late.ok, late.reason], [false, 'unconfirmed_stopped'], 'day 15: stopped');
+  assert.equal(sent.at(-1).subject, '2026-10-29T10:00:00Z');
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).unconfirmedStopped, true, 'the app can say why mail stopped');
+  assert.equal((await send('2026-11-01T10:00:00Z')).ok, false, 'and it stays stopped');
+  const link = await confirmLink(e, 'me@example.com');
+  assert.equal((await confirm(new Request(link, {method: 'POST'}), e)).status, 200);
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).unconfirmedStopped, false);
+  assert.equal((await send('2026-11-02T10:00:00Z')).ok, true, 'confirmed: mail comes again');
+});
