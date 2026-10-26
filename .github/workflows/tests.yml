@@ -52,11 +52,11 @@ jobs:
           files="$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --jq '.[].filename')" || files='media/'
           if printf '%s\n' "$files" | grep -qE '^(media/|desktop/test/media-|tools/(hero|media|apt-install|site-guards)|\.github/workflows/tests\.yml$)'; then echo MEDIA_TOOLS=1; else echo MEDIA_TOOLS=0; fi | tee -a "$GITHUB_ENV"
       - name: ffmpeg for the hero media tests   # #98: framesIn and the plan check make and read small videos (desktop/test/media-*.test.js); cut and retried, never a hang (web #122: 11m51s)
-        if: env.MEDIA_TOOLS != '0'
+        if: github.event_name != 'pull_request' || env.MEDIA_TOOLS == '1'   # unset on a push reads as 0 here, so compare with '1' (red main 9908c69)
         timeout-minutes: 5
         run: .private/tools/apt-install.sh ffmpeg
       - name: Electron and a display for the hero render test   # #100: media-render.test.js draws frames with media/render.cjs; the job skips the binary above
-        if: env.MEDIA_TOOLS != '0'
+        if: github.event_name != 'pull_request' || env.MEDIA_TOOLS == '1'   # unset on a push reads as 0 here, so compare with '1' (red main 9908c69)
         timeout-minutes: 8
         working-directory: desktop
         run: ../.private/tools/apt-install.sh xvfb && ELECTRON_SKIP_BINARY_DOWNLOAD='' node node_modules/electron/install.js
