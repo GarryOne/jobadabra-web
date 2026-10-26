@@ -91,8 +91,8 @@ export async function confirm(request, env, now = new Date()) {
   if (request.method === 'POST') {
     await env.STATS.prepare('UPDATE pro_accounts SET email_confirmed_at = ? WHERE email_hash = ? AND email_confirmed_at IS NULL').bind(now.toISOString(), addr).run();
     await env.STATS.prepare("DELETE FROM mail_off WHERE addr = ? AND list = 'service' AND reason = 'unconfirmed'").bind(addr).run();   // the 14-day stop ends
-    return page('Email confirmed', '<p>Thank you. Your mails will keep coming.</p>');
+    return page('Email confirmed ✓', '<p>Thank you. Your Jobadabra mails will reach you. You can close this tab.</p>');
   }
   if (request.method !== 'GET') return page('Not allowed', '', 405);
-  return page('Confirm your email?', '<form method="post"><button style="font:inherit;padding:.5rem 1rem">Yes, this is my email</button></form>');
+  return page('Confirm your email?', '<p>One press, and your Jobadabra mails reach you.</p><form method="post"><button>Yes, this is my email</button></form>');
 }

@@ -6,7 +6,7 @@ import {CADENCES} from './mail-held.js';
 import {page, switchOff} from './mail-unsub.js';
 
 const bad = () => page('This link does not work', '<p>It may be cut off. Open the link from the mail again.</p>', 400);
-const row = (name, checked, label, note, disabled = false) => `<p><label><input type="checkbox" name="${name}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}> <b>${label}</b></label><br><small style="color:#667085">${note}</small></p>`;
+const row = (name, checked, label, note, disabled = false) => `<p><label><input type="checkbox" name="${name}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}> <b>${label}</b></label><br><small>${note}</small></p>`;
 
 async function stateOf(env, addr) {
   const off = (await env.STATS.prepare("SELECT list FROM mail_off WHERE addr = ? AND list IN ('all', 'service', 'marketing')").bind(addr).all()).results || [];
@@ -40,9 +40,9 @@ export async function settings(request, env, now = new Date()) {
   if (request.method !== 'GET') return page('Not allowed', '', 405);
   const st = await stateOf(env, addr), marketingOn = env.MARKETING_MAIL === 'on';
   const body = `${st.blocked ? '<p><b>Mail to this address is stopped</b> after a bounce or a complaint. Write to hello@jobadabra.top to turn it back on.</p>' : ''}`
-    + `<form method="post">${row('service', st.service, 'Jobadabra emails', 'New matches, your digest and account notices.', st.blocked)}`
-    + `<p><label><b>Digest</b><br><select name="cadence"${st.blocked ? ' disabled' : ''}>${CADENCES.map(c => `<option value="${c}"${st.cadence === c ? ' selected' : ''}>${c === 'daily' ? 'One email a day' : 'One email a week (Mondays)'}</option>`).join('')}</select></label><br><small style="color:#667085">Everything except new matches, which arrive at once.</small></p>`
+    + `<form method="post" class="fields">${row('service', st.service, 'Jobadabra emails', 'New matches, your digest and account notices.', st.blocked)}`
+    + `<p><label><b>Digest</b><br><select name="cadence"${st.blocked ? ' disabled' : ''}>${CADENCES.map(c => `<option value="${c}"${st.cadence === c ? ' selected' : ''}>${c === 'daily' ? 'One email a day' : 'One email a week (Mondays)'}</option>`).join('')}</select></label><br><small>Everything except new matches, which arrive at once.</small></p>`
     + `${row('marketing', marketingOn && st.marketing, 'Product news', marketingOn ? 'News and offers, only when there is something to say.' : 'Off. We are not sending any product news right now.', !marketingOn || st.blocked)}`
-    + `<button style="font:inherit;padding:.5rem 1rem;background:#d0612b;color:#fff;border:0;border-radius:8px"${st.blocked ? ' disabled' : ''}>Save</button></form>`;
+    + `<button${st.blocked ? ' disabled' : ''}>Save</button></form>`;
   return page('Email settings', body);
 }
