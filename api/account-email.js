@@ -26,7 +26,8 @@ export async function address(request, env, now = new Date()) {
   if (!install || !env.STATS) return json(401, {ok: false, error: 'unauthorized'});
   let account = await accountOf(env, install);
   if (request.method === 'GET') {
-    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null});
+    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
+      sending: env.MAIL === 'on' && !!env.EMAIL});   // the kill switch (shared/mail.js): the app says so instead of promising a mail
   }
   if (request.method !== 'PUT') return json(405, {ok: false});
   const body = await request.json().catch(() => ({})), email = clean(body.email);

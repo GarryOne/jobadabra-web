@@ -109,3 +109,13 @@ test('an "activity" message waits for the digest; one mail a day with everything
   assert.equal((await call(address, e, 'install-held', 'PUT', {email: 'me@example.com', cadence: 'hourly'})).ok, true);
   assert.equal((await call(address, e, 'install-held', 'GET')).cadence, 'weekly', 'an unknown cadence changes nothing');
 });
+
+test('GET says whether mail is sending: the app must not promise an e-mail the kill switch holds back (MAIL off since 16 Oct 2026)', async () => {
+  const {e} = setup();
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'me@example.com'});
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).sending, true);
+  e.MAIL = 'off';
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).sending, false);
+  e.MAIL = 'on'; delete e.EMAIL;
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).sending, false, 'no sender bound');
+});
