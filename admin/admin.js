@@ -4,6 +4,7 @@
 import {esc} from '../shared/html.js';
 import {viewer} from '../shared/auth.js';
 import {TABLE_TOOLS_SCRIPT, TABLE_TOOLS_STYLE} from './table-tools.js';
+import {findButton, PALETTE_SCRIPT, PALETTE_STYLE} from './palette.js';
 
 // Every page lives at /admin/{group}/{page} (owner, 27 Oct 2026: "normalize all the page urls"): the group's slug, then the menu name's; /admin itself is the home.
 // slug (when set) = the page's part when its menu name would spell it differently (E-mail → email). old = the page's earlier addresses, redirected (test/admin/admin-urls.test.js fails a page off the pattern, or an old address that no longer answers).
@@ -131,7 +132,7 @@ export function nav(active, who = {role: 'superadmin'}) {
   const second = pages.length > 1 ? `<div class="admin-sub">${pages.map(page =>
     `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
   const lock = access ? ` <a href="${access.path}"${access.path === active ? ' aria-current="page"' : ''} title="${esc(access.name)}" aria-label="${esc(access.name)}">${access.icon}</a>` : '';
-  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}${lock}</span></div>${second}${phoneMenu(active, shown, open, me, lock)}</nav>`;
+  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}${findButton(false)}<span class="me">${esc(me)}${lock}</span></div>${second}${phoneMenu(active, shown, open, me, lock)}</nav>`;
 }
 // On a phone the two rows give way to one bar (owner, 26 Oct 2026: "a horrible responsiveness in admin"; the rows wrapped to 5-6 lines, 150-212 px,
 // pinned while scrolling): the open group and page, and ☰ that lists every page by group in 44 px taps. Shown by NAV_STYLE under 700 px only.
@@ -143,7 +144,7 @@ function phoneMenu(active, shown, open, me, lock) {
     return pages.length ? `<h3>${icon} ${esc(name)}</h3><div class="group">${pages.map(page =>
       `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
   }).join('');
-  return `<details class="admin-menu"><summary><b>✈</b><span class="here">${label}</span><span class="burger" aria-label="All admin pages">☰</span></summary>`
+  return `<details class="admin-menu"><summary><b>✈</b><span class="here">${label}</span>${findButton(true)}<span class="burger" aria-label="All admin pages">☰</span></summary>`
     + `<div class="list">${groups}<span class="me">${esc(me)}${lock}</span></div></details>`;
 }
 // The question a page answers, under the menu on every page (owner, 6 Oct 2026): what to read it for, in one line.
@@ -154,9 +155,9 @@ export function question(active) {
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
 export function withNav(html, active, who) {
   // The question goes under the page's own title (owner, 7 Oct 2026: a muted line, no yellow label); a page without a header gets it under the menu.
-  let out = String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}\n${TABLE_TOOLS_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
+  let out = String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}\n${TABLE_TOOLS_STYLE}\n${PALETTE_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
   out = out.includes('</header>') ? out.replace('</header>', `</header>${question(active)}`) : out.replace('</nav>', `</nav>${question(active)}`);
-  return out.replace('</body>', `<script>${TABLE_SCRIPT}\n${TABLE_TOOLS_SCRIPT}</script></body>`);
+  return out.replace('</body>', `<script>${TABLE_SCRIPT}\n${TABLE_TOOLS_SCRIPT}</script><script>${PALETTE_SCRIPT}</script></body>`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
 export async function adminPage(response, active, who) {
