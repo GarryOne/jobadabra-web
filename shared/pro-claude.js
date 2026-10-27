@@ -10,7 +10,7 @@ const PRICES = {[OPUS]: [4, 20], [SONNET]: [2, 10], [HAIKU]: [0.1, 0.5]};   // U
 
 // step -> {model, gain, cases}. `gain` is what the head-to-head showed and `cases` how many cases each feature had: a step is routed above Qwen only with both written here.
 // Method and traps: skill compare-ai-models-on-writing (tools/free-ai-writing-pairwise.mjs in the public repo); results: Notion "AI by tier" and the Artifact sketch of 27 Oct 2026.
-// Not routed (never measured, they stay on Workers AI): tailor, answer, interview, opportunity. TODO(AI): measure them the same way (27 Oct 2026, owner asked).
+// Not routed (they stay on Workers AI): opportunity and every step that only reads or scores.
 export const PRO_ROUTES = {
   // Why (27 Oct 2026, owner): Sonnet beat Haiku 13 to 7 on cover letters under BOTH judges (Sonnet 6-4, Opus 7-3; 5 cases); the kit writes the letter with the answers and highlights in one call.
   // Not Opus: it beat Sonnet 9-1 and Haiku 23-7 only when Opus was the judge; the Sonnet judge gave 6-4 over Sonnet and 16-14 over Haiku (15 cases), noise at 2x Sonnet's price. Re-test with a judge of another family before switching.
@@ -18,13 +18,20 @@ export const PRO_ROUTES = {
   // Why (27 Oct 2026): the same letter writing as the kit's, in the app's own letter prompts (not measured separately: the class of a measured step).
   cover_letter: {model: SONNET, gain: 'same letter writing as kit; Sonnet beat Haiku 13-7', cases: 5},
   job_cover_letter: {model: SONNET, gain: 'same letter writing as kit; Sonnet beat Haiku 13-7', cases: 5},
-  // Why (27 Oct 2026): Haiku wrote answer reviews better than Sonnet (16-4) and weekly summaries too (13-7): it stays inside the given facts where Sonnet adds claims; Qwen passed 0 of 5 of both.
-  answer_review: {model: HAIKU, gain: 'Haiku 16-4 over Sonnet on reviews; Qwen 0 of 5', cases: 5},
-  insight: {model: HAIKU, gain: 'Haiku 13-7 over Sonnet on weekly summaries; Qwen 0 of 5', cases: 5},
-  // Why (27 Oct 2026): interview prep: Haiku tied Sonnet 10-10 and passed 4 of 5 of the rubric where Qwen passed 0 of 5, at a twentieth of Sonnet's price.
-  prep: {model: HAIKU, gain: 'Haiku 4 of 5 pass; tied Sonnet 10-10; Qwen 0 of 5', cases: 5},
-  // Why (27 Oct 2026): the rejection review is the app's 'review' step (gpt-oss for Free); Haiku passed 3 of 5 where Qwen passed 0 of 5.
-  review: {model: HAIKU, gain: 'Haiku 3 of 5 pass; Qwen 0 of 5', cases: 5},
+  // Why (27 Oct 2026, owner: "let's add Sonnet here"): interview patterns (its own action name since the app's patterns call left 'interview', which is the call review where Haiku won 15-5):
+  // Sonnet beat Haiku 13-7 and Opus 15-5 on 5 cases; the Sonnet judge gave Sonnet every case but one, the Opus judge split (Opus won only 'rounds'), so the gain is real but the sample is small.
+  interview_patterns: {model: SONNET, gain: 'Sonnet beat Haiku 13-7 and Opus 15-5 on patterns', cases: 5},
+  // Why (27 Oct 2026, owner: "Use sonnet for writing and that's it"; a Pro user's text should read richer than Haiku's): every step that writes text for the person runs on Sonnet.
+  // The 5-case head-to-heads had Haiku ahead on reviews, weekly summaries and tied on prep, but the judge prompt scores "unsupported facts count heavily against", so it rewards a model that adds nothing; public benchmarks put Sonnet 5.5 ahead overall (34 of 36). Cost: about 20x Haiku per token.
+  answer_review: {model: SONNET, gain: 'owner: Sonnet writes; Haiku won 16-4 on facts-only judging', cases: 5},
+  insight: {model: SONNET, gain: 'owner: Sonnet writes; Haiku won 13-7 on facts-only judging', cases: 5},
+  prep: {model: SONNET, gain: 'owner: Sonnet writes; tied Haiku 10-10', cases: 5},
+  review: {model: SONNET, gain: 'Sonnet beat Haiku 12-8 on rejection replies', cases: 5},
+  // Why (27 Oct 2026, owner: "everything here that requires bigger/more complex reasoning. Use Sonnet not Haiku"): the interview review, the form answers and the CV tailoring too, though Haiku won those head-to-heads (15-5, 14-6, 15-5) on facts-only judging.
+  // 'tailor' is also the action of the CV reading calls (transcription, change review): they follow it to Sonnet until the app gives the writing call its own name. TODO(AI): split 'tailor' in desktop/lib/cv.js (27 Oct 2026).
+  interview: {model: SONNET, gain: 'owner: Sonnet reasons; Haiku won 15-5 on facts-only judging', cases: 5},
+  answer: {model: SONNET, gain: 'owner: Sonnet reasons; Haiku won 14-6 on facts-only judging', cases: 5},
+  tailor: {model: SONNET, gain: 'owner: Sonnet reasons; Haiku won 15-5 on facts-only judging', cases: 5},
 };
 
 /**

@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import {freeAi} from '../../shared/free-ai.js';
 import {digestOf, tokenFor} from '../../shared/guard.js';
 import {addCredit, createAccount, link} from '../../shared/pro.js';
-import {HAIKU, PRO_ROUTES, SONNET, claudeUsd, proRoute} from '../../shared/pro-claude.js';
+import {PRO_ROUTES, SONNET, claudeUsd, proRoute} from '../../shared/pro-claude.js';
 import {rawToCredit} from '../../shared/pro-packages.js';
 
 function d1() {
@@ -66,7 +66,7 @@ test('Free never reaches Claude, nor does a Pro step with no measured gain', asy
   const e = env(), free = await keyOf('install-free-claude'), pro = await proInstall(e, 'install-claude-03'), fetcher = fetcherOf();
   assert.equal((await ask(e, free, 'kit', fetcher)).status, 200);
   assert.equal((await ask(e, pro.key, 'score', fetcher)).status, 200);
-  assert.equal((await ask(e, pro.key, 'tailor', fetcher)).status, 200, 'unmeasured steps stay on Workers AI');
+  assert.equal((await ask(e, pro.key, 'opportunity', fetcher)).status, 200, 'unrouted steps stay on Workers AI');
   assert.equal(fetcher.seen.length, 0);
 });
 
@@ -88,7 +88,7 @@ test('guard: every route above Qwen names its measured gain and case count, and 
     assert.ok(claudeUsd(route.model, {input_tokens: 1000, output_tokens: 1000}) > 0, `${step}: ${route.model} has no price`);
   }
   assert.equal(proRoute('kit', {PRO_ANTHROPIC_KEY: 'k'}), SONNET);
-  assert.equal(proRoute('answer_review', {PRO_ANTHROPIC_KEY: 'k'}), HAIKU);
+  for (const step of ['answer_review', 'insight', 'prep', 'review', 'interview_patterns', 'interview', 'answer', 'tailor']) assert.equal(proRoute(step, {PRO_ANTHROPIC_KEY: 'k'}), SONNET, `${step}: Sonnet writes (owner, 27 Oct 2026)`);
   assert.equal(proRoute('score', {PRO_ANTHROPIC_KEY: 'k'}), null);
-  for (const unmeasured of ['tailor', 'answer', 'interview', 'opportunity', 'score', 'decide']) assert.equal(PRO_ROUTES[unmeasured], undefined, `${unmeasured} has no measured gain yet`);
+  for (const unmeasured of ['opportunity', 'score', 'decide']) assert.equal(PRO_ROUTES[unmeasured], undefined, `${unmeasured} stays on Workers AI`);
 });
