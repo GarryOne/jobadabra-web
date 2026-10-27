@@ -18,7 +18,7 @@ const CSS = `:root{--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;
 td.cell{white-space:nowrap;text-align:center}tr.ours td:first-child{font-weight:700}.filters{margin:8px 0 14px}h2{margin:0 0 4px}details{margin-top:8px}.wide{overflow-x:auto}`;
 
 function tiles(view) {
-  const ours = view.tools.find(tool => tool.ours), best = view.tools.find(tool => !tool.ours);
+  const ours = view.tools.find(tool => tool.ours), best = view.tools.find(tool => !tool.ours && !tool.withAll);
   if (!ours) return '';
   const gap = best ? ours.relevant - best.relevant : null;
   return `<div class="tiles">
@@ -43,6 +43,8 @@ ${view.personas.map(p => `<tr><td>${esc(p.persona)} <span class="muted">${esc(p.
 const kinds = view => `<section class="card"><h2>Tech and non-tech</h2><p class="muted">Relevant jobs in place per kind of role, the share of shown jobs.</p><div class="wide"><table><tr><th>Tool</th><th class="num">Tech</th><th class="num">Non-tech</th></tr>
 ${view.tools.map(tool => { const t = view.kinds.tech?.[tool.tool], n = view.kinds['non-tech']?.[tool.tool]; const show = x => (x ? `${x.relevant} <span class="muted">(${pct(x.relevantShare)})</span>` : '–'); return `<tr class="${tool.ours ? 'ours' : ''}"><td>${esc(tool.tool)}</td><td class="num">${show(t)}</td><td class="num">${show(n)}</td></tr>`; }).join('')}</table></div></section>`;
 
+const beyond = view => ((view.beyond || []).length ? `<section class="card"><h2>Relevant jobs we add beyond each rival</h2><p class="muted">Ours with every source on: jobs the judge found relevant and in place that this rival did not show.</p>
+<table><tr><th>Rival</th><th class="num">Jobs we add</th></tr>${view.beyond.map(([rival, n]) => `<tr><td>${esc(rival)}</td><td class="num">${n}</td></tr>`).join('')}</table></section>` : '');
 const missed = view => (view.missed.length ? `<section class="card"><h2>Relevant jobs we miss, by job system</h2><p class="muted">Jobs another tool showed that the judge found relevant and in place, and ours did not show: where they came from (the other tool's own provider name).</p>
 <table><tr><th>Job system</th><th class="num">Jobs we miss</th></tr>${view.missed.map(([system, n]) => `<tr><td>${esc(system)}</td><td class="num">${n}</td></tr>`).join('')}</table></section>` : '');
 
@@ -56,7 +58,7 @@ const METHOD = `<section class="card"><details><summary>How this is measured</su
 export function page(snapshot, {round} = {}) {
   const key = pickRound(snapshot, round), view = key ? snapshot.rounds[key] : null, keys = Object.keys(snapshot?.rounds || {}).sort().reverse();
   const body = !view ? `<section class="card"><h2>No data yet</h2><p class="muted">The bake-off's search-bench publish step sends every scored round here (<code>PUT /benchmark-search/data</code>); the first round fills this page.</p></section>`
-    : `${keys.length > 1 ? filterLinks(keys.map(k => [k, k, `?round=${encodeURIComponent(k)}`]), key) : ''}${tiles(view)}${scoreboard(view)}${grid(view)}${kinds(view)}${missed(view)}${METHOD}`;
+    : `${keys.length > 1 ? filterLinks(keys.map(k => [k, k, `?round=${encodeURIComponent(k)}`]), key) : ''}${tiles(view)}${scoreboard(view)}${grid(view)}${kinds(view)}${missed(view)}${beyond(view)}${METHOD}`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Benchmark Job Search · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}${CHIP_STYLE}</style></head><body><main>
 <header><h1>🏁 Benchmark Job Search</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC${key ? ` · round ${esc(key)}` : ''}` : ''}</span></header>

@@ -86,3 +86,19 @@ test('the page says so when there is no data, and shows an older round when aske
   assert.match(page(snapshot, {round: 'r1'}), /round r1/);
   assert.match(page(snapshot), /round r2/);
 });
+
+test('a row with `beyond` is stored and the page shows the jobs "ours with every source" adds beyond each rival, without counting that line as a rival', async () => {
+  const e = env();
+  const runs = [...FIXTURE.filter(row => row.round === 'r1'),
+    run('Ours + all', 'Nurse · Town', 'non-tech', 120, 50, 90, 33, {beyond: {Other: 25, Third: 33}}), run('Ours + all', 'Coder · City', 'tech', 60, 12, 24, 1, {beyond: {Other: 1}})];
+  await put(e, {runs});
+  assert.deepEqual(JSON.parse(e.STATS.db.prepare("SELECT beyond FROM benchmark_search_runs WHERE tool = 'Ours + all' AND persona = 'Coder · City'").get().beyond), {Other: 1});
+  const r1 = summarize(e.STATS.db.prepare('SELECT * FROM benchmark_search_runs').all().map(row => ({...row}))).rounds.r1;
+  assert.deepEqual(r1.beyond, [['Third', 33], ['Other', 26]]);
+  assert.equal(r1.tools.find(tool => tool.tool === 'Ours + all').withAll, true);
+  assert.deepEqual(r1.missed, [['system-a', 7], ['system-b', 3]], 'the with-everything line adds nothing to the jobs we miss');
+  const html = await (await call(e, '/admin/job-search/benchmark?round=r1', owner)).text();
+  assert.match(html, /Relevant jobs we add beyond each rival/);
+  assert.match(html, /<td>Third<\/td><td class="num">33<\/td>/);
+  assert.doesNotMatch(await (await call(env(), '/admin/job-search/benchmark', owner)).text(), /we add beyond each rival/, 'no card without the data');
+});

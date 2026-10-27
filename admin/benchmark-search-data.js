@@ -26,15 +26,19 @@ export function summarize(rows) {
     const mine = rows.filter(row => row.round === round);
     const tools = [...new Set(mine.map(row => row.tool))].map(tool => {
       const list = latestPerPersona(mine.filter(row => row.tool === tool));
-      return {tool, ours: list.some(row => row.ours), build: list.find(row => row.ours)?.build || '', ...totals(list), rows: list};
+      return {tool, ours: list.some(row => row.ours), withAll: list.some(row => Object.keys(parse(row.beyond)).length > 0), build: list.find(row => row.ours)?.build || '', ...totals(list), rows: list};
     }).sort((a, b) => b.ours - a.ours || b.relevant - a.relevant || a.tool.localeCompare(b.tool));
     const personas = [...new Map(mine.map(row => [row.persona, {persona: row.persona, kind: row.kind, country: row.country}])).values()].sort((a, b) => a.persona.localeCompare(b.persona, 'en', {numeric: true}));
     const grid = Object.fromEntries(tools.map(tool => [tool.tool, Object.fromEntries(tool.rows.map(row => [row.persona, {found: row.found, place: row.place, role: row.role, relevant: row.relevant}]))]));
     const kinds = Object.fromEntries(KINDS.map(kind => [kind, Object.fromEntries(tools.map(tool => [tool.tool, totals(tool.rows.filter(row => row.kind === kind))]))]));
     // The job systems of the jobs another tool shows as relevant and ours does not (each other tool's own `missed` map, summed over its personas).
     const missed = {};
-    for (const tool of tools.filter(item => !item.ours)) for (const row of tool.rows) for (const [system, count] of Object.entries(parse(row.missed))) missed[system] = (missed[system] || 0) + (Number(count) || 0);
-    rounds[round] = {tools: tools.map(({rows: _rows, ...tool}) => tool), personas, grid, kinds, missed: Object.entries(missed).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 30)};
+    for (const tool of tools.filter(item => !item.ours && !item.withAll)) for (const row of tool.rows) for (const [system, count] of Object.entries(parse(row.missed))) missed[system] = (missed[system] || 0) + (Number(count) || 0);
+    // What "ours with every source" adds on top of each rival (owner, 27 Oct 2026): its own `beyond` map, summed over its personas.
+    const beyond = {};
+    for (const tool of tools.filter(item => item.withAll)) for (const row of tool.rows) for (const [rival, count] of Object.entries(parse(row.beyond))) beyond[rival] = (beyond[rival] || 0) + (Number(count) || 0);
+    rounds[round] = {tools: tools.map(({rows: _rows, ...tool}) => tool), personas, grid, kinds, missed: Object.entries(missed).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 30),
+      beyond: Object.entries(beyond).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))};
   }
   return {schema: 1, rounds};
 }

@@ -17,8 +17,9 @@ const NUMBERS = ['found', 'place', 'role', 'relevant', 'employers', 'seconds', '
 
 // One run in the shape the table holds, or null when it is not a run (a bad row is dropped, never stored half). `missed` = {job system: jobs}, titles and bodies never arrive.
 export function clean(run) {
-  const missed = run?.missed && typeof run.missed === 'object' && !Array.isArray(run.missed) ? Object.fromEntries(Object.entries(run.missed).slice(0, 40).map(([key, value]) => [text(key, 60), count(value) ?? 0])) : {};
-  const row = {id: text(run?.id, 80), at: text(run?.at, 30), round: text(run?.round, 30), persona: text(run?.persona, 60), kind: run?.kind, country: text(run?.country, 40), tool: text(run?.tool, 60), ours: run?.ours ? 1 : 0, build: text(run?.build, 20), missed: JSON.stringify(missed)};
+  const counts = value => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, jobs]) => [text(key, 60), count(jobs) ?? 0])) : {});
+  const missed = counts(run?.missed), beyond = counts(run?.beyond);   // beyond = {rival: relevant jobs "ours with every source" shows and that rival did not}
+  const row = {id: text(run?.id, 80), at: text(run?.at, 30), round: text(run?.round, 30), persona: text(run?.persona, 60), kind: run?.kind, country: text(run?.country, 40), tool: text(run?.tool, 60), ours: run?.ours ? 1 : 0, build: text(run?.build, 20), missed: JSON.stringify(missed), beyond: JSON.stringify(beyond)};
   const numbers = Object.fromEntries(NUMBERS.map(key => [key, count(run?.[key] ?? 0)]));
   if (!row.id || !/^\d{4}-\d{2}-\d{2}/.test(row.at) || !row.round || !row.persona || !row.tool || !KINDS.includes(row.kind) || Object.values(numbers).includes(null)) return null;
   if (numbers.relevant > numbers.found || numbers.place > numbers.found || numbers.role > numbers.found) return null;
@@ -39,7 +40,7 @@ export async function ingest(request, env, now = new Date()) {
   try { data = JSON.parse(body); } catch { return new Response('Not JSON', {status: 400}); }
   if (!Array.isArray(data?.runs) || data.runs.length > MAX_ROWS) return new Response('Unexpected shape', {status: 400});
   const rows = data.runs.map(clean).filter(Boolean);
-  const columns = ['id', 'at', 'round', 'persona', 'kind', 'country', 'tool', 'ours', 'build', ...NUMBERS, 'missed'];
+  const columns = ['id', 'at', 'round', 'persona', 'kind', 'country', 'tool', 'ours', 'build', ...NUMBERS, 'missed', 'beyond'];
   const write = env.STATS.prepare(`INSERT INTO benchmark_search_runs (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})
     ON CONFLICT(id) DO UPDATE SET ${columns.slice(1).map(column => `${column} = excluded.${column}`).join(', ')}`);
   if (rows.length) await env.STATS.batch(rows.map(row => write.bind(...columns.map(column => row[column]))));
