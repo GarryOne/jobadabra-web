@@ -1,6 +1,7 @@
 // The owner's page /ai-cost: everything the product's own scheduled jobs spend on AI (central scout, self-heal, product brain, proposers, form lab...).
 // Not the users' Always-on runs: those are paid with their own keys. Owner-only like /stats (STATS_KEY), never a static page.
 import {freeSection, freeSummary, trialUse} from './free-ai-cost.js';
+import {readProCosts, proSection} from './pro-ai-cost.js';
 import {webMonth, webSection} from './free-ai-web-cost.js';
 import {accountNeurons} from '../shared/free-ai-usage.js';
 import {limitsOf} from '../shared/free-ai.js';
@@ -86,7 +87,7 @@ export function byKey(rows, now = new Date(), range = '30d') {
   return Object.values(keys).filter(k => k.range > 0 || RANGES[range].hours >= 720).sort((a, b) => b.range - a.range);
 }
 
-export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d', freeRows = [], accountToday = null, trial = null, web = null, lines = undefined) {
+export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d', freeRows = [], accountToday = null, trial = null, web = null, lines = undefined, pro = null) {
   const spaceRows = keyRows.filter(row => String(row.key).startsWith('ws.')).map(row => ({...row, key: row.key.slice(3)}));   // a workspace's days: the sum of its keys (ai-cost-report.mjs)
   const s = summarize(rows, billed, now, range), keys = byKey(keyRows.filter(row => !String(row.key).startsWith('ws.')), now, range), spaces = byKey(spaceRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
   const fresh = range === '30d' && start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
@@ -119,6 +120,7 @@ ${s.providers.map(p => `<tr><td>${esc(PROVIDERS[p.id])}</td><td class="n">${mone
 </table></div></section>
 ${freeSection(freeSummary(freeRows, now, Math.max(1, Math.round(r.hours / 24))), r.label, accountToday, trial, lines)}
 ${webSection(web)}
+${proSection(pro, r.label)}
 <div class="grid">
 <section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>${last}</th></tr>
 ${Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([group, usd]) => `<tr><td>${esc(group)}</td><td class="n">${money(usd)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Nothing reported yet: each job reports at the end of its run.</td></tr>'}
@@ -204,6 +206,8 @@ export async function view(request, env) {
   const {runs, billed, keys, free} = env.STATS ? await read(env) : {runs: [], billed: [], keys: [], free: []};
   const now = new Date(), accountToday = env.WAITLIST ? await accountNeurons(env, env.WAITLIST, now.toISOString().slice(0, 10), now) : null;   // Cloudflare's own count, any caller
   const trial = env.WAITLIST?.list ? await trialUse(env.WAITLIST, Number(env.FREE_AI_TRIAL_USD) > 0 ? Number(env.FREE_AI_TRIAL_USD) : undefined) : null;
+  const range = rangeOf(url.searchParams.get('range'));
+  const pro = env.STATS ? await readProCosts(env.STATS, now, RANGES[range].hours, since(env)) : null;
   const web = await webMonth(env.WAITLIST, env, now);   // the Free AI board web search against its month line
-  return new Response(page(runs, billed, keys, since(env), now, rangeOf(url.searchParams.get('range')), free, accountToday, trial, web, limitsOf(env)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(runs, billed, keys, since(env), now, range, free, accountToday, trial, web, limitsOf(env), pro), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
