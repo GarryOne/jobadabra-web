@@ -8,6 +8,7 @@ import {asStream, fromWorkersAi, toWorkersAi, Unsupported} from './free-ai-trans
 import {accountNeurons} from './free-ai-usage.js';
 import {FREE_NEURONS_PER_DAY, costUsd, modelFor, neuronsOf} from './free-ai-models.js';
 import {PRO_PER_MINUTE, chargeCall, proLane} from './pro-ai.js';
+import {claudeCall, proRoute} from './pro-claude.js';
 import {aiAccess} from './hosted-budget.js';
 import {runOf} from './hosted.js';
 import {WEB_ACTION, webSearch} from './free-ai-web.js';
@@ -89,9 +90,11 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
 
   let body;
   try { body = await request.json(); } catch { return error(400, 'Bad request.', 'invalid_request_error'); }
-  const model = modelFor(request.headers.get('x-jp-action'), env);
+  const routed = pro?.account ? proRoute(request.headers.get('x-jp-action'), env) : null;   // a Pro account with credit, on a step with a measured Claude gain (shared/pro-claude.js); Free never
+  const claude = routed ? await claudeCall(env, routed, body, fetcher) : null;   // null on any failure: Workers AI answers below
+  const model = claude ? routed : modelFor(request.headers.get('x-jp-action'), env);
   let result;
-  try {
+  if (!claude) try {
     const readPdf = async base64 => {
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const [page] = await env.AI.toMarkdown([{name: 'cv.pdf', blob: new Blob([bytes], {type: 'application/pdf'})}]);
@@ -110,17 +113,17 @@ export async function freeAi(request, env, now = new Date(), ctx = null, fetcher
     if (caught instanceof Unsupported) return error(422, `${caught.message} Add your own key in Settings → Connections → AI for this step.`, 'invalid_request_error');
     return error(502, 'Free AI could not answer just now.');
   }
-  const message = fromWorkersAi(result, model);
-  const used = message.usage.input_tokens + message.usage.output_tokens, usd = costUsd(model, message.usage);
-  const after = Math.round(usd * 1e6);
+  const message = claude ? claude.message : fromWorkersAi(result, model);
+  const used = message.usage.input_tokens + message.usage.output_tokens, usd = claude ? claude.usd : costUsd(model, message.usage);
+  const after = Math.round(usd * 1e6), freeUsd = claude ? 0 : usd, freeAfter = claude ? 0 : after;   // a Claude call is billed to the Pro credit only: Free's per-install, global and neuron counts measure Workers AI
   const work = Promise.all([
-    kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.dayUsd, String(installDay + after), {expirationTtl: 2 * 86400}), kv.put(keys.monthUsd, String(installMonth + after), {expirationTtl: 40 * 86400}), kv.put(keys.globalMonth, String(globalMonth + after), {expirationTtl: 40 * 86400}), ...(access.license ? [] : [kv.put(keys.life, String(life + after))]),
-    kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + after), {expirationTtl: 2 * 86400}), kv.put(keys.neurons, String(Math.round(neurons + neuronsOf(usd))), {expirationTtl: 2 * 86400}),
+    kv.put(keys.minute, String(perMinute + 1), {expirationTtl: 120}), kv.put(keys.dayUsd, String(installDay + freeAfter), {expirationTtl: 2 * 86400}), kv.put(keys.monthUsd, String(installMonth + freeAfter), {expirationTtl: 40 * 86400}), kv.put(keys.globalMonth, String(globalMonth + freeAfter), {expirationTtl: 40 * 86400}), ...(access.license ? [] : [kv.put(keys.life, String(life + after))]),
+    kv.put(keys.tokens, String(tokens + used), {expirationTtl: 2 * 86400}), kv.put(keys.usd, String(microUsd + freeAfter), {expirationTtl: 2 * 86400}), kv.put(keys.neurons, String(Math.round(neurons + neuronsOf(freeUsd))), {expirationTtl: 2 * 86400}),
     recordCost(env, access.who, request.headers.get('x-jp-action'), model, message.usage, usd, now),
     chargeCall(env, pro, after, request.headers.get('x-jp-action'), now),
-    alertOnce(env, kv, day, microUsd, microUsd + after, fetcher),
-    monthAlert(env, kv, month, globalMonth, globalMonth + after, fetcher),
-    neuronAlert(env, kv, day, seen + neuronsOf(usd), allowance, fetcher),
+    alertOnce(env, kv, day, microUsd, microUsd + freeAfter, fetcher),
+    monthAlert(env, kv, month, globalMonth, globalMonth + freeAfter, fetcher),
+    neuronAlert(env, kv, day, seen + neuronsOf(freeUsd), allowance, fetcher),
   ]);
   ctx?.waitUntil ? ctx.waitUntil(work) : await work;
   if (body.stream) return new Response(asStream(message), {headers: {'content-type': 'text/event-stream', 'cache-control': 'no-cache'}});
