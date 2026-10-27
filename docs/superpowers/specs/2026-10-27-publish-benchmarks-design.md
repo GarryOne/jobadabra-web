@@ -61,3 +61,8 @@ previews must be approved before the first visual commit.
 Owner approved the amber revision and instructed “ship”. Actual Worker previews
 at 1440 and 390px passed counts, rank, location breakdown, disclosure/picker
 and overflow checks. Independent publication review found no blocking issues.
+
+CI routing correction: register `/benchmark` in `shared/hosts.js` PAGE_PATHS
+and `workers/www/wrangler.toml` run_worker_first. The existing host contract
+test reproduced the missing route before the fix; include host redirect tests
+in focused verification for every new public page. No visual changes.
