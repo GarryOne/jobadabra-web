@@ -12,7 +12,9 @@ const latestPerPersona = rows => [...new Map([...rows].sort((a, b) => a.at.local
 export function totals(rows) {
   const t = {personas: rows.length, found: sum(rows, 'found'), place: sum(rows, 'place'), role: sum(rows, 'role'), relevant: sum(rows, 'relevant'), employers: sum(rows, 'employers'), seconds: sum(rows, 'seconds'), cents: sum(rows, 'cents')};
   const empty = rows.filter(row => row.relevant === 0).length;
-  return {...t, placeShare: share(t.place, t.found), roleShare: share(t.role, t.found), relevantShare: share(t.relevant, t.found), empty, avgSeconds: rows.length ? Math.round(t.seconds / rows.length) : null};
+  // Why (27 Oct 2026): a rival's run time is often not recorded (sent as 0); averaging those 0s showed "0 s". Only timed searches count; none -> null ("–").
+  const timed = rows.filter(row => Number(row.seconds) > 0);
+  return {...t, placeShare: share(t.place, t.found), roleShare: share(t.role, t.found), relevantShare: share(t.relevant, t.found), empty, avgSeconds: timed.length ? Math.round(sum(timed, 'seconds') / timed.length) : null};
 }
 
 const parse = text => { try { const value = typeof text === 'object' ? text : JSON.parse(text || '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; } };
