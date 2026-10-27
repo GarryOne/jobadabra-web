@@ -64,6 +64,19 @@ export const seeds = {
       await env.STATS.prepare('INSERT INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)').bind('greenhouse', `demo-${n}`, ',europe,', JSON.stringify(feed), '2026-10-25T00:00:00Z').run();
     }
   },
+  coverage: async ({env}) => {   // made-up daily snapshots for /coverage's kind × country table (27 Oct 2026): big markets and IT strong, small ones thin, many not sorted yet; a week apart
+    const {EUROPE} = await import('../shared/pool-tags.js'), {KINDS} = await import('../shared/pool-labels.js');
+    const size = {de: 9, gb: 10, fr: 7, es: 6, nl: 6, ch: 5, it: 4, pl: 5, se: 4, ie: 3, at: 2, be: 2, pt: 3, dk: 2, no: 1, fi: 1, cz: 1, ro: 2, hu: 1, gr: 1, bg: 1};
+    const weight = kind => ({software: 12, sales_b2b: 7, engineering: 3, creative_media: 2, other: 3, unknown: 30}[kind] ?? (kind.length % 3) * 0.4);
+    const cellsAt = grow => Object.fromEntries([...KINDS, 'unknown'].flatMap((kind, k) => EUROPE.map((country, c) => {
+      const count = Math.round((size[country] ?? 0.5) * weight(kind) * grow * (0.6 + ((k * 7 + c * 3) % 9) / 10));
+      return [`${kind}|${country}`, [count, count * 12]];
+    })).filter(([, [count]]) => count > 0));
+    for (const [day, grow] of [['2026-10-20', 0.9], ['2026-10-27', 1]]) {
+      const cells = cellsAt(grow), feeds = Math.round(Object.values(cells).reduce((sum, [count]) => sum + count, 0) / 1.4);
+      await env.STATS.prepare('INSERT INTO index_daily (day, feeds, non_it, failing, from_pool, dead_ends, cells) VALUES (?, ?, ?, 0, 0, 0, ?)').bind(day, feeds, Math.round(feeds / 3), JSON.stringify(cells)).run();
+    }
+  },
   'closed-sites': async ({env}) => {   // made-up closed sites for /admin/job-search/scouting (27 Oct 2026, table tools): 52 dead ends (refused, unreachable, no feed) and 12 browser-only or gone pages, over 6 weeks
     const day = n => new Date(Date.parse('2026-10-26T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
     for (let n = 1; n <= 52; n++) {

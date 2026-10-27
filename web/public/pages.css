@@ -38,3 +38,26 @@ details.tech p { color: var(--muted); padding-bottom: 16px; }
 .source-note { color: var(--muted); font-size: .88rem; margin-top: 16px; max-width: 70ch; }
 /* The Terminal line outside the hero: give it the hall's colours (styles.css defines them on .hero only). */
 details.tech .install-line { --hall-line: var(--line-strong); --hall-ink: var(--ink); justify-self: start; margin-bottom: 14px; }
+/* Coverage: the kind × country table (api/coverage.js heatTable, the admin's renderer in its public cut). Its steps h0..h6 are painted
+   here from the site's amber, so the chart wears the site's tokens; it scrolls inside its card, never the page. */
+.heat-note { display: grid; gap: 6px; max-width: 820px; margin-bottom: 20px; padding: 16px 18px; border: 1px solid var(--signal); border-radius: 14px; background: var(--signal-soft); }
+.heat-note span { color: var(--muted); font-size: .94rem; }
+.heat-card { min-width: 0; max-width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.heat-card .scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.heat { width: 100%; border-collapse: separate; border-spacing: 3px; font: 500 .8rem var(--mono); font-variant-numeric: tabular-nums; }
+.heat th { font-weight: 500; color: var(--muted); padding: 2px 3px; text-align: center; }
+.heat th.kind { position: sticky; left: 0; z-index: 1; text-align: left; white-space: nowrap; padding-right: 10px; font: 500 .82rem var(--sans); color: var(--ink); background: var(--surface); }
+.heat td { height: 30px; min-width: 30px; text-align: center; border-radius: 4px; padding: 0 2px; cursor: default; }
+.heat td.total { color: var(--ink); text-align: right; padding-left: 10px; white-space: nowrap; }
+.heat-card .h0 { background: var(--raised); color: var(--muted); }
+.heat-card .h1 { background: color-mix(in oklab, var(--amber) 13%, var(--surface)); color: var(--ink); }
+.heat-card .h2 { background: color-mix(in oklab, var(--amber) 28%, var(--surface)); color: var(--ink); }
+.heat-card .h3 { background: color-mix(in oklab, var(--amber) 45%, var(--surface)); color: var(--ink); }
+.heat-card .h4 { background: color-mix(in oklab, var(--amber) 64%, var(--surface)); color: var(--signal-ink); }
+.heat-card .h5 { background: color-mix(in oklab, var(--amber) 82%, var(--surface)); color: var(--signal-ink); }
+.heat-card .h6 { background: var(--amber); color: var(--signal-ink); }
+.heat-card .hn { background: var(--raised); color: var(--muted); }   /* field not sorted yet: neutral, the amber means a field's strength only */
+.heat-tip { min-height: 1.4em; margin-top: 10px; color: var(--ink); font-size: .88rem; }
+.heat-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; color: var(--muted); font: 500 .76rem var(--mono); }
+.heat-legend i { display: inline-block; width: 18px; height: 12px; border-radius: 3px; margin-left: 6px; }
+@media (max-width: 520px) { .heat-card { padding: 10px; } .heat th.kind { font-size: .76rem; padding-right: 6px; } }

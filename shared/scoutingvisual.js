@@ -79,22 +79,37 @@ ${tile('Last central run', last ? `${n(last.found)} found` : '—', {spark: runs
 </div>`;
 }
 
-export function heatmap(cells, past, demand, aimedCell) {
-  const kinds = [...KINDS, ...(Object.keys(cells).some(cell => cell.startsWith('unknown|')) ? ['unknown'] : [])];
+// The kind × country table, drawn once for /admin and for the public /coverage page (owner, 27 Oct 2026: "let's publish this graph").
+// open: the public cut: counts and the week's change only, no jobs (a cell repeats an employer's whole count), no installs, no floor or AI aim;
+// colour steps as classes (h0..h6) the site's own tokens paint; the fields biggest first, then Software & IT (global, not tech), then 'other' and
+// 'unknown' under plain names, 'unknown' in one neutral (hn): its colour would speak of the list's gap, not a field's strength.
+const OPEN_NAMES = {other: 'Several fields', unknown: 'Field not sorted yet'};
+const stepOf = value => STEPS.filter(([from]) => value >= from).length - 1;
+export function heatTable(cells, past, {demand = {}, aimedCell = '', open = false} = {}) {
+  const named = open ? [...[...AIMED].sort((a, b) => kindTotal(cells, b) - kindTotal(cells, a)), 'software', 'other'] : KINDS;
+  const kinds = [...named, ...(Object.keys(cells).some(cell => cell.startsWith('unknown|')) ? ['unknown'] : [])];
+  const label = kind => (open && OPEN_NAMES[kind]) || kindName(kind);
   const week = past.week?.cells;
-  const row = kind => `<tr><th class="kind" scope="row">${esc(kindName(kind))}</th>${EUROPE.map(country => {
+  const row = kind => `<tr><th class="kind" scope="row">${esc(label(kind))}</th>${EUROPE.map(country => {
     const cell = `${kind}|${country}`, [count, jobs] = cells[cell] || [0, 0];
-    const parts = [`${kindName(kind)} · ${countryName(country)}: ${n(count)} employer${count === 1 ? '' : 's'}, ${n(jobs)} open jobs`];
+    const parts = [`${label(kind)} · ${countryName(country)}: ${n(count)} employer${count === 1 ? '' : 's'}${open ? '' : `, ${n(jobs)} open jobs`}`];
     if (week) parts.push(`${signed(count - employers(week, cell))} this week`);
-    if (demand[cell]) parts.push(`${n(demand[cell])} installs search here`);
-    if (AIMED.includes(kind) && count < floorFor(country)) parts.push(`${floorFor(country) - count} short of ${floorFor(country)}`);
-    if (cell === aimedCell) parts.push('the AI ideas aim here now');
-    return `<td tabindex="0" class="${cell === aimedCell ? 'aimed' : ''}" style="background:${shade(scaled(count, country))};color:${inkOn(scaled(count, country))}" data-tip="${esc(parts.join(' · '))}">${count || '·'}</td>`;
-  }).join('')}<td class="total" data-tip="${esc(`${kindName(kind)} in Europe${week ? `: ${signed(kindTotal(cells, kind) - kindTotal(week, kind))} this week` : ''}`)}">${n(kindTotal(cells, kind))}</td></tr>`;
-  const legend = STEPS.map(([from], i) => `<i style="background:${STEPS[i][1]}"></i>${i + 1 < STEPS.length ? `${from}${STEPS[i + 1][0] - 1 > from ? `–${STEPS[i + 1][0] - 1}` : ''}` : `${from}+`}`).join(' ');
+    if (!open && demand[cell]) parts.push(`${n(demand[cell])} installs search here`);
+    if (!open && AIMED.includes(kind) && count < floorFor(country)) parts.push(`${floorFor(country) - count} short of ${floorFor(country)}`);
+    if (!open && cell === aimedCell) parts.push('the AI ideas aim here now');
+    const value = scaled(count, country), paint = open ? `class="${kind === 'unknown' ? 'hn' : `h${stepOf(value)}`}"` : `tabindex="0" class="${cell === aimedCell ? 'aimed' : ''}" style="background:${shade(value)};color:${inkOn(value)}"`;
+    return `<td ${paint} data-tip="${esc(parts.join(' · '))}">${count || '·'}</td>`;
+  }).join('')}<td class="total" data-tip="${esc(`${label(kind)} in Europe${week ? `: ${signed(kindTotal(cells, kind) - kindTotal(week, kind))} this week` : ''}`)}">${n(kindTotal(cells, kind))}</td></tr>`;
+  const legend = STEPS.map(([from], i) => `<i ${open ? `class="h${i}"` : `style="background:${STEPS[i][1]}"`}></i>${i + 1 < STEPS.length ? `${from}${STEPS[i + 1][0] - 1 > from ? `–${STEPS[i + 1][0] - 1}` : ''}` : `${from}+`}`).join(' ');
+  return {table: `<div class="scroll"><table class="heat"><tr><th></th>${EUROPE.map(country => `<th scope="col" title="${esc(countryName(country))}">${country.toUpperCase()}</th>`).join('')}<th scope="col">Europe</th></tr>${kinds.map(row).join('')}</table></div>`,
+    legend: `Employers: ${legend}`};
+}
+
+export function heatmap(cells, past, demand, aimedCell) {
+  const {table, legend} = heatTable(cells, past, {demand, aimedCell});
   return `<section class="card"><h2>🗺️ Where the list is strong or thin</h2><small class="muted">Employers by the kind they mostly hire for × the European countries their jobs are in. Bright from each country's floor (${FLOOR} big markets, 10 mid-size, 5 small); hover a cell for its jobs, this week's change and who searches there.${aimedCell ? ` Now aiming at <b>${esc(cellName(aimedCell))}</b>.` : ''}</small>
-<div class="scroll"><table class="heat"><tr><th></th>${EUROPE.map(country => `<th title="${esc(countryName(country))}">${country.toUpperCase()}</th>`).join('')}<th>Europe</th></tr>${kinds.map(row).join('')}</table></div>
-<div class="legend">Employers: ${legend}<span class="gap"></span><i class="ring"></i> aimed at by the next AI ideas</div></section>`;
+${table}
+<div class="legend">${legend}<span class="gap"></span><i class="ring"></i> aimed at by the next AI ideas</div></section>`;
 }
 
 // Gaps people search in (demand under the floor) and, per kind, how many countries reach the floor.

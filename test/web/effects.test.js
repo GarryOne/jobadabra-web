@@ -19,6 +19,7 @@ const LEFT_OUT = {
   '.car-frame': 'a screenshot frame: light over it would wash out the picture',
   '.stage-screen': 'the hero\'s video frame: light over it would wash out the picture',
   '.access-wrap': 'a wide table that scrolls sideways',
+  '.heat-card': 'a wide table that scrolls sideways (/coverage heatmap)',
   '.alt-download': 'a button',
   '.car-btn': 'a button',
 };

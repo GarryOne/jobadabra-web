@@ -26,7 +26,8 @@ test('the coverage numbers: employers, open jobs in Europe, countries and kinds 
   const res = await get({STATS, WAITLIST: kv({'index:summary': JSON.stringify({employers: 5, jobs: 24})})});
   assert.equal(res.status, 200);
   assert.match(res.headers.get('Cache-Control'), /public, max-age=3600/);
-  const body = await res.json();
+  const {heat, ...body} = await res.json();
+  assert.match(heat.table, /<table class="heat">/);
   // employers and jobs: the landing's summary of the latest publish (each employer's jobs once); the rest from the snapshot
   assert.deepEqual(body, {day: '2026-10-20', employers: 5, jobs: 24, country_count: 3, week_added: 3,
     countries: [['Germany', 2], ['France', 1], ['Poland', 1]],
@@ -52,4 +53,24 @@ test('without the summary the employers come from the snapshot and jobs are left
   assert.equal(body.employers, 2);
   assert.equal(body.jobs, undefined);
   assert.equal(body.jobs_europe, undefined);
+});
+
+// The owner's heatmap on /coverage (27 Oct 2026: "let's publish this graph"), drawn by the admin's renderer in its public cut.
+test('the public heat table: counts and the week\'s change only, every field before Software & IT, no jobs, installs, floors or AI aim', async () => {
+  const STATS = d1();
+  await storeSnapshot(STATS, '2026-10-13', snapshot([feed(1, 'healthcare', ['pl'])]));
+  await storeSnapshot(STATS, '2026-10-20', snapshot([feed(1, 'healthcare', ['pl']), feed(2, 'healthcare', ['pl'], 7), feed(3, 'software', ['de']),
+    {company: 'Secret New', ats: 'lever', slug: 'secretnew', countries: ['fr'], jobs: 3}]));
+  const {heat} = await (await get({STATS})).json();
+  assert.match(heat.table, /data-tip="Healthcare · Poland: 2 employers · \+1 this week"/);
+  assert.match(heat.table, /<th class="kind" scope="row">Field not sorted yet<\/th>/);
+  assert.match(heat.table, /<th class="kind" scope="row">Several fields<\/th>/);
+  assert.match(heat.table, /class="h\d"/, 'colour steps as classes the site paints');
+  assert.doesNotMatch(heat.table, /style=|tabindex|open jobs|install|short of|aim|Not counted|Secret|secret|lever/);
+  assert.match(heat.legend, /^Employers: <i class="h0"><\/i>0/);
+  const rows = [...heat.table.matchAll(/scope="row">([^<]+)</g)].map(match => match[1]);
+  assert.ok(rows.indexOf('Healthcare') < rows.indexOf('Logistics'), 'the fields biggest first');
+  assert.ok(rows.indexOf('Logistics') < rows.indexOf('Software &amp; IT'), 'global, not tech: every field before Software & IT');
+  assert.match(heat.table, /<td class="hn" data-tip="Field not sorted yet · France: 1 employer/, 'not sorted yet in one neutral, off the amber scale');
+  assert.deepEqual(rows.slice(-3), ['Software &amp; IT', 'Several fields', 'Field not sorted yet']);
 });
