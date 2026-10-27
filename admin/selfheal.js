@@ -123,7 +123,7 @@ export function liveSection(live, history = [], now = new Date()) {
   ];
   // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
   const q = live.quality || {};
-  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy (owner\'s ticks)', q.verdicts, 'higher is better'], ['🧑‍⚖️ Judge exam (planted)', q.judge, 'higher is better'],
+  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Planted code bugs caught', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy (owner\'s ticks)', q.verdicts, 'higher is better'], ['🧑‍⚖️ Judge exam (planted)', q.judge, 'higher is better'],
     ['↩️ Regression rate', q.regression, 'lower is better'], ['🎲 Flake rate', q.flake, 'lower is better']].filter(([, value]) => value);
   const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'stale', 'harness', 'unclear', 'open'];
   const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Stale', 'Test / harness', 'Unclear', 'Open, unjudged'];

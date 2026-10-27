@@ -75,7 +75,9 @@ test('the loop-quality numbers are shown with what they count, and "not measured
     mutation: {rate: 80, note: '4 of 5 planted code bugs caught'}, escape: {rate: null, note: 'the Bug Tracker is not shared'}}};
   const html = liveSection(live);
   assert.match(html, /How well it does/);
-  assert.match(html, /🧬 Mutation catch rate<\/span><b>80%<\/b><small class="muted">4 of 5 planted code bugs caught · higher is better/);
+  assert.match(html, /🧬 Planted code bugs caught<\/span><b>80%<\/b><small class="muted">4 of 5 planted code bugs caught · higher is better/);
+  // Plain words on the page (owner, 27 Oct 2026: "Visible names only"): "planted code bugs", never the jargon "mutation"/"mutant" (code names keep it).
+  assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /mutation|mutant/i);
   assert.match(html, /🕳️ Escape rate<\/span><b>–<\/b><small class="muted">not measured yet: the Bug Tracker is not shared/);
   assert.doesNotMatch(liveSection({...live, quality: undefined}), /How well it does/);
 });
