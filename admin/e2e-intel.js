@@ -3,6 +3,7 @@
 // per red suite, and ONE snapshot row (e2e_snapshot) with the last 30 days; the page reads that row only (D1 free plan). No AI, no logs, no personal data. Guard: test/admin/e2e-intel.test.js.
 import {equal} from '../shared/guard.js';
 import {CAUSE_IDS, RULES_VERSION} from './e2e-causes.js';
+import {cleanNight} from './e2e-quality.js';
 
 const DAY = 86400000, KEEP_DAYS = 30, LATEST = 25;
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -21,10 +22,13 @@ export async function buildSnapshot(db, now = new Date()) {
     db.prepare(`SELECT day, SUM(conclusion IN ('success', 'failure')) AS runs, SUM(conclusion = 'cancelled') AS cancelled, SUM(conclusion = 'failure') AS reds, SUM(conclusion = 'success') AS greens, SUM(CASE WHEN conclusion = 'failure' THEN minutes ELSE 0 END) AS redMin, kind FROM e2e_runs WHERE day >= ? GROUP BY day ORDER BY day`).bind(from).all(),
     db.prepare('SELECT day, suite, platform, cause, COUNT(*) AS n, SUM(minutes) AS min FROM e2e_fails WHERE day >= ? GROUP BY day, suite, platform, cause').bind(from).all(),
     db.prepare('SELECT run_id AS runId, day, kind, conclusion, minutes FROM e2e_runs ORDER BY run_id DESC LIMIT ?').bind(LATEST).all()]);
-  return {schema: 1, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({day: row.day, runs: row.runs, cancelled: row.cancelled, reds: row.reds, greens: row.greens, redMin: row.redMin})), fails: fails.map(row => ({...row})), latest: latest.map(row => ({...row}))};
+  // The live quality nights (admin/e2e-quality.js), newest first: the page's rate needs the last 90 pairs, about 10 nights; 30 days keep enough.
+  const {results: quality = []} = await db.prepare(`SELECT run_id AS runId, day, pairs, within8, over20, facts_exact AS factsExact, facts_total AS factsTotal, judged, invented
+    FROM e2e_quality WHERE day >= ? ORDER BY run_id DESC`).bind(from).all();
+  return {schema: 1, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({day: row.day, runs: row.runs, cancelled: row.cancelled, reds: row.reds, greens: row.greens, redMin: row.redMin})), fails: fails.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row}))};
 }
 
-// PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes}], fails: [{runId, suite, platform, day, cause, minutes}]}.
+// PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes}], fails: [{runId, suite, platform, day, cause, minutes}], quality?: [{runId, day, pairs, ...}]}.
 // GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
   if (!authorized(request, env)) return new Response('Not found', {status: 404});
@@ -34,7 +38,8 @@ export async function ingest(request, env, now = new Date()) {
       env.STATS.prepare('SELECT run_id FROM e2e_runs WHERE day >= ? AND rules >= ?').bind(since, version).all(),
       env.STATS.prepare(`SELECT DISTINCT run_id FROM e2e_fails WHERE day >= ? AND cause IN ('open', 'unknown')`).bind(since).all()]);
     const waiting = new Set(pending.map(row => row.run_id));
-    return json({have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting]});
+    const {results: nights = []} = await env.STATS.prepare('SELECT run_id FROM e2e_quality WHERE day >= ?').bind(since).all();
+    return json({have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting], quality: nights.map(row => row.run_id)});
   }
   if (request.method !== 'PUT') return new Response('Not found', {status: 404});
   const text = await request.text();
@@ -42,14 +47,17 @@ export async function ingest(request, env, now = new Date()) {
   let data;
   try { data = JSON.parse(text); } catch { return new Response('Not JSON', {status: 400}); }
   if (!Array.isArray(data?.runs) || !Array.isArray(data?.fails) || data.runs.length > 500 || data.fails.length > 1500) return new Response('Unexpected shape', {status: 400});
+  const nights = (Array.isArray(data.quality) ? data.quality.slice(0, 200) : []).map(cleanNight).filter(Boolean);
   const rules = Math.max(1, Number(data.rules) || 1), runs = data.runs.filter(cleanRun), fails = data.fails.filter(cleanFail);
   const writeRun = env.STATS.prepare('INSERT INTO e2e_runs (run_id, day, kind, conclusion, minutes, rules) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET rules = excluded.rules WHERE excluded.rules > e2e_runs.rules');
   const writeFail = env.STATS.prepare(`INSERT INTO e2e_fails (run_id, suite, platform, day, cause, minutes, rules) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(run_id, suite, platform) DO UPDATE SET cause = excluded.cause, minutes = excluded.minutes, rules = excluded.rules WHERE e2e_fails.cause IN ('open', 'unknown') OR excluded.rules > e2e_fails.rules`);
   const batch = [...runs.map(run => writeRun.bind(run.runId, run.createdAt.slice(0, 10), word(run.kind, 20) || 'beta', run.conclusion, num(run.minutes), rules)),
-    ...fails.map(fail => writeFail.bind(fail.runId, word(fail.suite), fail.platform, fail.day, fail.cause, num(fail.minutes), rules))];
+    ...fails.map(fail => writeFail.bind(fail.runId, word(fail.suite), fail.platform, fail.day, fail.cause, num(fail.minutes), rules)),
+    ...nights.map(night => env.STATS.prepare(`INSERT INTO e2e_quality (run_id, day, pairs, within8, over20, facts_exact, facts_total, judged, invented) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(run_id) DO NOTHING`).bind(night.runId, night.day, night.pairs, night.within8, night.over20, night.factsExact, night.factsTotal, night.judged, night.invented))];
   if (batch.length) await env.STATS.batch(batch);
   const snapshot = await buildSnapshot(env.STATS, now);
   await env.STATS.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
-  return json({ok: true, stored: runs.length + fails.length, ignored: data.runs.length + data.fails.length - runs.length - fails.length});
+  return json({ok: true, stored: runs.length + fails.length + nights.length, ignored: data.runs.length + data.fails.length - runs.length - fails.length});
 }
