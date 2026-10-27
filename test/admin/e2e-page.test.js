@@ -18,7 +18,7 @@ test('an unknown range is 7 days; the range counts only its own days', () => {
   assert.equal(rangeOf('nope'), '7d');
   const week = windowOf(snapshot, '7d', now), month = windowOf(snapshot, '30d', now);
   assert.deepEqual([week.runs, week.redRuns, week.greenRuns, week.redMin, week.reds], [6, 4, 2, 110, 6]);
-  assert.deepEqual(week.byCause, {credit: 1, infra: 0, flake: 1, test: 4, product: 0, open: 0, unknown: 0});
+  assert.deepEqual(week.byCause, {ai: 1, ci: 0, picker: 0, runner: 0, flake: 1, timing: 0, drift: 0, test: 4, product: 0, open: 0, unknown: 0}, 'rules 1-2 rows read under today\'s ids: credit is ai');
   assert.deepEqual([month.runs, month.redRuns, month.redMin, month.reds], [7, 5, 130, 7]);
 });
 
@@ -33,7 +33,7 @@ test('the page: numbers, suites with chips, a bar per day, the run list; "no dat
   assert.match(html, /67%/, 'red runs: 4 of 6');
   assert.match(html, /1\.8 h/, '110 minutes of red runs');
   assert.match(html, /17%/, 'flakes: 1 of 6 red suites');
-  assert.match(html, /Tries per green<\/span><b>4\.5<\/b>[^]*?9 betas started \(3 cancelled\) for 2 green/, 'cancelled betas count as tries: (6 finished + 3 cancelled) / 2 green');
+  assert.match(html, /Betas per green<\/span><b>4\.5<\/b>[^]*?9 betas started \(3 cancelled\) for 2 green/, 'cancelled betas count as tries: (6 finished + 3 cancelled) / 2 green');
   assert.match(html, /Top cause<\/span><b>Test bug/);
   assert.match(html, /<code>apply<\/code><\/td><td>Windows<\/td>/);
   assert.match(html, /actions\/runs\/39074977525/);
@@ -47,8 +47,32 @@ test('owner only; the menu lists E2E under Operations; the old runs address goes
   assert.equal((await get('/admin/operations/e2e')).status, 404);
   const response = await get('/admin/operations/e2e', {Cookie: 'jp_stats=k3y'});
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /Where e2e time goes/);
+  assert.match(await response.text(), /Why e2e goes red/);
   assert.equal(PAGES.find(item => item.path === '/admin/operations/e2e').group, 'Operations');
   const old = await get('/admin/e2e', {Cookie: 'jp_stats=k3y'});
   assert.equal(old.headers.get('Location'), '/admin/operations/e2e');
+});
+
+test('the top answers "why red?" in seconds: who caused it, top causes with test drift always named, top suites, the biggest breaks, PR e2e cost vs catch, main green per day', () => {
+  const line = 'tar: D\\:\\a\\_temp/free-ai-tree: Cannot open';
+  const snap = {schema: 2, at: '2026-10-27T11:41:00Z',
+    days: [{day: '2026-10-26', kind: 'nightly', runs: 1, reds: 1, greens: 0}, {day: '2026-10-26', kind: 'after-merge', runs: 10, reds: 1, greens: 9}, {day: '2026-10-26', kind: 'pr', runs: 20, reds: 3, greens: 17, queueMin: 300, runMin: 300, prs: 12},
+      {day: '2026-10-24', kind: 'beta', runs: 2, reds: 2, greens: 0}],
+    fails: [{day: '2026-10-26', kind: 'nightly', suite: 'apply', platform: 'windows', cause: 'ci', n: 32, min: 64}, {day: '2026-10-26', kind: 'pr', suite: 'settings', platform: 'mac', cause: 'picker', n: 10, min: 20},
+      {day: '2026-10-26', kind: 'pr', suite: 'wander', platform: 'mac', cause: 'product', n: 2, min: 8}, {day: '2026-10-24', kind: 'beta', suite: 'quality', platform: 'mac', cause: 'product', n: 6, min: 30}],
+    breaks: [{day: '2026-10-26', kind: 'nightly', runId: 40261885119, cause: 'ci', line, n: 32}, {day: '2026-10-26', kind: 'pr', runId: 5, cause: 'picker', line: '✗ steps picked', n: 1}],
+    caught: [{day: '2026-10-26', runId: 6, suite: 'wander', line: '✗ [wander] error-shown', pr: 2123}, {day: '2026-10-26', runId: 7, suite: 'wander', line: '✗ x', pr: 2150}], latest: []};
+  const at = new Date('2026-10-27T12:00:00Z'), html = page(snap, {range: '7d', now: at});
+  assert.match(html, /50 red suites from 2 breaks:<\/b> Our CI and AI 84% · the tests 0% · the app 16%/);
+  assert.match(html, /<b><span class="sw"[^>]*><\/span>Test drift<\/b>/, 'test drift is named even at 0');
+  assert.match(html, /<code>apply<\/code><\/td><td class="num">32<\/td><td><span class="chip">CI setup broke 32/);
+  assert.match(html, /free-ai-tree/);
+  assert.ok(!html.includes('✗ steps picked</td>'), 'a break of one suite is not listed among the biggest');
+  assert.match(html, /300 runner-minutes per caught bug:<\/b> 20 PR e2e runs, 300 min waiting for a runner \+ 300 min running; caught 2 bugs/);
+  assert.match(html, /pull\/2123/);
+  assert.match(html, /2026-10-24 · PR e2e starts/);
+  assert.match(html, /2026-10-26<\/td><td class="num">0% <span class="muted">\(0\/1\)<\/span><\/td><td class="num">90%/);
+  const pr = page(snap, {range: '7d', kind: 'pr', now: at});
+  assert.match(pr, /12 red suites from 1 break:/, 'the kind filter narrows the causes; the PR box still reads every PR run');
+  assert.match(pr, /Last 7 days · PR/);
 });

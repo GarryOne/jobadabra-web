@@ -1,0 +1,107 @@
+// The pure part of the e2e collector (jobs/e2e-intel.mjs does the I/O): which kind of run each workflow run is, which suite jobs were red on their first try,
+// how long a job waited for a runner and how long it ran, and the cause of each red (admin/e2e-causes.js) from facts, then the fix's trailer, then the AI.
+// No network here: GitHub and the AI come in as functions. Guard: test/admin/e2e-intel-collector.test.js.
+import {causePrompt, factCause, failureLine, likelyFixes, prCause, readAnswer, suiteOfJob, trailerCause} from '../admin/e2e-causes.js';
+
+export const minutesOf = (from, to) => (from && to ? Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 6000) / 10) || 0 : 0);
+
+// Every e2e run kind the page shows (owner, 27 Oct 2026: betas and nightlies only could not tell whether PR e2e helped). null = not counted
+// (a bisect or a mutant is red on purpose; a run by hand on main is someone's experiment).
+export function kindOf(run, workflow) {
+  const title = run.displayTitle || '';
+  if (workflow === 'harness-daily.yml') return 'harness';
+  if (workflow === 'desktop.yml') return /Nightly|E2E check/.test(title) ? 'nightly' : /Beta/.test(title) ? 'beta' : null;
+  if (/^(Bisect|Mutant)/.test(title)) return null;
+  if (title.startsWith('E2E for PR')) return 'pr';
+  if (title.startsWith('E2E after merge')) return 'after-merge';
+  if (title.startsWith('E2E check')) return 'scheduled';
+  if (title.startsWith('RC soak')) return 'soak';
+  if (title.startsWith('Stable canary')) return 'canary';
+  if (title.startsWith('Beta E2E')) return 'beta';
+  return run.headBranch && run.headBranch !== 'main' && run.event === 'workflow_dispatch' ? 'pr' : null;   // before 26 Oct a PR's run read "E2E Mac + Linux · all suites · <branch>"
+}
+// The runs a red's fix is looked for in: a PR's own branch, or main (every other kind).
+export const streamOf = run => (run.kind === 'pr' ? `pr:${run.headBranch}` : 'main');
+
+const suiteJob = (job, run) => (run.kind === 'harness' ? (/harness/i.test(job.name || '') || (job.steps || []).some(step => /harness test/i.test(step.name)) ? {suite: 'harness', platform: 'mac'} : null)
+  : suiteOfJob(job.name, job.steps, run.workflow === 'e2e-windows.yml'));
+const again = job => (job.steps || []).find(step => /once more, to tell flaky from real/.test(step.name) && step.conclusion && step.conclusion !== 'skipped');
+
+// The suite jobs of one run that were red on their first try: [{suite, platform, jobConclusion, failedStep, rerun, minutes, jobId}]. Green on the second try still counts (a flake).
+export function redJobs(run) {
+  const out = [];
+  for (const job of run.jobs || []) {
+    const id = suiteJob(job, run);
+    if (!id) continue;
+    const second = again(job);
+    if (job.conclusion !== 'failure' && job.conclusion !== 'cancelled' && !second) continue;
+    if (job.conclusion === 'cancelled' && ['pr', 'after-merge'].includes(run.kind)) continue;   // a newer push or merge replaced it: not a red
+    const failed = (job.steps || []).find(step => step.conclusion === 'failure');
+    out.push({...id, jobConclusion: job.conclusion, failedStep: failed?.name || '', rerun: second?.conclusion, minutes: minutesOf(job.started_at, job.completed_at), jobId: job.id});
+  }
+  return out;
+}
+// Did this suite pass on its first try in this run?
+export const passedFirst = (run, suite, platform) => (run.jobs || []).some(job => {
+  const id = suiteJob(job, run);
+  return id && id.suite === suite && id.platform === platform && job.conclusion === 'success' && !again(job);
+});
+// Waiting for a runner vs running, summed over the run's jobs (6e, 27 Oct 2026: #2199's checks took 13.9 min, its suite ran 73 s).
+export function jobMinutes(jobs = []) {
+  let queue = 0, running = 0;
+  for (const job of jobs) if (job.started_at && job.completed_at && job.conclusion !== 'skipped') { queue += minutesOf(job.created_at || job.started_at, job.started_at); running += minutesOf(job.started_at, job.completed_at); }
+  return {queueMin: Math.round(queue * 10) / 10, runMin: Math.round(running * 10) / 10};
+}
+
+// One red's cause. deps (async, may return null = could not read): commitsBetween(a, b) -> [{sha, message}], filesOf(sha) -> [file], filesBetween(a, b) -> [file],
+// prFiles(pr) -> [file], diffOf(sha) -> text, ask({system, user}) -> text or null (no AI token: null). log === null: the log was not read this pass (the red is read again later).
+export async function causeOfRed({run, red, log, next}, deps) {
+  const line = failureLine(log || '');
+  const fact = factCause({...red, log, line});
+  if (fact) return {cause: fact, line};
+  if (log === null) return {cause: 'unknown', line};
+  if (!next) return {cause: 'open', line};
+  if (run.kind === 'pr') {
+    const sameCommit = next.headSha === run.headSha;
+    const cause = prCause({sameCommit, fixFiles: sameCommit ? [] : (await deps.filesBetween(run.headSha, next.headSha)) || [], prFiles: (await deps.prFiles(run.pr)) || []});
+    return {cause: cause || 'unknown', line};
+  }
+  const commits = await deps.commitsBetween(run.headSha, next.headSha);
+  if (!commits) return {cause: 'unknown', line};
+  const named = trailerCause(commits, red.suite);
+  if (named) return {cause: named.cause, line, fix: named.sha};
+  const fixes = likelyFixes(commits, {suite: red.suite, line});
+  if (!fixes.length) return {cause: 'unknown', line};   // no commit to judge: the AI would only guess
+  for (const [i, fix] of fixes.entries()) { fix.files = (await deps.filesOf(fix.sha)) || []; if (i < 2 && deps.diffOf) fix.diff = (await deps.diffOf(fix.sha)) || ''; }
+  const answer = readAnswer((await deps.ask(causePrompt({suite: red.suite, kind: run.kind, line, fixes}))) || '');
+  return {cause: answer?.cause || 'unknown', line, fix: answer?.fix ? fixes[answer.fix - 1]?.sha : undefined};
+}
+
+// Workers AI gives the text as result.response, as OpenAI-style choices, or (for a JSON answer) the parsed object itself: always text out (27 Oct 2026: every answer read "[object Object]").
+export function answerText(data) {
+  const raw = data?.result?.choices?.[0]?.message?.content ?? data?.result?.response ?? '';
+  return (typeof raw === 'string' ? raw : JSON.stringify(raw)).replace(/<think>[^]*?<\/think>/g, '');
+}
+
+// runs: [{databaseId, createdAt, updatedAt, headSha, headBranch, conclusion, kind, workflow, pr, jobs}] oldest first -> {runs, fails} rows for the site.
+export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
+  const out = {runs: [], fails: []};
+  for (const [index, run] of runs.entries()) {
+    out.runs.push({runId: run.databaseId, createdAt: run.createdAt, kind: run.kind, conclusion: run.conclusion, minutes: minutesOf(run.createdAt, run.updatedAt), ...jobMinutes(run.jobs), pr: run.pr || null});
+    if (run.conclusion === 'cancelled') continue;   // a cancelled run is a try that showed nothing: its jobs are not reds
+    for (const red of redJobs(run)) {
+      const next = runs.slice(index + 1).find(later => streamOf(later) === streamOf(run) && passedFirst(later, red.suite, red.platform));
+      const log = logOf(red.jobId);   // a flake's log too: its first try may be the picker's or the credit's red
+      const {cause, line, fix} = await causeOfRed({run, red, log, next}, deps);
+      out.fails.push({runId: run.databaseId, suite: red.suite, platform: red.platform, day: run.createdAt.slice(0, 10), kind: run.kind, cause, line, fix: fix || '', minutes: red.minutes,
+        caught: run.kind === 'pr' && cause === 'product' ? 1 : 0});
+    }
+  }
+  return out;
+}
+
+// New runs first, newest first, at most `max` a pass: the page fills from today backwards; with nothing new, the runs whose reds are still open or unknown are read again.
+export function runsToRead(listed, settled, waiting, max = 200) {
+  const fresh = listed.filter(run => !settled.has(run.databaseId) && !waiting.has(run.databaseId));
+  return (fresh.length ? fresh : listed.filter(run => waiting.has(run.databaseId))).slice(-max);
+}

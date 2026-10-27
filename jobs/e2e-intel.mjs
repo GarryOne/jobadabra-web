@@ -1,68 +1,37 @@
 #!/usr/bin/env node
-// Publishes the finished release/beta e2e runs of the last 30 days and the cause of every red suite to /admin/operations/e2e (e2e-intel.yml: after each release run, hourly as backup).
-// A run is read once; a red whose cause is "open" or "unknown" is read again until its fix lands. Causes come from facts only (admin/e2e-causes.js, guard: test/admin/e2e-intel-collector.test.js):
-// the job's step results, the failing job's log text (never stored), and the files changed between the red run and the next run where the same suite passed.
+// Publishes every finished e2e run of the last 30 days (beta, nightly, main after a merge, scheduled, soak, canary, PR, the daily harness tests) and the cause of
+// each red suite to /admin/operations/e2e (e2e-intel.yml, hourly). The pure part (kinds, reds, causes) is jobs/e2e-intel-rows.mjs; this file reads GitHub, asks the AI
+// and publishes. A run is read once; a red whose cause is "open" or "unknown" is read again until its fix lands. Log text is searched for the failure line only:
+// the line (a test step's own words, no personal data) is stored, the log never is. Guard: test/admin/e2e-intel-collector.test.js.
 //   node jobs/e2e-intel.mjs [--dry [--out rows.json]]    needs gh with GH_TOKEN; publishing needs SELFHEAL_PUBLISH_KEY (optional E2E_INTEL_URL)
+//   AI for the reds no fact names: E2E_CAUSE_CF_TOKEN + E2E_CAUSE_CF_ACCOUNT (its own Workers AI token, never production's); without them those reds stay "unknown".
 import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {writeFileSync} from 'node:fs';
-import {CAUSES, RULES_VERSION, causeOf, suiteOfJob} from '../admin/e2e-causes.js';
 import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
+import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
+import {answerText, kindOf, redJobs, rowsOf, runsToRead} from './e2e-intel-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.E2E_INTEL_URL || 'https://www.jobpilotto.top/e2e/data';
 const execAsync = promisify(execFile);
-const MAX_LOGS = 80;   // a log is megabytes and a call takes seconds (eight at a time): the newest reds of one collector run are read; an older red with no log read is "unknown", never a guess. 24 left 44 of 58 reds unread (24 Oct 2026)
+const WORKFLOWS = ['desktop.yml', 'e2e.yml', 'e2e-windows.yml', 'harness-daily.yml'];
+const MAX_RUNS = 200, MAX_LOGS = 150, MAX_AI = 60;   // per pass (hourly): the newest first; the rest the next pass. A red with no log read stays "unknown" and is read again.
+const MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';   // the small Workers AI model CI already uses
 const gh = (...args) => JSON.parse(execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 1 << 28}) || 'null');
-const RUN_TITLE = /Beta|Nightly|E2E check/;
-const minutesOf = (from, to) => Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 6000) / 10) || 0;
+const ghAsync = async (...args) => { try { return JSON.parse((await execAsync('gh', args, {maxBuffer: 1 << 28, timeout: 60000})).stdout || 'null'); } catch { return null; } };
+async function eight(items, work) { for (let at = 0; at < items.length; at += 8) await Promise.all(items.slice(at, at + 8).map(work)); }   // eight GitHub calls at a time
+const memo = fn => { const seen = new Map(); return (...args) => { const key = JSON.stringify(args); if (!seen.has(key)) seen.set(key, fn(...args)); return seen.get(key); }; };
 
-// The suite jobs of one run that were red on their first try: [{suite, platform, jobConclusion, failedStep, rerun, minutes, jobId}]. A Mac job that went green on the "once more" step still counts (a flake).
-export function redJobs(jobs = []) {
-  const out = [];
-  for (const job of jobs) {
-    const id = suiteOfJob(job.name);
-    if (!id) continue;
-    const again = (job.steps || []).find(step => /once more, to tell flaky from real/.test(step.name) && step.conclusion && step.conclusion !== 'skipped');
-    if (job.conclusion !== 'failure' && job.conclusion !== 'cancelled' && !again) continue;
-    const failed = (job.steps || []).find(step => step.conclusion === 'failure');
-    out.push({...id, jobConclusion: job.conclusion, failedStep: failed?.name || '', rerun: again?.conclusion, minutes: minutesOf(job.started_at, job.completed_at), jobId: job.id});
-  }
-  return out;
-}
-// Did this suite pass on its first try in this run?
-export const passedFirst = (jobs = [], suite, platform) => jobs.some(job => {
-  const id = suiteOfJob(job.name);
-  return id && id.suite === suite && id.platform === platform && job.conclusion === 'success' && !(job.steps || []).some(step => /once more/.test(step.name) && step.conclusion && step.conclusion !== 'skipped');
-});
-
-// runs: [{databaseId, createdAt, updatedAt, headSha, conclusion, displayTitle, jobs}] oldest first -> {runs, fails} rows for the site.
-export function rowsOf(runs, {logOf = () => '', filesBetween = () => null} = {}) {
-  const out = {runs: [], fails: []};
-  runs.forEach((run, index) => {
-    out.runs.push({runId: run.databaseId, createdAt: run.createdAt, kind: /Nightly/.test(run.displayTitle) ? 'nightly' : 'beta', conclusion: run.conclusion, minutes: minutesOf(run.createdAt, run.updatedAt)});
-    for (const red of run.conclusion === 'cancelled' ? [] : redJobs(run.jobs)) {   // a cancelled run is a try that showed nothing: its jobs are not reds
-      const fixed = runs.slice(index + 1).find(later => passedFirst(later.jobs, red.suite, red.platform));
-      const fixFiles = red.rerun === 'success' ? null : fixed ? filesBetween(run.headSha, fixed.headSha) : [];
-      const cause = causeOf({...red, log: red.rerun === 'success' ? '' : logOf(red.jobId), fixFiles});
-      out.fails.push({runId: run.databaseId, suite: red.suite, platform: red.platform, day: run.createdAt.slice(0, 10), cause, minutes: red.minutes});
-    }
-  });
-  return out;
-}
-
-// The text of failing jobs' logs is read once, eight at a time, and only searched (never stored or sent).
+// The failing jobs' logs, searched in memory (never stored or sent).
 async function readLogs(runs) {
-  const ids = runs.flatMap(run => redJobs(run.jobs).filter(red => red.rerun !== 'success').map(red => red.jobId)).slice(0, MAX_LOGS), logs = new Map();   // in the order given: new runs, newest first, then runs waiting for a cause, oldest first
-  for (let at = 0; at < ids.length; at += 8) {
-    await Promise.all(ids.slice(at, at + 8).map(async id => {
-      try { logs.set(id, (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${id}/logs`], {maxBuffer: 1 << 28})).stdout); } catch { logs.set(id, ''); }
-    }));
-  }
+  const ids = runs.flatMap(run => redJobs(run).map(red => red.jobId)).slice(0, MAX_LOGS), logs = new Map();
+  await eight(ids, async id => {
+    try { logs.set(id, (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${id}/logs`], {maxBuffer: 1 << 28, timeout: 90000})).stdout.replace(/\x1b\[[0-9;]*m/g, '')); } catch { logs.set(id, null); }
+  });
   return logs;
 }
-const filesBetween = (from, to) => { if (from === to) return []; try { return gh('api', `repos/${repo}/compare/${from}...${to}`).files.map(file => file.filename); } catch { return null; } };
 
 // The night's live quality run (e2e.yml "Fresh AI answers for quality once a day": a scheduled "E2E check" started 21-22 UTC) -> its counts (admin/e2e-quality.js).
 // The other runs replay recorded answers and score nothing twice. listed: gh run list rows; stored: run ids the site has.
@@ -86,40 +55,57 @@ async function readNights(runs) {
   return nights;
 }
 
-// New runs first: the "unknown" reds never resolve (their fix cannot be read), and re-reading the oldest 60 pending runs every hour starved every newer run (the page stopped at 17 Oct, 24 Oct 2026).
-export function runsToRead(listed, settled, waiting) {
-  const fresh = listed.filter(run => !settled.has(run.databaseId) && !waiting.has(run.databaseId));
-  return fresh.length ? fresh : listed.filter(run => waiting.has(run.databaseId));
+let aiCalls = 0, aiNeurons = 0;
+async function ask({system, user}) {
+  const token = process.env.E2E_CAUSE_CF_TOKEN, account = process.env.E2E_CAUSE_CF_ACCOUNT;
+  if (!token || !account || aiCalls >= MAX_AI) return null;
+  aiCalls += 1;
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/${MODEL}`, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({messages: [{role: 'system', content: system}, {role: 'user', content: `${user}\n/no_think`}], max_tokens: 800, temperature: 0}), signal: AbortSignal.timeout(60000)});   // /no_think: qwen3 spent the whole answer on its reasoning (27 Oct 2026)
+    const data = await response.json();
+    aiNeurons += Number(data?.result?.usage?.total_tokens) || 0;
+    return answerText(data);
+  } catch { return null; }
 }
+
+const deps = {
+  commitsBetween: memo(async (from, to) => (await ghAsync('api', `repos/${repo}/compare/${from}...${to}`, '--jq', '[.commits[] | {sha, message: .commit.message}]'))),
+  filesBetween: memo(async (from, to) => (from === to ? [] : await ghAsync('api', `repos/${repo}/compare/${from}...${to}`, '--jq', '[.files[].filename]'))),
+  filesOf: memo(async sha => ghAsync('api', `repos/${repo}/commits/${sha}`, '--jq', '[.files[].filename]')),
+  diffOf: memo(async sha => { try { return (await execAsync('gh', ['api', '-H', 'Accept: application/vnd.github.diff', `repos/${repo}/commits/${sha}`], {maxBuffer: 1 << 26, timeout: 60000})).stdout.slice(0, DIFF_MAX); } catch { return null; } }),
+  prFiles: memo(async pr => {
+    if (!pr) return [];
+    try { return (await execAsync('gh', ['api', '--paginate', `repos/${repo}/pulls/${pr}/files?per_page=100`, '--jq', '.[].filename'], {maxBuffer: 1 << 26, timeout: 60000})).stdout.split('\n').filter(Boolean); } catch { return null; }
+  }),
+  ask,
+};
 
 async function main() {
   const key = process.env.SELFHEAL_PUBLISH_KEY, dry = process.argv.includes('--dry');
   if (!key && !dry) { console.log('::warning::SELFHEAL_PUBLISH_KEY is not set: nothing published.'); return; }
-  const since = new Date(Date.now() - 30 * 86400000).toISOString();
-  const listed = gh('run', 'list', '--repo', repo, '--workflow', 'desktop.yml', '--limit', '200', '--json', 'databaseId,conclusion,createdAt,updatedAt,displayTitle,headSha')
-    .filter(run => RUN_TITLE.test(run.displayTitle) && ['success', 'failure', 'cancelled'].includes(run.conclusion) && run.createdAt >= since).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const prOf = Object.fromEntries((gh('pr', 'list', '--repo', repo, '--state', 'all', '--limit', '1000', '--search', `created:>=${since}`, '--json', 'number,headRefName') || []).map(pr => [pr.headRefName, pr.number]));
+  const listed = WORKFLOWS.flatMap(workflow => (gh('run', 'list', '--repo', repo, '--workflow', workflow, '--limit', '1000', '--created', `>=${since}`, '--json', 'databaseId,conclusion,createdAt,updatedAt,displayTitle,headSha,headBranch,event') || [])
+    .map(run => ({...run, workflow, kind: kindOf(run, workflow)})))
+    .filter(run => run.kind && ['success', 'failure', 'cancelled'].includes(run.conclusion)).map(run => ({...run, pr: run.kind === 'pr' ? prOf[run.headBranch] || null : null}))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   let have = [], pending = [], quality = [];
   if (key) ({have, pending, quality = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
   const settled = new Set(have), waiting = new Set(pending);
-  const checks = gh('run', 'list', '--repo', repo, '--workflow', 'e2e.yml', '--limit', '300', '--json', 'databaseId,conclusion,createdAt,displayTitle').filter(run => run.createdAt >= since);
-  const nights = await readNights(liveNights(checks, new Set(quality)).slice(0, 40));
-  const todo = runsToRead(listed, settled, waiting);
-  console.log(`${listed.length} finished runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s)`);
+  const nights = await readNights(liveNights(listed.filter(run => run.workflow === 'e2e.yml'), new Set(quality)).slice(0, 40));
+  const todo = runsToRead(listed, settled, waiting, MAX_RUNS);
+  console.log(`${listed.length} finished e2e runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s)`);
   if (!todo.length && !nights.length) return;
-  // A fix is looked for in the runs after the oldest one to read: read their jobs too (at most 60 runs a time).
-  const from = todo.length ? listed.findIndex(run => run.databaseId === todo[0].databaseId) : listed.length;   // no release run to read: only the quality nights go
-  const needed = listed.slice(from, from + 60);   // the oldest 60 first: a later hourly run takes the rest; a red whose fix is past the window stays "open" and is read again
-  for (let at = 0; at < needed.length; at += 8) {   // eight at a time: one call per run is slow one by one
-    await Promise.all(needed.slice(at, at + 8).map(async run => {
-      try { run.jobs = JSON.parse((await execAsync('gh', ['api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`], {maxBuffer: 1 << 28})).stdout).jobs || []; } catch { run.jobs = []; }
-    }));
-  }
-  const wanted = needed.filter(run => todo.some(t => t.databaseId === run.databaseId));
-  const logs = await readLogs([...wanted.filter(run => !settled.has(run.databaseId)).reverse(), ...wanted.filter(run => settled.has(run.databaseId))]);
-  const rows = rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), filesBetween});
-  const send = {runs: rows.runs.filter(row => todo.some(run => run.databaseId === row.runId)), fails: rows.fails.filter(row => todo.some(run => run.databaseId === row.runId)), quality: nights};
-  const counts = Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]));
-  console.log(JSON.stringify(counts));
+  // A fix is looked for in the later runs of the same line (main, or the PR's branch): read the jobs from the oldest run to read onwards (at most 400 runs).
+  const needed = todo.length ? listed.slice(listed.findIndex(run => run.databaseId === todo[0].databaseId)).slice(0, 400) : [];   // no run to read: only the quality nights go
+  await eight(needed, async run => { run.jobs = (await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`))?.jobs || []; });
+  const wanted = new Set(todo.map(run => run.databaseId));
+  const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
+  const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights};
+  console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
+  console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');
   if (out > 0) writeFileSync(process.argv[out + 1], JSON.stringify(send));
   if (dry) return;
