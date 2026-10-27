@@ -88,7 +88,8 @@ test('the Pro-launch mail: off without its flag; counts without send=1; goes onl
   assert.equal(sent.length, 0);
   assert.deepEqual(await launch(on, {send: true, now}), {sent: 1, skipped: 0});
   assert.equal(sent[0].to, 'yes@example.com');
-  assert.match(sent[0].text, /Pro €9, or Pro \+ AI €19 with AI credit included\. VAT included/);
+  assert.match(sent[0].text, /Pro €9, or Pro \+ AI €19 with €10 of AI credit \(about \d+ applications\)/);
+  assert.match(sent[0].text, /Actual usage varies\. VAT included/);
   assert.match(sent[0].from, /no-reply@jobadabra\.top/);
   assert.deepEqual(await launch(on, {send: true, now}), {sent: 0, skipped: 0}, 'once only');
 });

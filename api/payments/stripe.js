@@ -2,6 +2,7 @@
 // (one-time payment) and turns a signed webhook into OUR event shape, so the ledger, the accounts and the app never see a Stripe field. No SDK: fetch to the API,
 // so tests inject a fake. A merchant of record later = one more file like this one. Guards: test/shared/pro-stripe.test.js. Secrets (Worker): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
 import {equal} from '../../shared/guard.js';
+import {purchaseCreditWords} from '../../shared/credit-purchase-words.js';
 
 const API = 'https://api.stripe.com/v1';
 export const TOLERANCE_SECONDS = 300;
@@ -17,6 +18,7 @@ export async function createCheckout(env, {kind, install, successUrl, cancelUrl}
   const price = env[PRICE_VAR[kind]];
   if (!price || !env.STRIPE_SECRET_KEY) return {error: 'Payments are not set up yet.'};
   const body = form({mode: 'payment', 'line_items[0][price]': price, 'line_items[0][quantity]': '1', client_reference_id: install, 'metadata[kind]': kind, 'metadata[install]': install,
+    'custom_text[submit][message]': purchaseCreditWords(kind),
     success_url: successUrl, cancel_url: cancelUrl, billing_address_collection: 'required', customer_creation: 'always',
     'consent_collection[terms_of_service]': 'required', 'custom_text[terms_of_service_acceptance][message]': 'I agree to the Terms. I ask for the service to start now and know my 14-day right of withdrawal ends once it has started, but Jobadabra refunds within 14 days on request.',
     'automatic_tax[enabled]': env.STRIPE_TAX === 'on' ? 'true' : 'false'});
