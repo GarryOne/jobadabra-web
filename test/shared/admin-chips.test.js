@@ -33,6 +33,13 @@ test('every page in CHIP_PAGES imports the helper and puts its style in its own 
   }
   const users = readdirSync(admin).filter(file => file.endsWith('.js') && file !== 'chip.js' && /from '\.\/chip\.js'/.test(readFileSync(new URL(file, admin), 'utf8')));
   assert.deepEqual(users.map(file => file.replace(/\.js$/, '')).sort(), [...CHIP_PAGES].sort(), 'a page that uses chip() is listed in CHIP_PAGES (so this test checks it)');
+  // A page that shows another chip page's section (not its whole page) must bring the chip style itself (#189: installsimpact showed scouting's table unstyled).
+  for (const file of readdirSync(admin).filter(name => name.endsWith('.js'))) {
+    const text = readFileSync(new URL(file, admin), 'utf8');
+    for (const [, names, from] of text.matchAll(/import \{([^}]*)\} from '\.\/([a-z-]+)\.js'/g)) {
+      if (CHIP_PAGES.includes(from) && /\b\w+(Section|Row)\b/.test(names)) assert.match(text, /\$\{CHIP_STYLE\}/, `${file} shows ${from}'s ${names.trim()}: put CHIP_STYLE in its <style>`);
+    }
+  }
 });
 
 test('the pages draw their chips: access status, e2e kind and result, self-heal status, severity and bug status, scouting kind', () => {

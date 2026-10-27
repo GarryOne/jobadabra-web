@@ -56,7 +56,7 @@ test('the page answers in its verdict and tiles from fixture rows, and shows the
   assert.match(html, /2 of 4 employers \(50%\) came from installs, holding 48% of the open jobs\. Installs skipped 12 steps in 30 days/);
   assert.match(html, /Steps skipped, 30 days<\/span><b>12<\/b>/);
   assert.match(html, /Boards found by installs<\/span><b>1<\/b>/);
-  assert.match(html, /<td>places<\/td><td>5<\/td><td>12<\/td><td>12<\/td>/, 'the per-kind table from /admin/job-search/scouting is reused');
+  assert.match(html, /<td><span class="chip">places<\/span><\/td><td>5<\/td><td>12<\/td><td>12<\/td>/, 'the per-kind table from /admin/job-search/scouting is reused');
   assert.doesNotMatch(html, /<script>[^<]*http/, 'no external call');
 });
 

@@ -10,5 +10,5 @@ export const CHIP_STYLE = '.chip{display:inline-block;border:1px solid #2a2f37;b
   + '.chip.good,.chip.credit{border-color:#1f5a45;color:#3fb68b;background:#11261e}.chip.warn,.chip.pro{border-color:#4a3c1c;color:#f5b54a;background:#2a2312}'
   + '.chip.bad{border-color:#5a2326;color:#e5484d;background:#2a1213}.chip.off{color:#8d949c}';
 
-// The pages that draw value cells with chip(): the guard test checks each one.
-export const CHIP_PAGES = ['promo-codes', 'access', 'e2e-page', 'telemetry', 'selfheal', 'scoutingadmin', 'benchmark-search-page'];
+// The pages that draw value cells with chip(), or show a chip page's section (installsimpact: scouting's served table): the guard test checks each one.
+export const CHIP_PAGES = ['promo-codes', 'access', 'e2e-page', 'telemetry', 'selfheal', 'scoutingadmin', 'benchmark-search-page', 'installsimpact'];
