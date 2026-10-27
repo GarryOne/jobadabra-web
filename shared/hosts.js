@@ -23,15 +23,15 @@ export const OWN_HOSTS = [...ALIAS_APEXES, 'jobpilotto.workers.dev'];
 // run_worker_first lists the same paths (static pages are otherwise served before this code runs); test/shared/hosts.test.js fails when a
 // page in public/ is missing from either.
 export const MAIN_HOST = 'www.jobadabra.top';
-export const LEGACY_HOSTS = ['www.jobpilotto.top'];   // the bare jobpilotto.top goes through apexRedirect first
-// The workers.dev name moves its pages too (owner, 27 Oct 2026: "https://www.jobpilotto.workers.dev/ this should always redirect (301
-// permanently moved) to jobadabra.top"); its API stays (central-scout.yml PUTs /api/index there). Not in LEGACY_HOSTS: admin-hop reads that.
-const PAGE_MOVED_HOSTS = [...LEGACY_HOSTS, 'www.jobpilotto.workers.dev'];
+// The old hosts: their pages and /admin pages move to MAIN_HOST, their API stays. The bare jobpilotto.top goes through apexRedirect first.
+// The workers.dev name moves too (owner, 27 Oct 2026: "https://www.jobpilotto.workers.dev/ this should always redirect (301 permanently
+// moved) to jobadabra.top"); its API stays (central-scout.yml PUTs /api/index there). Its /admin pages go through shared/admin-hop.js.
+export const OLD_HOSTS = ['www.jobpilotto.top', 'www.jobpilotto.workers.dev'];
 export const PAGE_PATHS = ['/', '/changelog', '/compare', '/coverage', '/download', '/faq', '/features', '/friends', '/how-it-works', '/intelligence', '/platforms', '/pricing', '/privacy', '/ready-live', '/research', '/terms', '/trust'];
 export function pageRedirect(request) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   const url = new URL(request.url);
-  if (url.hostname !== MAIN_HOST && !PAGE_MOVED_HOSTS.includes(url.hostname)) return null;
+  if (url.hostname !== MAIN_HOST && !OLD_HOSTS.includes(url.hostname)) return null;
   const path = url.pathname.replace(/\.html$/, '').replace(/^\/index$/, '/');
   if (!PAGE_PATHS.includes(path)) return null;
   if (url.hostname === MAIN_HOST && url.protocol === 'https:' && path === url.pathname) return null;   // already its one address

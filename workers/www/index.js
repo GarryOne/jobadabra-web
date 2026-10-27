@@ -169,11 +169,11 @@ async function metered(request, env, ctx) {
 }
 
 async function route(request, env, ctx) {
-  const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top; workers.dev is never redirected (shared/hosts.js)
+  const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top (shared/hosts.js)
   if (alias) return alias;
-  const page = pageRedirect(request);   // a page over http, on the old www.jobpilotto.top or as .html -> https://www.jobadabra.top/<page>; API paths are served as before
+  const page = pageRedirect(request);   // a page over http, on an old host (www.jobpilotto.top, workers.dev) or as .html -> https://www.jobadabra.top/<page>; API paths are served as before
   if (page) return page;
-  const hop = await hopOut(request, env);   // the owner's sign-in carried from the old host to www.jobadabra.top (shared/admin-hop.js)
+  const hop = await hopOut(request, env);   // an /admin page view on an old host -> the same page on www.jobadabra.top, sign-in carried (shared/admin-hop.js)
   if (hop) return hop;
   request = inPlace(request);   // a script calling an old admin address with its key is answered as at the new one; a browser is redirected below (admin/admin.js)
   const {pathname} = new URL(request.url);

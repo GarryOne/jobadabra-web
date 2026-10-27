@@ -49,12 +49,14 @@ test('to must be a same-origin /admin path', () => {
   for (const to of ['/admin', '/admin/intelligence/ai-cost?days=7', '/admin/operations/e2e']) assert.equal(safeTo(to), true, to);
 });
 
-test('only an owner cookie on an old host, asking for a page, is hopped', async () => {
+test('only an owner cookie on an old host, asking for a page, is hopped; no or a forged cookie is sent on without one', async () => {
   const e = env(), c = await owner(e);
-  assert.equal(await hopOut(page('www.jobpilotto.top', '/admin'), e, now), null);   // no cookie: the usual 404 path
-  assert.equal(await hopOut(page('www.jobpilotto.top', '/admin', {Cookie: 'jp_admin=v1.1792000000.' + 'a'.repeat(43)}), e, now), null);   // forged cookie
+  const plain = async headers => (await hopOut(page('www.jobpilotto.top', '/admin/growth/app?days=7', headers), e, now))?.headers.get('Location');
+  assert.equal(await plain({}), 'https://www.jobadabra.top/admin/growth/app?days=7');   // no cookie: same page there, no token
+  assert.equal(await plain({Cookie: 'jp_admin=v1.1792000000.' + 'a'.repeat(43)}), 'https://www.jobadabra.top/admin/growth/app?days=7');   // forged cookie
   assert.equal(await hopOut(page('www.jobadabra.top', '/admin', c), e, now), null);   // the main host serves it
-  assert.equal(await hopOut(page('www.jobpilotto.workers.dev', '/admin', c), e, now), null);
+  assert.match((await hopOut(page('www.jobpilotto.workers.dev', '/admin', c), e, now)).headers.get('Location'), /^https:\/\/www\.jobadabra\.top\/admin\/hop\?t=h1\./);
+  assert.equal(await hopOut(page('www-staging.jobpilotto.workers.dev', '/admin', c), e, now), null);   // staging is its own worker
   assert.equal(await hopOut(page('www.jobpilotto.top', '/admin', {...c, Authorization: 'Bearer x'}), e, now), null);   // scripts
   assert.equal(await hopOut(page('www.jobpilotto.top', '/admin?key=k', c), e, now), null);
   assert.equal(await hopOut(page('www.jobpilotto.top', '/admin/growth/app', {...c, Accept: 'application/json'}), e, now), null);   // a fetch, not a page
@@ -62,9 +64,12 @@ test('only an owner cookie on an old host, asking for a page, is hopped', async 
   assert.equal(await hopOut(page('www.jobpilotto.top', '/api/index', c), e, now), null);
 });
 
-test('through the worker: a non-owner on the old host still gets the 404, an owner is sent on', async () => {
+test('through the worker: a non-owner on the old host is sent to the same page there, an owner through the hop', async () => {
   const e = {...env(), ASSETS: {fetch: async () => new Response('page')}};
-  assert.equal((await worker.fetch(page('www.jobpilotto.top', '/admin'), e, {})).status, 404);
+  const plain = await worker.fetch(page('www.jobpilotto.top', '/admin'), e, {});
+  assert.equal(plain.status, 302);
+  assert.equal(plain.headers.get('Location'), 'https://www.jobadabra.top/admin');
+  assert.equal((await worker.fetch(page('www.jobadabra.top', '/admin'), e, {})).status, 404);   // and there, signed out, the usual 404
   assert.equal((await worker.fetch(page('www.jobadabra.top', '/admin/hop?t=x&to=/admin'), e, {})).status, 404);
   const real = await worker.fetch(page('www.jobpilotto.top', '/admin', await owner(e)), e, {});
   assert.equal(real.status, 302);

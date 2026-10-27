@@ -103,7 +103,7 @@ test('the worker sends that redirect before serving the page', async () => {
 
 // Owner, 27 Oct 2026: "https://www.jobpilotto.workers.dev/ this should always redirect (301 permanently moved) to jobadabra.top".
 // Only its pages move: central-scout.yml PUTs /api/index there and installed apps call its API, which a 301 would break.
-test('www.jobpilotto.workers.dev: pages 301 to www.jobadabra.top (path + query kept), API and admin paths are served', async () => {
+test('www.jobpilotto.workers.dev: pages 301 to www.jobadabra.top (path + query kept), API paths are served (/admin: test/shared/old-hosts.test.js)', async () => {
   for (const path of PAGE_PATHS) {
     for (const from of [`https://www.jobpilotto.workers.dev${path}?from=x`, `http://www.jobpilotto.workers.dev${path}?from=x`]) {
       const r = pageRedirect(new Request(from));
