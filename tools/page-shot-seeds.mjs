@@ -109,6 +109,12 @@ export const seeds = {
     const topup = await env.STATS.prepare("SELECT id FROM pro_promo_codes WHERE label = 'Friends top-up'").first();
     if (credit && topup?.id) await env.STATS.prepare('INSERT INTO pro_promo_credit_uses (code, install, at) VALUES (?, ?, ?)').bind(topup.id, 'demo-install-credit', at).run().catch(() => {});
   },
+  'ai-cost-pro': async ({env}) => {   // fictional charged calls only; no provider request or real account
+    const at = new Date().toISOString();
+    for (const [account, credit, action] of [['fixture-a', -100000, 'kit'], ['fixture-a', -80000, 'tailor'], ['fixture-b', -60000, 'answer']]) {
+      await env.STATS.prepare('INSERT INTO pro_credit (account, delta_micro, reason, ref, at) VALUES (?, ?, ?, ?, ?)').bind(account, credit, 'ai_call', action, at).run();
+    }
+  },
   'ai-cost-web': async ({env}) => {   // the Free AI board web search this month: $3.50 of its $10 line, 100 searches paid, 40 answered from the shared answers
     const month = new Date().toISOString().slice(0, 7);
     env.WEB_SEARCH_ANTHROPIC_KEY = 'demo-not-a-key';
