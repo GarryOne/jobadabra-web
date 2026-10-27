@@ -7,6 +7,7 @@ import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
 import {writeFileSync} from 'node:fs';
 import {CAUSES, RULES_VERSION, causeOf, suiteOfJob} from '../admin/e2e-causes.js';
+import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
@@ -63,6 +64,28 @@ async function readLogs(runs) {
 }
 const filesBetween = (from, to) => { if (from === to) return []; try { return gh('api', `repos/${repo}/compare/${from}...${to}`).files.map(file => file.filename); } catch { return null; } };
 
+// The night's live quality run (e2e.yml "Fresh AI answers for quality once a day": a scheduled "E2E check" started 21-22 UTC) -> its counts (admin/e2e-quality.js).
+// The other runs replay recorded answers and score nothing twice. listed: gh run list rows; stored: run ids the site has.
+export const liveNights = (listed, stored) => listed.filter(run => /^E2E check/.test(run.displayTitle || '') && ['success', 'failure'].includes(run.conclusion)
+  && [21, 22].includes(new Date(run.createdAt).getUTCHours()) && !stored.has(run.databaseId));
+
+async function readNights(runs) {
+  const nights = [];
+  for (let at = 0; at < runs.length; at += 8) {
+    await Promise.all(runs.slice(at, at + 8).map(async run => {
+      try {
+        const jobs = JSON.parse((await execAsync('gh', ['api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`], {maxBuffer: 1 << 28})).stdout).jobs || [];
+        const job = jobs.find(item => item.name === 'quality' || /^quality\b/.test(item.name));
+        if (!job) return;
+        const log = (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${job.id}/logs`], {maxBuffer: 1 << 28})).stdout;
+        const night = nightOf(log);
+        if (night) nights.push({runId: run.databaseId, day: run.createdAt.slice(0, 10), ...night});
+      } catch { /* a run whose log cannot be read is read again next hour */ }
+    }));
+  }
+  return nights;
+}
+
 // New runs first: the "unknown" reds never resolve (their fix cannot be read), and re-reading the oldest 60 pending runs every hour starved every newer run (the page stopped at 17 Oct, 24 Oct 2026).
 export function runsToRead(listed, settled, waiting) {
   const fresh = listed.filter(run => !settled.has(run.databaseId) && !waiting.has(run.databaseId));
@@ -75,14 +98,16 @@ async function main() {
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   const listed = gh('run', 'list', '--repo', repo, '--workflow', 'desktop.yml', '--limit', '200', '--json', 'databaseId,conclusion,createdAt,updatedAt,displayTitle,headSha')
     .filter(run => RUN_TITLE.test(run.displayTitle) && ['success', 'failure', 'cancelled'].includes(run.conclusion) && run.createdAt >= since).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  let have = [], pending = [];
-  if (key) ({have, pending} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
+  let have = [], pending = [], quality = [];
+  if (key) ({have, pending, quality = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
   const settled = new Set(have), waiting = new Set(pending);
+  const checks = gh('run', 'list', '--repo', repo, '--workflow', 'e2e.yml', '--limit', '300', '--json', 'databaseId,conclusion,createdAt,displayTitle').filter(run => run.createdAt >= since);
+  const nights = await readNights(liveNights(checks, new Set(quality)).slice(0, 40));
   const todo = runsToRead(listed, settled, waiting);
-  console.log(`${listed.length} finished runs in 30 days, ${settled.size} stored, ${todo.length} to read`);
-  if (!todo.length) return;
+  console.log(`${listed.length} finished runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s)`);
+  if (!todo.length && !nights.length) return;
   // A fix is looked for in the runs after the oldest one to read: read their jobs too (at most 60 runs a time).
-  const from = listed.findIndex(run => run.databaseId === todo[0].databaseId);
+  const from = todo.length ? listed.findIndex(run => run.databaseId === todo[0].databaseId) : listed.length;   // no release run to read: only the quality nights go
   const needed = listed.slice(from, from + 60);   // the oldest 60 first: a later hourly run takes the rest; a red whose fix is past the window stays "open" and is read again
   for (let at = 0; at < needed.length; at += 8) {   // eight at a time: one call per run is slow one by one
     await Promise.all(needed.slice(at, at + 8).map(async run => {
@@ -92,14 +117,14 @@ async function main() {
   const wanted = needed.filter(run => todo.some(t => t.databaseId === run.databaseId));
   const logs = await readLogs([...wanted.filter(run => !settled.has(run.databaseId)).reverse(), ...wanted.filter(run => settled.has(run.databaseId))]);
   const rows = rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), filesBetween});
-  const send = {runs: rows.runs.filter(row => todo.some(run => run.databaseId === row.runId)), fails: rows.fails.filter(row => todo.some(run => run.databaseId === row.runId))};
+  const send = {runs: rows.runs.filter(row => todo.some(run => run.databaseId === row.runId)), fails: rows.fails.filter(row => todo.some(run => run.databaseId === row.runId)), quality: nights};
   const counts = Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]));
   console.log(JSON.stringify(counts));
   const out = process.argv.indexOf('--out');
   if (out > 0) writeFileSync(process.argv[out + 1], JSON.stringify(send));
   if (dry) return;
   const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${key}`, 'Content-Type': 'application/json'}, body: JSON.stringify({rules: RULES_VERSION, ...send})});
-  console.log(`published ${send.runs.length} runs, ${send.fails.length} reds: HTTP ${response.status} ${await response.text()}`);
+  console.log(`published ${send.runs.length} runs, ${send.fails.length} reds, ${nights.length} quality nights: HTTP ${response.status} ${await response.text()}`);
   if (!response.ok) process.exitCode = 1;
 }
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) await main();

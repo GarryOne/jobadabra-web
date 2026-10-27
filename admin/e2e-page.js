@@ -1,5 +1,5 @@
 // /admin/operations/e2e: where our e2e fixing time goes (owner, 18 Oct 2026; replaces the dropped /admin/e2e runs page). Draws the ONE snapshot row admin/e2e-intel.js keeps: finished release/beta runs, which suites
-// went red, and why (facts, admin/e2e-causes.js). No AI, no table scan. Guard: test/admin/e2e-page.test.js.
+// went red, and why (facts, admin/e2e-causes.js). Also how steady the AI is in the quality suite (admin/e2e-quality.js). No AI, no table scan. Guard: test/admin/e2e-page.test.js.
 import {viewer} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
 import {remember} from '../shared/auth.js';
@@ -7,6 +7,7 @@ import {CAUSES, CAUSE_IDS} from './e2e-causes.js';
 import {filterLinks} from './admin.js';
 import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
+import {BARS, rateOf} from './e2e-quality.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -60,11 +61,26 @@ export function bars(w) {
   return `${legend(CAUSES)}${barRows(CAUSES, list, summary)}`;
 }
 
+// How steady the AI is in the quality suite (admin/e2e-quality.js): two tiles against the owner's bars, facts and judge flags, then each night.
+const rate1 = value => (value == null ? '–' : `${Math.round(value * 1000) / 10}%`);
+export function qualityCard(nights = [], repo = 'GarryOne/jobadabra') {
+  if (!nights.length) return '<section class="card"><h2>How steady the AI is · quality suite</h2><p class="muted">No live quality night yet: the night\'s fresh quality run scores the golden jobs twice.</p></section>';
+  const rate = rateOf(nights), tone = ok => (ok ? 'good' : 'bad');
+  return `<section class="card"><h2>How steady the AI is · last ${rate.pairs} score pairs (${rate.nights} ${rate.nights === 1 ? 'night' : 'nights'})</h2>
+<div class="tiles"><section class="card tile"><span class="muted">Same score twice (within ${BARS.within})</span><b>${rate1(rate.agree)}</b>${chip(`bar ≥ ${BARS.agree * 100}%`, tone(rate.agreeOk))}</section>
+<section class="card tile"><span class="muted">Big jumps (over ${BARS.jump} apart)</span><b>${rate1(rate.jumps)}</b>${chip(`bar ≤ ${BARS.jumps * 100}%`, tone(rate.jumpsOk))}</section>
+<section class="card tile"><span class="muted">Facts exact</span><b>${rate1(rate.factsTotal ? rate.factsExact / rate.factsTotal : null)}</b><span class="muted">${rate.factsExact} of ${rate.factsTotal}</span></section>
+<section class="card tile"><span class="muted">Score texts with invented facts</span><b>${rate1(rate.judged ? rate.invented / rate.judged : null)}</b><span class="muted">${rate.invented} of ${rate.judged} judged</span></section></div>
+<div class="scroll"><table><tr><th>Night</th><th>Run</th><th class="num">Pairs</th><th class="num">Within ${BARS.within}</th><th class="num">Over ${BARS.jump}</th><th class="num">Facts exact</th><th class="num">Invented</th></tr>${nights.slice(0, 14).map(night =>
+  `<tr><td>${esc(night.day)}</td><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(night.runId)}">#${Number(night.runId)}</a></td><td class="num">${night.pairs}</td><td class="num">${chip(`${night.within8}`, night.within8 / night.pairs >= BARS.agree ? 'good' : 'warn')}</td><td class="num">${night.over20 ? chip(`${night.over20}`, 'bad') : chip('0', 'good')}</td><td class="num">${night.factsExact}/${night.factsTotal}</td><td class="num">${night.invented}/${night.judged}</td></tr>`).join('')}</table></div></section>`;
+}
+
 export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date()} = {}) {
   range = rangeOf(range);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}`]), range), w = windowOf(snapshot, range, now), name = RANGES[range].name;
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>e2e-intel.yml</code> publishes every finished release run when it ends and hourly; the first run fills this page.</p></section>`
     : `${filters}${tiles(w)}
+${qualityCard(snapshot.quality || [], repo)}
 <section class="card"><h2>Red suites per day, by cause · ${esc(name)}</h2>${w.reds ? bars(w) : '<p class="muted">No red suites in this range.</p>'}</section>
 <section class="card"><h2>Which suites cost the most · ${esc(name)}</h2>${suiteTable(w)}</section>
 <section class="card"><h2>What each cause means</h2><table>${CAUSES.map(cause => `<tr><td class="nowrap">${swatch(cause.id)}${esc(cause.label)}</td><td class="muted">${esc(cause.hint)}</td></tr>`).join('')}</table></section>
