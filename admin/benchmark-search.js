@@ -18,7 +18,9 @@ const NUMBERS = ['found', 'place', 'role', 'relevant', 'employers', 'seconds', '
 // One run in the shape the table holds, or null when it is not a run (a bad row is dropped, never stored half). `missed` = {job system: jobs}, titles and bodies never arrive.
 export function clean(run) {
   const counts = value => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, jobs]) => [text(key, 60), count(jobs) ?? 0])) : {});
-  const missed = counts(run?.missed), beyond = counts(run?.beyond);   // beyond = {rival: relevant jobs "ours with every source" shows and that rival did not}
+  // Why (27 Oct 2026, owner via 6e): a rival whose job failed for this persona is sent as null, never left out, so a rival that failed everywhere still shows as failed.
+  const beyondOf = value => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, jobs]) => [text(key, 60), jobs === null ? null : count(jobs) ?? 0])) : {});
+  const missed = counts(run?.missed), beyond = beyondOf(run?.beyond);   // beyond = {rival: relevant jobs "ours with every source" shows and that rival did not}
   const row = {id: text(run?.id, 80), at: text(run?.at, 30), round: text(run?.round, 30), persona: text(run?.persona, 60), kind: run?.kind, country: text(run?.country, 40), tool: text(run?.tool, 60), ours: run?.ours ? 1 : 0, build: text(run?.build, 20), missed: JSON.stringify(missed), beyond: JSON.stringify(beyond)};
   const numbers = Object.fromEntries(NUMBERS.map(key => [key, count(run?.[key] ?? 0)]));
   if (!row.id || !/^\d{4}-\d{2}-\d{2}/.test(row.at) || !row.round || !row.persona || !row.tool || !KINDS.includes(row.kind) || Object.values(numbers).includes(null)) return null;
