@@ -28,11 +28,11 @@ test('the publish key is needed; without it the address does not exist', async (
 
 test('a run and its red suites are stored once; a later cause for the same red replaces "open"', async () => {
   const e = env();
-  const first = await put(e, {rules: 1, runs: [run(1)], fails: [fail(1, 'apply', 'mac', 'open'), fail(1, 'apply', 'windows', 'credit')]});
+  const first = await put(e, {rules: 1, runs: [run(1)], fails: [fail(1, 'apply', 'mac', 'open'), fail(1, 'apply', 'windows', 'ai')]});
   assert.equal(first.status, 200);
   await put(e, {rules: 1, runs: [run(1)], fails: [fail(1, 'apply', 'mac', 'test'), fail(1, 'apply', 'windows', 'open')]});
   const causes = Object.fromEntries(e.STATS.db.prepare('SELECT platform, cause FROM e2e_fails').all().map(row => [row.platform, row.cause]));
-  assert.deepEqual(causes, {mac: 'test', windows: 'credit'}, 'open becomes test; a settled cause is not overwritten by open');
+  assert.deepEqual(causes, {mac: 'test', windows: 'ai'}, 'open becomes test; a settled cause is not overwritten by open');
   assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM e2e_runs').get().n, 1);
 });
 
@@ -68,4 +68,26 @@ test('the snapshot holds the last 30 days per day and per suite, and the page re
   assert.deepEqual(snapshot.fails.map(f => [f.suite, f.platform, f.cause, f.n]).sort(), [['apply', 'mac', 'test', 1], ['apply', 'windows', 'test', 1]]);
   const stored = e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get();
   assert.equal(JSON.parse(stored.body).schema, snapshot.schema);
+});
+
+test('every run kind is kept with its runner minutes and PR; a red keeps its kind, failure line, fix and whether a PR caught a bug; breaks group one run\'s same-cause reds', async () => {
+  const e = env();
+  const line = 'tar: D\\:\\a\\_temp/free-ai-tree: Cannot open';
+  await put(e, {rules: 3, runs: [run(1, 'failure', {kind: 'nightly'}), run(2, 'failure', {kind: 'pr', queueMin: 8.5, runMin: 2.2, pr: 2123}), run(3, 'success', {kind: 'after-merge'})],
+    fails: [fail(1, 'apply', 'windows', 'ci', {kind: 'nightly', line}), fail(1, 'jobs', 'windows', 'ci', {kind: 'nightly', line}), fail(1, 'quality', 'mac', 'drift', {kind: 'nightly', line: '✗ x', fix: 'f1'}),
+      fail(2, 'wander', 'mac', 'product', {kind: 'pr', line: '✗ [wander] error-shown', caught: 1})]});
+  const snapshot = await buildSnapshot(e.STATS, now);
+  assert.equal(snapshot.schema, 2);
+  assert.deepEqual(snapshot.days.map(d => [d.kind, d.runs, d.reds, d.queueMin, d.runMin, d.prs]).sort(), [['after-merge', 1, 0, 0, 0, 0], ['nightly', 1, 1, 0, 0, 0], ['pr', 1, 1, 8.5, 2.2, 1]]);
+  assert.deepEqual(snapshot.breaks[0], {day: '2026-10-17', kind: 'nightly', runId: 1, cause: 'ci', line, n: 2}, 'one relay break on two suites is one break');
+  assert.deepEqual(snapshot.caught, [{day: '2026-10-17', runId: 2, suite: 'wander', line: '✗ [wander] error-shown', pr: 2123}]);
+  assert.equal(e.STATS.db.prepare("SELECT fix FROM e2e_fails WHERE suite = 'quality'").get().fix, 'f1');
+});
+
+test('a newer rules version rewrites a settled red and its run (rules 3 re-read every run of rules 1-2)', async () => {
+  const e = env();
+  await put(e, {rules: 2, runs: [run(1)], fails: [fail(1, 'apply', 'mac', 'product')]});
+  await put(e, {rules: 3, runs: [run(1, 'failure', {kind: 'nightly', queueMin: 3})], fails: [fail(1, 'apply', 'mac', 'drift', {kind: 'nightly'})]});
+  assert.deepEqual({...e.STATS.db.prepare('SELECT cause, kind FROM e2e_fails').get()}, {cause: 'drift', kind: 'nightly'});
+  assert.deepEqual({...e.STATS.db.prepare('SELECT kind, queue_min FROM e2e_runs').get()}, {kind: 'nightly', queue_min: 3});
 });
