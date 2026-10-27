@@ -56,7 +56,7 @@ test('without the summary the employers come from the snapshot and jobs are left
 });
 
 // The owner's heatmap on /coverage (27 Oct 2026: "let's publish this graph"), drawn by the admin's renderer in its public cut.
-test('the public heat table: counts and the week\'s change only, every field before Software & IT, no jobs, installs, floors or AI aim', async () => {
+test('the public heat table: counts and the week\'s change only, every field biggest first (Software & IT among them), no jobs, installs, floors or AI aim', async () => {
   const STATS = d1();
   await storeSnapshot(STATS, '2026-10-13', snapshot([feed(1, 'healthcare', ['pl'])]));
   await storeSnapshot(STATS, '2026-10-20', snapshot([feed(1, 'healthcare', ['pl']), feed(2, 'healthcare', ['pl'], 7), feed(3, 'software', ['de']),
@@ -70,7 +70,8 @@ test('the public heat table: counts and the week\'s change only, every field bef
   assert.match(heat.legend, /^Employers: <i class="h0"><\/i>0/);
   const rows = [...heat.table.matchAll(/scope="row">([^<]+)</g)].map(match => match[1]);
   assert.ok(rows.indexOf('Healthcare') < rows.indexOf('Logistics'), 'the fields biggest first');
-  assert.ok(rows.indexOf('Logistics') < rows.indexOf('Software &amp; IT'), 'global, not tech: every field before Software & IT');
+  assert.ok(rows.indexOf('Healthcare') < rows.indexOf('Software &amp; IT') && rows.indexOf('Software &amp; IT') < rows.indexOf('Logistics'),
+    'Software & IT is sorted by its size like every field (owner, 27 Oct 2026), not pinned last');
   assert.match(heat.table, /<td class="hn" data-tip="Field not sorted yet · France: 1 employer/, 'not sorted yet in one neutral, off the amber scale');
-  assert.deepEqual(rows.slice(-3), ['Software &amp; IT', 'Several fields', 'Field not sorted yet']);
+  assert.deepEqual(rows.slice(-2), ['Several fields', 'Field not sorted yet']);
 });
