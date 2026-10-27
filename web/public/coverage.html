@@ -6,7 +6,7 @@
 <title>Jobs we cover · Jobadabra</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="How many employers and open jobs Jobadabra reads across Europe, country by country and by kind of work, updated every day.">
+<meta name="description" content="How many employers and open jobs Jobadabra reads across Europe, by field and country, updated every day.">
 <link rel="canonical" href="https://www.jobadabra.top/coverage">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Jobadabra">
@@ -54,6 +54,24 @@
     <p class="source-note" data-cov-note>Counts only, from the central employer list's daily snapshot. No employer is named here and nothing comes from any user.</p>
   </section>
 
+  <section class="block" id="fields">
+    <div class="section-head stacked">
+      <span class="eyebrow">By field and country</span>
+      <h2>Where the list is strong or thin</h2>
+      <p class="lede">Each employer by the field it mostly hires for, in every European country it has jobs in. Brighter means more employers.</p>
+    </div>
+    <aside class="heat-note">
+      <b>This is Jobadabra's own list, not the limit of your search.</b>
+      <span>It holds the employers the app already knows and checks every day. Each search also reads job boards, looks across the web for your roles and places, and checks the employers you add. A thin square here still gets jobs from all of those.</span>
+    </aside>
+    <div class="heat-card">
+      <div data-cov-heat><p class="source-note">The chart loads with the page.</p></div>
+      <p class="heat-tip" data-cov-tip aria-live="polite">Point at or tap a square for its count and this week's change.</p>
+      <div class="heat-legend" data-cov-legend></div>
+    </div>
+    <p class="source-note">Smaller countries light up sooner: 5 employers in Luxembourg shine like 25 in Germany. <b>Several fields:</b> employers that hire across many kinds of work. <b>Field not sorted yet:</b> employers the scout found recently and has not sorted by field. An employer counts once in each country it hires in.</p>
+  </section>
+
   <section class="block" id="countries">
     <div class="section-head stacked">
       <span class="eyebrow">By country</span>
@@ -61,16 +79,6 @@
       <p class="lede">An employer counts in every country it has jobs in.</p>
     </div>
     <div class="bars" data-cov-bars="countries"><p class="source-note">The chart loads with the page.</p></div>
-  </section>
-
-  <section class="block" id="kinds">
-    <div class="section-head stacked">
-      <span class="eyebrow">By kind of work</span>
-      <h2>Every field, some stronger than others</h2>
-      <p class="lede">Each employer by the kind of work it mostly hires for. IT and sales are the largest today; the scout adds employers where the list is thin first.</p>
-    </div>
-    <div class="bars" data-cov-bars="kinds"><p class="source-note">The chart loads with the page.</p></div>
-    <p class="source-note" data-cov-other hidden>Plus <b data-cov="other_kinds"></b> employers that hire across several kinds of work.</p>
   </section>
 
   <section class="block" id="yours">
@@ -96,9 +104,17 @@ fetch('/api/coverage').then(r => (r.ok ? r.json() : null)).then(data => {
     const v = data[slot.dataset.cov];
     if (typeof v === 'number' && v > 0) slot.textContent = slot.dataset.cov === 'week_added' ? `+${n(v)}` : n(v);
   }
-  if (data.other_kinds > 0) document.querySelector('[data-cov-other]').hidden = false;
   const note = document.querySelector('[data-cov-note]');
   if (note && data.day) note.textContent = `Counts only, from the central employer list's snapshot of ${data.day}. No employer is named here and nothing comes from any user.`;
+  // The kind × country table: drawn by the admin's renderer on the server in its public cut (api/coverage.js), counts only.
+  const heat = document.querySelector('[data-cov-heat]'), tip = document.querySelector('[data-cov-tip]');
+  if (heat && data.heat?.table) {
+    heat.innerHTML = data.heat.table;
+    document.querySelector('[data-cov-legend]').innerHTML = data.heat.legend;
+    const show = event => { const cell = event.target.closest('[data-tip]'); if (cell) tip.textContent = cell.dataset.tip; };
+    heat.addEventListener('mouseover', show);
+    heat.addEventListener('click', show);
+  }
   for (const box of document.querySelectorAll('[data-cov-bars]')) {
     const rows = data[box.dataset.covBars] || [];
     if (!rows.length) continue;
