@@ -1,0 +1,511 @@
+{
+  "schema": 1,
+  "date": "2026-10-27",
+  "search": {
+    "judgedJobs": 896,
+    "returnedRows": 957,
+    "tools": [
+      {
+        "key": "eures",
+        "name": "EURES",
+        "found": 557,
+        "role": 116,
+        "place": 529,
+        "remote": 0,
+        "no": 28,
+        "unknown": 0,
+        "relevant": 115,
+        "observedPersonas": 8
+      },
+      {
+        "key": "jobspy",
+        "name": "JobSpy",
+        "found": 266,
+        "role": 198,
+        "place": 230,
+        "remote": 0,
+        "no": 36,
+        "unknown": 0,
+        "relevant": 168,
+        "observedPersonas": 8
+      },
+      {
+        "key": "ours",
+        "name": "Jobadabra",
+        "found": 113,
+        "role": 82,
+        "place": 23,
+        "remote": 43,
+        "no": 44,
+        "unknown": 3,
+        "relevant": 13,
+        "observedPersonas": 7
+      },
+      {
+        "key": "career-ops",
+        "name": "career-ops",
+        "found": 8,
+        "role": 8,
+        "place": 0,
+        "remote": 0,
+        "no": 2,
+        "unknown": 6,
+        "relevant": 0,
+        "observedPersonas": 2
+      },
+      {
+        "key": "career-ops-docs",
+        "name": "career-ops (docs setup)",
+        "found": 7,
+        "role": 7,
+        "place": 1,
+        "remote": 0,
+        "no": 0,
+        "unknown": 6,
+        "relevant": 1,
+        "observedPersonas": 1
+      },
+      {
+        "key": "adzuna",
+        "name": "Adzuna",
+        "found": 6,
+        "role": 4,
+        "place": 6,
+        "remote": 0,
+        "no": 0,
+        "unknown": 0,
+        "relevant": 4,
+        "observedPersonas": 1
+      }
+    ],
+    "personas": [
+      {
+        "title": "Truck Driver (Class CE)",
+        "city": "Sofia",
+        "country": "Bulgaria",
+        "judgedJobs": 87,
+        "tools": {
+          "eures": {
+            "found": 95,
+            "role": 18,
+            "place": 95,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 18
+          }
+        }
+      },
+      {
+        "title": "HR Generalist",
+        "city": "Cluj-Napoca",
+        "country": "Romania",
+        "judgedJobs": 73,
+        "tools": {
+          "ours": {
+            "found": 2,
+            "role": 2,
+            "place": 0,
+            "remote": 0,
+            "no": 2,
+            "unknown": 0,
+            "relevant": 0
+          },
+          "eures": {
+            "found": 48,
+            "role": 1,
+            "place": 22,
+            "remote": 0,
+            "no": 26,
+            "unknown": 0,
+            "relevant": 0
+          },
+          "jobspy": {
+            "found": 25,
+            "role": 20,
+            "place": 22,
+            "remote": 0,
+            "no": 3,
+            "unknown": 0,
+            "relevant": 17
+          }
+        }
+      },
+      {
+        "title": "Carpenter",
+        "city": "Brussels",
+        "country": "Belgium",
+        "judgedJobs": 36,
+        "tools": {
+          "ours": {
+            "found": 21,
+            "role": 0,
+            "place": 9,
+            "remote": 0,
+            "no": 12,
+            "unknown": 0,
+            "relevant": 0
+          },
+          "eures": {
+            "found": 11,
+            "role": 5,
+            "place": 11,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 5
+          },
+          "jobspy": {
+            "found": 13,
+            "role": 11,
+            "place": 5,
+            "remote": 0,
+            "no": 8,
+            "unknown": 0,
+            "relevant": 4
+          }
+        }
+      },
+      {
+        "title": "Warehouse Operator",
+        "city": "Zurich",
+        "country": "Switzerland",
+        "judgedJobs": 115,
+        "tools": {
+          "ours": {
+            "found": 14,
+            "role": 14,
+            "place": 11,
+            "remote": 0,
+            "no": 0,
+            "unknown": 3,
+            "relevant": 11
+          },
+          "eures": {
+            "found": 98,
+            "role": 3,
+            "place": 98,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 3
+          },
+          "jobspy": {
+            "found": 27,
+            "role": 26,
+            "place": 16,
+            "remote": 0,
+            "no": 11,
+            "unknown": 0,
+            "relevant": 15
+          }
+        }
+      },
+      {
+        "title": "Chef de Partie",
+        "city": "Krakow",
+        "country": "Poland",
+        "judgedJobs": 41,
+        "tools": {
+          "eures": {
+            "found": 40,
+            "role": 22,
+            "place": 40,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 22
+          },
+          "jobspy": {
+            "found": 6,
+            "role": 6,
+            "place": 4,
+            "remote": 0,
+            "no": 2,
+            "unknown": 0,
+            "relevant": 4
+          }
+        }
+      },
+      {
+        "title": "Digital Marketing Manager",
+        "city": "Zagreb",
+        "country": "Croatia",
+        "judgedJobs": 15,
+        "tools": {
+          "ours": {
+            "found": 16,
+            "role": 16,
+            "place": 0,
+            "remote": 4,
+            "no": 12,
+            "unknown": 0,
+            "relevant": 0
+          }
+        }
+      },
+      {
+        "title": "Customer Support Agent",
+        "city": "Stockholm",
+        "country": "Sweden",
+        "judgedJobs": 152,
+        "tools": {
+          "ours": {
+            "found": 10,
+            "role": 8,
+            "place": 0,
+            "remote": 2,
+            "no": 8,
+            "unknown": 0,
+            "relevant": 0
+          },
+          "eures": {
+            "found": 100,
+            "role": 45,
+            "place": 100,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 45
+          },
+          "jobspy": {
+            "found": 45,
+            "role": 31,
+            "place": 41,
+            "remote": 0,
+            "no": 4,
+            "unknown": 0,
+            "relevant": 27
+          }
+        }
+      },
+      {
+        "title": "Data Analyst",
+        "city": "Nuremberg",
+        "country": "Germany",
+        "judgedJobs": 123,
+        "tools": {
+          "eures": {
+            "found": 65,
+            "role": 7,
+            "place": 65,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 7
+          },
+          "jobspy": {
+            "found": 50,
+            "role": 29,
+            "place": 42,
+            "remote": 0,
+            "no": 8,
+            "unknown": 0,
+            "relevant": 26
+          },
+          "adzuna": {
+            "found": 6,
+            "role": 4,
+            "place": 6,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 4
+          },
+          "career-ops": {
+            "found": 2,
+            "role": 2,
+            "place": 0,
+            "remote": 0,
+            "no": 2,
+            "unknown": 0,
+            "relevant": 0
+          }
+        }
+      },
+      {
+        "title": "Software Engineer",
+        "city": "Helsinki",
+        "country": "Finland",
+        "judgedJobs": 193,
+        "tools": {
+          "ours": {
+            "found": 39,
+            "role": 37,
+            "place": 0,
+            "remote": 36,
+            "no": 3,
+            "unknown": 0,
+            "relevant": 0
+          },
+          "eures": {
+            "found": 100,
+            "role": 15,
+            "place": 98,
+            "remote": 0,
+            "no": 2,
+            "unknown": 0,
+            "relevant": 15
+          },
+          "jobspy": {
+            "found": 50,
+            "role": 48,
+            "place": 50,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 48
+          },
+          "career-ops": {
+            "found": 6,
+            "role": 6,
+            "place": 0,
+            "remote": 0,
+            "no": 0,
+            "unknown": 6,
+            "relevant": 0
+          },
+          "career-ops-docs": {
+            "found": 7,
+            "role": 7,
+            "place": 1,
+            "remote": 0,
+            "no": 0,
+            "unknown": 6,
+            "relevant": 1
+          }
+        }
+      },
+      {
+        "title": "UX Designer",
+        "city": "Lisbon",
+        "country": "Portugal",
+        "judgedJobs": 61,
+        "tools": {
+          "ours": {
+            "found": 11,
+            "role": 5,
+            "place": 3,
+            "remote": 1,
+            "no": 7,
+            "unknown": 0,
+            "relevant": 2
+          },
+          "jobspy": {
+            "found": 50,
+            "role": 27,
+            "place": 50,
+            "remote": 0,
+            "no": 0,
+            "unknown": 0,
+            "relevant": 27
+          }
+        }
+      }
+    ],
+    "sources": [
+      {
+        "file": "persona-1.json",
+        "sha256": "8e903d812e527a840d2f109e2106ee4d506addf86c20028c64252f2b41e298ed"
+      },
+      {
+        "file": "persona-2.json",
+        "sha256": "49a26a5c07bce147ba8f698d5955f4cfa92d129f96e3287eab894ba8b28dfccd"
+      },
+      {
+        "file": "persona-3.json",
+        "sha256": "3ae03db2ddcb5a1d7d491db1610a89a1713e61af432aa03e3c7e656bfc05b694"
+      },
+      {
+        "file": "persona-4.json",
+        "sha256": "1ffd4afbb0ed1be11bff8d77254d4197a4012adac2d09ab28e8a6343c160c92b"
+      },
+      {
+        "file": "persona-5.json",
+        "sha256": "0dfe8a97754d8a853d9011491a26d51e18297a840ab4e7cfb47a27acb791455d"
+      },
+      {
+        "file": "persona-6.json",
+        "sha256": "5b3496aa7d687ec120369bc98c8d0c67210c8f53504b700591932faf1e4d84ae"
+      },
+      {
+        "file": "persona-7.json",
+        "sha256": "82101471edeb6f78c28b5c535c3c598103f3b3536d59e34e8d12e27011b6d68a"
+      },
+      {
+        "file": "persona-8.json",
+        "sha256": "f383fa756d50764f0ba876b989d28c1f03fefedac8aec6b3070a0b78c86111aa"
+      },
+      {
+        "file": "persona-9.json",
+        "sha256": "d955df37946e1de7e8053f3223e985c8aba8c8c97771d3a7ad2692294bd1f6ab"
+      },
+      {
+        "file": "persona-10.json",
+        "sha256": "211c48af3b35a7295de885c169dd3ab172a83d79fcca01e8bebf007a19514804"
+      }
+    ]
+  },
+  "forms": {
+    "tools": [
+      {
+        "key": "browser-use",
+        "name": "Browser Use",
+        "score": 84.3,
+        "repeats": 1,
+        "forms": 6,
+        "spread": null,
+        "right": 43,
+        "wrong": 0,
+        "empty": 8,
+        "notReached": 0
+      },
+      {
+        "key": "extension",
+        "name": "Jobadabra",
+        "score": 78.2,
+        "repeats": 1,
+        "forms": 6,
+        "spread": null,
+        "right": 43,
+        "wrong": 0,
+        "empty": 4,
+        "notReached": 8
+      },
+      {
+        "key": "stagehand",
+        "name": "Stagehand",
+        "score": 52.8,
+        "repeats": 1,
+        "forms": 6,
+        "spread": null,
+        "right": 28,
+        "wrong": 5,
+        "empty": 19,
+        "notReached": 1
+      },
+      {
+        "key": "nanobrowser",
+        "name": "Nanobrowser",
+        "score": 31.5,
+        "repeats": 1,
+        "forms": 6,
+        "spread": null,
+        "right": 17,
+        "wrong": 2,
+        "empty": 34,
+        "notReached": 1
+      }
+    ],
+    "runId": "40506831190",
+    "benchmarkCommit": "893082e8099f3b50d272b0b95b13fc680d727e9c",
+    "productBuild": "ffb105dd6",
+    "round": "2026-W44",
+    "model": "claude-haiku-5-5",
+    "sourceSha256": "44f5b8c5f6c307b6a31df95c7ba619975551ec62b40f484e03eb50fd3269de1e",
+    "newerUnjudgedRuns": [
+      "40550905815",
+      "40551759123"
+    ]
+  }
+}
