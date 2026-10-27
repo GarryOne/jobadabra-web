@@ -81,12 +81,13 @@ ${tile('Last central run', last ? `${n(last.found)} found` : '—', {spark: runs
 
 // The kind × country table, drawn once for /admin and for the public /coverage page (owner, 27 Oct 2026: "let's publish this graph").
 // open: the public cut: counts and the week's change only, no jobs (a cell repeats an employer's whole count), no installs, no floor or AI aim;
-// colour steps as classes (h0..h6) the site's own tokens paint; the fields biggest first, then Software & IT (global, not tech), then 'other' and
+// colour steps as classes (h0..h6) the site's own tokens paint; every field biggest first, Software & IT included (owner, 27 Oct 2026: "put Software & IT
+// as the first row… descending order"), then 'other' and
 // 'unknown' under plain names, 'unknown' in one neutral (hn): its colour would speak of the list's gap, not a field's strength.
 const OPEN_NAMES = {other: 'Several fields', unknown: 'Field not sorted yet'};
 const stepOf = value => STEPS.filter(([from]) => value >= from).length - 1;
 export function heatTable(cells, past, {demand = {}, aimedCell = '', open = false} = {}) {
-  const named = open ? [...[...AIMED].sort((a, b) => kindTotal(cells, b) - kindTotal(cells, a)), 'software', 'other'] : KINDS;
+  const named = open ? [...[...AIMED, 'software'].sort((a, b) => kindTotal(cells, b) - kindTotal(cells, a)), 'other'] : KINDS;
   const kinds = [...named, ...(Object.keys(cells).some(cell => cell.startsWith('unknown|')) ? ['unknown'] : [])];
   const label = kind => (open && OPEN_NAMES[kind]) || kindName(kind);
   const week = past.week?.cells;
