@@ -5,6 +5,7 @@ import {filterLinks, spark} from './admin.js';
 import {countTone, shareTone} from './applying-tiles.js';
 import {segmentKey} from './benchmark-data.js';
 import {objectiveBlock} from './benchmark-objective.js';
+import {fairBlock, pickRound} from './benchmark-fair.js';
 
 const pct = value => (value == null ? '–' : `${value}%`);
 const tone = value => shareTone(value);
@@ -19,7 +20,7 @@ const CSS = `:root{--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;
 .tile{background:var(--card);padding:14px 16px}.tile b{display:block;font-size:28px;line-height:1.2}.tile .what{display:block;font-size:14px}.tile .note{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 .good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.tile.good b,.tile.warn b,.tile.bad b{color:inherit}
 td.cell{white-space:nowrap;text-align:center}td.cell .x{margin-left:6px;font-size:12px}tr.ours td:first-child{font-weight:700}
-.checks{margin:0;padding-left:0;list-style:none}.checks li{padding:4px 0}.banner{border:1px solid var(--amber);color:var(--amber);border-radius:12px;padding:10px 14px;margin:0 0 16px;font-size:13px}.filters{margin:8px 0 14px}h2{margin:0 0 4px}details{margin-top:8px}`;
+.checks{margin:0;padding-left:0;list-style:none}.checks li{padding:4px 0}.banner{border:1px solid var(--amber);color:var(--amber);border-radius:12px;padding:10px 14px;margin:0 0 16px;font-size:13px}.filters{margin:8px 0 14px}h2{margin:0 0 4px}details{margin-top:8px}details.oldrounds{margin-top:24px}summary.old{cursor:pointer;color:var(--muted);margin-bottom:12px}`;
 
 function tiles(view) {
   const ours = view.tools.find(tool => tool.ours), others = view.tools.filter(tool => !tool.ours), best = others[0];
@@ -67,15 +68,18 @@ const METHOD = `<section class="card"><details><summary>How this is measured</su
 <li>A required upload the harness's safety guard stopped (the page posts to its own upload address first, and the guard refuses every write to the form site) counts as a hold for every tool, like a consent box. It is recomputed from each run's saved guard log, so no run predates it.</li>
 <li>A tool's total counts its newest run on each form. A single live run varies by about ±1 field: read a 1-2 field difference as noise.</li></ul></details></section>`;
 
-export function page(snapshot, {segment} = {}) {
+export function page(snapshot, {segment, round} = {}) {
   const key = pickSegment(snapshot, segment), view = key ? snapshot.segments[key] : null;
   const keys = Object.keys(snapshot?.segments || {});
-  const body = !view ? `<section class="card"><h2>No data yet</h2><p class="muted">The bake-off's publish step sends every scored run here (<code>PUT /benchmark/data</code>); the first scored run fills this page.</p></section>`
+  const fair = fairBlock(snapshot?.fair, round), fairKey = pickRound(snapshot?.fair, round);
+  const OLD = `<summary class="old">Old rounds (before 27 Oct 2026): each tool on its own model, on forms we had tested and fixed on, judged per tool. Not comparable with the fair round above.</summary>`;
+  const body = !view ? (fair ? '' : `<section class="card"><h2>No data yet</h2><p class="muted">The bake-off's publish step sends every scored run here (<code>PUT /benchmark/data</code>); the first scored run fills this page.</p></section>`)
     : `${key.endsWith(':user') ? '' : `<div class="banner">${esc(segmentLabel(key))}: not what real users run, and never added to user mode. Use it only to compare with itself.</div>`}
 ${keys.length > 1 ? filterLinks(keys.map(k => [k, segmentLabel(k), `?view=${encodeURIComponent(k)}`]), key) : ''}
 ${objectiveBlock(view)}${tiles(view)}${scoreboard(view)}${grid(view)}${trend(view)}${METHOD}`;
+  const shown = fair ? `${fair}${view ? `<details class="oldrounds">${OLD}${body}</details>` : ''}` : body;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Benchmark Form Filling · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
-<header><h1>📏 Benchmark Form Filling</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · ${key ? esc(segmentLabel(key)) : ''}` : ''}</span></header>
-${body}</main></body></html>`;
+<header><h1>📏 Benchmark Form Filling</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · ${fairKey ? 'fair round' : key ? esc(segmentLabel(key)) : ''}` : ''}</span></header>
+${shown}</main></body></html>`;
 }
