@@ -103,3 +103,14 @@ test('a row with `beyond` is stored and the page shows the jobs "ours with every
   assert.match(html, /<td>Other<\/td><td class="num">26<\/td><td class="num muted">–<\/td>/);
   assert.doesNotMatch(await (await call(env(), '/admin/job-search/benchmark', owner)).text(), /we add beyond each rival/, 'no card without the data');
 });
+
+test('a rival that failed for EVERY search (sent as null) still shows on the card as failed, never vanishes', async () => {
+  const e = env();
+  const runs = [run('Ours + all', 'Nurse · Town', 'non-tech', 120, 50, 90, 33, {beyond: {Other: 25, Dead: null}}), run('Ours + all', 'Coder · City', 'tech', 60, 12, 24, 1, {beyond: {Other: 1, Dead: null}})];
+  await put(e, {runs});
+  assert.deepEqual(JSON.parse(e.STATS.db.prepare("SELECT beyond FROM benchmark_search_runs WHERE persona = 'Coder · City'").get().beyond), {Other: 1, Dead: null}, 'null is kept, not turned into 0');
+  const r1 = summarize(e.STATS.db.prepare('SELECT * FROM benchmark_search_runs').all().map(row => ({...row}))).rounds.r1;
+  assert.deepEqual(r1.beyond, [['Other', 26, 0], ['Dead', 0, 2]]);
+  const html = await (await call(e, '/admin/job-search/benchmark?round=r1', owner)).text();
+  assert.match(html, /<td>Dead<\/td><td class="num">–<\/td><td class="num warn">2 of 2<\/td>/);
+});
