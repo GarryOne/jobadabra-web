@@ -378,6 +378,6 @@ test('the scouting page shows the steps skipped per kind for today, 7 and 30 day
   const {servedSection} = await import('../../admin/scoutingadmin.js');
   const now = new Date('2026-10-20T12:00:00Z');
   const html = servedSection([{day: '2026-10-20', kind: 'places', n: 5}, {day: '2026-10-15', kind: 'places', n: 7}, {day: '2026-09-25', kind: 'places', n: 100}], now);
-  assert.match(html, /<td>places<\/td><td>5<\/td><td>12<\/td><td>112<\/td>/);
+  assert.match(html, /<td><span class="chip">places<\/span><\/td><td>5<\/td><td>12<\/td><td>112<\/td>/);
   assert.match(servedSection([], now), /Nothing reported yet/);
 });

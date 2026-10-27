@@ -2,6 +2,7 @@
 // none is written here. Colours are the shared rule (admin/applying-tiles.js). Guard: test/admin/benchmark-search.test.js.
 import {esc} from '../shared/html.js';
 import {filterLinks} from './admin.js';
+import {CHIP_STYLE, chip} from './chip.js';
 import {shareTone} from './applying-tiles.js';
 
 const pct = value => (value == null ? '–' : `${value}%`);
@@ -36,7 +37,7 @@ function grid(view) {
   const names = view.tools.map(tool => tool.tool);
   const cell = (tool, persona) => { const c = view.grid[tool]?.[persona]; return c ? `<td class="cell ${c.relevant ? 'good' : 'bad'}">${c.relevant}<span class="muted"> / ${c.found}</span></td>` : '<td class="cell muted">n/a</td>'; };
   return `<section class="card"><h2>Per search</h2><p class="muted">Relevant jobs in place / jobs shown. Red = none relevant.</p><div class="wide"><table><tr><th>Search</th><th>Kind</th>${names.map(name => `<th class="cell">${esc(name)}</th>`).join('')}</tr>
-${view.personas.map(p => `<tr><td>${esc(p.persona)} <span class="muted">${esc(p.country)}</span></td><td>${esc(p.kind)}</td>${names.map(name => cell(name, p.persona)).join('')}</tr>`).join('')}</table></div></section>`;
+${view.personas.map(p => `<tr><td>${esc(p.persona)} <span class="muted">${esc(p.country)}</span></td><td>${chip(esc(p.kind))}</td>${names.map(name => cell(name, p.persona)).join('')}</tr>`).join('')}</table></div></section>`;
 }
 
 const kinds = view => `<section class="card"><h2>Tech and non-tech</h2><p class="muted">Relevant jobs in place per kind of role, the share of shown jobs.</p><div class="wide"><table><tr><th>Tool</th><th class="num">Tech</th><th class="num">Non-tech</th></tr>
@@ -57,7 +58,7 @@ export function page(snapshot, {round} = {}) {
   const body = !view ? `<section class="card"><h2>No data yet</h2><p class="muted">The bake-off's search-bench publish step sends every scored round here (<code>PUT /benchmark-search/data</code>); the first round fills this page.</p></section>`
     : `${keys.length > 1 ? filterLinks(keys.map(k => [k, k, `?round=${encodeURIComponent(k)}`]), key) : ''}${tiles(view)}${scoreboard(view)}${grid(view)}${kinds(view)}${missed(view)}${METHOD}`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Benchmark Job Search · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
+<link rel="icon" href="/favicon-32.png"><style>${CSS}${CHIP_STYLE}</style></head><body><main>
 <header><h1>🏁 Benchmark Job Search</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC${key ? ` · round ${esc(key)}` : ''}` : ''}</span></header>
 ${body}</main></body></html>`;
 }

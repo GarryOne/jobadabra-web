@@ -10,6 +10,7 @@ import {CHART_STYLE, TOOLTIP} from '../shared/scoutingcharts.js';
 import {floorFor, cellsOf, gaps, heatmap, history, runs, sources, tiles, topKind, trends} from '../shared/scoutingvisual.js';
 import {section as readMethods} from '../shared/readmethods.js';
 import {day, snapshot, gather} from '../shared/scouting-snapshot.js';
+import {CHIP_STYLE, chip} from './chip.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
 export const n = value => Number(value || 0).toLocaleString('en-US');
@@ -28,7 +29,7 @@ ${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}
 // Steps installs skipped because another install had already done them (src/pool_served.py, shared daily): today, 7 days, 30 days, per kind.
 export function servedSection(served = [], today = new Date()) {
   const kinds = [...new Set(served.map(r => r.kind))].sort(), within = (kind, back) => served.filter(r => r.kind === kind && r.day >= day(today, back)).reduce((sum, r) => sum + r.n, 0);
-  const body = kinds.map(kind => `<tr><td>${esc(kind)}</td><td>${n(within(kind, 0))}</td><td>${n(within(kind, 7))}</td><td>${n(within(kind, 30))}</td></tr>`).join('');
+  const body = kinds.map(kind => `<tr><td>${chip(esc(kind))}</td><td>${n(within(kind, 0))}</td><td>${n(within(kind, 7))}</td><td>${n(within(kind, 30))}</td></tr>`).join('');
   return `<section class="card"><h2>♻️ Steps skipped thanks to other installs</h2><small class="muted">Work an install did not repeat because the pool already had the answer (e.g. a place another install placed). Counts per fixed kind, from the daily share.</small>
 <table><tr><th>Kind</th><th>Today</th><th>7 days</th><th>30 days</th></tr>${body || '<tr><td colspan="4">Nothing reported yet.</td></tr>'}</table></section>`;
 }
@@ -62,7 +63,7 @@ export function page(data, url = new URL('https://www.jobadabra.top/admin/job-se
       + `${n(data.sharing7)} install${data.sharing7 === 1 ? '' : 's'} sharing this week; ${pct(nonIt, feeds.length)} hire mostly outside IT.`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Scouting · Admin</title><link rel="icon" href="/favicon-32.png">
-<style>
+<style>${CHIP_STYLE}
 .card{padding:16px;margin-bottom:12px;min-width:0}td{padding:7px 4px;vertical-align:top;overflow-wrap:anywhere}th{padding:6px 4px}
 .verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .scroll{overflow-x:auto}.countries td,.countries th{text-align:right;font-variant-numeric:tabular-nums;padding:6px 5px}.countries td:first-child,.countries th:first-child{text-align:left}.thin{color:#ef8a8a}

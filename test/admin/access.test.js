@@ -73,7 +73,7 @@ test('removing someone or letting their access expire ends it at the next reques
   assert.equal((await get(e, '/admin', {Cookie: session})).status, 404);   // removed
   assert.equal((await post(e, {action: 'extend', id, days: '90'}, SUPER)).status, 303);
   assert.equal((await get(e, '/admin', {Cookie: session})).status, 404);   // a removed person is not brought back by an expiry
-  assert.match(await (await get(e, '/admin/operations/access', SUPER)).text(), /Bo<\/b><\/td><td class="muted">Removed/);
+  assert.match(await (await get(e, '/admin/operations/access', SUPER)).text(), /Bo<\/b><\/td><td><span class="chip off">Removed/);
 });
 
 test('the link is kept only as a hash, and a forged admin session is refused', async () => {

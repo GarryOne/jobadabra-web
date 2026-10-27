@@ -3,6 +3,7 @@ import {viewer} from '../shared/auth.js';
 import {EUROPE} from '../shared/pool-tags.js';
 import {CHART_STYLE, TOOLTIP, bars, C, columns, esc, n, tile} from '../shared/scoutingcharts.js';
 import {floorFor, cellsOf, kindName, topKind} from '../shared/scoutingvisual.js';
+import {CHIP_STYLE} from './chip.js';
 import {servedSection} from './scoutingadmin.js';
 import {stacked} from './installscharts.js';
 import {all, day, jobsOf, pooledKeys, isPooled} from '../shared/pool-snapshot.js';
@@ -68,7 +69,7 @@ export function page(data, now = new Date()) {
     .map(country => ({country, installs: Object.entries(poolCellsNow).filter(([key]) => key.endsWith(`|${country}`)).reduce((sum, [, v]) => sum + v[0], 0)})).sort((a, b) => b.installs - a.installs).slice(0, 12);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Installs · Admin</title><link rel="icon" href="/favicon-32.png">
-<style>.card{padding:16px;margin-bottom:12px;min-width:0}td{padding:7px 4px}.verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
+<style>${CHIP_STYLE}.card{padding:16px;margin-bottom:12px;min-width:0}td{padding:7px 4px}.verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:12px}.grid2>.card{margin-bottom:0}.legend i.sw{width:10px;height:10px;border-radius:2px}${CHART_STYLE}</style></head><body><main>
 <header><div><h1>🧲 What installs add</h1><small class="muted">Counts and names only. <a href="/admin/job-search/scouting">Scouting →</a></small></div></header>
 <div class="verdict">${esc(verdict)}</div>

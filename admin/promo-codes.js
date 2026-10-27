@@ -4,6 +4,7 @@
 import {digestOf} from '../shared/guard.js';
 import {isOwner} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
+import {CHIP_STYLE, chip} from './chip.js';
 import {customError, endOfDay, hashOf, newCode, openCode, sealCode} from '../shared/promo.js';
 import {MAX_CREDIT_EUR} from '../shared/promo-credit.js';
 
@@ -27,7 +28,6 @@ export function stateOf(code, used, now = Date.now()) {
 }
 // A value cell is a chip (owner, 27 Oct 2026: "displayed as chips"): Gives by kind; State green Active, amber Used up, grey Revoked/Expired. Guard: test/shared/promo.test.js.
 const STATE_CHIP = {good: 'good', warn: 'warn', bad: 'off'};
-export const chip = (text, tone) => `<span class="chip ${tone}">${text}</span>`;
 export const stateChip = (code, used, now) => { const state = stateOf(code, used, now); return chip(state.text, STATE_CHIP[state.tone]); };
 export const givesChip = code => chip(gives(code), code.kind === 'credit' ? 'credit' : 'pro');
 
@@ -57,7 +57,7 @@ export function page({codes = [], wrong = 0, created = null, detail = null, erro
 .card{padding:16px;margin-bottom:12px}h2{margin:0 0 4px}.good{color:#3fb68b}.bad{color:#e5484d}.warn{color:#f5b54a}[hidden]{display:none!important}
 table.codes-table{width:100%}table.codes-table th,table.codes-table td{padding:8px 5px;vertical-align:middle}.actions button{padding:5px 10px;font-size:13px}.one-line{white-space:nowrap}.actions form{display:inline}.actions form+form{margin-left:6px}
 form{display:inline-flex;gap:6px;margin:0;flex-wrap:wrap;align-items:center}label{display:inline-flex;gap:6px;align-items:center}
-.chip{display:inline-block;border:1px solid #2a2f37;border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap}.chip.pro,.chip.warn{border-color:#4a3c1c;color:#f5b54a;background:#2a2312}.chip.credit,.chip.good{border-color:#1f5a45;color:#3fb68b;background:#11261e}.chip.off{color:#8d949c}
+${CHIP_STYLE}
 .code-cell{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
 button.copy{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;background:transparent;border-color:#4a3c1c;color:#f5b54a;flex:none}
 button.copy:hover{background:#2a2312}button.copy svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}

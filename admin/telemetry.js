@@ -10,6 +10,7 @@ import {flags} from '../shared/guard.js';
 import {report as knowledgeReport} from '../shared/knowledge.js';
 import {esc} from '../shared/html.js';
 import {remember} from '../shared/auth.js';
+import {CHIP_STYLE, chip as valueChip} from './chip.js';
 import {KEEP_DAYS, text, normal, problems, channels, STOP_REASONS, funnel, daily} from '../shared/telemetry.js';
 
 const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (admin/trends.js)
@@ -40,7 +41,7 @@ export function page(data) {
     <td><b>${row.users}</b></td><td>${row.n}</td><td title="${esc(row.versions)}">${built(row).old ? `<span class="muted">old builds only · ${esc(built(row).seen)}</span>` : `<span class="newest">on ${esc(built(row).seen || '?')}</span>`}</td><td class="muted">${esc(String(row.last).slice(0, 16).replace('T', ' '))}</td></tr>`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>App · Admin</title><link rel="icon" href="/favicon-32.png">
-<style>
+<style>${CHIP_STYLE}
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--red:#e5776b;--teal:#5ec4b6}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
 main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size:24px}h2{margin:0 0 6px;font-size:15px}
@@ -87,18 +88,18 @@ ${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">
 <section class="card" style="margin-top:12px"><h2>🧬 What installs ask and where they stall${chip(data, 'asks')}</h2>
 <small class="muted">Questions no answer matched, reported by ${3} or more installs (the form's own wording), and where applications got to per board (last 7 days).</small>
 <table style="margin-top:8px"><tr><th>Question</th><th>Kind</th><th>Times</th><th>Installs</th><th>Boards</th></tr>
-${(data.knowledge?.questions || []).slice(0, 15).map(row => `<tr><td>${esc(row.label)}</td><td>${esc(row.kind)}</td><td>${row.n}</td><td>${row.installs}</td><td class="muted">${esc((row.boards || []).slice(0, 3).join(', '))}</td></tr>`).join('')
+${(data.knowledge?.questions || []).slice(0, 15).map(row => `<tr><td>${esc(row.label)}</td><td>${valueChip(esc(row.kind))}</td><td>${row.n}</td><td>${row.installs}</td><td class="muted">${esc((row.boards || []).slice(0, 3).join(', '))}</td></tr>`).join('')
   || '<tr><td colspan="5" class="muted">No question has reached 3 installs yet.</td></tr>'}</table>
 <table style="margin-top:8px"><tr><th>Board</th><th>How applications went (told by users, last 7 days)</th></tr>
-${Object.entries((data.knowledge?.outcomes || []).reduce((all, row) => { (all[row.board] ||= []).push(`${esc(row.outcome)} <b>×${row.n}</b>`); return all; }, {})).slice(0, 12)
+${Object.entries((data.knowledge?.outcomes || []).reduce((all, row) => { (all[row.board] ||= []).push(valueChip(`${esc(row.outcome)} <b>×${row.n}</b>`)); return all; }, {})).slice(0, 12)
   .map(([board, parts]) => `<tr><td>${esc(board)}</td><td>${parts.join(' · ')}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No outcomes told yet.</td></tr>'}</table>
 <table style="margin-top:8px"><tr><th>Board</th><th>Where applications got to</th></tr>
-${Object.entries((data.knowledge?.flows || []).reduce((all, row) => { (all[row.board] ||= []).push(`${esc(row.state)} <b>×${row.n}</b>`); return all; }, {})).slice(0, 12)
+${Object.entries((data.knowledge?.flows || []).reduce((all, row) => { (all[row.board] ||= []).push(valueChip(`${esc(row.state)} <b>×${row.n}</b>`)); return all; }, {})).slice(0, 12)
   .map(([board, parts]) => `<tr><td>${esc(board)}</td><td>${parts.join(' · ')}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No flow outcomes yet.</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>🛡️ Access guard${chip(data, 'guard')}</h2>
 <small class="muted">Who hit a limit or touched a decoy (last 7 days; installs are shown only as a short digest). ${data.guard ? data.guard.honeypots : 0} honeypot fingerprints planted.</small>
 <table style="margin-top:8px"><tr><th>What</th><th>Who</th><th>Times</th></tr>
-${(data.guard?.seen || []).map(row => `<tr><td>${esc(row.kind)}</td><td><code>${esc(row.who)}</code></td><td>${row.n}</td></tr>`).join('')
+${(data.guard?.seen || []).map(row => `<tr><td>${valueChip(esc(row.kind))}</td><td><code>${esc(row.who)}</code></td><td>${row.n}</td></tr>`).join('')
   || '<tr><td colspan="3" class="muted">Nothing odd. 🎉</td></tr>'}</table>
 ${(data.guard?.revoked || []).length ? `<small class="muted">Revoked: ${(data.guard.revoked).map(row => `<code>${esc(row.who)}</code> (${esc(row.reason)})`).join(' · ')}</small>` : ''}</section>
 <section class="card" style="margin-top:12px"><h2>💬 Feedback${chip(data, 'feedback')}</h2><p style="margin:6px 0 0">${(data.feedback || []).length
