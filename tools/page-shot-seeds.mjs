@@ -87,6 +87,14 @@ export const seeds = {
     for (let n = 1; n <= 12; n++) for (let i = 0; i < 1 + n % 4; i++) await env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind) VALUES (?, ?, ?, ?)')
       .bind(`demo-install-${i}`, day((n * 5 + i) % 40), `careers.demo-site-${n}.example`, n % 3 ? 'browser' : 'dead').run();
   },
+  'benchmark-search': async ({env, call}) => {   // made-up search round for /admin/job-search/benchmark (27 Oct 2026): ours and two other tools on 3 personas; Tool B's run time was not recorded (0)
+    env.SELFHEAL_PUBLISH_KEY = 'page-shot-publish-key';
+    const at = '2026-10-27T10:00:00Z', personas = [['Nurse · Townville', 'non-tech'], ['Coder · Cityburg', 'tech'], ['Cook · Portside', 'non-tech']];
+    const tools = [['Ours', true, [40, 10, 25], [12, 3, 8], 300], ['Tool A', false, [60, 30, 45], [30, 12, 20], 45], ['Tool B', false, [20, 8, 12], [9, 2, 5], 0]];
+    const runs = tools.flatMap(([tool, ours, found, relevant, seconds]) => personas.map(([persona, kind], i) => ({id: `demo/${i}/${tool}`, at, round: '2026-10-27', persona, kind, country: 'Land', tool, ours, build: ours ? 'abc1234' : '',
+      found: found[i], place: relevant[i] + 2, role: relevant[i] + 4, relevant: relevant[i], employers: relevant[i] + 1, seconds, cents: 0})));
+    await call('/benchmark-search/data', {method: 'PUT', headers: {Authorization: `Bearer ${env.SELFHEAL_PUBLISH_KEY}`, 'Content-Type': 'application/json'}, body: JSON.stringify({runs})});
+  },
   'promo-codes': async ({env, call}) => {   // three codes in the list: active with uses, used up, and one made before full codes were kept
     await call('/admin/growth/promo-codes', form({action: 'import', code: 'DEMO-CODE-ONE1', label: 'Friends and family', cap: '20', ends: '2999-12-31'}));
     await call('/admin/growth/promo-codes', form({action: 'import', code: 'DEMO-CODE-TWO2', label: 'Beta testers', cap: '2', ends: '2999-12-31'}));

@@ -37,6 +37,13 @@ test('shares are of the jobs shown; no jobs shown gives no share, not 0%', () =>
   assert.equal(totals([{persona: 'b', found: 0, place: 0, role: 0, relevant: 0, employers: 0, seconds: 0, cents: 0}]).relevantShare, null);
 });
 
+test('a search with no recorded time is left out of the average; none timed shows a dash, not 0 s', () => {
+  const row = seconds => ({persona: String(seconds), found: 1, place: 1, role: 1, relevant: 1, employers: 1, seconds, cents: 0});
+  assert.equal(totals([row(600), row(0), row(200)]).avgSeconds, 400);
+  assert.equal(totals([row(0), row(0)]).avgSeconds, null);
+  assert.match(page({...summarize([{...row(0), id: 'r/p/T', at: '2026-10-27T10:00:00Z', round: 'r', persona: 'p', kind: 'tech', country: 'Land', tool: 'Theirs', ours: false, build: ''}]), at: '2026-10-27T10:00:00Z'}), /<td class="num">–<\/td>/);
+});
+
 test('rounds are separate; ours comes first; the kinds split; the missed job systems add up over personas, largest first', () => {
   const s = summarize(FIXTURE.map(row => ({...row, ours: row.ours ? 1 : 0}))).rounds;
   assert.deepEqual(Object.keys(s), ['r1', 'r2']);
