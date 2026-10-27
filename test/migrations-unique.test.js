@@ -6,7 +6,7 @@ import {test} from 'node:test';
 
 const ALLOWED = new Set(['0003_contributions.sql', '0003_feedback.sql', '0032_download_net.sql', '0032_pool_indexes.sql', '0046_form_answers.sql', '0046_proposal_use.sql',
   '0071_fill_cards_gaps.sql', '0071_form_reports.sql', '0083_hosted.sql', '0083_mail.sql',
-  '0093_changelog.sql', '0093_intel_facts.sql']);   // already applied: never rename (0093: #1368 and #1373 each passed alone, both deployed 18 Oct 2026)
+  '0093_changelog.sql', '0093_intel_facts.sql', '0113_benchmark_fair.sql', '0113_e2e_quality.sql']);   // already applied: never rename (0093: #1368 and #1373 each passed alone, both deployed 18 Oct 2026; 0113: #195 and #196, 27 Oct 2026)
 
 test('each migration number is used by one file (the pairs already applied are the only exceptions)', () => {
   const files = readdirSync(new URL('../db/migrations/', import.meta.url)).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
