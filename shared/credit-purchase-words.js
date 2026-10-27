@@ -6,5 +6,5 @@ import {CREDIT} from './pro-packages.js';
 export function purchaseCreditWords(kind) {
   const micro = Object.hasOwn(CREDIT, kind) ? CREDIT[kind] : 0;
   if (!micro) return '';
-  return `€${micro / 1e6} of AI credit${buysSuffix(micro / 1e6)}. An application means a letter, CV tailoring and form answers. Actual usage varies.`;
+  return `€${micro / 1e6} of AI credit${buysSuffix(micro / 1e6)}. An application means a letter, CV tailoring and form answers. Actual usage varies. Pro uses smarter in-house AI while you have credit.`;
 }

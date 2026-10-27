@@ -41,7 +41,7 @@ test('the privacy lines stay visible: a card that says what the AI never sees sh
 
 test('"Claude" means one provider only where it names a Claude-only feature or plan; otherwise the page says "your AI"', () => {
   const text = page.replace(/<[^>]+>/g, ' ');
-  for (const [, context] of text.matchAll(/(.{0,30}Claude.{0,12})/g)) assert.match(context, /Apply with Claude|Claude Code|Claude plan|Claude or OpenAI/, context);
+  for (const [, context] of text.matchAll(/(.{0,30}Claude.{0,12})/g)) assert.match(context, /Apply with Claude|Claude Code|Claude plan|Claude or (?:OpenAI|ChatGPT)/, context);
 });
 
 test('the NEW badges are gone, the page title tells the real count, and the page links its own stylesheet', () => {
