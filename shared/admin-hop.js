@@ -1,8 +1,10 @@
-// Carries the owner's /admin sign-in from an old host to the main one (cookies are per host). On www.jobpilotto.top a signed-in
-// browser asking for an /admin page is sent to www.jobadabra.top/admin/hop with a 60-second, one-use token; that route sets the same
-// session cookie there and lands on the same page. No key is ever shown. Anything wrong with a token is the usual 404. Guard: test/shared/admin-hop.test.js.
+// Moves a browser's /admin page view from an old host (www.jobpilotto.top, www.jobpilotto.workers.dev) to the same page on the main one.
+// Signed in: the sign-in is carried over (cookies are per host): www.jobadabra.top/admin/hop with a 60-second, one-use token; that route
+// sets the same session cookie there and lands on the same page. Signed out: a plain 302 to the same path there. No key is ever shown.
+// Scripts, the pages' own fetches, signed report files and writes stay answered where they are. Anything wrong with a token is the usual 404.
+// Guards: test/shared/admin-hop.test.js, test/shared/old-hosts.test.js (every old host × every kind of request).
 import {SESSION_COOKIE, SESSION_DAYS, same, sessionToken, sign, validSession} from './auth.js';
-import {LEGACY_HOSTS, MAIN_HOST} from './hosts.js';
+import {MAIN_HOST, OLD_HOSTS} from './hosts.js';
 
 const HOP_SECONDS = 60;
 const base64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -11,16 +13,18 @@ const notFound = () => new Response('Not found', {status: 404});
 export const safeTo = to => /^\/admin(\/[\w\-./]*)?(\?[\w\-.~%=&+,:]*)?$/.test(String(to || '')) && !String(to).includes('//') && !String(to).includes('/../');
 const cookieOf = request => (request.headers.get('Cookie') || '').split(/;\s*/).find(part => part.startsWith(`${SESSION_COOKIE}=`))?.slice(SESSION_COOKIE.length + 1) || '';
 
-// Old host, an owner's page navigation (cookie only: no Bearer, no ?key) -> 302 to the main host's hop, else null.
+// Old host, a browser's /admin page view (Accept text/html, no Bearer, no ?key, no X-Caller) -> 302 to the main host: through the hop when
+// signed in, straight to the same path when not. 302, never 301: a cached 301 would skip the hop on a later signed-in visit. Else null.
 export async function hopOut(request, env, now = Date.now()) {
   if ((request.method !== 'GET' && request.method !== 'HEAD') || !env.STATS_KEY) return null;
   const url = new URL(request.url);
-  if (!LEGACY_HOSTS.includes(url.hostname) || !(url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) return null;
+  if (!OLD_HOSTS.includes(url.hostname) || !(url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) return null;
   if (/^\/admin\/(join|hop|(?:operations\/)?e2e\/report\/)/.test(url.pathname) || request.headers.get('Authorization') || url.searchParams.has('key')) return null;
-  if (!(request.headers.get('Accept') || '').includes('text/html')) return null;
-  if (!await validSession(env, cookieOf(request), now)) return null;
+  if (!(request.headers.get('Accept') || '').includes('text/html') || request.headers.get('X-Caller')) return null;
   const to = url.pathname + url.search;
   if (!safeTo(to)) return null;
+  if (!await validSession(env, cookieOf(request), now))
+    return new Response(null, {status: 302, headers: {'Cache-Control': 'no-store', Location: `https://${MAIN_HOST}${to}`}});
   const exp = Math.floor(now / 1000) + HOP_SECONDS, nonce = base64url(crypto.getRandomValues(new Uint8Array(16)));
   const token = `h1.${exp}.${nonce}.${await sign(env.STATS_KEY, `hop|${exp}|${nonce}|${to}`)}`;
   return new Response(null, {status: 302, headers: {'Cache-Control': 'no-store',
