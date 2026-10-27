@@ -1,5 +1,6 @@
 // The mails we send, by name. shared/mail.js puts each through the frame (shared/mail-frame.js: logo, title, button, footer with the unsubscribe and settings links) and adds the headers. A template says its list
 // ('service' or 'marketing'), whether it is `essential` (a sign-in code: not stopped by an unsubscribe), and builds subject, title, content (text and html) and an optional one `button` from plain data. Guard: test/shared/mail.test.js.
+import {purchaseCreditWords} from './credit-purchase-words.js';
 import {codeBox, esc, jobRows, jobText, link} from './mail-frame.js';
 
 // A message the app or an Always on run would send on Telegram, in the same layout: data {subject, html, text, buttons: [{text, url}], confirmUrl} (html/text from api/mail-html.js).
@@ -65,6 +66,6 @@ export const TEMPLATES = {
     subject: () => 'Jobadabra Pro is out',
     title: () => 'Jobadabra Pro is out',
     button: ({pricingUrl}) => ({label: 'See Pro', url: pricingUrl}),
-    text: ({pro, proAi}) => `One payment, no subscription: Pro €${pro}, or Pro + AI €${proAi} with AI credit included. VAT included.`,
-    html: ({pro, proAi}) => `<p>One payment, no subscription: Pro €${esc(pro)}, or Pro + AI €${esc(proAi)} with AI credit included. VAT included.</p>`},
+    text: ({pro, proAi}) => `One payment, no subscription: Pro €${pro}, or Pro + AI €${proAi} with ${purchaseCreditWords('pro-ai')} VAT included.`,
+    html: ({pro, proAi}) => `<p>One payment, no subscription: Pro €${esc(pro)}, or Pro + AI €${esc(proAi)} with ${purchaseCreditWords('pro-ai')} VAT included.</p>`},
 };
