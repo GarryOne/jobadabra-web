@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {dataFrom, draft, sendAll, audience, ingest} from '../../admin/release-mail.js';
+import {ingest as changelogIngest} from '../../admin/changelog-store.js';
 import {SAMPLES} from '../../admin/email-preview.js';
 import {compose, stopLink, settingsLink, addrOf} from '../../shared/mail.js';
 import {TEMPLATES} from '../../shared/mail-templates.js';
@@ -18,7 +19,7 @@ function d1() {
   const statement = (text, args = []) => ({bind: (...values) => statement(text, values),
     run: async () => { const r = db.prepare(text).run(...args); return {meta: {changes: Number(r.changes)}}; },
     all: async () => ({results: db.prepare(text).all(...args)}), first: async () => db.prepare(text).get(...args) ?? null});
-  return {db, prepare: text => statement(text)};
+  return {db, prepare: text => statement(text), batch: async list => { for (const item of list) await item.run(); }};
 }
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); },
   list: async ({prefix}) => ({keys: [...m.keys()].filter(k => k.startsWith(prefix)).map(name => ({name})), list_complete: true})}; };
@@ -93,4 +94,15 @@ test('the release mail renders: pills, numbered sections, the stop link', () => 
   assert.ok(mail.html.includes('01') && mail.html.includes('02') && mail.html.includes('Update in one click') && mail.html.includes('https://s/stop'));
   assert.match(mail.html, /<span[^>]*>Jobs<\/span>/);
   assert.ok(!mail.text.includes('*'));
+});
+
+test('the stable promotion starts the draft: CI marking a stored beta version stable drafts its mail once; a beta alone drafts nothing', async () => {
+  const {e} = setup();
+  e.STATS.db.prepare("UPDATE changelog_entries SET channel = 'beta' WHERE version = '0.8.42'").run();
+  const put = body => changelogIngest(new Request('https://x/changelog/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify(body)}), e);
+  assert.equal((await put({channels: {}})).status, 200);
+  assert.equal(e.STATS.db.prepare('SELECT COUNT(*) n FROM release_mail').get().n, 0);
+  assert.equal((await put({channels: {'0.8.42': 'stable'}})).status, 200);
+  assert.equal((await put({channels: {'0.8.42': 'stable'}})).status, 200);
+  assert.equal(e.STATS.db.prepare('SELECT COUNT(*) n FROM release_mail').get().n, 1);
 });
