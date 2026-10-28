@@ -2,6 +2,7 @@
 // ('service' or 'marketing'), whether it is `essential` (a sign-in code: not stopped by an unsubscribe), and builds subject, title, content (text and html) and an optional one `button` from plain data. Guard: test/shared/mail.test.js.
 import {purchaseCreditWords} from './credit-purchase-words.js';
 import {codeBox, esc, jobRows, jobText, link} from './mail-frame.js';
+import {LIGHT as C} from './mail-palette.js';
 import {releaseHero, releaseHtml, releaseSubject, releaseText} from './mail-release.js';
 
 // A message the app or an Always on run would send on Telegram, in the same layout: data {subject, html, text, buttons: [{text, url}], confirmUrl} (html/text from api/mail-html.js).
@@ -14,7 +15,7 @@ const first = (buttons = []) => (buttons[0] ? {label: buttons[0].text, url: butt
 
 const SITE = 'https://www.jobadabra.top';
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const muted = text => `<p class="jp-muted" style="margin:0 0 14px;color:#667085;font-size:13.5px">${esc(text)}</p>`;
+const muted = text => `<p class="jp-muted" style="margin:0 0 14px;color:${C.muted};font-size:13.5px">${esc(text)}</p>`;
 
 export const TEMPLATES = {
   'message': {list: 'service',
