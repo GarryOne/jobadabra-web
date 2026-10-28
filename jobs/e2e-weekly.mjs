@@ -28,9 +28,20 @@ async function main() {
   if (!response.ok) throw new Error(`the site answered ${response.status} for the e2e snapshot`);
   const s = weekly(await response.json());
   if (process.argv.includes('--dry-run')) { console.log(`# ${issueTitle(s)}\n\n${issueBody(s)}\n\n---\n${telegramText(s)}`); return; }
-  const url = writeIssue(issueTitle(s), issueBody(s));
+  await deliver(s);
+}
+
+/**
+ * Writes the week's issue, then the Telegram message linking it. Throws when the message did not go out, so the run is red: tellOwner never throws
+ * (a missing token, a non-2xx answer, no network → {skipped}). Why (#211, Gitar): a green run with no Monday message went unseen.
+ */
+export async function deliver(s, {write = writeIssue, tell = tellOwner} = {}) {
+  const url = write(issueTitle(s), issueBody(s));
   console.log(`${issueTitle(s)}: ${url}`);
-  console.log(`Telegram: ${JSON.stringify(await tellOwner(telegramText(s, url)))}`);
+  const told = await tell(telegramText(s, url));
+  console.log(`Telegram: ${JSON.stringify(told)}`);
+  if (!told?.sent) throw new Error(`the weekly message did not reach Telegram (${told?.skipped || 'no answer'}); the issue is at ${url}`);
+  return url;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main().catch(error => { console.error(`::error::${error.message}`); process.exit(1); });

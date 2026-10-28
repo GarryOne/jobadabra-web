@@ -55,3 +55,12 @@ test('Telegram: the verdict first, the decision last, the page and the issue lin
   assert.match(body, /\| CI and harness plumbing \| 10 \|/);
   assert.match(telegramText({...s, prune: [], reds: 0, caught: [], idle: []}), /No red suite this week\nNo red suite caught a bug\n.*\nNo decision for you this week\./);
 });
+
+test('a Telegram message that did not go out turns the run red, after the issue is written (#211, Gitar)', async () => {
+  const {deliver} = await import('../../jobs/e2e-weekly.mjs');
+  const s = weekly(snapshot, monday), written = [];
+  const write = (title, body) => { written.push(title); return 'https://github.com/GarryOne/jobadabra-web/issues/9'; };
+  await assert.rejects(deliver(s, {write, tell: async () => ({skipped: 'Telegram answered 401'})}), /did not reach Telegram \(Telegram answered 401\); the issue is at .*issues\/9/);
+  assert.deepEqual(written, ['E2E week · 2026-11-02']);
+  assert.equal(await deliver(s, {write, tell: async () => ({sent: true})}), 'https://github.com/GarryOne/jobadabra-web/issues/9');
+});
