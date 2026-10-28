@@ -38,7 +38,7 @@ jobs:
           node-version: '22'
       - name: The broker's own tests first
         if: env.CLOUDFLARE_API_TOKEN != ''
-        run: node --test test/codex-broker/
+        run: node --test test/codex-broker/*.test.js
       - name: Deploy the broker and its image
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: workers/codex-broker
