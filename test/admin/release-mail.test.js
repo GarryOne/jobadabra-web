@@ -183,3 +183,9 @@ test('the product news list costs a fixed number of queries however many address
   assert.equal((await audienceRows(e)).length, 30);
   assert.ok(queries - before <= 2, `${queries - before} queries for 30 addresses`);
 });
+
+test('the draft ping uses the Brain bot the site Worker already has when no build-log bot is set (no new secret)', async () => {
+  const {e} = setup({BRAIN_BOT_TOKEN: 'brain-token', BRAIN_CHAT_ID: '42'}), urls = [], chats = [];
+  await draft(e, '0.8.42', now, {fetch: async (url, init) => { urls.push(url); chats.push(JSON.parse(init.body).chat_id); return {ok: true}; }});
+  assert.deepEqual([urls.length, urls[0].includes('botbrain-token'), chats[0]], [1, true, '42']);
+});
