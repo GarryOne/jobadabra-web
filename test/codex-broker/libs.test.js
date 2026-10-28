@@ -5,6 +5,7 @@ import {verifyRunToken} from '../../workers/codex-broker/lib/oidc.mjs';
 import {laneOf} from '../../workers/codex-broker/lib/lanes.mjs';
 import {allow, newMeter, record, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
 import {refuseReply} from '../../workers/codex-broker/lib/guard.mjs';
+import {modelOf, tierOfClaude} from '../../workers/codex-broker/lib/tiers.mjs';
 import {slots} from '../../workers/codex-broker/lib/queue.mjs';
 
 const enc = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -87,6 +88,11 @@ test('4 calls run at once and a waiting PR check goes before scheduled and bench
   await Promise.all(waiters);
   assert.deepEqual(order, ['pr', 'scheduled', 'bench']);
   assert.equal(q.stats().active, 0);
+});
+
+test('a Claude tier keeps its Codex counterpart, and an unknown tier is refused', () => {
+  assert.deepEqual(['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5-20251001', 'gpt-4'].map(tierOfClaude), ['small', 'mid', 'large', 'small', null]);
+  assert.deepEqual(['small', 'mid', 'large', undefined, 'huge', 'constructor', '__proto__', 'toString'].map(modelOf), ['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-sol', null, null, null, null]);
 });
 
 test('the Worker keeps its egress list and exports what the list needs (it cannot be loaded here, so its source is read)', async () => {

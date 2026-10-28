@@ -7,6 +7,7 @@ import {laneOf} from './lib/lanes.mjs';
 import {allow, newMeter, record} from './lib/budget.mjs';
 import {refuseReply} from './lib/guard.mjs';
 import {slots} from './lib/queue.mjs';
+import {modelOf} from './lib/tiers.mjs';
 
 export {ContainerProxy} from '@cloudflare/containers';   // required by the outbound host list below: without it every start fails with "ctx.exports.ContainerProxy is undefined" (28 Oct 2026)
 
@@ -57,6 +58,8 @@ export class CodexBroker extends Container {
   }
 
   async call(lane, body) {
+    const model = modelOf(body.tier);
+    if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});
     if (await this.ctx.storage.get('lost')) return json(503, {why: 'login-lost'});
     const meter = (await this.ctx.storage.get('meter')) || newMeter(0);
@@ -65,7 +68,7 @@ export class CodexBroker extends Container {
     if (!verdict.ok) return json(429, {why: verdict.why});
     const release = await this.gate.acquire(lane);
     try {
-      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify(body)});
+      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, model})});
       const text = await reply.text();
       let answer;
       try { answer = JSON.parse(text); } catch { return json(502, {why: `container: ${text.slice(0, 300)}`}); }   // the platform's own error text (not our server's JSON): say it, never crash (a 1101 hid it, 28 Oct 2026)
@@ -77,7 +80,7 @@ export class CodexBroker extends Container {
       await this.ctx.storage.put('meter', record(latest, lane, used, Date.now() / 1000, answer.limits?.resetsAt));
       const refused = refuseReply(answer.reply);
       if (refused) return json(422, {why: refused});
-      return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, weekUsedPercent: this.limits?.usedPercent ?? null});
+      return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, tier: body.tier ?? 'mid', model, weekUsedPercent: this.limits?.usedPercent ?? null});
     } finally { release(); }
   }
 }

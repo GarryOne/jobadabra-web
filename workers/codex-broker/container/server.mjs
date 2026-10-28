@@ -58,10 +58,11 @@ function readLimits() {
 }
 
 // One call: {prompt, schema?, images?: [{name, base64}]} -> {reply, tokens: {input, output}, ms}. Throws Error with a reason word on a failed codex run.
-async function call({prompt, schema, images = []}) {
+async function call({prompt, schema, images = [], model}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'call-'));
   try {
     const args = ['exec', '--skip-git-repo-check', '--ignore-user-config', '--ephemeral', '-s', 'read-only', '--disable', 'shell_tool', '--json', '-o', 'out.txt'];
+    if (model) args.push('-m', String(model));   // the worker maps a tier to one of three slugs (lib/tiers.mjs); the container runs only what it is given
     if (schema) { fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(schema)); args.push('--output-schema', 'schema.json'); }
     for (const [i, img] of images.entries()) { const name = `img${i}${path.extname(String(img.name || '.png')).replace(/[^.\w]/g, '')}`; fs.writeFileSync(path.join(dir, name), Buffer.from(img.base64, 'base64')); args.push('-i', name); }
     args.push('--', String(prompt));   // -i takes several values and would swallow the prompt as another image ("No prompt provided via stdin", 28 Oct 2026)
