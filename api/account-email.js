@@ -31,7 +31,9 @@ export async function address(request, env, now = new Date()) {
   if (!install || !env.STATS) return json(401, {ok: false, error: 'unauthorized'});
   let account = await accountOf(env, install);
   if (request.method === 'GET') {
-    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
+    // Why (28 Oct 2026, Gitar on #218): product news are opt-out, so "on" is the absence of a mail_off row; reading the old opt-in column showed an unasked account as off, and the app's next save would have stopped its mail.
+    const newsOff = !!(account?.email_hash && await env.STATS.prepare("SELECT 1 AS y FROM mail_off WHERE addr = ? AND list IN ('marketing', 'all')").bind(account.email_hash).first());
+    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.email_hash && !newsOff, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
       sending: env.MAIL === 'on' && !!env.EMAIL,
       unconfirmedStopped: !!(account?.email_hash && await env.STATS.prepare("SELECT 1 AS y FROM mail_off WHERE addr = ? AND list = 'service' AND reason = 'unconfirmed'").bind(account.email_hash).first())});   // 14 days unconfirmed (api/mail-held.js)   // the kill switch (shared/mail.js): the app says so instead of promising a mail
   }

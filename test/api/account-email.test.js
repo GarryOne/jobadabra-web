@@ -168,3 +168,11 @@ test('an address unconfirmed for 14 days after its first mail gets no more mail;
   assert.equal((await call(address, e, 'install-aaaa', 'GET')).unconfirmedStopped, false);
   assert.equal((await send('2026-11-02T10:00:00Z')).ok, true, 'confirmed: mail comes again');
 });
+
+test('an account that never answered shows product news ON in the app (opt-out), and saving the address keeps it on', async () => {
+  const {e} = setup();
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'new@example.com'});
+  assert.equal((await call(address, e, 'install-aaaa', 'GET')).marketing, true);
+  await call(address, e, 'install-aaaa', 'PUT', {email: 'new@example.com', marketing: true});
+  assert.equal(e.STATS.db.prepare("SELECT COUNT(*) n FROM mail_off WHERE list = 'marketing'").get().n, 0);
+});
