@@ -44,7 +44,12 @@ export async function draft(env, version, now = new Date(), {fetch: doFetch} = {
   if (!data) return {empty: true};
   const made = await env.STATS.prepare('INSERT INTO release_mail (version, data, created_at) VALUES (?, ?, ?) ON CONFLICT(version) DO NOTHING').bind(version, JSON.stringify(data), now.toISOString()).run();
   // Why (28 Oct 2026, owner: "I should get a telegram notification when a new release whats new email draft is prepared. With a link for me to open and check the email content and then ship it"): once, when the row is new.
-  if (made.meta?.changes) await tellOwner(`✉️ What's new mail for ${version} is ready: "${data.headline}"\nCheck it and send it: ${SITE}/admin/growth/email?release=${version}`, {env, ...(doFetch && {fetch: doFetch})}).catch(() => {});
+  // Why (28 Oct 2026, mac-27): the site Worker has no CI-alerts or build-log bot, so the ping uses the owner-only Brain bot it already has (BRAIN_BOT_TOKEN, BRAIN_CHAT_ID, api/brain.js); no new secret.
+  const bot = {BUILDLOG_TELEGRAM_TOKEN: env.BUILDLOG_TELEGRAM_TOKEN || env.BRAIN_BOT_TOKEN, BUILDLOG_TELEGRAM_CHAT: env.BUILDLOG_TELEGRAM_CHAT || env.BRAIN_CHAT_ID};
+  if (made.meta?.changes) {
+    const told = await tellOwner(`✉️ What's new mail for ${version} is ready: "${data.headline}"\nCheck it and send it: ${SITE}/admin/growth/email?release=${version}`, {env: {...env, ...bot}, ...(doFetch && {fetch: doFetch})}).catch(error => ({skipped: error.message}));
+    if (!told.sent) console.error(`release mail ${version}: owner not told (${told.skipped})`);
+  }
   return {drafted: true};
 }
 
