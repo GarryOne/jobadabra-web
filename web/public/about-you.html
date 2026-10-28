@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- Which live AI step reads which part of what you told us; the table is drawn by tools/readers-page.mjs from the public docs/about-you-readers.json. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What each AI step reads about you · Jobadabra</title>
+<meta name="description" content="Which AI step reads which part of what you told Jobadabra: your details, CV, what we learned and your strategy. Only steps that read it today.">
+<link rel="canonical" href="https://www.jobadabra.top/about-you">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jobadabra">
+<meta property="og:title" content="What each AI step reads about you · Jobadabra">
+<meta property="og:description" content="Which AI step reads which part of what you told Jobadabra. Only steps that read it today.">
+<meta property="og:url" content="https://www.jobadabra.top/about-you">
+<meta property="og:image" content="https://www.jobadabra.top/images/logo-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="effects.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="pages.css">
+
+<link rel="stylesheet" href="readers.css">
+</head>
+<body data-page="about-you">
+<div class="wrap">
+  <nav class="topnav on-dark" id="topnav">
+    <a class="brand" href="/"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Jobadabra</a>
+    <div class="links">
+      <a href="/how-it-works">How it works</a>
+      <a href="/features">Features</a>
+      <a href="/coverage">Jobs we cover</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/faq">FAQ</a>
+      <a href="/changelog">What's new</a>
+    </div>
+    <a class="news" href="/changelog">What's new</a>
+    <a class="btn btn-primary btn-small" href="/download">Download</a>
+  </nav>
+
+  <header class="page-head">
+    <span class="eyebrow">Intelligence</span>
+    <h1>What each AI step reads about you</h1>
+    <p class="lede">Only steps that read it today. A step is added here the day it ships, so this page never promises more than the app does.</p>
+  </header>
+
+  <section class="block" aria-labelledby="rd-h">
+    <h2 id="rd-h" class="sr">The steps and what they read</h2>
+    <div class="rd-wrap">
+<!-- readers:start -->
+<table class="rd-table"><thead><tr><th scope="col">AI step</th><th scope="col">Your details</th><th scope="col">CV + Experience bank</th><th scope="col">What we learned</th><th scope="col">Strategy</th><th scope="col">Never reads</th></tr></thead><tbody>
+<tr data-step="kit"><th scope="row">Kit answers</th><td data-label="Your details"><span class="rd-dot" role="img" aria-label="Does not read Your details"></span></td><td data-label="CV + Experience bank"><span class="rd-dot on" role="img" aria-label="Reads CV + Experience bank"></span></td><td data-label="What we learned"><span class="rd-dot" role="img" aria-label="Does not read What we learned"></span></td><td data-label="Strategy"><span class="rd-dot" role="img" aria-label="Does not read Strategy"></span></td><td data-label="Never reads" class="rd-never">sensitive answers</td></tr>
+<tr data-step="portrait"><th scope="row">Your portrait</th><td data-label="Your details"><span class="rd-dot on" role="img" aria-label="Reads Your details"></span></td><td data-label="CV + Experience bank"><span class="rd-dot on" role="img" aria-label="Reads CV + Experience bank"></span></td><td data-label="What we learned"><span class="rd-dot on" role="img" aria-label="Reads What we learned"></span></td><td data-label="Strategy"><span class="rd-dot on" role="img" aria-label="Reads Strategy"></span></td><td data-label="Never reads" class="rd-never">sensitive answers</td></tr>
+</tbody></table>
+<!-- readers:end -->
+    </div>
+    <p class="source-note"><span class="rd-dot on" aria-hidden="true"></span> reads it &nbsp; <span class="rd-dot" aria-hidden="true"></span> does not. Sensitive answers (health, ethnicity, religion and the like) are never sent to any step.</p>
+  </section>
+  <div class="next-page"><span>Every AI step, what it sees and what it never sees.</span><a href="/intelligence">AI inside Jobadabra →</a></div>
+
+  <footer class="site-foot">
+    <div><b>✈ Jobadabra</b>A job search for any role, across Europe.<small class="abra">Job + abracadabra <span class="spark solid" aria-hidden="true"></span></small><p class="maker"><span class="mk-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></span><span><b>Built by an SRE in Geneva</b><small>Used daily by its maker.</small></span></p></div>
+    <div><b>Product</b><a href="/how-it-works">How it works</a><a href="/features">Features</a><a href="/intelligence">AI inside</a><a href="/coverage">Jobs we cover</a><a href="/changelog">What's new</a></div>
+    <div><b>Before you start</b><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/compare">Compare</a><a href="/platforms">Platforms</a></div>
+    <div><b>Trust</b><a href="/trust">Your data and safety</a><a href="/research">Research</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  </footer>
+</div>
+<script src="site.js" defer></script>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>
