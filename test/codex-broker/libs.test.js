@@ -93,6 +93,8 @@ test('the Worker keeps its egress list and exports what the list needs (it canno
   const src = (await import('node:fs')).readFileSync(new URL('../../workers/codex-broker/worker.js', import.meta.url), 'utf8');
   assert.match(src, /export \{ContainerProxy\} from '@cloudflare\/containers'/);   // missing: every container start fails (28 Oct 2026)
   assert.match(src, /enableInternet = false/);
+  assert.match(src, /interceptHttps = true/);   // without it HTTPS fails with the internet off: codex timed out on chatgpt.com (28 Oct 2026)
+  assert.match(src, /allowedHosts = OPENAI_HOSTS/);
   assert.match(src, /OPENAI_HOSTS = \['chatgpt\.com', 'auth\.openai\.com', 'api\.openai\.com'\]/);
   assert.match(src, /refuseReply\(answer\.reply\)/);   // the last layer against a credential in a reply
 });

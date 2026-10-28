@@ -19,6 +19,9 @@ export class CodexBroker extends Container {
   defaultPort = 8080;
   sleepAfter = '10m';
   enableInternet = false;
+  // Why (28 Oct 2026, Cloudflare docs): with the internet off, HTTPS fails unless it is intercepted; allowedHosts makes the list deny-by-default. The container trusts the platform CA (server.mjs builds the bundle).
+  interceptHttps = true;
+  allowedHosts = OPENAI_HOSTS;
   static outboundByHost = Object.fromEntries(OPENAI_HOSTS.map(h => [h, pass]));
   gate = slots(PARALLEL);
   limits = null;   // the last whole-week reading from Codex: {usedPercent, resetsAt}

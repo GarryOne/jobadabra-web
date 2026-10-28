@@ -7,13 +7,22 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 
 const HOME = process.env.CODEX_HOME, AUTH = path.join(HOME, 'auth.json');
-const CALL_TIMEOUT_MS = 150000;
+const CALL_TIMEOUT_MS = 100000;   // under the callers' own wait, so a hung codex comes back with its last output instead of a dropped request (28 Oct 2026)
 fs.mkdirSync(HOME, {recursive: true});   // codex exits 1 ("Error finding codex home") when this folder is missing, e.g. a call before the login arrives (found locally, 28 Oct 2026)
 const readAuth =() => (fs.existsSync(AUTH) ? fs.readFileSync(AUTH, 'utf8') : '');
 
+// HTTPS goes through Cloudflare's egress interception, so codex must trust its CA (written at container start): system roots + that CA in one bundle. Only the CA file's presence decides; locally there is none.
+const CF_CA = '/etc/cloudflare/certs/cloudflare-containers-ca.crt', BUNDLE = path.join(os.tmpdir(), 'ca-bundle.crt');
+function trustEnv() {
+  if (!fs.existsSync(CF_CA)) return {};
+  const system = ['/etc/ssl/certs/ca-certificates.crt'].find(f => fs.existsSync(f));
+  fs.writeFileSync(BUNDLE, `${system ? fs.readFileSync(system, 'utf8') : ''}\n${fs.readFileSync(CF_CA, 'utf8')}`);
+  return {SSL_CERT_FILE: BUNDLE, CODEX_CA_CERTIFICATE: CF_CA};
+}
+
 function run(args, cwd) {
   return new Promise(resolve => {
-    const child = spawn('codex', args, {cwd, stdio: ['ignore', 'pipe', 'pipe'], env: {PATH: process.env.PATH, HOME: process.env.HOME, CODEX_HOME: HOME}});   // stdin ignored: codex exec waits on stdin otherwise (measured 28 Oct)
+    const child = spawn('codex', args, {cwd, stdio: ['ignore', 'pipe', 'pipe'], env: {PATH: process.env.PATH, HOME: process.env.HOME, CODEX_HOME: HOME, ...trustEnv()}});   // stdin ignored: codex exec waits on stdin otherwise (measured 28 Oct)
     let out = '', err = '';
     child.stdout.on('data', d => { out += d; });
     child.stderr.on('data', d => { err += d; });
@@ -25,7 +34,7 @@ function run(args, cwd) {
 // The Codex week figure, read the way PR 0 did: the app-server's account/rateLimits/read. -> {usedPercent, resetsAt} or null.
 function readLimits() {
   return new Promise(resolve => {
-    const child = spawn('codex', ['app-server'], {stdio: ['pipe', 'pipe', 'ignore'], env: {PATH: process.env.PATH, HOME: process.env.HOME, CODEX_HOME: HOME}});
+    const child = spawn('codex', ['app-server'], {stdio: ['pipe', 'pipe', 'ignore'], env: {PATH: process.env.PATH, HOME: process.env.HOME, CODEX_HOME: HOME, ...trustEnv()}});
     const done = v => { clearTimeout(timer); child.kill(); resolve(v); };
     const timer = setTimeout(() => done(null), 20000);
     const send = m => child.stdin.write(`${JSON.stringify(m)}\n`);
