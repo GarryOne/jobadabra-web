@@ -2,18 +2,15 @@
 // button "Send to N people" (owner, 28 Oct 2026: a held draft to check and ship, never a curl). POST (same origin, owner) saves the headline or sends. Guard: test/admin/release-mail.test.js.
 import {isOwner, viewer} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
-import {compose, mailAllowed, send, validAddress} from '../shared/mail.js';
-import {audience, sendAll} from './release-mail.js';
+import {compose, send, validAddress} from '../shared/mail.js';
+import {audienceRows} from './email-audience.js';
+import {sendAll} from './release-mail.js';
 
 const notFound = () => new Response('Not found', {status: 404});
 const HEAD = {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'};
 
 // How many of the addresses we hold would get it now (the same per-address check send() makes; MARKETING_MAIL is judged separately, as "on" here).
-export async function reach(env) {
-  let n = 0;
-  for (const to of await audience(env)) if ((await mailAllowed({...env, MARKETING_MAIL: 'on'}, to, 'marketing')).ok) n++;
-  return n;
-}
+export const reach = async env => (await audienceRows(env)).filter(row => row.gets).length;
 
 export async function releaseView(request, env) {
   const url = new URL(request.url), version = url.searchParams.get('release') || '';

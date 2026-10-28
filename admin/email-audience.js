@@ -2,7 +2,7 @@
 // (accounts: trial, Always on, Pro; the waitlist in KV signup:<email>), where it came from, since when, and whether the next product mail would reach it. Full addresses: the owner only
 // (the page's counts stay for every admin). Reads the same gate send() uses (shared/mail.js mailAllowed). Guard: test/admin/email-audience.test.js.
 import {esc} from '../shared/html.js';
-import {clean, mailAllowed, validAddress} from '../shared/mail.js';
+import {addrOf, clean, validAddress} from '../shared/mail.js';
 
 const REASONS = {unsubscribed: 'stopped news', suppressed: 'bounced or complained', bad_address: 'not an address'};
 
@@ -17,10 +17,13 @@ export async function audienceRows(env) {
     for (const key of page.keys) add(key.name.slice(7), 'waitlist', key.metadata?.at || '');
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+  // One query for every stopped address, then each address is judged in memory (Gitar on #218: the per-address mailAllowed made 2N+1 queries per page load). Same rule as shared/mail.js mailAllowed for the marketing list.
+  const off = new Map();
+  for (const r of (await env.STATS.prepare("SELECT addr, list FROM mail_off WHERE list IN ('all', 'marketing')").all()).results || []) if (!off.has(r.addr) || r.list === 'all') off.set(r.addr, r.list);
   const rows = [];
   for (const row of by.values()) {
-    const verdict = validAddress(row.email) ? await mailAllowed({...env, MARKETING_MAIL: 'on'}, row.email, 'marketing') : {ok: false, reason: 'bad_address'};
-    rows.push({...row, gets: verdict.ok, why: verdict.ok ? '' : (REASONS[verdict.reason] || verdict.reason)});
+    const reason = !validAddress(row.email) ? 'bad_address' : ({all: 'suppressed', marketing: 'unsubscribed'})[off.get(await addrOf(row.email))] || '';
+    rows.push({...row, gets: !reason, why: reason ? REASONS[reason] : ''});
   }
   return rows.sort((a, b) => b.since.localeCompare(a.since));
 }

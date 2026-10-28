@@ -172,3 +172,14 @@ test('"Send to my email" mails the typed address the sample of a template; a bad
   assert.equal((await post({template: 'release', mine: '1', to: 'me@example.com'}, {})).status, 404);
   assert.equal(sent.length, 1);
 });
+
+test('the product news list costs a fixed number of queries however many addresses there are (Gitar on #218: 2N+1 per page load)', async () => {
+  const {e} = setup();
+  let queries = 0;
+  const prepare = e.STATS.prepare;
+  e.STATS = {...e.STATS, prepare: text => { queries++; return prepare(text); }};
+  for (let n = 0; n < 30; n++) await e.WAITLIST.put(`signup:person${n}@example.com`, '1');
+  const before = queries;
+  assert.equal((await audienceRows(e)).length, 30);
+  assert.ok(queries - before <= 2, `${queries - before} queries for 30 addresses`);
+});
