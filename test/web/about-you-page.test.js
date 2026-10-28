@@ -23,10 +23,15 @@ test('every row on the page is a live step of the public export with exactly its
   for (const reader of data.readers.filter(each => !each.live)) assert.ok(!page.includes(`data-step="${reader.key}"`), `${reader.key} is not live`);
 });
 
-test('the table the tool draws from the export holds every live step, and a part is marked read only where the export says', () => {
+test('the table the tool draws from the export holds every live step with exactly its dots, and no step that is not live', () => {
   const table = readersTable(data);
-  for (const reader of live) assert.ok(table.includes(`data-step="${reader.key}"`), reader.key);
-  assert.ok(!table.includes('data-step="form"'), 'a step that is not live is never drawn');
+  for (const reader of live) {
+    const row = table.match(new RegExp(`<tr data-step="${reader.key}">([\\s\\S]*?)</tr>`));
+    assert.ok(row, reader.key);
+    const on = [...row[1].matchAll(/aria-label="Reads ([^"]+)"/g)].map(match => match[1]);
+    assert.deepEqual(on, data.parts.filter(part => reader.through.includes(part.key)).map(part => part.label), reader.key);
+  }
+  for (const reader of data.readers.filter(each => !each.live)) assert.ok(!table.includes(`data-step="${reader.key}"`), `${reader.key} is not live`);
 });
 
 test('the Intelligence page links to it', () => {
