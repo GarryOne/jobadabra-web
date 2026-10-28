@@ -42,6 +42,7 @@ import {view as monetizationView} from '../../admin/monetization.js';
 import {launchRoute} from '../../admin/signups.js';
 import {view as emailView} from '../../admin/email.js';
 import * as mailLifecycle from '../../admin/mail-lifecycle.js';
+import * as releaseMail from '../../admin/release-mail.js';   // the What's new mail at a stable release (draft from the promotion, sent by the owner)
 import {ingest as benchmarkIngest, view as benchmarkView} from '../../admin/benchmark.js';
 import {ingest as benchmarkSearchIngest, view as benchmarkSearchView} from '../../admin/benchmark-search.js';
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from '../../admin/jobcost.js';
@@ -183,6 +184,8 @@ async function route(request, env, ctx) {
   if (pathname === '/api/hit') return downloads.hit(request, env);
   if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (api/releases.js)
   if (pathname === '/admin/mail/launch') return launchRoute(request, env);   // the Pro-launch mail, by hand (admin/signups.js)
+  if (pathname === '/admin/mail/release') return releaseMail.releaseRoute(request, env);   // review/edit/send the release draft (admin/release-mail.js)
+  if (pathname === '/release-mail/draft') return releaseMail.ingest(request, env);   // the stable promotion drafts a version (Bearer SELFHEAL_PUBLISH_KEY)
   if (pathname === '/admin/test-mail') return testMail.view(request, env);   // Bearer only (admin/test-mail.js)
   // The owner's admin pages (admin/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
   const admin = {'/admin': overviewView, '/admin/growth/website': stats, '/admin/growth/app': telemetryView, '/admin/intelligence/insights': intelligenceView, '/admin/job-search/scouting': scoutingView, '/admin/job-search/installs': installsView,

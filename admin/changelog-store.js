@@ -3,6 +3,7 @@
 // so CI drafts a version once. GET /changelog.json (public, cached 5 minutes) is what the page reads; with no row yet it falls back to public/changelog-seed.json. No commit, no PR. Guard: test/admin/changelog-store.test.js.
 import {equal} from '../shared/guard.js';
 import {CHANNELS, newestFirst, problems} from './changelog.js';
+import {draft} from './release-mail.js';
 
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), {status, headers: {'Content-Type': 'application/json', ...headers}});
@@ -37,6 +38,9 @@ export async function ingest(request, env) {
     ...redraft.map(entry => rewrite.bind(JSON.stringify(entry.groups), at, entry.version)),
     ...hidden.filter(note).map(item => write.bind(item.version, item.date, item.channel, 1, '[]', at, 0)),
     ...Object.entries(data?.channels || {}).filter(([version, channel]) => /^\d+\.\d+\.\d+$/.test(version) && channel === 'stable').map(([version]) => promote.bind(version))]);
+  // Why (28 Oct 2026, owner: a mail "every time we publish a new stable version"): CI sends this when a version goes stable, so a stable version here starts its held release-mail draft (once per version, admin/release-mail.js).
+  const stable = [...entries.filter(entry => entry.channel === 'stable').map(entry => entry.version), ...Object.entries(data?.channels || {}).filter(([, channel]) => channel === 'stable').map(([version]) => version)];
+  for (const version of new Set(stable)) await draft(env, version).catch(error => console.error(`release mail draft ${version}: ${error.message}`));
   return json({ok: true, stored: entries.length, hidden: hidden.length});
 }
 

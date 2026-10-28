@@ -1,15 +1,17 @@
 // /admin/growth/email (owner, 26 Oct 2026: "so that we can keep track and manage this from admin also"): the switches, how much mail went out and was refused, who can still get it, the templates and the digest queue.
 // Read-only; it replaces the Signups page (owner, 26 Oct 2026: merged; the old Signups address redirects here); the Pro-launch send is still POST /admin/mail/launch (admin/signups.js). Addresses never show (short hash only). Data: admin/email-data.js. Guard: tests/test_site_admin_email.js.
-import {viewer} from '../shared/auth.js';
+import {isOwner, viewer} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
 import {collect as accountsOf} from './signups.js';
 import {collect, windowOf, WINDOWS} from './email-data.js';
 import {previews} from './email-preview.js';
 import {TEST_INBOX, testSend} from './email-test-send.js';
+import {releaseView} from './release-mail-page.js';
+import {audienceCard, audienceRows} from './email-audience.js';
 
 const n = value => (Number(value) || 0).toLocaleString('en-US');
 
-const templateCard = (mail, sent) => `<section class="card tpl"><h2>${esc(mail.name)}</h2><p class="muted">${esc(mail.list)}${mail.essential ? ' · essential' : ''} · sent ${n(sent)} in the window</p>${mail.error ? `<p>Cannot render: ${esc(mail.error)}</p>` : `<p><b>${esc(mail.subject)}</b></p><iframe sandbox title="${esc(mail.name)}" srcdoc="${esc(mail.html)}"></iframe><form method="post" action="/admin/growth/email"><input type="hidden" name="template" value="${esc(mail.name)}"><button type="submit">Send to test inbox</button></form>`}</section>`;
+const templateCard = (mail, sent) => `<section class="card tpl"><h2>${esc(mail.name)}</h2><p class="muted">${esc(mail.list)}${mail.essential ? ' · essential' : ''} · sent ${n(sent)} in the window</p>${mail.error ? `<p>Cannot render: ${esc(mail.error)}</p>` : `<p><b>${esc(mail.subject)}</b></p><iframe sandbox title="${esc(mail.name)}" srcdoc="${esc(mail.html)}"></iframe><form method="post" action="/admin/growth/email"><input type="hidden" name="template" value="${esc(mail.name)}"><button type="submit">Send to test inbox</button></form><form method="post" action="/admin/growth/email"><input type="hidden" name="template" value="${esc(mail.name)}"><input type="hidden" name="mine" value="1"><input type="email" name="to" placeholder="your own email" required aria-label="Your own email for ${esc(mail.name)}"> <button type="submit">Send to my email</button></form>`}</section>`;
 
 // ?test=<template>:<sent or a refusal reason> after a test send; only known words are printed.
 const noticeOf = value => {
@@ -18,7 +20,7 @@ const noticeOf = value => {
   return `<p class="pill ${result === 'sent' ? 'on' : 'off'}">${esc(template)}: ${result === 'sent' ? 'sent to the test inbox' : `not sent (${esc(result)})`}</p>`;
 };
 
-export function page(data, accounts = null, notice = '') {
+export function page(data, accounts = null, notice = '', audience = null) {
   const tile = (label, value, note) => `<section class="card tile"><span class="muted">${label}</span><b>${n(value)}</b><span class="muted">${note}</span></section>`;
   const table = (title, head, rows) => `<section class="card"><h2>${title}</h2>${rows.length ? `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map((c, i) => `<td${i ? ' class="num"' : ''}>${c}</td>`).join('')}</tr>`).join('')}</table>` : '<p class="muted">Nothing yet.</p>'}</section>`;
   const top = Math.max(1, ...data.perDay.map(row => (row.sent || 0) + (row.refused || 0)));
@@ -37,13 +39,15 @@ ${accounts ? `<div class="tiles">${tile('Trial accounts', accounts.trial, 'gave 
 ${table('Why mail was not sent', ['Reason', 'Mails'], data.refused.map(r => [esc(r.reason), n(r.n)]))}</div>
 <div class="pair">${table('Addresses', ['Group', 'Accounts'], [['Confirmed', n(data.confirmed)], ['Unconfirmed', n(data.unconfirmed)], ['Product news opt-in', n(data.optIn)]])}
 ${table('Stopped (all time)', ['Reason', 'List', 'Addresses'], data.offReasons.map(r => [esc(r.reason), esc(r.list), n(r.n)]))}</div>
+${audience ? audienceCard(audience) : ''}
 <h2>Templates, as the person sees them <span class="muted">(sample data, example links)</span></h2>${notice}<p class="muted">"Send to test inbox" mails only <code>${esc(TEST_INBOX)}</code> through the real sender, so it counts in the daily caps; it needs the MAIL switch on.</p>${data.testMail.length ? `<section class="card"><h2>Arrived in the test inbox (7 days)</h2><table>${data.testMail.map(m => `<tr><td>${esc(m.received_at.slice(0, 16).replace('T', ' '))}</td><td>${esc(m.to_addr)}</td><td>${esc(m.subject)}</td></tr>`).join('')}</table></section>` : ''}<div class="pair tpls">${previews().map(mail => templateCard(mail, data.byTemplate.find(r => r.template === mail.name)?.sent || 0)).join('')}</div>
 ${table('Last 10 refusals and failures', ['When (UTC)', 'Address (hash)', 'Template', 'Why'], data.recent.map(r => [esc(r.at.slice(0, 16).replace('T', ' ')), `<code>${esc(r.addr)}</code>`, esc(r.template), esc(r.status)]))}
 </main></body></html>`;
 }
 
 export async function view(request, env) {
+  if (new URL(request.url).searchParams.has('release')) return releaseView(request, env);   // a release mail draft (admin/release-mail-page.js)
   if (request.method === 'POST') return testSend(request, env);
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
-  return new Response(page(await collect(env, {days: windowOf(new URL(request.url).searchParams.get('days'))}), await accountsOf(env), noticeOf(new URL(request.url).searchParams.get('test'))), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(await collect(env, {days: windowOf(new URL(request.url).searchParams.get('days'))}), await accountsOf(env), noticeOf(new URL(request.url).searchParams.get('test')), (await isOwner(request, env)) ? await audienceRows(env) : null), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

@@ -108,10 +108,12 @@ test('a test send refuses any other address, an unknown template, a stranger and
   assert.equal(sent.length, 0);
 });
 
-test('with the MAIL switch off, or for a list the address is not on, the result says why and nothing is sent', async () => {
+test('with the MAIL switch off, or for a list the address stopped, the result says why and nothing is sent', async () => {
   const {env, sent} = await live();
   assert.equal((await view(post({template: 'welcome'}), {...env, MAIL: 'off'})).headers.get('Location'), '/admin/growth/email?test=welcome:off');
-  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'on'})).headers.get('Location'), '/admin/growth/email?test=pro-launch:not_opted_in');
+  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'off'})).headers.get('Location'), '/admin/growth/email?test=pro-launch:marketing_off');
+  env.STATS.db.prepare("INSERT INTO mail_off (addr, list, reason, at) VALUES (?, 'marketing', 'unsubscribe', 'x')").run(await addrOf('test-account-admin@jobpilotto.top'));   // product news are opt-out (28 Oct 2026): stopped is what refuses
+  assert.equal((await view(post({template: 'pro-launch'}), {...env, MARKETING_MAIL: 'on'})).headers.get('Location'), '/admin/growth/email?test=pro-launch:unsubscribed');
   assert.equal(sent.length, 0);
 });
 

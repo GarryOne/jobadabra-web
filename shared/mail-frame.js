@@ -34,13 +34,13 @@ export const jobText = (rows = []) => rows.map(job => `- ${job.title}${[job.comp
 export const codeBox = code => `<p class="jp-box jp-ink" style="font:700 30px ui-monospace,Menlo,monospace;letter-spacing:.3em;background:#f4f5f7;border-radius:10px;padding:14px;text-align:center;margin:8px 0 14px">${esc(code)}</p>`;
 
 // html: {title, body (html), button: {label, url} | null, why, links: {stop, settings} | null}. links null = nothing to stop (a security mail): only the site link shows.
-export function frameHtml({title, body, button: action, why, links}) {
+export function frameHtml({title, body, button: action, why, links, hero}) {
   const foot = [links && link(links.stop, 'Stop these emails'), links && link(links.settings, 'Email settings'), link(SITE, 'jobadabra.top')].filter(Boolean).join(' · ');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(title)}</title>${STYLE}</head>`
     + `<body class="jp-bg" style="margin:0;background:#f4f5f7"><table role="presentation" data-jp-frame="1" width="100%" cellpadding="0" cellspacing="0" class="jp-bg" style="background:#f4f5f7"><tr><td align="center" style="padding:22px 14px">`
     + `<table role="presentation" width="560" cellpadding="0" cellspacing="0" class="jp-card" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e6e8ec;border-radius:12px;font:15px/1.55 ${FONT};color:#161a22">`
-    + `<tr><td class="jp-line" style="padding:16px 22px;border-bottom:1px solid #e6e8ec"><img src="${LOGO}" width="32" height="28" alt="" style="vertical-align:middle;border:0"> <b class="jp-ink" style="vertical-align:middle;margin-left:8px;font-size:15px">Jobadabra</b></td></tr>`
-    + `<tr><td class="jp-pad jp-ink" style="padding:22px"><h1 class="jp-ink" style="margin:0 0 10px;font-size:20px;line-height:1.3">${esc(title)}</h1>${body}${action ? button(action) : ''}</td></tr></table>`
+    + (hero || `<tr><td class="jp-line" style="padding:16px 22px;border-bottom:1px solid #e6e8ec"><img src="${LOGO}" width="32" height="28" alt="" style="vertical-align:middle;border:0"> <b class="jp-ink" style="vertical-align:middle;margin-left:8px;font-size:15px">Jobadabra</b></td></tr>`)
+    + `<tr><td class="jp-pad jp-ink" style="padding:22px">${hero ? '' : `<h1 class="jp-ink" style="margin:0 0 10px;font-size:20px;line-height:1.3">${esc(title)}</h1>`}${body}${action ? button(action) : ''}</td></tr></table>`
     + `<p class="jp-muted" style="max-width:560px;margin:14px auto 0;color:#667085;font:12px/1.6 ${FONT};text-align:center">${esc(why)}<br>${foot}</p>`
     + `</td></tr></table></body></html>`;
 }

@@ -5,7 +5,7 @@ import {authorize, digestOf, equal, tokenFor} from '../shared/guard.js';
 import {addrOf, confirmLink, send, validAddress, clean} from '../shared/mail.js';
 import {fromTelegram} from './mail-html.js';
 import {CADENCES, deliver, hold} from './mail-held.js';
-import {page} from './mail-unsub.js';
+import {page, switchOff} from './mail-unsub.js';
 import {accountOf, createAccount, link} from '../shared/pro.js';
 
 const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
@@ -17,8 +17,13 @@ async function who(request, env) {
   return access?.ok ? given.install : null;
 }
 
+// Why (28 Oct 2026, Gitar on #218): product news are opt-out, and mail_off is the one gate (shared/mail.js mailAllowed), so an explicit "no" from the app must write it, not only the column.
 async function setMarketing(env, account, on, now) {
   await env.STATS.prepare('UPDATE pro_accounts SET marketing_opt_in = ?, marketing_opt_in_at = ? WHERE id = ?').bind(on ? 1 : 0, on ? now.toISOString() : null, account).run();
+  const row = await env.STATS.prepare('SELECT email_hash FROM pro_accounts WHERE id = ?').bind(account).first();
+  if (!row?.email_hash) return;
+  if (on) await env.STATS.prepare("DELETE FROM mail_off WHERE addr = ? AND list = 'marketing'").bind(row.email_hash).run();
+  else await switchOff(env, row.email_hash, 'marketing', 'settings', now);
 }
 
 export async function address(request, env, now = new Date()) {
@@ -26,7 +31,9 @@ export async function address(request, env, now = new Date()) {
   if (!install || !env.STATS) return json(401, {ok: false, error: 'unauthorized'});
   let account = await accountOf(env, install);
   if (request.method === 'GET') {
-    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.marketing_opt_in, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
+    // Why (28 Oct 2026, Gitar on #218): product news are opt-out, so "on" is the absence of a mail_off row; reading the old opt-in column showed an unasked account as off, and the app's next save would have stopped its mail.
+    const newsOff = !!(account?.email_hash && await env.STATS.prepare("SELECT 1 AS y FROM mail_off WHERE addr = ? AND list IN ('marketing', 'all')").bind(account.email_hash).first());
+    return json(200, {ok: true, email: account?.email || null, confirmed: !!account?.email_confirmed_at, marketing: !!account?.email_hash && !newsOff, serviceOff: !!account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', plan: account?.plan || null,
       sending: env.MAIL === 'on' && !!env.EMAIL,
       unconfirmedStopped: !!(account?.email_hash && await env.STATS.prepare("SELECT 1 AS y FROM mail_off WHERE addr = ? AND list = 'service' AND reason = 'unconfirmed'").bind(account.email_hash).first())});   // 14 days unconfirmed (api/mail-held.js)   // the kill switch (shared/mail.js): the app says so instead of promising a mail
   }

@@ -2,7 +2,7 @@
 // The ONLY address it ever mails is a test-account-*@jobpilotto.top inbox (admin/test-mail.js isTestAddress): any other `to` is refused, and the default is test-account-admin@. It goes through the real
 // send() (list rules, 6 a day, the log), so it counts in the caps like any mail. The copy that arrives is listed on the page from test_mail. Guard: test/admin/email.test.js.
 import {isOwner} from '../shared/auth.js';
-import {send} from '../shared/mail.js';
+import {send, validAddress} from '../shared/mail.js';
 import {TEMPLATES} from '../shared/mail-templates.js';
 import {SAMPLES} from './email-preview.js';
 import {isTestAddress} from './test-mail.js';
@@ -17,7 +17,10 @@ export async function testSend(request, env) {
   const form = await request.formData().catch(() => new FormData());
   const template = String(form.get('template') || ''), to = String(form.get('to') || TEST_INBOX).trim().toLowerCase();
   if (!TEMPLATES[template]) return new Response('Unknown template.', {status: 400});
-  if (!isTestAddress(to)) return new Response('Test mail goes only to a test-account-*@jobpilotto.top address.', {status: 400});
+  // Why (28 Oct 2026, owner: "a possibility to test some email templates, basically what's new simulation, just on my personal email"): "Send to my email" mails one address the owner types, the sample data only; every other path stays test inboxes.
+  const mine = form.get('mine') === '1';
+  if (mine && !validAddress(to)) return new Response('Enter an email address like you@example.com.', {status: 400});
+  if (!mine && !isTestAddress(to)) return new Response('Test mail goes only to a test-account-*@jobpilotto.top address.', {status: 400});
   const result = await send(env, template, to, SAMPLES[template]);
   return new Response(null, {status: 303, headers: {Location: `/admin/growth/email?test=${template}:${result.ok ? 'sent' : result.reason}`, 'Cache-Control': 'no-store'}});
 }
