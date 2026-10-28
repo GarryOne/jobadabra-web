@@ -92,7 +92,7 @@ test('4 calls run at once and a waiting PR check goes before scheduled and bench
 
 test('a Claude tier keeps its Codex counterpart, and an unknown tier is refused', () => {
   assert.deepEqual(['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-4-5-20251001', 'gpt-4'].map(tierOfClaude), ['small', 'mid', 'large', 'small', null]);
-  assert.deepEqual(['small', 'mid', 'large', undefined, 'huge'].map(modelOf), ['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-sol', null]);
+  assert.deepEqual(['small', 'mid', 'large', undefined, 'huge', 'constructor', '__proto__', 'toString'].map(modelOf), ['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-sol', null, null, null, null]);
 });
 
 test('the Worker keeps its egress list and exports what the list needs (it cannot be loaded here, so its source is read)', async () => {
