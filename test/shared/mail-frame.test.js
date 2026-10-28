@@ -1,5 +1,6 @@
 // The branded frame (shared/mail-frame.js): every template goes through it with the logo, the footer with the stop and settings links and a plain-text twin; at most one orange button; no Pro or
 // product-news line while the owner's marketing flag is off; and a template without a title (the frame's input) or a sender that skips send() fails. Fake sender and fake D1.
+import {LIGHT} from '../../shared/mail-palette.js';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -45,7 +46,7 @@ test('every template goes through the frame: logo, title, footer with stop + set
     assert.ok(html.includes('data-jp-frame="1"') && html.includes('<title>'), `${name}: framed`);
     assert.ok(html.includes('https://www.jobadabra.top/images/logo-mark.png') && !html.includes('data:'), `${name}: hosted logo`);
     assert.ok(html.includes('>jobadabra.top</a>') && text.trim().endsWith('https://www.jobadabra.top'), `${name}: site link`);
-    assert.ok((html.match(/background:#d0612b/g) || []).length <= 1, `${name}: at most one orange button`);
+    assert.ok(html.split(`background:${LIGHT.fill}`).length - 1 <= 1, `${name}: at most one yellow button`);   // the app's yellow (shared/mail-palette.js); it counted the old orange until 28 Oct 2026 and so could never fail (Gitar, #220)
     assert.ok(!/<(script|form|iframe)/i.test(html), `${name}: email-safe`);
     if (spec.essential) { assert.ok(!html.includes('Stop these emails') && !sent[0].headers, `${name}: a security mail has nothing to stop`); continue; }
     const stop = (await stopLink(e, 'me@example.com', spec.list)).replaceAll('&', '&amp;'), settings = (await settingsLink(e, 'me@example.com')).replaceAll('&', '&amp;');
