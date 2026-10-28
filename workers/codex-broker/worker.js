@@ -40,9 +40,10 @@ export class CodexBroker extends Container {
 
   // The owner's one-time upload. Refused once a login is stored unless it is the first one after "login-lost" cleared it.
   async setLogin(text) {
-    if (await this.ctx.storage.get('login')) return json(409, {error: 'a login is already stored; DELETE it first (login-lost clears it)'});
+    if ((await this.ctx.storage.get('login')) && !(await this.ctx.storage.get('lost'))) return json(409, {error: 'a login is already stored and working'});   // an upload replaces it only after login-lost (Gitar #221: it could never be re-uploaded)
     try { if (!JSON.parse(text).tokens) throw new Error(); } catch { return json(400, {error: 'not a Codex auth.json'}); }
     await this.ctx.storage.put('login', text);
+    await this.ctx.storage.delete('lost');
     await this.containerFetch('http://c/auth', {method: 'POST', body: text});
     return json(200, {ok: true});
   }
@@ -56,6 +57,7 @@ export class CodexBroker extends Container {
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});
     if (await this.ctx.storage.get('lost')) return json(503, {why: 'login-lost'});
     const meter = (await this.ctx.storage.get('meter')) || newMeter(0);
+    this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
     const verdict = allow(lane, meter, this.limits?.usedPercent ?? null);
     if (!verdict.ok) return json(429, {why: verdict.why});
     const release = await this.gate.acquire(lane);
@@ -66,7 +68,7 @@ export class CodexBroker extends Container {
       try { answer = JSON.parse(text); } catch { return json(502, {why: `container: ${text.slice(0, 300)}`}); }   // the platform's own error text (not our server's JSON): say it, never crash (a 1101 hid it, 28 Oct 2026)
       if (answer.authFile) await this.ctx.storage.put('login', answer.authFile);   // write-through BEFORE the reply goes out: a rotated token is never only in the container
       if (!reply.ok) { if (answer.error === 'login-lost') await this.ctx.storage.put('lost', true); return json(reply.status === 500 && answer.error === 'login-lost' ? 503 : 502, {why: refuseReply(answer.error) ? 'codex-failed (detail withheld: token-shaped)' : answer.error}); }
-      if (answer.limits) this.limits = answer.limits;
+      if (answer.limits) { this.limits = answer.limits; await this.ctx.storage.put('limits', answer.limits); }
       const used = answer.tokens.input + answer.tokens.output;
       const latest = (await this.ctx.storage.get('meter')) || newMeter(0);   // read again right before the write: 4 calls overlap, and no await sits between this read and the put
       await this.ctx.storage.put('meter', record(latest, lane, used, Date.now() / 1000, answer.limits?.resetsAt));

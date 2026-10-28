@@ -62,6 +62,15 @@ test('scheduled work stops at 60% own share, PR checks keep going to 75%, the we
   assert.equal(allow('scheduled', fresh, null).ok, true);
 });
 
+test('a meter with no reset date yet keeps counting across calls (Gitar #221: it was reset to 1970 on every call)', () => {
+  let m = newMeter(0);
+  for (let i = 0; i < 3; i++) m = record(m, 'scheduled', 10 * TOKENS_PER_PERCENT, 1793000000, undefined);
+  assert.equal(ownSharePct(m), 30);
+  assert.equal(allow('scheduled', m, null).ok, true);
+  m = record(m, 'scheduled', 30 * TOKENS_PER_PERCENT, 1793000000, undefined);
+  assert.equal(allow('scheduled', m, null).ok, false);
+});
+
 test('a new week starts a fresh meter', () => {
   const m = record(newMeter(100), 'scheduled', 5 * TOKENS_PER_PERCENT, 500, 1000);
   assert.equal(m.resetsAt, 1000);

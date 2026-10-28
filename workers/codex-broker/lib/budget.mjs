@@ -9,7 +9,9 @@ export const newMeter = resetsAt => ({resetsAt, tokens: {pr: 0, scheduled: 0, be
 
 /** Adds one call's tokens to its lane; starts a new week's meter when `now` (seconds) is past the reset. Returns the (possibly new) meter. */
 export function record(meter, lane, tokens, now, nextResetsAt) {
-  const m = now >= meter.resetsAt ? newMeter(nextResetsAt ?? meter.resetsAt + 604800) : meter;
+  // resetsAt 0 = never set (fresh meter, Codex limits not read yet): adopt a week from now and keep the tokens. Without this, 0 + a week is 1970 and every call opened a fresh meter, so the 60%/75% brake never fired (Gitar on #221).
+  if (!meter.resetsAt) meter.resetsAt = nextResetsAt ?? now + 604800;
+  const m = now >= meter.resetsAt ? newMeter(nextResetsAt ?? now + 604800) : meter;
   m.tokens[lane] += tokens;
   return m;
 }

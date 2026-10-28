@@ -55,7 +55,7 @@ async function call({prompt, schema, images = []}) {
     const started = Date.now();
     const {code, out, err} = await run(args, dir);
     const reply = fs.existsSync(path.join(dir, 'out.txt')) ? fs.readFileSync(path.join(dir, 'out.txt'), 'utf8') : '';
-    if (code !== 0 || !reply) throw new Error(/401|unauthorized|log in|login/i.test(err + out) ? 'login-lost' : `codex-failed:${code} ${(err || out).replace(/\s+/g, ' ').slice(-300)}`);   // the worker refuses a token-shaped tail (lib/guard.mjs)
+    if (code !== 0 || !reply) throw new Error(/401 Unauthorized|please log in|not logged in|token (is )?(expired|invalid|revoked)|refresh token/i.test(err) ? 'login-lost' : `codex-failed:${code} ${(err || out).replace(/\s+/g, ' ').slice(-300)}`);   // the worker refuses a token-shaped tail (lib/guard.mjs)
     const usage = [...out.matchAll(/"usage":(\{[^}]*\})/g)].map(m => JSON.parse(m[1])).pop() || {};
     return {reply, tokens: {input: usage.input_tokens || 0, output: usage.output_tokens || 0}, ms: Date.now() - started};
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
