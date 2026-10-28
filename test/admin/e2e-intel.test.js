@@ -91,3 +91,13 @@ test('a newer rules version rewrites a settled red and its run (rules 3 re-read 
   assert.deepEqual({...e.STATS.db.prepare('SELECT cause, kind FROM e2e_fails').get()}, {cause: 'drift', kind: 'nightly'});
   assert.deepEqual({...e.STATS.db.prepare('SELECT kind, queue_min FROM e2e_runs').get()}, {kind: 'nightly', queue_min: 3});
 });
+
+test('where e2e work goes: commits per day and kind are upserted, a week\'s files are replaced when sent again, bad rows dropped, the snapshot carries both', async () => {
+  const e = env(), work = (day, kind, commits) => ({day, kind, commits}), file = (week, name, commits) => ({week, file: name, commits});
+  await put(e, {rules: 3, runs: [], fails: [], work: [work('2026-10-17', 'plumbing', 4), work('2026-10-17', 'product', 6), work('2026-10-17', 'chores', 1), work('17 Oct', 'tests', 1)],
+    workFiles: [file('2026-10-12', '.github/workflows/e2e.yml', 3), file('2026-10-12', 'desktop/e2e/lib/x.mjs', 2), file('2026-10-12', 'a b;c', 1)]});
+  await put(e, {rules: 3, runs: [], fails: [], work: [work('2026-10-17', 'plumbing', 5)], workFiles: [file('2026-10-12', 'tools/ship.sh', 4)]});
+  const snapshot = await buildSnapshot(e.STATS, now);
+  assert.deepEqual(snapshot.work.map(row => [row.day, row.kind, row.commits]).sort(), [['2026-10-17', 'plumbing', 5], ['2026-10-17', 'product', 6]], 'an unknown kind and a bad day are dropped; a re-sent day replaces its count');
+  assert.deepEqual(snapshot.workFiles.map(row => [row.week, row.file, row.commits]), [['2026-10-12', 'tools/ship.sh', 4]], 'the week sent again keeps only its newest files');
+});

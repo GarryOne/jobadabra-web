@@ -122,6 +122,26 @@ export const seeds = {
     await env.WAITLIST.put(`freeai:web:calls:${month}`, '100');
     await env.WAITLIST.put(`freeai:web:hits:${month}`, '40');
   },
+  e2e: async ({env}) => {   // made-up e2e runs for /admin/operations/e2e (28 Oct 2026, scorecard + where e2e work goes): a week of PR and nightly runs, reds of every group, four weeks of commits by kind
+    const {ingest} = await import('../admin/e2e-intel.js');
+    env.SELFHEAL_PUBLISH_KEY = 'demo-publish';
+    const today = Date.now(), dayAt = back => new Date(today - back * 86400000).toISOString(), reds = [['apply', 'product'], ['applyflows-1of2', 'flake'], ['applyflows-2of2', 'product'], ['quality', 'ai'],
+      ['quality', 'drift'], ['settings', 'product'], ['strategy', 'timing'], ['strategy', 'open'], ['failuresnotion', 'ci'], ['upload', 'test']];
+    const runs = [], fails = [];
+    for (let back = 6; back >= 0; back--) for (let n = 0; n < 4; n++) {
+      const runId = 9000 + back * 10 + n, red = (back + n) % 3 === 0, [suite, cause] = reds[(back * 4 + n) % reds.length], createdAt = dayAt(back);
+      runs.push({runId, createdAt, kind: n % 2 ? 'pr' : 'nightly', conclusion: red ? 'failure' : 'success', minutes: 12 + n * 4});
+      if (red) fails.push({runId, suite, platform: n === 3 ? 'windows' : 'mac', cause, minutes: 8 + n * 3, day: createdAt.slice(0, 10), kind: n % 2 ? 'pr' : 'nightly'});
+    }
+    const work = [], weekFiles = ['.github/workflows/e2e.yml', 'desktop/e2e/test-sets.json', 'desktop/e2e/lib/pick-steps.mjs', 'tools/ship.sh', 'desktop/e2e/suites/quality.mjs', 'desktop/e2e/lib/extension.mjs'];
+    for (let back = 27; back >= 0; back--) {
+      const day = dayAt(back).slice(0, 10), mix = {product: 9 + (back % 4), expectations: 2 + (back % 3), plumbing: Math.max(1, 6 - Math.floor((27 - back) / 6)), tests: 3, other: 2};
+      for (const [kind, commits] of Object.entries(mix)) work.push({day, kind, commits});
+    }
+    const {weekOf} = await import('../admin/e2e-work.js'), weeks = [...new Set(work.map(row => weekOf(row.day)))];
+    const workFiles = weeks.flatMap((week, w) => weekFiles.map((file, i) => ({week, file, commits: 18 - i * 3 - w})));
+    await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles})}), env);
+  },
   'ai-cost-free': async ({env}) => {   // one made-up install's Free AI day (26 Oct 2026 shape): $0.42 and 2.5M tokens, under the lines wrangler.toml sets; each step as this tree's log records it
     Object.assign(env, {FREE_AI_INSTALL_DAY_USD: '0.50', FREE_AI_INSTALL_MONTH_USD: '5', FREE_AI_MONTH_STOP_USD: '200', FREE_AI_MONTH_ALERT_USD: '100'});
     const day = new Date().toISOString().slice(0, 10), model = '@cf/qwen/qwen3-30b-a3b-fp8';

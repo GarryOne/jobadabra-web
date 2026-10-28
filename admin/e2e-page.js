@@ -11,6 +11,7 @@ import {filterLinks} from './admin.js';
 import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {BARS, rateOf} from './e2e-quality.js';
+import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -95,6 +96,8 @@ export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/job
 ${qualityCard(snapshot.quality || [], repo)}
 <section class="card"><h2>Red suites per day, by cause · ${esc(name)}</h2>${w.reds ? bars(w) : '<p class="muted">No red suites in this range.</p>'}</section>
 <section class="card"><h2>Which suites cost the most · ${esc(name)}</h2>${suiteTable(w)}</section>
+${scorecardCard(w, name)}
+${workCard(snapshot, now)}
 <section class="card"><h2>What each cause means</h2><table>${CAUSES.map(cause => `<tr><td class="nowrap">${swatch(cause.id)}${esc(cause.label)}</td><td class="muted">${esc(cause.hint)}</td></tr>`).join('')}</table></section>
 <section class="card"><h2>Latest ${(snapshot.latest || []).length} runs</h2><div class="scroll"><table><tr><th>Run</th><th>Day</th><th>Kind</th><th>Result</th><th class="num">Minutes</th></tr>${(snapshot.latest || []).map(run =>
   `<tr><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(run.runId)}">#${Number(run.runId)}</a></td><td>${esc(run.day)}</td><td>${chip(esc(run.kind || 'beta'))}</td><td>${run.conclusion === 'failure' ? chip('red', 'bad') : run.conclusion === 'cancelled' ? chip('cancelled', 'off') : chip('green', 'good')}</td><td class="num">${num(run.minutes)}</td></tr>`).join('')
@@ -102,7 +105,7 @@ ${qualityCard(snapshot.quality || [], repo)}
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>E2E · Operations · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}${CHIP_STYLE}
-.filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}</style></head><body><main>
+.filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}${SCORECARD_CSS}</style></head><body><main>
 <header><h1>🧪 Why e2e goes red</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · every e2e run: beta, nightly, main after merge, scheduled, soak, PR, harness` : ''}</span></header>
 ${body}</main></body></html>`;
 }
