@@ -6,6 +6,7 @@ import {collect as accountsOf} from './signups.js';
 import {collect, windowOf, WINDOWS} from './email-data.js';
 import {previews} from './email-preview.js';
 import {TEST_INBOX, testSend} from './email-test-send.js';
+import {releaseView} from './release-mail-page.js';
 
 const n = value => (Number(value) || 0).toLocaleString('en-US');
 
@@ -43,6 +44,7 @@ ${table('Last 10 refusals and failures', ['When (UTC)', 'Address (hash)', 'Templ
 }
 
 export async function view(request, env) {
+  if (new URL(request.url).searchParams.has('release')) return releaseView(request, env);   // a release mail draft (admin/release-mail-page.js)
   if (request.method === 'POST') return testSend(request, env);
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   return new Response(page(await collect(env, {days: windowOf(new URL(request.url).searchParams.get('days'))}), await accountsOf(env), noticeOf(new URL(request.url).searchParams.get('test'))), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});

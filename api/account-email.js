@@ -5,7 +5,7 @@ import {authorize, digestOf, equal, tokenFor} from '../shared/guard.js';
 import {addrOf, confirmLink, send, validAddress, clean} from '../shared/mail.js';
 import {fromTelegram} from './mail-html.js';
 import {CADENCES, deliver, hold} from './mail-held.js';
-import {page} from './mail-unsub.js';
+import {page, switchOff} from './mail-unsub.js';
 import {accountOf, createAccount, link} from '../shared/pro.js';
 
 const parseKey = key => { const [tag, install, token] = String(key || '').split('.'); return tag === 'JPF1' && install && token ? {install, token} : null; };
@@ -17,8 +17,13 @@ async function who(request, env) {
   return access?.ok ? given.install : null;
 }
 
+// Why (28 Oct 2026, Gitar on #218): product news are opt-out, and mail_off is the one gate (shared/mail.js mailAllowed), so an explicit "no" from the app must write it, not only the column.
 async function setMarketing(env, account, on, now) {
   await env.STATS.prepare('UPDATE pro_accounts SET marketing_opt_in = ?, marketing_opt_in_at = ? WHERE id = ?').bind(on ? 1 : 0, on ? now.toISOString() : null, account).run();
+  const row = await env.STATS.prepare('SELECT email_hash FROM pro_accounts WHERE id = ?').bind(account).first();
+  if (!row?.email_hash) return;
+  if (on) await env.STATS.prepare("DELETE FROM mail_off WHERE addr = ? AND list = 'marketing'").bind(row.email_hash).run();
+  else await switchOff(env, row.email_hash, 'marketing', 'settings', now);
 }
 
 export async function address(request, env, now = new Date()) {

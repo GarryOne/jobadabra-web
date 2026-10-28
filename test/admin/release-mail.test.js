@@ -11,6 +11,7 @@ import {compose, stopLink, settingsLink, addrOf} from '../../shared/mail.js';
 import {TEMPLATES} from '../../shared/mail-templates.js';
 import {createAccount} from '../../shared/pro.js';
 import {unsubscribe} from '../../api/mail-unsub.js';
+import {releaseView, reach} from '../../admin/release-mail-page.js';
 
 const sql = file => readFileSync(new URL(`../../db/migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
@@ -105,4 +106,37 @@ test('the stable promotion starts the draft: CI marking a stored beta version st
   assert.equal((await put({channels: {'0.8.42': 'stable'}})).status, 200);
   assert.equal((await put({channels: {'0.8.42': 'stable'}})).status, 200);
   assert.equal(e.STATS.db.prepare('SELECT COUNT(*) n FROM release_mail').get().n, 1);
+});
+
+test('a new draft sends the owner one Telegram message with the link to check and send it; a second call sends none', async () => {
+  const {e} = setup({BUILDLOG_TELEGRAM_TOKEN: 't', BUILDLOG_TELEGRAM_CHAT: 'c'}), told = [];
+  const fetch = async (url, init) => { told.push(JSON.parse(init.body).text); return {ok: true}; };
+  await draft(e, '0.8.42', now, {fetch});
+  await draft(e, '0.8.42', now, {fetch});
+  assert.equal(told.length, 1);
+  assert.match(told[0], /0\.8\.42/);
+  assert.ok(told[0].includes('https://www.jobadabra.top/admin/growth/email?release=0.8.42'));
+});
+
+test('the review page shows the mail and "Send to N people" (N = who would get it now); the button sends once and saves a headline', async () => {
+  const {e, sent} = setup({STATS_API_KEY: 'owner-key', STATS_KEY: 'stats-key'});
+  await createAccount(e, 'a@example.com', now, {plan: 'trial'});
+  await createAccount(e, 'stop@example.com', now, {plan: 'trial'});
+  await e.WAITLIST.put('signup:w@example.com', '1');
+  e.STATS.db.prepare("INSERT INTO mail_off (addr, list, reason, at) VALUES (?, 'marketing', 'unsubscribe', 'x')").run(await addrOf('stop@example.com'));
+  await draft(e, '0.8.42', now);
+  assert.equal(await reach(e), 2);
+  const owner = {Authorization: 'Bearer owner-key'};
+  const get = await releaseView(new Request('https://www.jobadabra.top/admin/growth/email?release=0.8.42', {headers: owner}), e);
+  const html = await get.text();
+  assert.equal(get.status, 200);
+  assert.match(html, /Send to 2 people/);
+  assert.match(html, /srcdoc=/);
+  assert.equal((await releaseView(new Request('https://www.jobadabra.top/admin/growth/email?release=0.8.42'), e)).status, 404, 'not signed in: not found');
+  const post = (action, extra = {}) => releaseView(new Request('https://www.jobadabra.top/admin/growth/email?release=0.8.42', {method: 'POST', headers: {...owner, Origin: 'https://www.jobadabra.top'}, body: new URLSearchParams({action, ...extra})}), e);
+  assert.equal((await post('headline', {headline: 'A better headline'})).status, 303);
+  assert.equal(JSON.parse(e.STATS.db.prepare('SELECT data FROM release_mail').get().data).headline, 'A better headline');
+  await post('send'); await post('send');
+  assert.equal(sent.length, 2);
+  assert.match(sent[0].subject, /A better headline/);
 });

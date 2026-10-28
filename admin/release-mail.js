@@ -5,6 +5,7 @@
 import {equal} from '../shared/guard.js';
 import {isOwner} from '../shared/auth.js';
 import {send, validAddress, clean} from '../shared/mail.js';
+import {tellOwner} from './ai-refusal.js';
 import {SITE} from '../shared/mail-frame.js';
 
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -35,13 +36,15 @@ export async function audience(env) {
 }
 
 // Called by the promotion: drafts the version once. -> {drafted} | {exists} | {empty: nothing a user would notice}
-export async function draft(env, version, now = new Date()) {
+export async function draft(env, version, now = new Date(), {fetch: doFetch} = {}) {
   if (!VERSION.test(version || '')) return {error: 'bad version'};
   if (await env.STATS.prepare('SELECT 1 AS x FROM release_mail WHERE version = ?').bind(version).first()) return {exists: true};
   const row = await env.STATS.prepare('SELECT version, date, body FROM changelog_entries WHERE version = ? AND hidden = 0').bind(version).first();
   const data = row && dataFrom({version, date: row.date, groups: JSON.parse(row.body)});
   if (!data) return {empty: true};
-  await env.STATS.prepare('INSERT INTO release_mail (version, data, created_at) VALUES (?, ?, ?) ON CONFLICT(version) DO NOTHING').bind(version, JSON.stringify(data), now.toISOString()).run();
+  const made = await env.STATS.prepare('INSERT INTO release_mail (version, data, created_at) VALUES (?, ?, ?) ON CONFLICT(version) DO NOTHING').bind(version, JSON.stringify(data), now.toISOString()).run();
+  // Why (28 Oct 2026, owner: "I should get a telegram notification when a new release whats new email draft is prepared. With a link for me to open and check the email content and then ship it"): once, when the row is new.
+  if (made.meta?.changes) await tellOwner(`✉️ What's new mail for ${version} is ready: "${data.headline}"\nCheck it and send it: ${SITE}/admin/growth/email?release=${version}`, {env, ...(doFetch && {fetch: doFetch})}).catch(() => {});
   return {drafted: true};
 }
 
