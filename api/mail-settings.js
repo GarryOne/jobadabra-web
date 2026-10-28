@@ -12,7 +12,7 @@ async function stateOf(env, addr) {
   const off = (await env.STATS.prepare("SELECT list FROM mail_off WHERE addr = ? AND list IN ('all', 'service', 'marketing')").bind(addr).all()).results || [];
   const account = await env.STATS.prepare('SELECT marketing_opt_in, service_mail_off_at, digest_cadence FROM pro_accounts WHERE email_hash = ?').bind(addr).first().catch(() => null);
   const lists = new Set(off.map(r => r.list));
-  return {blocked: lists.has('all'), service: !lists.has('service') && !account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', marketing: !!account?.marketing_opt_in && !lists.has('marketing'), account};
+  return {blocked: lists.has('all'), service: !lists.has('service') && !account?.service_mail_off_at, cadence: account?.digest_cadence || 'daily', marketing: !lists.has('marketing') && !lists.has('all'), account}   // opt-out since 28 Oct 2026 (shared/mail.js mailAllowed);
 }
 
 export async function settings(request, env, now = new Date()) {

@@ -9,7 +9,7 @@ export const DAILY_MAX = 6;                 // per address, per rolling 24 h (sp
 const GLOBAL_DAY_MAX = 3000;                // a safety net over every address; env.MAIL_DAY_MAX overrides
 const DAY = 24 * 60 * 60 * 1000;
 const ADDRESS = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
-const FROM = {service: 'Jobadabra <no-reply@jobadabra.top>', marketing: 'Jobadabra <no-reply@jobadabra.top>'};   // owner, 26 Oct 2026: "The sender email address should be no-reply@jobadabra.top"
+const FROM = {service: 'Jobadabra <no-reply@jobadabra.top>', marketing: 'Igor from Jobadabra <no-reply@jobadabra.top>'};   // owner, 26 Oct 2026: "The sender email address should be no-reply@jobadabra.top"; 28 Oct 2026: product news come from "Igor from Jobadabra"
 
 export const clean = to => String(to || '').trim().toLowerCase();
 export const validAddress = to => ADDRESS.test(clean(to)) && clean(to).length <= 254;
@@ -41,7 +41,7 @@ export async function mailAllowed(env, to, list = 'service', {essential = false}
   const off = await env.STATS.prepare("SELECT list, reason FROM mail_off WHERE addr = ? AND list IN ('all', ?)").bind(addr, list).all();
   for (const row of off.results || []) if (row.list === 'all' || !essential) return {ok: false, reason: row.list === 'all' ? 'suppressed' : 'unsubscribed'};
   const account = await env.STATS.prepare('SELECT marketing_opt_in, service_mail_off_at FROM pro_accounts WHERE email_hash = ?').bind(addr).first().catch(() => null);
-  if (list === 'marketing' && !account?.marketing_opt_in) return {ok: false, reason: 'not_opted_in'};
+  // Why (28 Oct 2026, owner): news go to every address that has not turned them off (mail_off above): a waitlist signup or an address given in the wizard agrees to product news. No opt-in column is read.
   if (list === 'service' && !essential && account?.service_mail_off_at) return {ok: false, reason: 'unsubscribed'};
   return {ok: true};
 }
@@ -54,10 +54,10 @@ async function record(env, now, addr, list, template, status, id = null) {
 export function compose(template, data = {}, links = null) {
   const spec = TEMPLATES[template];
   const why = spec.essential ? 'A security email: sent even if you stopped other emails.'
-    : spec.list === 'marketing' ? 'You get these because you agreed to product news.' : 'You get this because you set up Jobadabra with this address.';
+    : spec.list === 'marketing' ? 'You get this because you joined the waitlist or set up Jobadabra with this address.' : 'You get this because you set up Jobadabra with this address.';
   const frame = {title: spec.title(data), why, button: spec.button?.(data) || null, links};
   const headers = links ? {'List-Unsubscribe': `<${links.stop}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'} : undefined;
-  return {subject: spec.subject(data), text: frameText({...frame, body: spec.text(data)}), html: frameHtml({...frame, body: spec.html(data)}), headers};
+  return {subject: spec.subject(data), text: frameText({...frame, body: spec.text(data)}), html: frameHtml({...frame, body: spec.html(data), hero: spec.hero?.(data)}), headers};
 }
 
 export async function send(env, template, to, data = {}, {now = new Date()} = {}) {

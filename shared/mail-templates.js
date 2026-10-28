@@ -2,6 +2,7 @@
 // ('service' or 'marketing'), whether it is `essential` (a sign-in code: not stopped by an unsubscribe), and builds subject, title, content (text and html) and an optional one `button` from plain data. Guard: test/shared/mail.test.js.
 import {purchaseCreditWords} from './credit-purchase-words.js';
 import {codeBox, esc, jobRows, jobText, link} from './mail-frame.js';
+import {releaseHero, releaseHtml, releaseSubject, releaseText} from './mail-release.js';
 
 // A message the app or an Always on run would send on Telegram, in the same layout: data {subject, html, text, buttons: [{text, url}], confirmUrl} (html/text from api/mail-html.js).
 // The first button is the frame's one orange button; the others are links under the text.
@@ -68,4 +69,11 @@ export const TEMPLATES = {
     button: ({pricingUrl}) => ({label: 'See Pro', url: pricingUrl}),
     text: ({pro, proAi}) => `One payment, no subscription: Pro €${pro}, or Pro + AI €${proAi} with ${purchaseCreditWords('pro-ai')} VAT included.`,
     html: ({pro, proAi}) => `<p>One payment, no subscription: Pro €${esc(pro)}, or Pro + AI €${esc(proAi)} with ${purchaseCreditWords('pro-ai')} VAT included.</p>`},
+  // The "What's new" mail at a stable release (shared/mail-release.js), held as a draft on /admin/email until the owner clicks "Send to everyone". Data: see mail-release.js.
+  'release': {list: 'marketing',
+    subject: releaseSubject,
+    title: ({headline}) => releaseSubject({headline}),
+    hero: releaseHero,
+    text: releaseText,
+    html: releaseHtml},
 };
