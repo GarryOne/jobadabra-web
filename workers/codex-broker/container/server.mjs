@@ -13,11 +13,15 @@ const readAuth =() => (fs.existsSync(AUTH) ? fs.readFileSync(AUTH, 'utf8') : '')
 
 // HTTPS goes through Cloudflare's egress interception, so codex must trust its CA (written at container start): system roots + that CA in one bundle. Only the CA file's presence decides; locally there is none.
 const CF_CA = '/etc/cloudflare/certs/cloudflare-containers-ca.crt', BUNDLE = path.join(os.tmpdir(), 'ca-bundle.crt');
+let trust = null;   // built once per process: 4 calls overlap, and a bundle rewritten in place could be read half-written (Gitar on #222)
 function trustEnv() {
+  if (trust) return trust;
   if (!fs.existsSync(CF_CA)) return {};
   const system = ['/etc/ssl/certs/ca-certificates.crt'].find(f => fs.existsSync(f));
-  fs.writeFileSync(BUNDLE, `${system ? fs.readFileSync(system, 'utf8') : ''}\n${fs.readFileSync(CF_CA, 'utf8')}`);
-  return {SSL_CERT_FILE: BUNDLE, CODEX_CA_CERTIFICATE: CF_CA};
+  const tmp = `${BUNDLE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${system ? fs.readFileSync(system, 'utf8') : ''}\n${fs.readFileSync(CF_CA, 'utf8')}`);
+  fs.renameSync(tmp, BUNDLE);   // atomic: a reader sees the old or the whole new file, never a part
+  return (trust = {SSL_CERT_FILE: BUNDLE, CODEX_CA_CERTIFICATE: CF_CA});
 }
 
 function run(args, cwd) {
