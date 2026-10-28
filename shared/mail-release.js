@@ -15,7 +15,7 @@ export function releaseHero({name, version, month, headline, intro, hero}) {
   const hi = name ? `Hi ${esc(name)}, ` : 'Hi, ';
   return `<tr><td style="background:#0f1b3d;padding:26px 24px 0;color:#ffffff;border-radius:12px 12px 0 0">`
     + `<p style="margin:0 0 14px;font-size:12px;letter-spacing:.04em;color:#9fb0e8"><img src="${SITE}/images/logo-mark.png" width="22" height="19" alt="" style="vertical-align:middle;border:0"> &nbsp;What's new in Jobadabra · ${esc(month)}</p>`
-    + `<h1 style="margin:0 0 12px;font:700 28px/1.2 ${FONT};color:#ffffff">${withPills(headline).replace(/<span[^>]*>/g, '').replace(/<\/span>/g, '')}</h1>`
+    + `<h1 style="margin:0 0 12px;font:700 22px/1.25 ${FONT};color:#ffffff">${withPills(headline).replace(/<span[^>]*>/g, '').replace(/<\/span>/g, '')}</h1>`
     + `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#c7d0f2">${hi}Jobadabra ${esc(version)} is out. Here is what changed, and at the end, how to update in one click.</p>`
     + `${intro ? `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#c7d0f2">${esc(intro)}</p>` : ''}`
     + `${hero?.url ? `<img src="${esc(hero.url)}" alt="${esc(hero.alt || '')}" width="100%" style="display:block;width:100%;height:auto;border-radius:8px 8px 0 0;border:0">` : '<div style="height:6px"></div>'}</td></tr>`;
