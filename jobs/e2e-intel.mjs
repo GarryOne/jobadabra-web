@@ -7,11 +7,14 @@
 //   AI for the reds no fact names: E2E_CAUSE_CF_TOKEN + E2E_CAUSE_CF_ACCOUNT (its own Workers AI token, never production's); without them those reds stay "unknown".
 import {execFile, execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
-import {writeFileSync} from 'node:fs';
+import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
 import {answerText, kindOf, redJobs, rowsOf, runsToRead} from './e2e-intel-rows.mjs';
+import {WORK_IDS, parseLog, workRows} from '../admin/e2e-work.js';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.E2E_INTEL_URL || 'https://www.jobpilotto.top/e2e/data';
@@ -55,6 +58,20 @@ async function readNights(runs) {
   return nights;
 }
 
+// Where e2e work goes (admin/e2e-work.js): the public repo's main since `since`, from one blob-less shallow clone (no API call per commit). The clone starts two
+// days earlier: git lists every file of a shallow clone's oldest commit as added. A failed read sends no work rows this hour and says so.
+function readWork(since) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'e2e-work-')), from = new Date(Date.parse(since) - 2 * 86400000).toISOString().slice(0, 10);
+  try {
+    execFileSync('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', '--single-branch', `--shallow-since=${from}`, `https://github.com/${repo}.git`, dir], {timeout: 180000});
+    // Why (28 Oct 2026, measured on 35 days): rename detection fetches every renamed file's contents into the blob-less clone, 37 s and +10 MB; --no-renames reads trees only, 0.4 s.
+    return workRows(parseLog(execFileSync('git', ['-C', dir, 'log', '--no-merges', '--no-renames', `--since=${since}`, '--format=@@%H %cs', '--name-only'], {encoding: 'utf8', maxBuffer: 1 << 28})));
+  } catch (error) {
+    console.log(`::warning::where e2e work goes was not read this hour: ${String(error?.message || error).slice(0, 200)}`);
+    return {work: [], files: []};
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+}
+
 let aiCalls = 0, aiNeurons = 0;
 async function ask({system, user}) {
   const token = process.env.E2E_CAUSE_CF_TOKEN, account = process.env.E2E_CAUSE_CF_ACCOUNT;
@@ -95,15 +112,16 @@ async function main() {
   const settled = new Set(have), waiting = new Set(pending);
   const nights = await readNights(liveNights(listed.filter(run => run.workflow === 'e2e.yml'), new Set(quality)).slice(0, 40));
   const todo = runsToRead(listed, settled, waiting, MAX_RUNS);
-  console.log(`${listed.length} finished e2e runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s)`);
-  if (!todo.length && !nights.length) return;
+  const work = readWork(new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10));
+  console.log(`${listed.length} finished e2e runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s); ${work.work.length / WORK_IDS.length} days of commits`);
+  if (!todo.length && !nights.length && !work.work.length) return;
   // A fix is looked for in the later runs of the same line (main, or the PR's branch): read the jobs from the oldest run to read onwards (at most 400 runs).
-  const needed = todo.length ? listed.slice(listed.findIndex(run => run.databaseId === todo[0].databaseId)).slice(0, 400) : [];   // no run to read: only the quality nights go
+  const needed = todo.length ? listed.slice(listed.findIndex(run => run.databaseId === todo[0].databaseId)).slice(0, 400) : [];   // no run to read: only the quality nights and the work rows go
   await eight(needed, async run => { run.jobs = (await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`))?.jobs || []; });
   const wanted = new Set(todo.map(run => run.databaseId));
   const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
-  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights};
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
   console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');

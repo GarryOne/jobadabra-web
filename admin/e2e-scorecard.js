@@ -1,0 +1,67 @@
+// Two cards of /admin/operations/e2e (owner, 28 Oct 2026; spec docs/superpowers/specs/2026-10-28-e2e-reliability-design.md rules I and J in the public repo):
+// the scorecard (which suites caught a bug and which only cost time) and where e2e work goes (commits per week by kind, against the owner's 15% plumbing target).
+// Pure: draws the snapshot rows admin/e2e-intel.js keeps. Guard: test/admin/e2e-scorecard.test.js.
+import {esc} from '../shared/html.js';
+import {CHIP_STYLE, chip} from './chip.js';
+import {groupOf} from './e2e-causes.js';
+import {barRows, legend} from './day-bars.js';
+import {PLUMBING_TARGET, WORK_KINDS, weekOf} from './e2e-work.js';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
+const hours = minutes => `${((Number(minutes) || 0) / 60).toLocaleString('en-US', {maximumFractionDigits: 1})} h`;
+// A suite split across jobs ("applyflows-2of2") is one suite here: the scorecard judges a suite, not a shard.
+// The page puts this in its <style> (test/shared/admin-chips.test.js: a chip page brings CHIP_STYLE).
+export const SCORECARD_CSS = `${CHIP_STYLE}` + 'h3{margin:18px 0 6px;font-size:15px}';
+export const baseSuite = suite => String(suite || '').replace(/-\d+of\d+$/, '');
+
+/** Red suites of the window -> one row per suite: caught (cause "product": the fix changed the app), noise (the tests' own causes), ours (CI and AI), unnamed, minutes. */
+export function scoreRows(fails) {
+  const rows = new Map();
+  for (const fail of fails) {
+    const suite = baseSuite(fail.suite), row = rows.get(suite) || {suite, caught: 0, noise: 0, ours: 0, unnamed: 0, min: 0};
+    const group = groupOf(fail.cause), n = Number(fail.n) || 0;
+    if (group === 'app') row.caught += n; else if (group === 'tests') row.noise += n; else if (group === 'ours') row.ours += n; else row.unnamed += n;
+    row.min += Number(fail.min) || 0; rows.set(suite, row);
+  }
+  return [...rows.values()].sort((a, b) => b.caught - a.caught || (b.noise + b.ours) - (a.noise + a.ours) || a.suite.localeCompare(b.suite));
+}
+
+/** The scorecard card for the page's window w (admin/e2e-page.js windowOf: range and kind filter applied); name is the window's title. Suites with no red are not listed. */
+export function scorecardCard(w, name) {
+  const rows = scoreRows(w.fails), cell = (n, tone) => `<td class="num">${n ? chip(String(n), tone) : '<span class="muted">0</span>'}</td>`;
+  const body = rows.map(row => `<tr><td><code>${esc(row.suite)}</code></td>${cell(row.caught, 'good')}${cell(row.noise, 'warn')}${cell(row.ours, 'bad')}${cell(row.unnamed, 'off')}<td class="num">${hours(row.min)}</td></tr>`).join('');
+  const none = rows.filter(row => !row.caught).map(row => row.suite);
+  return `<section class="card"><h2>Scorecard: which suites catch bugs · ${esc(name)}</h2>
+<p class="muted">A red suite caught a bug when its fix changed the app, the extension or the engine. Every other red cost time: the tests' own causes (flake, timing, drift, test bug), our CI and AI, or not named yet. Suites with no red in this range are not listed.</p>
+${rows.length ? `<div class="scroll"><table><tr><th>Suite</th><th class="num">Caught a bug</th><th class="num">Test noise</th><th class="num">Our CI and AI</th><th class="num">Not named</th><th class="num">Job time</th></tr>${body}</table></div>
+${none.length ? `<p class="muted">Red but caught nothing in this range: ${none.map(suite => `<code>${esc(suite)}</code>`).join(', ')}</p>` : ''}` : '<p class="muted">No red suites in this range.</p>'}</section>`;
+}
+
+/** Snapshot work rows -> one row per week (newest first): commits per kind, and the share that only changed CI or harness plumbing. */
+export function workWeeks(work = []) {
+  const weeks = new Map();
+  for (const row of work) {
+    const week = weekOf(row.day), counts = weeks.get(week) || {};
+    counts[row.kind] = (counts[row.kind] || 0) + (Number(row.commits) || 0); weeks.set(week, counts);
+  }
+  return [...weeks].sort((a, b) => b[0].localeCompare(a[0])).map(([week, counts]) => {
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    return {week, counts, total, plumbing: total ? (counts.plumbing || 0) / total : 0};
+  });
+}
+
+/** The "Where e2e work goes" card: per-week bars by kind, this week's plumbing share against PLUMBING_TARGET, and this week's most-changed e2e and CI files. Not filtered by range: it reads the snapshot's 30 days. */
+export function workCard(snapshot) {
+  const weeks = workWeeks(snapshot?.work);
+  if (!weeks.length) return '<section class="card"><h2>Where e2e work goes · per week</h2><p class="muted">No commits read yet: the hourly e2e-intel run reads the public repo\'s main.</p></section>';
+  const [latest] = weeks, pct = share => `${Math.round(share * 100)}%`, target = pct(PLUMBING_TARGET);
+  const rows = weeks.map(row => ({label: dayWords(row.week), title: `week of ${row.week}`, counts: row.counts, share: row.plumbing}));
+  const files = snapshot.workFiles || [], latestFiles = files.filter(row => row.week === latest.week).slice(0, 6);
+  return `<section class="card"><h2>Where e2e work goes · per week</h2>
+<p class="muted">Each commit on main counts once, by the first kind it touched: product, then e2e expectations, then CI and harness plumbing, then unit tests. "Plumbing" is a commit that changed only workflows, the e2e harness or tools. Target: plumbing under ${target} of a week's commits.</p>
+<div class="tiles"><section class="card tile"><span class="muted">Plumbing this week</span><b>${pct(latest.plumbing)}</b>${chip(latest.plumbing < PLUMBING_TARGET ? `under ${target}` : `over ${target}`, latest.plumbing < PLUMBING_TARGET ? 'good' : 'bad')}<div class="muted">${latest.counts.plumbing || 0} of ${latest.total} commits since ${dayWords(latest.week)}</div></section>
+<section class="card tile"><span class="muted">E2E expectations this week</span><b>${pct(latest.total ? (latest.counts.expectations || 0) / latest.total : 0)}</b><span class="muted">${latest.counts.expectations || 0} commits changed what a suite expects</span></section></div>
+<div class="nights">${legend(WORK_KINDS)}${barRows(WORK_KINDS, rows, (row, total) => `${total} commits · ${pct(row.share)} plumbing`)}</div>
+${latestFiles.length ? `<h3>Changed most this week (e2e and CI files)</h3><div class="scroll"><table><tr><th>File</th><th class="num">Commits</th></tr>${latestFiles.map(row => `<tr><td><code>${esc(row.file)}</code></td><td class="num">${Number(row.commits)}</td></tr>`).join('')}</table></div>` : ''}</section>`;
+}
