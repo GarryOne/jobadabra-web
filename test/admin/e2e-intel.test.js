@@ -101,3 +101,13 @@ test('where e2e work goes: commits per day and kind are upserted, a week\'s file
   assert.deepEqual(snapshot.work.map(row => [row.day, row.kind, row.commits]).sort(), [['2026-10-17', 'plumbing', 5], ['2026-10-17', 'product', 6]], 'an unknown kind and a bad day are dropped; a re-sent day replaces its count');
   assert.deepEqual(snapshot.workFiles.map(row => [row.week, row.file, row.commits]), [['2026-10-12', 'tools/ship.sh', 4]], 'the week sent again keeps only its newest files');
 });
+
+test('GET ?snapshot=1 hands the weekly summary the row the page draws; none yet is a 404; the publish key is needed', async () => {
+  const e = env(), get = key => call(e, {method: 'GET', headers: {Authorization: `Bearer ${key}`}}, '/e2e/data?snapshot=1');
+  assert.equal((await get('pub')).status, 404);
+  await put(e, {rules: 1, runs: [run(1)], fails: [fail(1, 'apply', 'mac', 'test')]});
+  const response = await get('pub'), stored = e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), stored);
+  assert.equal((await get('wrong')).status, 404);
+});
