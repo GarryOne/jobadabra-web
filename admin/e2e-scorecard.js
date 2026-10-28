@@ -52,16 +52,18 @@ export function workWeeks(work = []) {
 }
 
 /** The "Where e2e work goes" card: per-week bars by kind, this week's plumbing share against PLUMBING_TARGET, and this week's most-changed e2e and CI files. Not filtered by range: it reads the snapshot's 30 days. */
-export function workCard(snapshot) {
+export function workCard(snapshot, now = new Date()) {
   const weeks = workWeeks(snapshot?.work);
   if (!weeks.length) return '<section class="card"><h2>Where e2e work goes · per week</h2><p class="muted">No commits read yet: the hourly e2e-intel run reads the public repo\'s main.</p></section>';
-  const [latest] = weeks, pct = share => `${Math.round(share * 100)}%`, target = pct(PLUMBING_TARGET);
+  // Why (Gitar on #210): the tiles are about the calendar week; a week with no rows yet (Monday morning, or a failing collector) shows as empty, never as the week before.
+  const current = weekOf(now.toISOString().slice(0, 10)), latest = weeks[0].week === current ? weeks[0] : {week: current, counts: {}, total: 0, plumbing: 0};
+  const pct = share => `${Math.round(share * 100)}%`, target = pct(PLUMBING_TARGET), share = n => (latest.total ? pct(n / latest.total) : '–');
   const rows = weeks.map(row => ({label: dayWords(row.week), title: `week of ${row.week}`, counts: row.counts, share: row.plumbing}));
   const files = snapshot.workFiles || [], latestFiles = files.filter(row => row.week === latest.week).slice(0, 6);
   return `<section class="card"><h2>Where e2e work goes · per week</h2>
 <p class="muted">Each commit on main counts once, by the first kind it touched: product, then e2e expectations, then CI and harness plumbing, then unit tests. "Plumbing" is a commit that changed only workflows, the e2e harness or tools. Target: plumbing under ${target} of a week's commits.</p>
-<div class="tiles"><section class="card tile"><span class="muted">Plumbing this week</span><b>${pct(latest.plumbing)}</b>${chip(latest.plumbing < PLUMBING_TARGET ? `under ${target}` : `over ${target}`, latest.plumbing < PLUMBING_TARGET ? 'good' : 'bad')}<div class="muted">${latest.counts.plumbing || 0} of ${latest.total} commits since ${dayWords(latest.week)}</div></section>
-<section class="card tile"><span class="muted">E2E expectations this week</span><b>${pct(latest.total ? (latest.counts.expectations || 0) / latest.total : 0)}</b><span class="muted">${latest.counts.expectations || 0} commits changed what a suite expects</span></section></div>
+<div class="tiles"><section class="card tile"><span class="muted">Plumbing this week</span><b>${share(latest.counts.plumbing || 0)}</b>${latest.total ? chip(latest.plumbing < PLUMBING_TARGET ? `under ${target}` : `over ${target}`, latest.plumbing < PLUMBING_TARGET ? 'good' : 'bad') : ''}<div class="muted">${latest.total ? `${latest.counts.plumbing || 0} of ${latest.total} commits since ${dayWords(latest.week)}` : `no commit read since ${dayWords(latest.week)} yet`}</div></section>
+<section class="card tile"><span class="muted">E2E expectations this week</span><b>${share(latest.counts.expectations || 0)}</b><span class="muted">${latest.counts.expectations || 0} commits changed what a suite expects</span></section></div>
 <div class="nights">${legend(WORK_KINDS)}${barRows(WORK_KINDS, rows, (row, total) => `${total} commits · ${pct(row.share)} plumbing`)}</div>
 ${latestFiles.length ? `<h3>Changed most this week (e2e and CI files)</h3><div class="scroll"><table><tr><th>File</th><th class="num">Commits</th></tr>${latestFiles.map(row => `<tr><td><code>${esc(row.file)}</code></td><td class="num">${Number(row.commits)}</td></tr>`).join('')}</table></div>` : ''}</section>`;
 }

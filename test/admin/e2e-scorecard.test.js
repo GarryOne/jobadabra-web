@@ -25,11 +25,15 @@ test('the scorecard card lists every red suite with chips and names the ones tha
 test('work: weeks newest first, the plumbing share of each week, the over/under chip against 15%, and the week\'s most-changed files', () => {
   const work = [{day: '2026-10-27', kind: 'plumbing', commits: 3}, {day: '2026-10-26', kind: 'product', commits: 7}, {day: '2026-10-21', kind: 'plumbing', commits: 1}, {day: '2026-10-20', kind: 'product', commits: 9}];
   assert.deepEqual(workWeeks(work).map(row => [row.week, row.total, row.plumbing]), [['2026-10-26', 10, 0.3], ['2026-10-19', 10, 0.1]]);
-  const html = workCard({work, workFiles: [{week: '2026-10-26', file: '.github/workflows/e2e.yml', commits: 2}, {week: '2026-10-19', file: 'tools/old.sh', commits: 1}]});
+  const wed = new Date('2026-10-28T12:00:00Z'), html = workCard({work, workFiles: [{week: '2026-10-26', file: '.github/workflows/e2e.yml', commits: 2}, {week: '2026-10-19', file: 'tools/old.sh', commits: 1}]}, wed);
   assert.match(html, /<b>30%<\/b><span class="chip bad">over 15%<\/span><div class="muted">3 of 10 commits since 26 Oct<\/div>/);
   assert.match(html, /<code>\.github\/workflows\/e2e\.yml<\/code>/);
   assert.doesNotMatch(html, /tools\/old\.sh/, 'only this week\'s files are listed');
-  assert.match(workCard({work: [{day: '2026-10-27', kind: 'product', commits: 9}, {day: '2026-10-27', kind: 'plumbing', commits: 1}]}), /chip good">under 15%/);
+  assert.match(workCard({work: [{day: '2026-10-27', kind: 'product', commits: 9}, {day: '2026-10-27', kind: 'plumbing', commits: 1}]}, wed), /chip good">under 15%/);
+  const nextMonday = workCard({work, workFiles: []}, new Date('2026-11-02T06:00:00Z'));   // Gitar on #210: no row yet this week is an empty week, not last week's numbers
+  assert.match(nextMonday, /Plumbing this week<\/span><b>–<\/b><div class="muted">no commit read since 2 Nov yet<\/div>/);
+  assert.doesNotMatch(nextMonday, /class="chip (good|bad)">(over|under) 15%/);
+  assert.match(nextMonday, /26 Oct<\/b>/, 'the past weeks still draw as bars');
   assert.match(workCard({}), /No commits read yet/);
 });
 
