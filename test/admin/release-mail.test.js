@@ -12,6 +12,9 @@ import {TEMPLATES} from '../../shared/mail-templates.js';
 import {createAccount} from '../../shared/pro.js';
 import {unsubscribe} from '../../api/mail-unsub.js';
 import {releaseView, reach} from '../../admin/release-mail-page.js';
+import {audienceRows, audienceCard} from '../../admin/email-audience.js';
+import {testSend} from '../../admin/email-test-send.js';
+import {view as emailView} from '../../admin/email.js';
 
 const sql = file => readFileSync(new URL(`../../db/migrations/${file}`, import.meta.url), 'utf8');
 function d1() {
@@ -139,4 +142,33 @@ test('the review page shows the mail and "Send to N people" (N = who would get i
   await post('send'); await post('send');
   assert.equal(sent.length, 2);
   assert.match(sent[0].subject, /A better headline/);
+});
+
+test('the product news list shows every address with its source and whether it gets news; only the owner sees addresses', async () => {
+  const {e} = setup({STATS_API_KEY: 'owner-key', STATS_KEY: 'stats-key'});
+  e.STATS.db.exec('CREATE TABLE IF NOT EXISTS test_mail (received_at TEXT, to_addr TEXT, subject TEXT)');
+  await createAccount(e, 'a@example.com', now, {plan: 'trial'});
+  await createAccount(e, 'stop@example.com', now, {plan: 'trial'});
+  await e.WAITLIST.put('signup:a@example.com', '1');
+  await e.WAITLIST.put('signup:w@example.com', '1');
+  e.STATS.db.prepare("INSERT INTO mail_off (addr, list, reason, at) VALUES (?, 'marketing', 'unsubscribe', 'x')").run(await addrOf('stop@example.com'));
+  const rows = await audienceRows(e);
+  assert.deepEqual(rows.map(r => [r.email, r.source, r.gets]).sort(), [['a@example.com', 'both', true], ['stop@example.com', 'account', false], ['w@example.com', 'waitlist', true]]);
+  assert.match(audienceCard(rows), /2 get it, 1 stopped/);
+  const page = async headers => (await emailView(new Request('https://www.jobadabra.top/admin/growth/email', {headers}), e)).text();
+  assert.match(await page({Authorization: 'Bearer owner-key'}), /w@example\.com/);
+  assert.doesNotMatch(await page({}), /w@example\.com/);
+});
+
+test('"Send to my email" mails the typed address the sample of a template; a bad address is refused; a non-owner gets nothing', async () => {
+  const {e, sent} = setup({STATS_API_KEY: 'owner-key', STATS_KEY: 'stats-key'});
+  const post = (fields, headers = {Authorization: 'Bearer owner-key'}) => testSend(new Request('https://www.jobadabra.top/admin/growth/email', {method: 'POST', headers: {...headers, Origin: 'https://www.jobadabra.top'}, body: new URLSearchParams(fields)}), e);
+  assert.equal((await post({template: 'release', mine: '1', to: 'me@example.com'})).status, 303);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'me@example.com');
+  assert.match(sent[0].subject, /^New in Jobadabra:/);
+  assert.equal((await post({template: 'release', mine: '1', to: 'not-an-address'})).status, 400);
+  assert.equal((await post({template: 'release', to: 'me@example.com'})).status, 400, 'without "mine" only test inboxes');
+  assert.equal((await post({template: 'release', mine: '1', to: 'me@example.com'}, {})).status, 404);
+  assert.equal(sent.length, 1);
 });

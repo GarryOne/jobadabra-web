@@ -2,7 +2,7 @@
 // button "Send to N people" (owner, 28 Oct 2026: a held draft to check and ship, never a curl). POST (same origin, owner) saves the headline or sends. Guard: test/admin/release-mail.test.js.
 import {isOwner, viewer} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
-import {compose, mailAllowed} from '../shared/mail.js';
+import {compose, mailAllowed, send, validAddress} from '../shared/mail.js';
 import {audience, sendAll} from './release-mail.js';
 
 const notFound = () => new Response('Not found', {status: 404});
@@ -31,6 +31,7 @@ input[type=text]{font:inherit;width:100%;box-sizing:border-box;padding:8px;borde
 <p class="muted">Subject: ${esc(mail.subject)}</p>
 ${draft ? `<form method="post"><input type="hidden" name="action" value="headline"><label>Headline<br><input type="text" name="headline" maxlength="120" value="${esc(data.headline)}"></label> <button>Save headline</button></form>` : ''}
 <iframe title="The mail" srcdoc="${esc(mail.html)}"></iframe>
+<form method="post"><input type="hidden" name="action" value="test"><label>Test it on your own email<br><input type="email" name="to" placeholder="you@example.com" required></label> <button type="submit">Send me a test</button></form>
 <form method="post"><input type="hidden" name="action" value="send"><button${draft && on && n ? '' : ' disabled'}>Send to ${n} ${n === 1 ? 'person' : 'people'}</button>
 <p class="muted">${draft ? (on ? 'Everyone with an account or on the waitlist who has not stopped product news. This sends real mail, once.' : 'MARKETING_MAIL is off, so nothing can be sent yet.') : `Sent to ${row.sent_count} on ${esc(String(row.sent_at || '').slice(0, 10))}.`}</p></form>
 </body></html>`, {headers: HEAD});
@@ -39,13 +40,17 @@ ${draft ? `<form method="post"><input type="hidden" name="action" value="headlin
 async function releasePost(request, env, url) {
   if (!(await isOwner(request, env)) || request.headers.get('Origin') !== url.origin) return notFound();
   const version = url.searchParams.get('release') || '', form = await request.formData().catch(() => new FormData()), action = String(form.get('action') || '');
-  const row = await env.STATS.prepare('SELECT data FROM release_mail WHERE version = ? AND status = ?').bind(version, 'draft').first();
+  const row = await env.STATS.prepare('SELECT data FROM release_mail WHERE version = ?').bind(version).first(), draft = await env.STATS.prepare('SELECT 1 AS y FROM release_mail WHERE version = ? AND status = ?').bind(version, 'draft').first();
   let done = 'Nothing to do: this mail is not a draft.';
-  if (row && action === 'headline') {
+  if (row && action === 'test') {   // the real draft, to one address the owner types; sends nothing else
+    const to = String(form.get('to') || '').trim();
+    const result = validAddress(to) ? await send(env, 'release', to, {...JSON.parse(row.data), name: ''}) : {ok: false, reason: 'bad_address'};
+    done = result.ok ? 'Test sent to your address.' : `Test not sent (${result.reason}).`;
+  } else if (row && draft && action === 'headline') {
     const data = JSON.parse(row.data); data.headline = String(form.get('headline') || '').trim().slice(0, 120) || data.headline;
     await env.STATS.prepare('UPDATE release_mail SET data = ? WHERE version = ?').bind(JSON.stringify(data), version).run();
     done = 'Headline saved.';
-  } else if (row && action === 'send') {
+  } else if (row && draft && action === 'send') {
     if (env.MARKETING_MAIL !== 'on') done = 'MARKETING_MAIL is off: nothing sent.';
     else { const result = await sendAll(env, version); done = result.sent !== undefined ? `Sent to ${result.sent}; ${result.skipped} skipped (stopped or refused).` : 'Not sent.'; }
   }
