@@ -2,7 +2,7 @@
 // Sets the one "Gitar: …" label on a PR from Gitar's verdict, so the PR list shows red / yellow / green without opening the PR.
 // Why (owner, 28 Oct 2026): "how can I know from this view if the PR has PR comments, or change requested, or not yet approved? … red 'gitar requested changes', or 'approved with suggestions', or green 'fully approved'".
 // Why (28 Oct 2026): Gitar records no approving review (#2377 had none), so only the verdict line of its own comment says approved; a verdict older than the head commit is stale and gets no label.
-// Usage (workflow .github/workflows/gitar-label.yml): node tools/gitar-label.mjs <pr-number>   needs GH_TOKEN and GITHUB_REPOSITORY; guard tests/test_gitar_label.py.
+// Usage (workflow .github/workflows/gitar-label.yml): node tools/gitar-label.mjs <pr-number>   needs GH_TOKEN and GITHUB_REPOSITORY; guard tests/test_site_gitar_label.py.
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
@@ -33,11 +33,19 @@ export function wantedLabel(body, commentUpdatedAt, headCommittedAt) {
 const gh = (...args) => execFileSync('gh', args, {encoding: 'utf8'});
 const pages = path => JSON.parse(gh('api', path, '--paginate', '--slurp')).flat();
 
+/** When the head became the head: the later of its commit date and the first check suite created for it (a commit made at 10:00 and pushed at 11:00 counts as 11:00; Gitar on web#216). */
+function headTime(repo, sha) {
+  const committed = JSON.parse(gh('api', `repos/${repo}/commits/${sha}`)).commit.committer.date;
+  const suites = JSON.parse(gh('api', `repos/${repo}/commits/${sha}/check-suites`)).check_suites.map(c => c.created_at);
+  return [committed, suites.sort()[0]].filter(Boolean).sort().at(-1);   // the first suite created for the head
+}
+
 function main(pr) {
   const repo = process.env.GITHUB_REPOSITORY;
   const reviews = pages(`repos/${repo}/issues/${pr}/comments`).filter(c => c.user.login === 'gitar-bot[bot]' && /Code Review/.test(c.body));
   const latest = reviews.sort((a, b) => Date.parse(a.updated_at) - Date.parse(b.updated_at)).at(-1);
-  const head = pages(`repos/${repo}/pulls/${pr}/commits`).at(-1).commit.committer.date;
+  const sha = JSON.parse(gh('api', `repos/${repo}/pulls/${pr}`)).head.sha;
+  const head = headTime(repo, sha);
   const want = latest ? wantedLabel(latest.body, latest.updated_at, head) : null;
   const have = pages(`repos/${repo}/issues/${pr}/labels`).map(l => l.name);
   for (const l of Object.values(LABELS)) {
