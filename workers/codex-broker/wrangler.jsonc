@@ -1,0 +1,15 @@
+{
+  // The Codex broker (see worker.js). basic (1 GiB): one `codex exec` at a time uses well under 1 GiB (measured 28 Oct 2026, throwaway check: codex 0.162.1 runs as uid 1001). max_instances 1 = ONE login, ONE refresher.
+  // Secret: BROKER_ADMIN_TOKEN (wrangler secret put; Keychain job-pilotto.codex-broker.admin_token), only for the owner's one-time login upload.
+  "name": "jobadabra-codex-broker",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "observability": {"enabled": true},
+  "vars": {"AUDIENCE": "jobadabra-codex-broker", "REPOSITORY": "GarryOne/jobadabra"},
+  "containers": [
+    {"class_name": "CodexBroker", "image": "./container/Dockerfile", "image_build_context": "./container", "instance_type": "basic", "max_instances": 1}
+  ],
+  "durable_objects": {"bindings": [{"name": "BROKER", "class_name": "CodexBroker"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["CodexBroker"]}]
+}
