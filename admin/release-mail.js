@@ -1,0 +1,84 @@
+// The "What's new" mail at a stable release (spec docs/superpowers/specs/2026-10-28-release-mail-design.md). The stable promotion calls POST /release-mail/draft {version}
+// (Bearer SELFHEAL_PUBLISH_KEY): the site builds a draft from that version's What's new entry (changelog_entries) and keeps it in release_mail, once per version. The owner reviews it
+// (POST /admin/mail/release?version=X, Bearer: counts and shows the draft; &headline=... edits it; &send=1 sends it). It goes to every address we hold that has not turned product news off
+// (shared/mail.js mailAllowed does the check per address), and a version is claimed for sending once, so a second click or a second promotion mails nobody twice. Guard: test/admin/release-mail.test.js.
+import {equal} from '../shared/guard.js';
+import {isOwner} from '../shared/auth.js';
+import {send, validAddress, clean} from '../shared/mail.js';
+import {SITE} from '../shared/mail-frame.js';
+
+const VERSION = /^\d+\.\d+\.\d+$/;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const KINDS = ['features', 'improvements'];   // fixes stay on the What's new page; the mail tells what people can now do
+const json = (body, status = 200) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
+const notFound = () => new Response('Not found', {status: 404});
+
+// A changelog entry's groups -> the mail's data. The first feature (else improvement) is the headline; every item is a section (at most 5).
+export function dataFrom({version, date, groups = []}) {
+  const items = KINDS.flatMap(kind => groups.filter(group => group.kind === kind).flatMap(group => group.items || []));
+  if (!items.length) return null;
+  const [year, month] = String(date || '').split('-').map(Number);
+  return {version, month: `${MONTHS[(month || 1) - 1]} ${year}`, headline: items[0].text.replace(/\.$/, ''), sections: items.slice(0, 5).map(item => ({title: item.lead, text: item.text})), updateUrl: `${SITE}/download`};
+}
+
+// Everyone we hold an address for: accounts (trial, Always on, Pro) and the waitlist (KV signup:<email>), once each.
+export async function audience(env) {
+  const out = new Map();
+  for (const {email} of (await env.STATS.prepare('SELECT email FROM pro_accounts').all()).results || []) out.set(clean(email), true);
+  let cursor;
+  do {
+    const page = await env.WAITLIST.list({prefix: 'signup:', cursor});
+    for (const key of page.keys) out.set(clean(key.name.slice(7)), true);
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return [...out.keys()].filter(validAddress);
+}
+
+// Called by the promotion: drafts the version once. -> {drafted} | {exists} | {empty: nothing a user would notice}
+export async function draft(env, version, now = new Date()) {
+  if (!VERSION.test(version || '')) return {error: 'bad version'};
+  if (await env.STATS.prepare('SELECT 1 AS x FROM release_mail WHERE version = ?').bind(version).first()) return {exists: true};
+  const row = await env.STATS.prepare('SELECT version, date, body FROM changelog_entries WHERE version = ? AND hidden = 0').bind(version).first();
+  const data = row && dataFrom({version, date: row.date, groups: JSON.parse(row.body)});
+  if (!data) return {empty: true};
+  await env.STATS.prepare('INSERT INTO release_mail (version, data, created_at) VALUES (?, ?, ?) ON CONFLICT(version) DO NOTHING').bind(version, JSON.stringify(data), now.toISOString()).run();
+  return {drafted: true};
+}
+
+export async function ingest(request, env) {
+  const key = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (request.method !== 'POST' || !env.SELFHEAL_PUBLISH_KEY || !equal(key, env.SELFHEAL_PUBLISH_KEY)) return notFound();
+  const body = await request.json().catch(() => ({}));
+  return json(await draft(env, String(body.version || '')));
+}
+
+// TODO(AI): send in batches from a queue once the audience passes the Worker's subrequest limit (28 Oct 2026).
+// Sends the draft to everyone not stopped. The claim (draft -> sending) happens first and once, so no second run can start; a run that dies halfway is finished by hand (status shows 'sending').
+export async function sendAll(env, version, {now = new Date()} = {}) {
+  const claim = await env.STATS.prepare("UPDATE release_mail SET status = 'sending' WHERE version = ? AND status = 'draft'").bind(version).run();
+  if (!claim.meta?.changes) return {refused: 'not a draft'};
+  const row = await env.STATS.prepare('SELECT data FROM release_mail WHERE version = ?').bind(version).first();
+  const data = JSON.parse(row.data);
+  let sent = 0, skipped = 0;
+  for (const email of await audience(env)) {
+    const result = await send(env, 'release', email, {...data, name: ''}, {now});
+    if (result.ok) sent++; else skipped++;
+  }
+  await env.STATS.prepare("UPDATE release_mail SET status = 'sent', sent_at = ?, sent_count = ? WHERE version = ?").bind(now.toISOString(), sent, version).run();
+  return {sent, skipped};
+}
+
+// POST /admin/mail/release?version=X[&headline=...][&send=1] (Bearer, owner). Needs MARKETING_MAIL = "on" to send; without send=1 it shows the draft and the audience size.
+export async function releaseRoute(request, env) {
+  if (request.method !== 'POST' || !(await isOwner(request, env)) || !(request.headers.get('Authorization') || '').startsWith('Bearer ')) return notFound();
+  const url = new URL(request.url), version = url.searchParams.get('version') || '';
+  const row = await env.STATS.prepare('SELECT status, data, sent_count FROM release_mail WHERE version = ?').bind(version).first();
+  if (!row) return json({error: 'no draft for this version'}, 404);
+  const data = JSON.parse(row.data), headline = url.searchParams.get('headline');
+  if (headline && row.status === 'draft') {
+    data.headline = headline.slice(0, 120);
+    await env.STATS.prepare('UPDATE release_mail SET data = ? WHERE version = ?').bind(JSON.stringify(data), version).run();
+  }
+  if (url.searchParams.get('send') === '1') return env.MARKETING_MAIL === 'on' ? json(await sendAll(env, version)) : json({off: true}, 409);
+  return json({status: row.status, sent: row.sent_count, headline: data.headline, sections: data.sections.map(section => section.title), audience: (await audience(env)).length});
+}
