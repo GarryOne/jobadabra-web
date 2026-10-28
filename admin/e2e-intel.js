@@ -48,9 +48,13 @@ export async function buildSnapshot(db, now = new Date()) {
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
 //   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}]} (admin/e2e-work.js).
-// GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
+// GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
   if (!authorized(request, env)) return new Response('Not found', {status: 404});
+  if (request.method === 'GET' && new URL(request.url).searchParams.get('snapshot') === '1') {   // the weekly summary (jobs/e2e-weekly.mjs) reads the row the page draws: same numbers
+    const row = await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
+    return row ? new Response(row.body, {headers: {'Content-Type': 'application/json'}}) : json({error: 'no snapshot yet'}, 404);
+  }
   if (request.method === 'GET') {
     const version = Number(new URL(request.url).searchParams.get('v')) || 0, since = dayOf(new Date(now.getTime() - 35 * DAY));
     const [{results: have = []}, {results: pending = []}] = await Promise.all([
