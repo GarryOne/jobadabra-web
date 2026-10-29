@@ -148,4 +148,6 @@ test('a new rules version re-reads stored PRs and replaces their category; the s
   assert.deepEqual({...e.STATS.db.prepare('SELECT category, hours, rules FROM ops_prs WHERE number = 1').get()}, {category: 'forms', hours: 3, rules: 2});
   assert.deepEqual((await (await call(e, '/ops/data?v=2', auth)).json()).have, [1]);
   assert.ok(RULES_VERSION >= 3);
+  assert.equal(categoryOfFile('.dependency-cruiser.cjs'), 'ci');
+  assert.ok(RULES_VERSION >= 4, 'a rule change re-reads the stored PRs: the root file moved from mixed to ci, so #2444\'s row must be rebuilt');
 });
