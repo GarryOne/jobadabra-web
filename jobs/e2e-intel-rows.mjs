@@ -83,12 +83,16 @@ export function answerText(data) {
   return (typeof raw === 'string' ? raw : JSON.stringify(raw)).replace(/<think>[^]*?<\/think>/g, '');
 }
 
-// runs: [{databaseId, createdAt, updatedAt, headSha, headBranch, conclusion, kind, workflow, pr, jobs}] oldest first -> {runs, fails} rows for the site.
+// runs: [{databaseId, createdAt, updatedAt, headSha, headBranch, conclusion, kind, workflow, pr, jobs}] oldest first -> {runs, fails, suiteNights} rows for the site.
 export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
-  const out = {runs: [], fails: []};
+  const out = {runs: [], fails: [], suiteNights: []};
   for (const [index, run] of runs.entries()) {
     out.runs.push({runId: run.databaseId, createdAt: run.createdAt, kind: run.kind, conclusion: run.conclusion, minutes: minutesOf(run.createdAt, run.updatedAt), ...jobMinutes(run.jobs), pr: run.pr || null});
     if (run.conclusion === 'cancelled') continue;   // a cancelled run is a try that showed nothing: its jobs are not reds
+    if (['nightly', 'scheduled'].includes(run.kind)) for (const job of run.jobs || []) {
+      const id = suiteJob(job, run);
+      if (id && ['success', 'failure'].includes(job.conclusion)) out.suiteNights.push({runId: run.databaseId, day: run.createdAt.slice(0, 10), kind: run.kind, ...id, green: passedFirst(run, id.suite, id.platform)});
+    }
     for (const red of redJobs(run)) {
       const next = runs.slice(index + 1).find(later => streamOf(later) === streamOf(run) && passedFirst(later, red.suite, red.platform));
       const log = logOf(red.jobId);   // a flake's log too: its first try may be the picker's or the credit's red
@@ -104,4 +108,11 @@ export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
 export function runsToRead(listed, settled, waiting, max = 200) {
   const fresh = listed.filter(run => !settled.has(run.databaseId) && !waiting.has(run.databaseId));
   return (fresh.length ? fresh : listed.filter(run => waiting.has(run.databaseId))).slice(-max);
+}
+
+/** Oldest-first listed runs -> unread suite history for the last seven observed main nights, bounded per hourly pass; settled red classification does not suppress history. */
+export function nightRunsToRead(listed, stored, max = 40) {
+  const nights = listed.filter(run => ['nightly', 'scheduled'].includes(run.kind) && ['success', 'failure'].includes(run.conclusion));
+  const days = new Set([...new Set(nights.map(run => run.createdAt.slice(0, 10)))].slice(-7));
+  return nights.filter(run => days.has(run.createdAt.slice(0, 10)) && !stored.has(run.databaseId)).slice(-max);
 }

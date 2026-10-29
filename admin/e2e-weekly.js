@@ -2,6 +2,7 @@
 // same numbers as the page, one decision for the owner if any"; rules I and J). Drawn from the snapshot /admin/operations/e2e draws (admin/e2e-intel.js) with the page's
 // own functions, so there is no second count. Pure: jobs/e2e-weekly.mjs posts it. Guard: test/admin/e2e-weekly.test.js.
 import {CAUSES, GROUPS} from './e2e-causes.js';
+import {greySummary, greyLines} from './e2e-grey.js';
 import {windowOf} from './e2e-page.js';
 import {scoreRows, workWeeks} from './e2e-scorecard.js';
 import {summary as topSummary} from './e2e-top.js';
@@ -25,12 +26,16 @@ export function weekly(snapshot, now = new Date()) {
   const lastWeek = weekOf(new Date(now.getTime() - 7 * DAY).toISOString().slice(0, 10));
   const work = workWeeks(snapshot?.work).find(row => row.week === lastWeek) || {week: lastWeek, counts: {}, total: 0, plumbing: 0};
   return {day: now.toISOString().slice(0, 10), runs: w.runs, redRuns: w.redRuns, reds: w.reds, byGroup: top.byGroup, causes: top.causes.filter(row => row.n).slice(0, 3),
-    caught: suites.filter(row => row.caught), idle: suites.filter(row => !row.caught), prune, work, files: (snapshot?.workFiles || []).filter(row => row.week === lastWeek).slice(0, 5)};
+    caught: suites.filter(row => row.caught), idle: suites.filter(row => !row.caught), prune, grey: greySummary(snapshot, now), work, files: (snapshot?.workFiles || []).filter(row => row.week === lastWeek).slice(0, 5)};
 }
 
-/** The one decision for the owner, or null: suites red in 30 days that never caught a bug (rule I: keep, move to a tolerant lane, or retire, on the owner's word). */
+/** One owner decision, or null: retain the 30-day prune rule and include Grey suites older than 14 days or below main for three nights. */
 export function decision(s) {
-  return s.prune.length ? `${s.prune.length} suite${s.prune.length === 1 ? '' : 's'} red in 30 days without catching a bug: ${s.prune.map(row => `${row.suite} (${row.reds} red, ${hours(row.min)})`).join(', ')}. Keep, move to a tolerant lane, or retire?` : null;
+  const grey = (s.grey?.rows || []).filter(row => row.expired || row.below);
+  const parts = [];
+  if (s.prune.length) parts.push(`${s.prune.length} suite${s.prune.length === 1 ? '' : 's'} red in 30 days without catching a bug: ${s.prune.map(row => `${row.suite} (${row.reds} red, ${hours(row.min)})`).join(', ')}.${grey.length ? '' : ' Keep, move to a tolerant lane, or retire?'}`);
+  if (grey.length) parts.push(`Grey: ${grey.map(row => `${row.suite} (${[row.expired ? `${row.age} days grey` : '', row.below ? "below main's band 3 nights in a row" : ''].filter(Boolean).join('; ')})`).join(', ')}: keep, fix or retire?`);
+  return parts.join(' ') || null;
 }
 
 export const issueTitle = s => `E2E week · ${s.day}`;
@@ -46,7 +51,7 @@ export function telegramText(s, issueUrl = '') {
     s.reds ? `${s.reds} red suites: ${groups}` : 'No red suite this week',
     s.caught.length ? `Caught a bug: ${list(s.caught)}` : 'No red suite caught a bug',
     ...(s.idle.length ? [`Red, caught nothing: ${s.idle.map(row => `${row.suite} (${row.noise + row.ours + row.unnamed})`).join(', ')}`] : []),
-    plumbingLine(s), decision(s) ? `Your call: ${decision(s)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`];
+    plumbingLine(s), ...greyLines(s.grey), decision(s) ? `Your call: ${decision(s)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`];
   return lines.join('\n');
 }
 
@@ -60,6 +65,7 @@ export function issueBody(s) {
     ...(s.causes.length ? ['', `Top causes: ${s.causes.map(row => `${label(row.id)} ${row.n}`).join(', ')}.`] : []),
     '', '**Scorecard** (last 7 days; a catch = the fix changed the app, the extension or the engine)', '',
     ...(score ? ['| Suite | Caught a bug | Test noise | Our CI and AI | Not named | Job time |', '|---|---|---|---|---|---|', score] : ['No red suite.']),
+    '', ...greyLines(s.grey),
     '', `**Where e2e work went** (week of ${dayWords(s.work.week)}; target: plumbing under ${pct(PLUMBING_TARGET, 1)})`, '',
     '| Kind | Commits |', '|---|---|', ...WORK_KINDS.map(kind => `| ${kind.label} | ${s.work.counts[kind.id] || 0} |`),
     ...(s.files.length ? ['', `Changed most: ${s.files.map(row => `\`${row.file}\` ${row.commits}`).join(', ')}.`] : []),

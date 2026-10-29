@@ -94,3 +94,25 @@ test('the AI\'s answer is read as text in every shape Workers AI gives: a string
   assert.equal(answerText({result: {response: {cause: 'product', fix: 1}}}), '{"cause":"product","fix":1}', '27 Oct 2026: 29 of 29 answers read "[object Object]"');
   assert.equal(answerText({errors: [{message: 'no'}]}), '');
 });
+
+test('the hourly registry reader pins the public repo to main; a failed read is omitted, not an empty registry', async () => {
+  const {readLanes} = await import('../../jobs/e2e-intel.mjs');
+  const lanes = {suites: {quality: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: 'Unkeyed question'}}};
+  const calls = [];
+  assert.deepEqual(await readLanes(async (...args) => { calls.push(args); return lanes; }), lanes);
+  assert.deepEqual(calls, [['api', 'repos/GarryOne/jobadabra/contents/desktop/e2e/lanes.json?ref=main', '-H', 'Accept: application/vnd.github.raw+json']]);
+  assert.equal(await readLanes(async () => null), undefined);
+});
+
+test('night history records observed suite jobs, including first-try reds, never unrelated greens or PRs', async () => {
+  const jobs = [job('quality', 'success', [first('quality'), once('quality', 'success')]), job('settings', 'success', [first('settings')]), job('plan', 'success'), job('apply', 'skipped')];
+  const rows = await rowsOf([run(90, '2026-10-29T21:01:00Z', 'a', jobs, {kind: 'scheduled'}), run(91, '2026-10-30T21:01:00Z', 'b', jobs, {kind: 'pr'})], none);
+  assert.deepEqual(rows.suiteNights.map(row => [row.suite, row.green, row.runId]), [['quality', false, 90], ['settings', true, 90]]);
+});
+
+test('a registry arriving after runs were settled still backfills seven nights from their existing GitHub jobs', async () => {
+  const {nightRunsToRead} = await import('../../jobs/e2e-intel-rows.mjs');
+  const listed = Array.from({length: 9}, (_, i) => ({databaseId: i + 1, kind: 'nightly', conclusion: 'success', createdAt: `2026-10-${20 + i}T21:00:00Z`}));
+  assert.deepEqual(nightRunsToRead(listed, new Set([9])).map(row => row.databaseId), [3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(nightRunsToRead(listed, new Set(), 2).map(row => row.databaseId), [8, 9]);
+});

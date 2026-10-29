@@ -12,6 +12,7 @@ import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {BARS, rateOf} from './e2e-quality.js';
 import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
+import {greySummary, greyNightText, prGreyText} from './e2e-grey.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -86,6 +87,14 @@ export function qualityCard(nights = [], repo = 'GarryOne/jobadabra') {
   `<tr><td>${esc(night.day)}</td><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(night.runId)}">#${Number(night.runId)}</a></td><td class="num">${night.pairs}</td><td class="num">${chip(`${night.within8}`, night.within8 / night.pairs >= BARS.agree ? 'good' : 'warn')}</td><td class="num">${night.over20 ? chip(`${night.over20}`, 'bad') : chip('0', 'good')}</td><td class="num">${night.factsExact}/${night.factsTotal}</td><td class="num">${night.invented}/${night.judged}</td></tr>`).join('')}</table></div></section>`;
 }
 
+function greyCard(snapshot, now) {
+  const grey = greySummary(snapshot, now);
+  return `<section class="card"><h2>Grey</h2>${!grey.read ? '<p class="muted">lane registry not read yet</p>' : !grey.rows.length ? '<p class="muted">No tolerant or suspended suites.</p>' :
+    `<div class="scroll"><table><tr><th>Suite</th><th>Lane · input</th><th>Why</th><th>Since</th><th>Returns</th><th>Last 7 nights observed</th></tr>${grey.rows.map(row =>
+      `<tr><td><code>${esc(row.suite)}</code></td><td>${esc(row.lane)} · ${esc(row.input || 'input not named')}</td><td>${esc(row.why || 'reason not named')}</td><td>${esc(row.since || 'unknown')} (${esc(row.ageText)})</td><td>${esc(row.returns)}</td><td>${row.nights.map(night => chip(esc(greyNightText(night)), night.green === null ? 'off' : night.green ? 'good' : 'bad')).join(' ') || '<span class="muted">No suite nights stored yet.</span>'}</td></tr>`).join('')}</table></div>`}
+<p class="muted">${esc(prGreyText(grey))}</p></section>`;
+}
+
 export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/jobadabra', now = new Date()} = {}) {
   range = rangeOf(range); kind = kindFilter(kind);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}${kind === 'all' ? '' : `&kind=${kind}`}`]), range)
@@ -94,6 +103,7 @@ export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/job
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>e2e-intel.yml</code> publishes every finished e2e run hourly; the first run fills this page.</p></section>`
     : `${filters}${top(w, {repo})}${tiles(w)}
 ${qualityCard(snapshot.quality || [], repo)}
+${greyCard(snapshot, now)}
 <section class="card"><h2>Red suites per day, by cause · ${esc(name)}</h2>${w.reds ? bars(w) : '<p class="muted">No red suites in this range.</p>'}</section>
 <section class="card"><h2>Which suites cost the most · ${esc(name)}</h2>${suiteTable(w)}</section>
 ${scorecardCard(w, name)}

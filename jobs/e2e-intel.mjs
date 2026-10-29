@@ -13,8 +13,9 @@ import path from 'node:path';
 import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
-import {answerText, kindOf, redJobs, rowsOf, runsToRead} from './e2e-intel-rows.mjs';
+import {answerText, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
 import {WORK_IDS, parseLog, workRows} from '../admin/e2e-work.js';
+import {cleanLanes} from '../admin/e2e-grey.js';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.E2E_INTEL_URL || 'https://www.jobpilotto.top/e2e/data';
@@ -72,6 +73,13 @@ function readWork(since) {
   } finally { rmSync(dir, {recursive: true, force: true}); }
 }
 
+/** Read the PUBLIC registry from main, even when this job runs on a private PR; an unreadable registry is omitted so the snapshot retains its last read. */
+export async function readLanes(read = ghAsync) {
+  const lanes = cleanLanes(await read('api', 'repos/GarryOne/jobadabra/contents/desktop/e2e/lanes.json?ref=main', '-H', 'Accept: application/vnd.github.raw+json'));
+  if (!lanes) console.log('::warning::lane registry not read this hour');
+  return lanes || undefined;
+}
+
 let aiCalls = 0, aiNeurons = 0;
 async function ask({system, user}) {
   const token = process.env.E2E_CAUSE_CF_TOKEN, account = process.env.E2E_CAUSE_CF_ACCOUNT;
@@ -107,21 +115,24 @@ async function main() {
     .map(run => ({...run, workflow, kind: kindOf(run, workflow)})))
     .filter(run => run.kind && ['success', 'failure', 'cancelled'].includes(run.conclusion)).map(run => ({...run, pr: run.kind === 'pr' ? prOf[run.headBranch] || null : null}))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  let have = [], pending = [], quality = [];
-  if (key) ({have, pending, quality = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
+  let have = [], pending = [], quality = [], suiteNights = [];
+  if (key) ({have, pending, quality = [], suiteNights = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
   const settled = new Set(have), waiting = new Set(pending);
   const nights = await readNights(liveNights(listed.filter(run => run.workflow === 'e2e.yml'), new Set(quality)).slice(0, 40));
   const todo = runsToRead(listed, settled, waiting, MAX_RUNS);
+  const lanes = await readLanes();
   const work = readWork(new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10));
   console.log(`${listed.length} finished e2e runs in 30 days, ${settled.size} stored, ${todo.length} to read; ${nights.length} new live quality night(s); ${work.work.length / WORK_IDS.length} days of commits`);
-  if (!todo.length && !nights.length && !work.work.length) return;
   // A fix is looked for in the later runs of the same line (main, or the PR's branch): read the jobs from the oldest run to read onwards (at most 400 runs).
-  const needed = todo.length ? listed.slice(listed.findIndex(run => run.databaseId === todo[0].databaseId)).slice(0, 400) : [];   // no run to read: only the quality nights and the work rows go
+  const fixes = todo.length ? listed.slice(listed.findIndex(run => run.databaseId === todo[0].databaseId)).slice(0, 400) : [];
+  // Backfill already-settled nights too: old snapshots have no suite greens. These are existing jobs, not new suite runs or AI calls.
+  const history = nightRunsToRead(listed, new Set(suiteNights));
+  const needed = [...new Map([...history, ...fixes].map(run => [run.databaseId, run])).values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   await eight(needed, async run => { run.jobs = (await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`))?.jobs || []; });
   const wanted = new Set(todo.map(run => run.databaseId));
   const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
-  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files};
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, lanes, suiteNights: rows.suiteNights};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
   console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');

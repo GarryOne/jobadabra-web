@@ -6,6 +6,7 @@ import {equal} from '../shared/guard.js';
 import {CAUSE_IDS, RULES_VERSION} from './e2e-causes.js';
 import {cleanNight} from './e2e-quality.js';
 import {WORK_IDS} from './e2e-work.js';
+import {greyData} from './e2e-grey.js';
 
 const DAY = 86400000, KEEP_DAYS = 30, LATEST = 25;
 export const KINDS = ['beta', 'nightly', 'after-merge', 'scheduled', 'soak', 'canary', 'pr', 'harness'];
@@ -25,8 +26,9 @@ const cleanWork = row => isDay(row?.day) && WORK_IDS.includes(row.kind) && count
 const cleanWorkFile = row => isDay(row?.week) && /^[\w./-]{1,160}$/.test(row.file || '') && count(row.commits);
 
 // The last 30 days: per day and run kind the runs, reds, greens and minutes (red runs, waiting for a runner, running); per day, kind, suite, platform and cause the red suites;
+// Registry and suite observations are merged from the previous snapshot; no extra tables.
 // the breaks (one run's reds with the same cause and failure line: one CI break copied onto 32 suites is one break); the PR reds that caught a bug. Read once per write.
-export async function buildSnapshot(db, now = new Date()) {
+export async function buildSnapshot(db, now = new Date(), data = {}) {
   const from = dayOf(new Date(now.getTime() - (KEEP_DAYS - 1) * DAY));
   const [{results: days = []}, {results: fails = []}, {results: breaks = []}, {results: caught = []}, {results: latest = []}] = await Promise.all([
     db.prepare(`SELECT day, kind, SUM(conclusion IN ('success', 'failure')) AS runs, SUM(conclusion = 'cancelled') AS cancelled, SUM(conclusion = 'failure') AS reds, SUM(conclusion = 'success') AS greens,
@@ -42,11 +44,14 @@ export async function buildSnapshot(db, now = new Date()) {
   const [{results: work = []}, {results: workFiles = []}] = await Promise.all([
     db.prepare('SELECT day, kind, commits FROM e2e_work WHERE day >= ? ORDER BY day').bind(from).all(),
     db.prepare('SELECT week, file, commits FROM e2e_work_files WHERE week >= ? ORDER BY week DESC, commits DESC').bind(dayOf(new Date(now.getTime() - (KEEP_DAYS + 6) * DAY))).all()]);
-  return {schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
+  const previous = await db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
+  const grey = greyData(previous ? JSON.parse(previous.body) : {}, data, now);
+  return {...grey, schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
     caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
+//   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, prGreys?: [{day, reason, n}],
 //   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}]} (admin/e2e-work.js).
 // GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
@@ -62,7 +67,9 @@ export async function ingest(request, env, now = new Date()) {
       env.STATS.prepare(`SELECT DISTINCT run_id FROM e2e_fails WHERE day >= ? AND cause IN ('open', 'unknown')`).bind(since).all()]);
     const waiting = new Set(pending.map(row => row.run_id));
     const {results: nights = []} = await env.STATS.prepare('SELECT run_id FROM e2e_quality WHERE day >= ?').bind(since).all();
-    return json({have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting], quality: nights.map(row => row.run_id)});
+    const snapshot = await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
+    const suiteNights = [...new Set((snapshot ? JSON.parse(snapshot.body).suiteNights || [] : []).map(row => row.runId))];
+    return json({suiteNights, have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting], quality: nights.map(row => row.run_id)});
   }
   if (request.method !== 'PUT') return new Response('Not found', {status: 404});
   const body = await request.text();
@@ -89,7 +96,7 @@ export async function ingest(request, env, now = new Date()) {
     ...workFiles.map(row => env.STATS.prepare('INSERT INTO e2e_work_files (week, file, commits) VALUES (?, ?, ?)').bind(row.week, row.file, row.commits))];
 
   if (batch.length) await env.STATS.batch(batch);
-  const snapshot = await buildSnapshot(env.STATS, now);
+  const snapshot = await buildSnapshot(env.STATS, now, data);
   await env.STATS.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
   return json({ok: true, stored: runs.length + fails.length + nights.length + work.length + workFiles.length, ignored: data.runs.length + data.fails.length - runs.length - fails.length});
 }
