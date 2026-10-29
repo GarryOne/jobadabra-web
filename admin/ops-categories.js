@@ -43,7 +43,7 @@ const RULES = [
 // A new top-level path must be added here (the test lists the repo's own): the fallback for files no rule above names.
 export const TOP_LEVEL = {'.claude': 'ci', '.github': 'ci', '.gitar': 'ci', brand: 'docs', config: 'engine', desktop: 'app', docs: 'docs', extension: 'forms', hosted: 'engine', site: 'site', preview: 'site', web: 'site', admin: 'site', api: 'site', shared: 'site', workers: 'site', db: 'site', media: 'site', jobs: 'ci', test: 'site',
   src: 'engine', templates: 'engine', tests: 'engine', tools: 'ci', worker: 'engine'};
-const ROOT_FILES = {'.env.example': 'ci', '.gitattributes': 'ci', '.gitignore': 'ci', 'eslint.config.mjs': 'ci', 'requirements.txt': 'engine', 'requirements-render.txt': 'engine', 'requirements-transcribe.txt': 'engine'};
+const ROOT_FILES = {'.env.example': 'ci', '.gitattributes': 'ci', '.gitignore': 'ci', '.dependency-cruiser.cjs': 'ci', 'eslint.config.mjs': 'ci', 'requirements.txt': 'engine', 'requirements-render.txt': 'engine', 'requirements-transcribe.txt': 'engine'};
 
 // A file's category id, or null when nothing names it (a test then fails).
 export function categoryOfFile(path) {
