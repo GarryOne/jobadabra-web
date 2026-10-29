@@ -1,21 +1,23 @@
 // The Build Log Telegram post: the day's FINAL digest as HTML messages (Telegram's markdown dislikes plain text), split at group boundaries under its 4096-character limit (spec docs/superpowers/specs/2026-10-16-daily-digest.md).
 // A separate bot and chat from the job digest bot and the CI alerts (secrets BUILDLOG_TELEGRAM_TOKEN / BUILDLOG_TELEGRAM_CHAT). Pure + an injected fetch, so tests never reach Telegram. Guard: test/admin/build-digest-telegram.test.js.
-import {countOf, dayWords, prList} from './build-digest.js';
+import {countOf, dayWords} from './build-digest.js';
 
 const LIMIT = 3800;
+const LEADS = 1;
 const html = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export function messages({day, groups, open, numbers}) {
-  const {count, min, max} = countOf(numbers);
-  const intro = count ? `Here's what we achieved on ${html(dayWords(day))}, grouped by goal. About ${count} PR${count === 1 ? '' : 's'} merged, from #${min} to #${max}.` : `Nothing was merged on ${html(dayWords(day))}.`;
-  const blocks = groups.map(group => `${html(group.emoji)} <b>${html(group.title)}</b>\n${group.bullets.map(bullet => `• <b>${html(bullet.lead)}.</b> ${html(bullet.text)} (${html(prList(bullet.prs))})`).join('\n')}`);
-  blocks.push(`<b>Still open:</b> ${html(open || 'Nothing open.')}`);
+  const {count} = countOf(numbers);
+  const intro = count ? `Here's what we achieved on ${html(dayWords(day))} (about ${count} PR${count === 1 ? '' : 's'} merged).` : `Nothing was merged on ${html(dayWords(day))}.`;
+  // Why (owner, 29 Oct 2026: "the build log is too detailed. I don't want so many details. It should summarize a day in few lines"): one line per goal, its first
+  // bullet lead and "+N more", no PR numbers (the admin Build log page keeps the full list). Cut from the day's own leads: no extra AI call.
+  const line = group => { const leads = group.bullets.map(bullet => html(bullet.lead)), more = leads.length - LEADS; return `${html(group.emoji)} <b>${html(group.title)}:</b> ${leads.slice(0, LEADS).join('; ')}${more > 0 ? ` +${more} more` : ''}`; };
   const out = [];
   let current = intro;
-  for (const block of blocks) {
-    if (current.length + block.length + 2 > LIMIT) { out.push(current); current = block; } else current += `\n\n${block}`;
-  }
-  out.push(current);
+  const add = (text, gap) => { if (current.length + text.length + gap.length > LIMIT) { out.push(current.trimEnd()); current = text; } else current += `${gap}${text}`; };
+  groups.forEach((group, i) => add(line(group), i ? '\n' : '\n\n'));
+  add(`<b>Still open:</b> ${html(open || 'Nothing open.')}`, '\n\n');
+  out.push(current.trimEnd());
   return out;
 }
 
