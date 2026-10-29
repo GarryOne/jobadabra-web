@@ -142,6 +142,25 @@ export const seeds = {
     const workFiles = weeks.flatMap((week, w) => weekFiles.map((file, i) => ({week, file, commits: 18 - i * 3 - w})));
     await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles})}), env);
   },
+  'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and stored PR reasons; direct snapshot works for before shots too
+    const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
+    const suiteNights = Array.from({length: 7}, (_, back) => ({runId: 9100 + 6 - back, day: dayAt(back), kind: 'nightly', suite: 'quality', platform: 'mac',
+      green: ![1, 4].includes(back), rates: {agree: [0.92, 0.70, 0.94, 0.90, 0.74, 0.91, 0.93][back]}}));
+    const snapshot = {schema: 2, at: at.toISOString(),
+      lanes: {suites: {
+        quality: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: 'One fixture question still needs a recorded answer.', returns: 'Record the fixture answer and prove a green run.'},
+        qualityai: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: 'Fixture answer quality is measured as a rate.', returns: 'Seven fixture nights within the measured band.'},
+        'notion-real': {lane: 'tolerant', input: 'outside', since: '2026-10-28', why: 'The fixture service can refuse or delay a request.', returns: 'Seven steady fixture service nights.'},
+        'fixture-suite': {lane: 'suspended', input: 'clock', since: '2026-10-10', why: 'The fixture flipped red then green on the same commit.'}
+      }}, suiteNights, mainBands: {quality: {agree: {lower: 0.80, upper: 0.95}}},
+      prGreys: Object.entries({main: 3, runner: 2, 'ai-credit': 1, install: 2, tolerant: 4}).map(([reason, n]) => ({day: dayAt(0), reason, n})),
+      days: suiteNights.map(night => ({day: night.day, kind: 'nightly', runs: 1, reds: night.green ? 0 : 1, greens: night.green ? 1 : 0, redMin: night.green ? 0 : 12})),
+      fails: suiteNights.filter(night => !night.green).map(night => ({day: night.day, kind: 'nightly', suite: 'quality', platform: 'mac', cause: 'ai', n: 1, min: 12})),
+      latest: suiteNights.map(night => ({runId: night.runId, day: night.day, kind: 'nightly', conclusion: night.green ? 'success' : 'failure', minutes: 12})),
+      quality: [], breaks: [], caught: [], work: [], workFiles: []};
+    await env.STATS.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body')
+      .bind(snapshot.at, JSON.stringify(snapshot)).run();
+  },
   'ai-cost-free': async ({env}) => {   // one made-up install's Free AI day (26 Oct 2026 shape): $0.42 and 2.5M tokens, under the lines wrangler.toml sets; each step as this tree's log records it
     Object.assign(env, {FREE_AI_INSTALL_DAY_USD: '0.50', FREE_AI_INSTALL_MONTH_USD: '5', FREE_AI_MONTH_STOP_USD: '200', FREE_AI_MONTH_ALERT_USD: '100'});
     const day = new Date().toISOString().slice(0, 10), model = '@cf/qwen/qwen3-30b-a3b-fp8';
