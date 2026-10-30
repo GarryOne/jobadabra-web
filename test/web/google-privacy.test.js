@@ -8,7 +8,8 @@ const page = readFileSync(new URL('../../web/public/privacy.html', import.meta.u
 test('the privacy page has the Google data section Google asks for', () => {
   assert.match(page, /<h2>Google data: Gmail and Calendar<\/h2>/);
   assert.match(page, /gmail\.readonly/);
-  assert.match(page, /calendar\.readonly/);
+  assert.match(page, /calendar\.events\.readonly/);
+  assert.doesNotMatch(page, /calendar\.readonly/);   // the page, the console and the app name the same narrow scope (30 Oct 2026)
   assert.match(page, /api-services-user-data-policy#limited-use/);
   assert.match(page, /used to train AI models/);
   assert.match(page, /myaccount\.google\.com\/permissions/);

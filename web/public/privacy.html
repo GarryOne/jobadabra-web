@@ -110,7 +110,7 @@
       10 minutes, only until your app collects it, then deleted; it is never logged. Jobadabra only reads and writes the pages you
       chose. You can remove its access at any time in Notion (Settings → Connections).</p>
     <h2>Google data: Gmail and Calendar</h2>
-    <p>If you connect Google, Jobadabra asks for <b>read-only</b> access to Gmail and Google Calendar (the <code>gmail.readonly</code> and <code>calendar.readonly</code> scopes). It reads job-related email and your calendar events to find replies, rejections and interviews and to keep your applications up to date. It never sends, changes or deletes anything.</p>
+    <p>If you connect Google, Jobadabra asks for <b>read-only</b> access to Gmail and Google Calendar (the <code>gmail.readonly</code> and <code>calendar.events.readonly</code> scopes). It reads job-related email and your calendar events (events only, not your calendars or their settings) to find replies, rejections and interviews and to keep your applications up to date. It never sends, changes or deletes anything.</p>
     <ul>
       <li><b>Where it is read:</b> on your own computer, and, if you turn on Always on, in your own private GitHub repository, where your Google sign-in is kept as one of that repository's secrets. We do not store your Gmail or Calendar content, or your Google sign-in, on our servers.</li>
       <li><b>What is kept:</b> only the facts the app writes to your own Notion or your computer (for example "interview on 3 Nov", "rejection from an employer"), not whole mailboxes.</li>
