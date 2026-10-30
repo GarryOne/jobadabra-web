@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {verifyRunToken} from '../../workers/codex-broker/lib/oidc.mjs';
 import {laneOf} from '../../workers/codex-broker/lib/lanes.mjs';
 import {allow, newMeter, record, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
+import {weeklyWindow} from '../../workers/codex-broker/container/weekly.mjs';
 import {refuseReply} from '../../workers/codex-broker/lib/guard.mjs';
 import {modelOf, tierOfClaude} from '../../workers/codex-broker/lib/tiers.mjs';
 import {slots} from '../../workers/codex-broker/lib/queue.mjs';
@@ -49,18 +50,30 @@ test('the lane comes from the verified claims', () => {
 test('scheduled work stops at 60% own share, PR checks keep going to 75%, the week brake binds on a busy owner week', () => {
   let m = newMeter(2000000000);
   m = record(m, 'scheduled', 60 * TOKENS_PER_PERCENT, 1, 0);
-  assert.equal(allow('scheduled', m, 10).ok, false);
-  assert.match(allow('scheduled', m, 10).why, /own-share/);
-  assert.equal(allow('bench', m, 10).ok, false);
-  assert.equal(allow('pr', m, 10).ok, true);
+  assert.equal(allow('scheduled', m, 80).ok, false);
+  assert.match(allow('scheduled', m, 80).why, /own-share/);
+  assert.equal(allow('bench', m, 80).ok, false);
+  assert.equal(allow('pr', m, 80).ok, true);
   m = record(m, 'pr', 15 * TOKENS_PER_PERCENT, 1, 0);
-  assert.equal(allow('pr', m, 10).ok, false);
+  assert.equal(allow('pr', m, 80).ok, false);
   const fresh = newMeter(2000000000);
   assert.equal(allow('scheduled', fresh, 85).ok, false);
   assert.match(allow('scheduled', fresh, 85).why, /week/);
   assert.equal(allow('pr', fresh, 96).ok, true);
   assert.equal(allow('pr', fresh, 97).ok, false);
   assert.equal(allow('scheduled', fresh, null).ok, true);
+});
+
+// Owner's goal, 30 Oct 2026 (a hand beta, green): /health read whole week 32%, broker tokens 43,241,035; the seed ratio called that 60.06% and refused every scheduled call.
+test('own share never exceeds the whole-week reading: 43.2M tokens on a week Codex says is 32% used is allowed; on a 61% week it is refused', () => {
+  let m = newMeter(2000000000);
+  m = record(m, 'pr', 163226, 1, 0); m = record(m, 'scheduled', 40985043, 1, 0); m = record(m, 'bench', 2092766, 1, 0);
+  assert.ok(ownSharePct(m) > 60 && ownSharePct(m) < 60.1, 'by the seed alone the broker reads 60.06%');
+  assert.equal(allow('scheduled', m, 32).ok, true);
+  assert.equal(allow('bench', m, 32).ok, true);
+  assert.equal(allow('pr', m, 32).ok, true);
+  assert.match(allow('scheduled', m, 61).why, /own-share 60\.1% of 60%/);
+  assert.equal(allow('scheduled', m, null).ok, false, 'no whole-week reading yet: the seed estimate stands');
 });
 
 test('a meter with no reset date yet keeps counting across calls (Gitar #221: it was reset to 1970 on every call)', () => {
@@ -110,4 +123,13 @@ test('a planted injection\'s reply is refused: tokens, login fields, long encodi
   for (const text of [`Here: ${jwt}`, '{"refresh_token": "abc"}', 'x'.repeat(120), 'sk-' + 'a'.repeat(30), 'y '.repeat(10001)])
     assert.match(refuseReply(text), /^reply-refused/, text.slice(0, 20));
   assert.equal(refuseReply('{"verdict":"pass","reason":"the image is mostly red"}'), null);
+});
+
+test('the week reading is the window that lasts a week, whichever slot it sits in', () => {
+  const day = {usedPercent: 3, resetsAt: 1, windowDurationMins: 300}, week = {usedPercent: 32, resetsAt: 2, windowDurationMins: 10080};
+  assert.deepEqual(weeklyWindow({primary: week, secondary: null}), {usedPercent: 32, resetsAt: 2});
+  assert.deepEqual(weeklyWindow({primary: day, secondary: week}), {usedPercent: 32, resetsAt: 2});   // the 5h window in primary must not be taken for the week
+  assert.equal(weeklyWindow({primary: day, secondary: null}), null);
+  assert.equal(weeklyWindow({primary: {usedPercent: 32, resetsAt: 2}}), null);   // no length given: not trusted
+  assert.equal(weeklyWindow(undefined), null);
 });
