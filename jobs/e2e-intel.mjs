@@ -14,7 +14,7 @@ import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
 import {answerText, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
-import {WORK_IDS, parseLog, workRows} from '../admin/e2e-work.js';
+import {WORK_IDS, parseLog, workRows, weekOf} from '../admin/e2e-work.js';
 import {cleanLanes} from '../admin/e2e-grey.js';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
@@ -59,14 +59,38 @@ async function readNights(runs) {
   return nights;
 }
 
+const ESCAPE = /^Escaped-e2e:[ \t]*([^\r\n]*)$/im;
+
+/** Parse an escape trailer without I/O; absent or malformed records return null. */
+// Copy of public tools/owner-report.mjs escapeOf (PR 1, branch escapes): not on public main yet.
+// test/admin/e2e-intel-collector.test.js pins the same fixture strings as public desktop/test/owner-report.test.js.
+export function escapeOf(message) {
+  const value = ESCAPE.exec(String(message))?.[1].trim() || '';
+  const parts = /^(.+?)[ \t]+—[ \t]+(\S.*)$/.exec(value);
+  if (!parts) return null;
+  const [, list, journey] = parts;
+  if (list === 'no suite') return {suites: [], none: true, journey};
+  const suites = list.split(',').map(suite => suite.trim());
+  if (suites.some(suite => !/^[a-z0-9][a-z0-9-]*$/i.test(suite))) return null;
+  return {suites, none: false, journey};
+}
+
 // Where e2e work goes (admin/e2e-work.js): the public repo's main since `since`, from one blob-less shallow clone (no API call per commit). The clone starts two
 // days earlier: git lists every file of a shallow clone's oldest commit as added. A failed read sends no work rows this hour and says so.
-function readWork(since) {
+/** Read work counts and escaped journeys from the same public-main clone; omit escapes on failure so the snapshot retains its last successful read. */
+export function readWork(since, git = execFileSync) {
   const dir = mkdtempSync(path.join(tmpdir(), 'e2e-work-')), from = new Date(Date.parse(since) - 2 * 86400000).toISOString().slice(0, 10);
   try {
-    execFileSync('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', '--single-branch', `--shallow-since=${from}`, `https://github.com/${repo}.git`, dir], {timeout: 180000});
+    git('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', '--single-branch', '--branch=main', `--shallow-since=${from}`, `https://github.com/${repo}.git`, dir], {timeout: 180000});
     // Why (28 Oct 2026, measured on 35 days): rename detection fetches every renamed file's contents into the blob-less clone, 37 s and +10 MB; --no-renames reads trees only, 0.4 s.
-    return workRows(parseLog(execFileSync('git', ['-C', dir, 'log', '--no-merges', '--no-renames', `--since=${since}`, '--format=@@%H %cs', '--name-only'], {encoding: 'utf8', maxBuffer: 1 << 28})));
+    const work = workRows(parseLog(git('git', ['-C', dir, 'log', '--no-merges', '--no-renames', `--since=${since}`, '--format=@@%H %cs', '--name-only'], {encoding: 'utf8', maxBuffer: 1 << 28})));
+    // Include merge commits too: a trailer on a main commit is an escape regardless of how it landed.
+    const log = git('git', ['-C', dir, 'log', `--since=${since}`, '--format=%x1e%H%x00%cs%x00%B'], {encoding: 'utf8', maxBuffer: 1 << 28});
+    const escapes = log.split('\x1e').slice(1).flatMap(record => {
+      const [sha, day, message] = record.split('\0'), escape = escapeOf(message);
+      return escape ? [{week: weekOf(day), sha, ...escape}] : [];
+    });
+    return {...work, escapes};
   } catch (error) {
     console.log(`::warning::where e2e work goes was not read this hour: ${String(error?.message || error).slice(0, 200)}`);
     return {work: [], files: []};
@@ -132,7 +156,7 @@ async function main() {
   const wanted = new Set(todo.map(run => run.databaseId));
   const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
-  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, lanes, suiteNights: rows.suiteNights};
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, suiteNights: rows.suiteNights};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
   console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');

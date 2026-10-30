@@ -13,6 +13,7 @@ import {CHIP_STYLE, chip} from './chip.js';
 import {BARS, rateOf} from './e2e-quality.js';
 import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
 import {greySummary, greyNightText, prGreyText} from './e2e-grey.js';
+import {weekOf} from './e2e-work.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -34,11 +35,12 @@ export function windowOf(snapshot, range, now = new Date(), kind = 'all') {
   const ofKind = row => kind === 'all' || (row.kind || 'beta') === kind;
   const allDays = (snapshot?.days || []).filter(row => keys.has(row.day)), allFails = (snapshot?.fails || []).filter(row => keys.has(row.day)).map(row => ({...row, cause: causeId(row.cause)}));
   const days = allDays.filter(ofKind), fails = allFails.filter(ofKind);
+  const weeks = new Set([...keys].map(weekOf)), escapes = (snapshot?.escapes || []).filter(row => weeks.has(row.week));
   const breaks = (snapshot?.breaks || []).filter(row => keys.has(row.day) && ofKind(row)).map(row => ({...row, cause: causeId(row.cause)})), caught = (snapshot?.caught || []).filter(row => keys.has(row.day));
   const sum = (rows, field) => rows.reduce((total, row) => total + (Number(row[field]) || 0), 0);
   const reds = sum(fails, 'n'), byCause = Object.fromEntries(CAUSE_IDS.map(id => [id, sum(fails.filter(row => row.cause === id), 'n')]));
   const betas = allDays.filter(row => (row.kind || 'beta') === 'beta'), beta = {runs: sum(betas, 'runs'), cancelled: sum(betas, 'cancelled'), greens: sum(betas, 'greens')};
-  return {keys: [...keys], allDays, allFails, breaks, caught, beta, days, fails, runs: sum(days, 'runs'), cancelled: sum(days, 'cancelled'), redRuns: sum(days, 'reds'), greenRuns: sum(days, 'greens'), redMin: sum(days, 'redMin'), reds, byCause, failMin: sum(fails, 'min')};
+  return {keys: [...keys], allDays, allFails, breaks, caught, beta, days, fails, escapes, runs: sum(days, 'runs'), cancelled: sum(days, 'cancelled'), redRuns: sum(days, 'reds'), greenRuns: sum(days, 'greens'), redMin: sum(days, 'redMin'), reds, byCause, failMin: sum(fails, 'min')};
 }
 
 function tiles(w) {
@@ -106,7 +108,7 @@ ${qualityCard(snapshot.quality || [], repo)}
 ${greyCard(snapshot, now)}
 <section class="card"><h2>Red suites per day, by cause · ${esc(name)}</h2>${w.reds ? bars(w) : '<p class="muted">No red suites in this range.</p>'}</section>
 <section class="card"><h2>Which suites cost the most · ${esc(name)}</h2>${suiteTable(w)}</section>
-${scorecardCard(w, name)}
+${scorecardCard(w, name, {now, repo})}
 ${workCard(snapshot, now)}
 <section class="card"><h2>What each cause means</h2><table>${CAUSES.map(cause => `<tr><td class="nowrap">${swatch(cause.id)}${esc(cause.label)}</td><td class="muted">${esc(cause.hint)}</td></tr>`).join('')}</table></section>
 <section class="card"><h2>Latest ${(snapshot.latest || []).length} runs</h2><div class="scroll"><table><tr><th>Run</th><th>Day</th><th>Kind</th><th>Result</th><th class="num">Minutes</th></tr>${(snapshot.latest || []).map(run =>

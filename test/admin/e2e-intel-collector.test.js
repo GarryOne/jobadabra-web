@@ -116,3 +116,37 @@ test('a registry arriving after runs were settled still backfills seven nights f
   assert.deepEqual(nightRunsToRead(listed, new Set([9])).map(row => row.databaseId), [3, 4, 5, 6, 7, 8]);
   assert.deepEqual(nightRunsToRead(listed, new Set(), 2).map(row => row.databaseId), [8, 9]);
 });
+
+// Same fixture strings as public desktop/test/owner-report.test.js on branch escapes.
+test('escape parser pins the public escapeOf shapes and rejects malformed trailers', async () => {
+  const {escapeOf} = await import('../../jobs/e2e-intel.mjs');
+  assert.deepEqual(escapeOf('Fix X\n\nEscaped-e2e: apply, jobs — open a job — then fill'),
+    {suites: ['apply', 'jobs'], none: false, journey: 'open a job — then fill'});
+  assert.deepEqual(escapeOf('Fix X\n\nEscaped-e2e: no suite — enforce a rule'),
+    {suites: [], none: true, journey: 'enforce a rule'});
+  assert.equal(escapeOf('Fix X'), null);
+  for (const value of ['apply', 'apply — ', ' — fill a form', 'apply, — fill a form', 'no suite, apply — fill a form']) {
+    assert.equal(escapeOf(`Fix X\n\nEscaped-e2e: ${value}`), null, value);
+  }
+});
+
+test('the existing main clone supplies weekly escapes as well as work, without another network read', async () => {
+  const {readWork} = await import('../../jobs/e2e-intel.mjs');
+  const calls = [], a = 'a'.repeat(40), b = 'b'.repeat(40);
+  const rows = readWork('2026-10-01', (command, args) => {
+    calls.push([command, args]);
+    assert.equal(command, 'git');
+    if (args[0] === 'clone') return '';
+    if (args.includes('--name-only')) return `@@${a} 2026-10-27\n\ndesktop/lib/server.js\n`;
+    return `\x1e${a}\0${'2026-10-27'}\0Fix X\n\nEscaped-e2e: apply — fill a form\n\x1e${b}\0${'2026-10-28'}\0Fix X\n\nEscaped-e2e: no suite — enforce a rule\n\x1e${'c'.repeat(40)}\0${'2026-10-29'}\0Escaped-e2e: apply, — broken\n\x1e${'d'.repeat(40)}\0${'2026-10-29'}\0No trailer\n`;
+  });
+  assert.deepEqual(rows.escapes, [
+    {week: '2026-10-26', sha: a, suites: ['apply'], none: false, journey: 'fill a form'},
+    {week: '2026-10-26', sha: b, suites: [], none: true, journey: 'enforce a rule'},
+  ]);
+  assert.equal(rows.work.reduce((n, row) => n + row.commits, 0), 1);
+  assert.equal(calls.filter(([, args]) => args[0] === 'clone').length, 1);
+  assert.ok(calls[0][1].includes('--branch=main'), 'the clone is public main, never the PR branch');
+  const failed = readWork('2026-10-01', () => { throw new Error('offline read failure'); });
+  assert.equal(failed.escapes, undefined, 'an unreadable main must not erase the last escapes');
+});

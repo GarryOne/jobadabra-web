@@ -15,27 +15,35 @@ const hours = minutes => `${((Number(minutes) || 0) / 60).toLocaleString('en-US'
 export const SCORECARD_CSS = `${CHIP_STYLE}` + 'h3{margin:18px 0 6px;font-size:15px}';
 export const baseSuite = suite => String(suite || '').replace(/-\d+of\d+$/, '');
 
-/** Red suites of the window -> one row per suite: caught (cause "product": the fix changed the app), noise (the tests' own causes), ours (CI and AI), unnamed, minutes. */
-export function scoreRows(fails) {
+/** Window reds and escapes -> one row per suite, including missed suites with no red. Each escaped commit counts once per base suite. */
+export function scoreRows(fails, escapes = []) {
   const rows = new Map();
+  const rowOf = suite => rows.get(suite) || {suite, caught: 0, missed: 0, noise: 0, ours: 0, unnamed: 0, min: 0};
   for (const fail of fails) {
-    const suite = baseSuite(fail.suite), row = rows.get(suite) || {suite, caught: 0, noise: 0, ours: 0, unnamed: 0, min: 0};
+    const suite = baseSuite(fail.suite), row = rowOf(suite);
     const group = groupOf(fail.cause), n = Number(fail.n) || 0;
     if (group === 'app') row.caught += n; else if (group === 'tests') row.noise += n; else if (group === 'ours') row.ours += n; else row.unnamed += n;
     row.min += Number(fail.min) || 0; rows.set(suite, row);
   }
+  for (const escape of escapes) for (const suite of new Set(escape.suites.map(baseSuite))) {
+    const row = rowOf(suite); row.missed += 1; rows.set(suite, row);
+  }
   return [...rows.values()].sort((a, b) => b.caught - a.caught || (b.noise + b.ours) - (a.noise + a.ours) || a.suite.localeCompare(b.suite));
 }
 
-/** The scorecard card for the page's window w (admin/e2e-page.js windowOf: range and kind filter applied); name is the window's title. Suites with no red are not listed. */
-export function scorecardCard(w, name) {
-  const rows = scoreRows(w.fails), cell = (n, tone) => `<td class="num">${n ? chip(String(n), tone) : '<span class="muted">0</span>'}</td>`;
-  const body = rows.map(row => `<tr><td><code>${esc(row.suite)}</code></td>${cell(row.caught, 'good')}${cell(row.noise, 'warn')}${cell(row.ours, 'bad')}${cell(row.unnamed, 'off')}<td class="num">${hours(row.min)}</td></tr>`).join('');
-  const none = rows.filter(row => !row.caught).map(row => row.suite);
+/** Window scorecard plus current UTC week totals. Escapes are public-main commits, independent of the run-kind filter; gaps link the owner's journey words. */
+export function scorecardCard(w, name, {now = new Date(), repo = 'GarryOne/jobadabra'} = {}) {
+  const escapes = w.escapes || [], rows = scoreRows(w.fails, escapes), cell = (n, tone) => `<td class="num">${n ? chip(String(n), tone) : '<span class="muted">0</span>'}</td>`;
+  const body = rows.map(row => `<tr><td><code>${esc(row.suite)}</code></td>${cell(row.caught, 'good')}${cell(row.missed, 'bad')}${cell(row.noise, 'warn')}${cell(row.ours, 'bad')}${cell(row.unnamed, 'off')}<td class="num">${hours(row.min)}</td></tr>`).join('');
+  const none = rows.filter(row => !row.caught && row.noise + row.ours + row.unnamed > 0).map(row => row.suite);
+  const today = now.toISOString().slice(0, 10), week = weekOf(today), missed = escapes.filter(row => row.week === week), gaps = escapes.filter(row => row.none);
+  const caught = scoreRows(w.fails.filter(row => row.day >= week && row.day <= today)).reduce((n, row) => n + row.caught, 0);
   return `<section class="card"><h2>Scorecard: which suites catch bugs · ${esc(name)}</h2>
-<p class="muted">A red suite caught a bug when its fix changed the app, the extension or the engine. Every other red cost time: the tests' own causes (flake, timing, drift, test bug), our CI and AI, or not named yet. Suites with no red in this range are not listed.</p>
-${rows.length ? `<div class="scroll"><table><tr><th>Suite</th><th class="num">Caught a bug</th><th class="num">Test noise</th><th class="num">Our CI and AI</th><th class="num">Not named</th><th class="num">Job time</th></tr>${body}</table></div>
-${none.length ? `<p class="muted">Red but caught nothing in this range: ${none.map(suite => `<code>${esc(suite)}</code>`).join(', ')}</p>` : ''}` : '<p class="muted">No red suites in this range.</p>'}</section>`;
+<p class="muted">A red suite caught a bug when its fix changed the app, the extension or the engine. Every other red cost time: the tests' own causes (flake, timing, drift, test bug), our CI and AI, or not named yet. Missed bugs are owner-seen fixes on public main, counted once per commit and for each suite that missed the journey. Escapes cover the calendar weeks in this range, across all run kinds. Suites with neither reds nor misses are not listed.</p>
+<p>This week: caught ${caught} bugs, missed ${missed.length} (${missed.filter(row => row.none).length} with no suite)</p>
+${rows.length ? `<div class="scroll"><table><tr><th>Suite</th><th class="num">Caught a bug</th><th class="num">Missed (escaped)</th><th class="num">Test noise</th><th class="num">Our CI and AI</th><th class="num">Not named</th><th class="num">Job time</th></tr>${body}</table></div>
+${none.length ? `<p class="muted">Red but caught nothing in this range: ${none.map(suite => `<code>${esc(suite)}</code>`).join(', ')}</p>` : ''}` : '<p class="muted">No red suites in this range.</p>'}
+${gaps.length ? `<h3>Missed, no suite plays it</h3><ul>${gaps.map(row => `<li><a href="https://github.com/${esc(repo)}/commit/${esc(row.sha)}">${esc(row.journey)}</a></li>`).join('')}</ul>` : ''}</section>`;
 }
 
 /** Snapshot work rows -> one row per week (newest first): commits per kind, and the share that only changed CI or harness plumbing. */

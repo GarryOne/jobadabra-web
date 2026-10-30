@@ -5,7 +5,7 @@
 import {equal} from '../shared/guard.js';
 import {CAUSE_IDS, RULES_VERSION} from './e2e-causes.js';
 import {cleanNight} from './e2e-quality.js';
-import {WORK_IDS} from './e2e-work.js';
+import {WORK_IDS, weekOf} from './e2e-work.js';
 import {greyData} from './e2e-grey.js';
 
 const DAY = 86400000, KEEP_DAYS = 30, LATEST = 25;
@@ -24,6 +24,19 @@ const cleanFail = fail => Number.isInteger(fail?.runId) && fail.runId > 0 && wor
 const isDay = value => /^\d{4}-\d{2}-\d{2}$/.test(value || ''), count = value => Number.isInteger(value) && value >= 0 && value < 100000;
 const cleanWork = row => isDay(row?.day) && WORK_IDS.includes(row.kind) && count(row.commits);
 const cleanWorkFile = row => isDay(row?.week) && /^[\w./-]{1,160}$/.test(row.file || '') && count(row.commits);
+
+// A successful main read replaces its escape history (including an empty read); an omitted read retains the last one. One row per commit, no new D1 table.
+function escapeData(previous, data, now, from) {
+  const rows = Array.isArray(data.escapes) ? data.escapes : previous.escapes || [], seen = new Map();
+  for (const row of rows.slice(0, 3000)) {
+    if (!isDay(row?.week) || !Number.isFinite(Date.parse(row.week)) || weekOf(row.week) !== row.week || row.week < weekOf(from) || row.week > weekOf(dayOf(now))
+      || !/^[a-f0-9]{40}$/i.test(row.sha || '') || !Array.isArray(row.suites) || typeof row.none !== 'boolean'
+      || (row.none ? row.suites.length !== 0 : !row.suites.length) || row.suites.some(suite => typeof suite !== 'string' || !/^[a-z0-9][a-z0-9-]*$/i.test(suite))
+      || typeof row.journey !== 'string' || !row.journey.trim()) continue;
+    seen.set(row.sha, {week: row.week, sha: row.sha, suites: row.suites, none: row.none, journey: text(row.journey, 500)});
+  }
+  return [...seen.values()];
+}
 
 // The last 30 days: per day and run kind the runs, reds, greens and minutes (red runs, waiting for a runner, running); per day, kind, suite, platform and cause the red suites;
 // Registry and suite observations are merged from the previous snapshot; no extra tables.
@@ -45,14 +58,14 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
     db.prepare('SELECT day, kind, commits FROM e2e_work WHERE day >= ? ORDER BY day').bind(from).all(),
     db.prepare('SELECT week, file, commits FROM e2e_work_files WHERE week >= ? ORDER BY week DESC, commits DESC').bind(dayOf(new Date(now.getTime() - (KEEP_DAYS + 6) * DAY))).all()]);
   const previous = await db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
-  const grey = greyData(previous ? JSON.parse(previous.body) : {}, data, now);
-  return {...grey, schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
+  const prior = previous ? JSON.parse(previous.body) : {}, grey = greyData(prior, data, now);
+  return {...grey, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
     caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
 //   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, prGreys?: [{day, reason, n}],
-//   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}]} (admin/e2e-work.js).
+//   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}], escapes?: [{week, sha, suites, none, journey}]} (public-main commits).
 // GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
   if (!authorized(request, env)) return new Response('Not found', {status: 404});
