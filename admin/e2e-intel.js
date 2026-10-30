@@ -7,6 +7,7 @@ import {CAUSE_IDS, RULES_VERSION} from './e2e-causes.js';
 import {cleanNight} from './e2e-quality.js';
 import {WORK_IDS, weekOf} from './e2e-work.js';
 import {greyData} from './e2e-grey.js';
+import {speedData} from './e2e-speed.js';
 
 const DAY = 86400000, KEEP_DAYS = 30, LATEST = 25;
 export const KINDS = ['beta', 'nightly', 'after-merge', 'scheduled', 'soak', 'canary', 'pr', 'harness'];
@@ -58,12 +59,13 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
     db.prepare('SELECT day, kind, commits FROM e2e_work WHERE day >= ? ORDER BY day').bind(from).all(),
     db.prepare('SELECT week, file, commits FROM e2e_work_files WHERE week >= ? ORDER BY week DESC, commits DESC').bind(dayOf(new Date(now.getTime() - (KEEP_DAYS + 6) * DAY))).all()]);
   const previous = await db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
-  const prior = previous ? JSON.parse(previous.body) : {}, grey = greyData(prior, data, now);
-  return {...grey, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
+  const prior = previous ? JSON.parse(previous.body) : {};
+  const grey = greyData(prior, data, now), speed = speedData(prior, data, now);
+  return {...grey, ...speed, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
     caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
-// PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
+// PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr, suiteJobs?: [{suite, seconds}]}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
 //   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, prGreys?: [{day, reason, n}],
 //   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}], escapes?: [{week, sha, suites, none, journey}]} (public-main commits).
 // GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).

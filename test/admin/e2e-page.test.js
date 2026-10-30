@@ -107,3 +107,19 @@ test('Grey does not add a page query: the view still reads exactly one snapshot 
   assert.equal(response.status, 200);
   assert.deepEqual(reads, ['SELECT body FROM e2e_snapshot WHERE id = 1']);
 });
+
+test('Speed follows Grey, shows main medians and counts independently of filters, and warns about PR jobs without red', () => {
+  const speedRuns = [1, 2, 3].flatMap(runId => [
+    {runId, createdAt: '2026-10-17T12:00:00Z', kind: 'scheduled', suiteJobs: [{suite: 'jobs', seconds: 307}]},
+    {runId: runId + 10, createdAt: '2026-10-17T12:00:00Z', kind: 'pr', suiteJobs: [{suite: 'interactions', seconds: 481}]}]);
+  speedRuns.push({runId: 50, createdAt: '2026-10-17T12:00:00Z', kind: 'scheduled', suiteJobs: [{suite: 'updates', seconds: 7}]});
+  const html = page({...snapshot, speedRuns}, {now, kind: 'beta'});
+  const speed = html.split('<h2>Speed')[1]?.split('</section>')[0] || '';
+  assert.ok(html.indexOf('<h2>Speed') > html.indexOf('<h2>Grey'));
+  assert.match(speed, /jobs[^]*5m07s[^]*3 runs/);
+  assert.match(speed, /updates[^]*Not enough runs[^]*1 run/);
+  assert.match(speed, /PR job budget[^]*10 min/);
+  assert.match(speed, /interactions[^]*8m01s[^]*3 runs[^]*class="chip warn">split it/);
+  assert.doesNotMatch(speed, /chip bad/);
+  assert.match(page(snapshot, {now}), /No suite job timings stored yet/);
+});

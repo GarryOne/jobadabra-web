@@ -165,6 +165,17 @@ export const seeds = {
     await env.STATS.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body')
       .bind(snapshot.at, JSON.stringify(snapshot)).run();
   },
+  'e2e-speed': async ({env, call}) => {   // fixture-only job medians: main's three slowest suites, a sparse row, and a PR warning (not live measurements)
+    await seeds.e2e({env, call});
+    const at = new Date(), createdAt = at.toISOString(), samples = [
+      ['jobs', [290, 307, 320, 307, 305]], ['activityfailures', [180, 194, 201, 194, 190]], ['focus', [20, 22, 25, 22, 21]], ['updates', [6, 7, 8, 7, 7]], ['new-suite', [12]]
+    ];
+    const speedRuns = Array.from({length: 5}, (_, i) => ({runId: 9800 + i, createdAt, kind: 'scheduled',
+      suiteJobs: samples.filter(([, values]) => i < values.length).map(([suite, values]) => ({suite, seconds: values[i]}))}));
+    speedRuns.push(...[1, 2, 3].map(i => ({runId: 9900 + i, createdAt, kind: 'pr', suiteJobs: [{suite: 'fixture-slow-pr', seconds: 480 + i}]})));
+    const row = await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first(), snapshot = JSON.parse(row.body);
+    await env.STATS.prepare('UPDATE e2e_snapshot SET body = ? WHERE id = 1').bind(JSON.stringify({...snapshot, speedRuns})).run();
+  },
   'ai-cost-free': async ({env}) => {   // one made-up install's Free AI day (26 Oct 2026 shape): $0.42 and 2.5M tokens, under the lines wrangler.toml sets; each step as this tree's log records it
     Object.assign(env, {FREE_AI_INSTALL_DAY_USD: '0.50', FREE_AI_INSTALL_MONTH_USD: '5', FREE_AI_MONTH_STOP_USD: '200', FREE_AI_MONTH_ALERT_USD: '100'});
     const day = new Date().toISOString().slice(0, 10), model = '@cf/qwen/qwen3-30b-a3b-fp8';

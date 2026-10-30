@@ -73,7 +73,7 @@ test('a PR red is judged by its own next push: the PR\'s app files fixed = caugh
   const rows = await rowsOf(runs, {logOf: () => '✗ [wander] error-shown: Error invoking remote method \'strategyData\'', ...none,
     filesBetween: async () => ['desktop/lib/server.js', 'src/from-main.py'], prFiles: async pr => (pr === 2123 ? ['desktop/lib/server.js'] : [])});
   assert.deepEqual(rows.fails.map(fail => [fail.suite, fail.kind, fail.cause, fail.caught]), [['wander', 'pr', 'product', 1]]);
-  assert.deepEqual(rows.runs.find(row => row.runId === 5), {runId: 5, createdAt: '2026-10-26T10:01:00Z', kind: 'pr', conclusion: 'failure', minutes: 26, queueMin: 2, runMin: 10, pr: 2123});
+  assert.deepEqual(rows.runs.find(row => row.runId === 5), {runId: 5, createdAt: '2026-10-26T10:01:00Z', kind: 'pr', conclusion: 'failure', minutes: 26, queueMin: 2, runMin: 10, suiteJobs: [], pr: 2123});
 });
 
 test('a cancelled run is a stored try with no reds', async () => {
@@ -149,4 +149,14 @@ test('the existing main clone supplies weekly escapes as well as work, without a
   assert.ok(calls[0][1].includes('--branch=main'), 'the clone is public main, never the PR branch');
   const failed = readWork('2026-10-01', () => { throw new Error('offline read failure'); });
   assert.equal(failed.escapes, undefined, 'an unreadable main must not erase the last escapes');
+});
+
+test('run rows carry bounded successful suite job seconds, never red/retried jobs or setup jobs', async () => {
+  const jobs = [job('plan', 'success'), job('jobs', 'success', [first('jobs')], 1, {started_at: '2026-10-29T20:02:00Z', completed_at: '2026-10-29T20:07:07Z'}),
+    job('quality', 'failure', [first('quality')]), job('settings', 'success', [first('settings'), once('settings', 'success')]),
+    job('updates', 'success', [first('updates')], 5, {started_at: 'bad'}), job('apply', 'success', [first('apply')], 6, {completed_at: '2026-10-25T20:00:00Z'})];
+  const rows = await rowsOf([run(1, '2026-10-29T20:01:00Z', 'a', jobs, {kind: 'scheduled'})], none);
+  assert.deepEqual(rows.runs[0].suiteJobs, [{suite: 'jobs', seconds: 307}]);
+  const branch = await rowsOf([run(2, '2026-10-29T20:01:00Z', 'b', jobs, {kind: 'nightly', headBranch: 'release-experiment'})], none);
+  assert.deepEqual(branch.runs[0].suiteJobs, [], 'main timings never include a release branch');
 });

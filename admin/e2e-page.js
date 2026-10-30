@@ -14,6 +14,7 @@ import {BARS, rateOf} from './e2e-quality.js';
 import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
 import {greySummary, greyNightText, prGreyText} from './e2e-grey.js';
 import {weekOf} from './e2e-work.js';
+import {PR_JOB_BUDGET_SECONDS, PR_SPLIT_SECONDS, speedSummary, speedTime} from './e2e-speed.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -97,6 +98,26 @@ function greyCard(snapshot, now) {
 <p class="muted">${esc(prGreyText(grey))}</p></section>`;
 }
 
+function budgetBar(seconds) {
+  const used = Math.min(seconds, PR_JOB_BUDGET_SECONDS), left = PR_JOB_BUDGET_SECONDS - used;
+  return `<div class="nightbar" role="img" aria-label="${esc(speedTime(seconds))} against the ${PR_JOB_BUDGET_SECONDS / 60}-minute PR job budget">
+<i style="flex:${used} 1 0;background:var(--amber,#f5b54a)" title="Median job: ${esc(speedTime(seconds))}"></i><i style="flex:${left} 1 0;background:var(--line,#262c33)" title="PR job budget: ${PR_JOB_BUDGET_SECONDS / 60} min"></i></div>`;
+}
+
+/** Informational job medians after Grey; never substitutes a job duration for a user-promise step timing. */
+function speedCard(snapshot, now = new Date()) {
+  const speed = speedSummary(snapshot, now);
+  const rows = speed.main.map(row => `<tr><td><code>${esc(row.suite)}</code></td><td>${row.median === null ? '<span class="muted">Not enough runs</span>' : chip(speedTime(row.median))}</td>
+<td>${row.n} run${row.n === 1 ? '' : 's'}</td><td>${row.median === null ? '–' : `${speedTime(row.p25)}–${speedTime(row.p95)}`}</td><td>${row.median === null ? '–' : budgetBar(row.median)}</td></tr>`).join('');
+  return `<section class="card"><h2>Speed · last 30 days</h2>
+<p class="muted">Successful suite jobs on main (after merge, nightly and scheduled), slowest first. At least 3 runs for a median. Each run counts once per suite using its longest successful job; shard names stay separate. Old rows without timings do not count.</p>
+${rows ? `<div class="scroll"><table><tr><th>Suite</th><th>Main median</th><th>n</th><th>p25–p95</th><th>PR job budget · ${PR_JOB_BUDGET_SECONDS / 60} min</th></tr>${rows}</table></div>` : '<p class="muted">No suite job timings stored yet. The hourly collector adds timings as new runs finish.</p>'}
+<p class="muted">Job time includes setup and teardown. User promise step timings are not collected yet.</p>
+<h3>PR suite jobs · ${PR_SPLIT_SECONDS / 60}-minute early warning</h3>
+${speed.slowPr.length ? `<ul>${speed.slowPr.map(row => `<li><code>${esc(row.suite)}</code> · ${speedTime(row.median)} · ${row.n} runs ${chip('split it', 'warn')}</li>`).join('')}</ul>`
+    : `<p class="muted">${speed.prRead ? `PR suites over ${PR_SPLIT_SECONDS / 60} min: none.` : 'Not enough PR runs for a median yet.'}</p>`}</section>`;
+}
+
 export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/jobadabra', now = new Date()} = {}) {
   range = rangeOf(range); kind = kindFilter(kind);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}${kind === 'all' ? '' : `&kind=${kind}`}`]), range)
@@ -106,6 +127,7 @@ export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/job
     : `${filters}${top(w, {repo})}${tiles(w)}
 ${qualityCard(snapshot.quality || [], repo)}
 ${greyCard(snapshot, now)}
+${speedCard(snapshot, now)}
 <section class="card"><h2>Red suites per day, by cause · ${esc(name)}</h2>${w.reds ? bars(w) : '<p class="muted">No red suites in this range.</p>'}</section>
 <section class="card"><h2>Which suites cost the most · ${esc(name)}</h2>${suiteTable(w)}</section>
 ${scorecardCard(w, name, {now, repo})}
