@@ -4,7 +4,7 @@
 import {Container, getContainer} from '@cloudflare/containers';
 import {verifyRunToken, githubJwks} from './lib/oidc.mjs';
 import {laneOf} from './lib/lanes.mjs';
-import {allow, newMeter, record} from './lib/budget.mjs';
+import {allow, newMeter, record, recordCall, callsToday} from './lib/budget.mjs';
 import {refuseReply} from './lib/guard.mjs';
 import {slots} from './lib/queue.mjs';
 import {modelOf} from './lib/tiers.mjs';
@@ -54,7 +54,8 @@ export class CodexBroker extends Container {
 
   async health() {
     const meter = (await this.ctx.storage.get('meter')) || newMeter(0);
-    return json(200, {state: (await this.ctx.storage.get('login')) ? ((await this.ctx.storage.get('lost')) ? 'login-lost' : 'ready') : 'no-login', limits: this.limits, own: meter.tokens, queue: this.gate.stats()});
+    // Daily counts describe today, even before the first call after UTC midnight.
+    return json(200, {state: (await this.ctx.storage.get('login')) ? ((await this.ctx.storage.get('lost')) ? 'login-lost' : 'ready') : 'no-login', limits: this.limits, own: meter.tokens, daily: {drift: callsToday(meter, 'drift')}, queue: this.gate.stats()});
   }
 
   async call(lane, body) {
@@ -62,11 +63,17 @@ export class CodexBroker extends Container {
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});
     if (await this.ctx.storage.get('lost')) return json(503, {why: 'login-lost'});
-    const meter = (await this.ctx.storage.get('meter')) || newMeter(0);
     this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
-    const verdict = allow(lane, meter, this.limits?.usedPercent ?? null);
+    // Check and persist admission together: concurrent calls and reruns share one UTC allowance.
+    // No refund on a queue/transport/model failure; the reservation commits before Codex is called.
+    const verdict = await this.ctx.storage.transaction(async storage => {
+      const meter = (await storage.get('meter')) || newMeter(0), now = Date.now() / 1000;
+      const check = allow(lane, meter, this.limits?.usedPercent ?? null, undefined, now);
+      if (check.ok) await storage.put('meter', recordCall(meter, lane, now));
+      return check;
+    });
     if (!verdict.ok) return json(429, {why: verdict.why});
-    const release = await this.gate.acquire(lane);
+    const release = await this.gate.acquire(lane === 'drift' ? 'scheduled' : lane);   // nightly drift shares scheduled queue priority
     try {
       const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, model})});
       const text = await reply.text();
@@ -76,8 +83,11 @@ export class CodexBroker extends Container {
       if (!reply.ok) { if (answer.error === 'login-lost') await this.ctx.storage.put('lost', true); return json(reply.status === 500 && answer.error === 'login-lost' ? 503 : 502, {why: refuseReply(answer.error) ? 'codex-failed (detail withheld: token-shaped)' : answer.error}); }
       if (answer.limits) { this.limits = answer.limits; await this.ctx.storage.put('limits', answer.limits); }
       const used = answer.tokens.input + answer.tokens.output;
-      const latest = (await this.ctx.storage.get('meter')) || newMeter(0);   // read again right before the write: 4 calls overlap, and no await sits between this read and the put
-      await this.ctx.storage.put('meter', record(latest, lane, used, Date.now() / 1000, answer.limits?.resetsAt));
+      // Completions also transact: a token write must never overwrite a newer daily reservation.
+      await this.ctx.storage.transaction(async storage => {
+        const latest = (await storage.get('meter')) || newMeter(0);
+        await storage.put('meter', record(latest, lane, used, Date.now() / 1000, answer.limits?.resetsAt));
+      });
       const refused = refuseReply(answer.reply);
       if (refused) return json(422, {why: refused});
       return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, tier: body.tier ?? 'mid', model, weekUsedPercent: this.limits?.usedPercent ?? null});

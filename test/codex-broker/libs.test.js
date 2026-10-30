@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {verifyRunToken} from '../../workers/codex-broker/lib/oidc.mjs';
-import {laneOf} from '../../workers/codex-broker/lib/lanes.mjs';
-import {allow, newMeter, record, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
+import {laneOf, LANES} from '../../workers/codex-broker/lib/lanes.mjs';
+import {allow, newMeter, record, recordCall, callsToday, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
 import {weeklyWindow} from '../../workers/codex-broker/container/weekly.mjs';
 import {refuseReply} from '../../workers/codex-broker/lib/guard.mjs';
 import {modelOf, tierOfClaude} from '../../workers/codex-broker/lib/tiers.mjs';
@@ -45,6 +45,59 @@ test('the lane comes from the verified claims', () => {
   assert.equal(laneOf({event_name: 'pull_request'}), 'pr');
   assert.equal(laneOf({event_name: 'schedule', job_workflow_ref: 'GarryOne/jobadabra/.github/workflows/central-scout.yml@refs/heads/main'}), 'scheduled');
   assert.equal(laneOf({event_name: 'workflow_dispatch', job_workflow_ref: 'GarryOne/jobadabra/.github/workflows/job-search-benchmark.yml@refs/heads/main'}), 'bench');
+});
+
+test('only the exact nightly workflow gets drift; PR priority and verified workflow precedence remain', () => {
+  const workflow = 'GarryOne/jobadabra/.github/workflows/ai-answer-drift.yml@refs/heads/bench';
+  assert.equal(laneOf({event_name: 'schedule', job_workflow_ref: workflow}), 'drift');
+  assert.equal(laneOf({event_name: 'workflow_dispatch', workflow_ref: workflow}), 'drift');
+  assert.equal(laneOf({event_name: 'pull_request', job_workflow_ref: workflow}), 'pr');
+  for (const name of ['ai-answer-drift-extra.yml', 'other-ai-answer-drift.yml', 'ai-answer-drift.yml.bak']) {
+    assert.equal(laneOf({workflow_ref: `GarryOne/jobadabra/.github/workflows/${name}@refs/heads/main`}), 'scheduled');
+  }
+  assert.equal(laneOf({workflow_ref: workflow, job_workflow_ref: 'GarryOne/jobadabra/.github/workflows/central-scout.yml@refs/heads/main'}), 'scheduled');
+  assert.equal(laneOf({workflow_ref: 'GarryOne/jobadabra/.github/workflows/central-scout.yml@refs/heads/.github/workflows/ai-answer-drift.yml'}), 'scheduled');
+  assert.ok(LANES.includes('drift'));
+});
+
+const driftDay = Date.parse('2026-10-30T23:59:59Z') / 1000;
+
+test('drift accepts call 24, refuses call 25 and opens again at UTC midnight', () => {
+  let m = newMeter(driftDay + 604800);
+  for (let i = 0; i < 24; i++) {
+    assert.equal(allow('drift', m, null, TOKENS_PER_PERCENT, driftDay).ok, true);
+    m = recordCall(m, 'drift', driftDay);
+  }
+  assert.equal(callsToday(m, 'drift', driftDay), 24);
+  assert.deepEqual(allow('drift', m, null, TOKENS_PER_PERCENT, driftDay), {ok: false, why: 'budget:daily 24 of 24 calls (drift)'});
+  assert.equal(allow('scheduled', m, null, TOKENS_PER_PERCENT, driftDay).ok, true);
+  assert.equal(allow('drift', m, null, TOKENS_PER_PERCENT, driftDay + 1).ok, true);
+  assert.equal(callsToday(m, 'drift', driftDay + 1), 0);
+  m = recordCall(m, 'drift', driftDay + 1);
+  assert.equal(callsToday(m, 'drift', driftDay + 1), 1);
+});
+
+test('old stored meters accept drift tokens and daily counts without NaN or losing previous tokens', () => {
+  let m = JSON.parse('{"resetsAt":2000000000,"tokens":{"pr":10,"scheduled":20,"bench":30}}');
+  assert.equal(allow('drift', m, null, TOKENS_PER_PERCENT, driftDay).ok, true);
+  assert.equal(callsToday(m, 'drift', driftDay), 0);
+  m = recordCall(m, 'drift', driftDay);
+  m = record(m, 'drift', 40, driftDay);
+  assert.equal(ownSharePct(m, 1), 100);
+  assert.equal(callsToday(JSON.parse(JSON.stringify(m)), 'drift', driftDay), 1);
+});
+
+test('weekly resets preserve daily reservations; token completions never count calls twice', () => {
+  let m = recordCall(newMeter(driftDay), 'drift', driftDay);
+  m = record(m, 'drift', 123, driftDay, driftDay + 604800);
+  assert.equal(ownSharePct(m, 1), 123);
+  assert.equal(callsToday(m, 'drift', driftDay), 1);
+});
+
+test('drift keeps scheduled weekly own-share and whole-week brakes', () => {
+  const m = record(newMeter(2000000000), 'drift', 60 * TOKENS_PER_PERCENT, driftDay);
+  assert.match(allow('drift', m, 80).why, /budget:own-share 60\.0% of 60% \(drift\)/);
+  assert.deepEqual(allow('drift', newMeter(2000000000), 85), {ok: false, why: 'budget:week 85% of 85% (drift)'});
 });
 
 test('scheduled work stops at 60% own share, PR checks keep going to 75%, the week brake binds on a busy owner week', () => {
