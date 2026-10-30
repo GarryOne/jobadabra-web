@@ -59,6 +59,7 @@ export class CodexBroker extends Container {
   }
 
   async call(lane, body) {
+    if (Object.hasOwn(body, 'search') && typeof body.search !== 'boolean') return json(400, {why: 'search must be a boolean'});
     const model = modelOf(body.tier);
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});

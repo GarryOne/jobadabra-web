@@ -103,3 +103,47 @@ test('weekly refusals do not consume daily slots and caller input cannot change 
   for (let i = 0; i < 24; i++) assert.equal((await broker.call('drift', {...body, lane: 'pr'})).status, 200);
   assert.equal((await broker.call('drift', {...body, lane: 'pr'})).status, 429);
 });
+
+test('non-boolean search is a 400 before admission or container dispatch', async t => {
+  for (const search of ['true', 'false', 0, 1, null, {}, []]) await t.test(JSON.stringify(search), async () => {
+    const {broker, storage} = harness();
+    broker.containerFetch = async () => { assert.fail('invalid search must not reach Codex'); };
+    const response = await broker.fetch(new Request('http://c/call', {
+      method: 'POST', headers: {'x-lane': 'scheduled'}, body: JSON.stringify({...body, search}),
+    }));
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {why: 'search must be a boolean'});
+    assert.equal(await storage.get('meter'), undefined);
+  });
+});
+
+test('search keeps every tier, lane, queue priority and meter identical to ordinary calls', async t => {
+  t.mock.method(Date, 'now', () => day);
+  const tiers = [[undefined, 'mid', 'gpt-6.1-sol'], ['small', 'small', 'gpt-6-luna'], ['mid', 'mid', 'gpt-6.1-sol'], ['large', 'large', 'gpt-6-astra']];
+  for (const lane of ['pr', 'scheduled', 'bench', 'drift']) for (const [tier, expectedTier, model] of tiers) {
+    let ordinaryMeter;
+    for (const option of [{}, {search: false}, {search: true}]) {
+      const {broker, storage} = harness();
+      const acquire = broker.gate.acquire.bind(broker.gate);
+      broker.gate.acquire = async priority => {
+        assert.equal(priority, lane === 'drift' ? 'scheduled' : lane);
+        return acquire(priority);
+      };
+      broker.containerFetch = async (url, init) => {
+        assert.equal(url, 'http://c/call');
+        assert.deepEqual(JSON.parse(init.body), {prompt: 'offline test', ...(tier === undefined ? {} : {tier}), ...option, lane: 'forged', model});
+        return success();
+      };
+      const response = await broker.call(lane, {...body, tier, ...option, lane: 'forged'});
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {reply: 'ok', tokens: {input: 2, output: 3}, ms: 1, lane, tier: expectedTier, model, weekUsedPercent: null});
+      const meter = await storage.get('meter');
+      assert.equal(meter.tokens[lane], 5);
+      if (ordinaryMeter) assert.deepEqual(meter, ordinaryMeter);
+      else ordinaryMeter = meter;
+      broker.limits = {usedPercent: lane === 'pr' ? 97 : 85};
+      assert.equal((await broker.call(lane, {...body, tier, ...option})).status, 429);
+      assert.deepEqual(await storage.get('meter'), ordinaryMeter);
+    }
+  }
+});
