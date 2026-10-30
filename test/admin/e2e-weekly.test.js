@@ -53,7 +53,7 @@ test('Telegram: the verdict first, the decision last, the page and the issue lin
   assert.match(body, /> \*\*Decision:\*\* 3 suites red in 30 days/);
   assert.match(body, /\| `quality` \| 0 \| 0 \| 1 \| 0 \| 0\.7 h \|/);
   assert.match(body, /\| CI and harness plumbing \| 10 \|/);
-  assert.match(telegramText({...s, prune: [], reds: 0, caught: [], idle: []}), /No red suite this week\nNo red suite caught a bug\n.*\nNo decision for you this week\./);
+  assert.match(telegramText({...s, prune: [], reds: 0, caught: [], idle: []}), /No red suite this week\nNo red suite caught a bug\n[^]*\nNo decision for you this week\./);
 });
 
 test('a Telegram message that did not go out turns the run red, after the issue is written (#211, Gitar)', async () => {
@@ -63,4 +63,83 @@ test('a Telegram message that did not go out turns the run red, after the issue 
   await assert.rejects(deliver(s, {write, tell: async () => ({skipped: 'Telegram answered 401'})}), /did not reach Telegram \(Telegram answered 401\); the issue is at .*issues\/9/);
   assert.deepEqual(written, ['E2E week · 2026-11-02']);
   assert.equal(await deliver(s, {write, tell: async () => ({sent: true})}), 'https://github.com/GarryOne/jobadabra-web/issues/9');
+});
+
+const greySnapshot = (since = '2026-10-29') => ({at: monday.toISOString(), lanes: {suites: {
+  quality: {lane: 'tolerant', input: 'ai', since, why: 'An unkeyed ask'},
+  paused: {lane: 'suspended', input: 'clock', since: '2026-10-28', why: 'Retry flip', returns: 'Three steady nights'},
+  gone: {lane: 'retired', since: '2026-10-01', why: 'Removed'}
+}}});
+
+test('Grey keeps full rows in the issue and compact suite lines in Telegram', () => {
+  const s = weekly(greySnapshot(), new Date('2026-10-30T23:59:00Z'));
+  assert.deepEqual(s.grey.rows.map(row => [row.suite, row.age]), [['paused', 2], ['quality', 1]]);
+  assert.match(issueBody(s), /quality.*tolerant.*ai.*An unkeyed ask.*2026-10-29.*1 day.*no exit condition yet/);
+  assert.match(telegramText(s), /\nquality \(tolerant, 1 day, 0\/0 red\)\n/);
+  assert.doesNotMatch(telegramText(s), /no exit condition yet|An unkeyed ask/);
+  assert.match(issueBody(s), /PR grey reasons not stored; counts unavailable/);
+  assert.match(issueBody(weekly({}, monday)), /lane registry not read yet/);
+});
+
+test('300 detailed Grey suites fit one Telegram message without losing the decision or links', t => {
+  const suites = Array.from({length: 300}, (_, i) => `suite-${String(i).padStart(3, '0')}`);
+  const why = 'W'.repeat(500), returns = 'R'.repeat(500);
+  const s = weekly({lanes: {suites: Object.fromEntries(suites.map(suite => [suite,
+    {lane: 'tolerant', since: '2026-10-10', why, returns}]))},
+  suiteNights: suites.flatMap(suite => ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']
+    .map((day, i) => ({suite, day, kind: 'nightly', green: i !== 0})))}, monday);
+  const url = 'https://github.com/GarryOne/jobadabra-web/issues/9';
+  const text = telegramText(s, url);
+  t.diagnostic(`300 Grey suites: ${text.length} Telegram characters`);
+  assert.ok(text.length < 4096, `Telegram text has ${text.length} characters`);
+  assert.match(text, /\nsuite-000 \(tolerant, 23 days, 1\/7 red\)\n/);
+  const shown = text.split('\n').filter(line => /^suite-\d+ \(/.test(line)).length;
+  assert.ok(shown > 0 && shown < 300);
+  assert.ok(text.includes(`\n…and ${300 - shown} more\n`));
+  assert.match(text, /\nYour call: Grey: suite-000 .*keep, fix or retire\?/);
+  assert.ok(text.endsWith(`https://www.jobadabra.top/admin/operations/e2e\n${url}`));
+  assert.doesNotMatch(text, /W{500}|R{500}|2026-10-26 red/);
+  const body = issueBody(s);
+  const fullRows = body.split('\n').filter(line => /^suite-\d+ ·/.test(line));
+  assert.equal(fullRows.length, 300);
+  assert.ok(fullRows.every(line => line.includes(why) && line.includes(returns)));
+  assert.match(body, /2026-10-26 red/);
+
+  const busy = {...s, caught: suites.map(suite => ({suite})), idle: suites.map(suite => ({suite, noise: 1, ours: 0, unnamed: 0})),
+    prune: suites.map(suite => ({suite, reds: 1, min: 10}))};
+  assert.ok(telegramText(busy, url).length < 4096, 'the cap covers scorecard and decision lists too');
+});
+
+test('Grey expiry is strictly more than 14 days; it joins prune in ONE owner decision', () => {
+  const s = weekly(greySnapshot(), new Date('2026-11-12T23:59:00Z'));
+  assert.equal(decision({...s, grey: {...s.grey, rows: s.grey.rows.filter(row => row.suite === 'quality')}}), null, '14 days does not expire');
+  const expired = weekly({...snapshot, ...greySnapshot()}, new Date('2026-11-13T00:00:00Z'));
+  assert.match(decision(expired), /quality.*15 days grey/);
+  assert.match(decision(expired), /keep, fix or retire\?/i);
+  assert.match(decision(expired), /without catching a bug/);
+  assert.equal((telegramText(expired).match(/Your call:/g) || []).length, 1);
+});
+
+test('three calendar nights below a stored main band trigger a decision; gaps, missing bands and recovery do not', () => {
+  const nights = ['2026-10-30', '2026-10-31', '2026-11-01'].map((day, i) => ({day, runId: i + 1, suite: 'quality', platform: 'mac', kind: 'nightly', green: true, rates: {agree: 0.6}}));
+  const base = {...greySnapshot(), suiteNights: nights, mainBands: {quality: {agree: {lower: 0.8, upper: 0.95}}}};
+  const s = weekly(base, monday);
+  assert.match(decision(s), /quality.*below main's band 3 nights in a row/);
+  assert.match(issueBody(s), /60%.*main.*80%.*95%/);
+  assert.equal(decision(weekly({...base, mainBands: {}}, monday)), null);
+  assert.equal(decision(weekly({...base, suiteNights: nights.slice(1)}, monday)), null);
+  assert.equal(decision(weekly({...base, suiteNights: nights.map((row, i) => ({...row, rates: {agree: i === 2 ? 0.9 : 0.6}}))}, monday)), null);
+  assert.equal(decision(weekly({...base, suiteNights: nights.map((row, i) => ({...row, day: i === 0 ? '2026-10-28' : row.day}))}, monday)), null);
+});
+
+test('a combined prune/Grey decision asks once; recorded quality rates never invent a suite outcome', () => {
+  const s = weekly({...snapshot, ...greySnapshot('2026-10-10'), quality: [{day: '2026-11-01', pairs: 10, within8: 8, over20: 0}]}, monday);
+  assert.equal((decision(s).match(/\?/g) || []).length, 1);
+  assert.match(issueBody(s), /2026-11-01 result not stored/);
+});
+
+test('PR greys count only this week and only stored reasons, using the shared summary', () => {
+  const s = weekly({...greySnapshot(), prGreys: [{day: '2026-11-01', reason: 'main', n: 2}, {day: '2026-11-01', reason: 'ai-credit', n: 1}, {day: '2026-10-01', reason: 'runner', n: 90}]}, monday);
+  assert.deepEqual(s.grey.pr, {main: 2, runner: 0, 'ai-credit': 1, install: 0, tolerant: 0});
+  assert.match(issueBody(s), /main's own red 2 · runner 0 · AI credit 1 · install 0 · tolerant 0/);
 });

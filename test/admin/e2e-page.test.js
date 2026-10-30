@@ -76,3 +76,34 @@ test('the top answers "why red?" in seconds: who caused it, top causes with test
   assert.match(pr, /12 red suites from 1 break:/, 'the kind filter narrows the causes; the PR box still reads every PR run');
   assert.match(pr, /Last 7 days · PR/);
 });
+
+test('Grey shows tolerant and suspended rows, seven observed nights, rates only with a main band, and old snapshot fallback', () => {
+  const at = new Date('2026-10-30T12:00:00Z');
+  const lanes = {suites: {quality: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: '<unkeyed>'}, paused: {lane: 'suspended', input: 'clock', since: '2026-10-28', why: 'Flip', returns: 'Steady nights'}, gone: {lane: 'retired'}}};
+  const suiteNights = Array.from({length: 8}, (_, i) => ({day: `2026-10-${30 - i}`, runId: i + 1, suite: 'quality', platform: 'mac', kind: 'nightly', green: i !== 1, rates: {agree: 0.6}}));
+  const html = page({...snapshot, lanes, suiteNights, mainBands: {quality: {agree: {lower: 0.8, upper: 0.95}}}}, {now: at});
+  const grey = html.split('<h2>Grey</h2>')[1].split('</section>')[0];
+  assert.match(grey, /tolerant.*ai/);
+  assert.match(grey, /suspended.*clock/);
+  assert.match(grey, /&lt;unkeyed&gt;/);
+  assert.match(grey, /2026-10-29.*1 day/);
+  assert.match(grey, /no exit condition yet/);
+  assert.match(grey, /Steady nights/);
+  assert.match(grey, /2026-10-29.*red/);
+  assert.match(grey, /2026-10-30.*green/);
+  assert.doesNotMatch(grey, /2026-10-23/);
+  assert.match(grey, /60%.*main.*80%.*95%/);
+  assert.doesNotMatch(grey, /gone/);
+  assert.match(grey, /PR grey reasons not stored; counts unavailable/);
+  assert.match(page(snapshot, {now}), /lane registry not read yet/);
+  assert.doesNotMatch(page({...snapshot, lanes, suiteNights}, {now: at}).split('<h2>Grey</h2>')[1].split('</section>')[0], /60%/);
+});
+
+test('Grey does not add a page query: the view still reads exactly one snapshot row', async () => {
+  const {view} = await import('../../admin/e2e-page.js');
+  const e = env(), reads = [];
+  e.STATS.prepare = sql => { reads.push(sql); return {first: async () => ({body: JSON.stringify(snapshot)})}; };
+  const response = await view(new Request('https://test/admin/operations/e2e', {headers: {Cookie: 'jp_stats=k3y'}}), e);
+  assert.equal(response.status, 200);
+  assert.deepEqual(reads, ['SELECT body FROM e2e_snapshot WHERE id = 1']);
+});

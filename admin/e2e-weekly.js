@@ -2,6 +2,7 @@
 // same numbers as the page, one decision for the owner if any"; rules I and J). Drawn from the snapshot /admin/operations/e2e draws (admin/e2e-intel.js) with the page's
 // own functions, so there is no second count. Pure: jobs/e2e-weekly.mjs posts it. Guard: test/admin/e2e-weekly.test.js.
 import {CAUSES, GROUPS} from './e2e-causes.js';
+import {greySummary, greyLines, prGreyText} from './e2e-grey.js';
 import {windowOf} from './e2e-page.js';
 import {scoreRows, workWeeks} from './e2e-scorecard.js';
 import {summary as topSummary} from './e2e-top.js';
@@ -13,7 +14,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
 const pct = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : '–');
 const hours = minutes => `${((Number(minutes) || 0) / 60).toLocaleString('en-US', {maximumFractionDigits: 1})} h`;
-const list = rows => rows.map(row => row.suite).join(', ');
+const list = (rows, render, limit) => [...rows.slice(0, limit).map(render), ...(rows.length > limit ? [`…and ${rows.length - limit} more`] : [])].join(', ');
 
 /**
  * Snapshot -> the week's numbers: the page's last-7-days window (runs, reds by group, top causes, the scorecard), the suites with no catch in the
@@ -25,12 +26,16 @@ export function weekly(snapshot, now = new Date()) {
   const lastWeek = weekOf(new Date(now.getTime() - 7 * DAY).toISOString().slice(0, 10));
   const work = workWeeks(snapshot?.work).find(row => row.week === lastWeek) || {week: lastWeek, counts: {}, total: 0, plumbing: 0};
   return {day: now.toISOString().slice(0, 10), runs: w.runs, redRuns: w.redRuns, reds: w.reds, byGroup: top.byGroup, causes: top.causes.filter(row => row.n).slice(0, 3),
-    caught: suites.filter(row => row.caught), idle: suites.filter(row => !row.caught), prune, work, files: (snapshot?.workFiles || []).filter(row => row.week === lastWeek).slice(0, 5)};
+    caught: suites.filter(row => row.caught), idle: suites.filter(row => !row.caught), prune, grey: greySummary(snapshot, now), work, files: (snapshot?.workFiles || []).filter(row => row.week === lastWeek).slice(0, 5)};
 }
 
-/** The one decision for the owner, or null: suites red in 30 days that never caught a bug (rule I: keep, move to a tolerant lane, or retire, on the owner's word). */
-export function decision(s) {
-  return s.prune.length ? `${s.prune.length} suite${s.prune.length === 1 ? '' : 's'} red in 30 days without catching a bug: ${s.prune.map(row => `${row.suite} (${row.reds} red, ${hours(row.min)})`).join(', ')}. Keep, move to a tolerant lane, or retire?` : null;
+/** One owner decision, or null: prune and Grey expiry/band warnings; Telegram may limit the named suites, while the issue keeps them all. */
+export function decision(s, limit = Infinity) {
+  const grey = (s.grey?.rows || []).filter(row => row.expired || row.below);
+  const parts = [];
+  if (s.prune.length) parts.push(`${s.prune.length} suite${s.prune.length === 1 ? '' : 's'} red in 30 days without catching a bug: ${list(s.prune, row => `${row.suite} (${row.reds} red, ${hours(row.min)})`, limit)}.${grey.length ? '' : ' Keep, move to a tolerant lane, or retire?'}`);
+  if (grey.length) parts.push(`Grey: ${list(grey, row => `${row.suite} (${[row.expired ? `${row.age} days grey` : '', row.below ? "below main's band 3 nights in a row" : ''].filter(Boolean).join('; ')})`, limit)}: keep, fix or retire?`);
+  return parts.join(' ') || null;
 }
 
 export const issueTitle = s => `E2E week · ${s.day}`;
@@ -39,15 +44,22 @@ const plumbingLine = s => (s.work.total
   ? `Plumbing ${pct(s.work.counts.plumbing || 0, s.work.total)} of ${s.work.total} commits in the week of ${dayWords(s.work.week)} (${(s.work.plumbing < PLUMBING_TARGET ? 'under' : 'over')} the ${pct(PLUMBING_TARGET, 1)} target)`
   : `No commit read for the week of ${dayWords(s.work.week)}`);
 
-/** Plain text for the CI alerts bot (admin/ai-refusal.js tellOwner): a few lines, the decision last, the page and the issue linked. */
+/** One Telegram message under 4096 characters: compact Grey rows, bounded suite lists, the decision and links always retained. */
 export function telegramText(s, issueUrl = '') {
   const groups = GROUPS.filter(group => s.byGroup[group.id]).map(group => `${group.label} ${s.byGroup[group.id]}`).join(' · ');
-  const lines = [`🧪 E2E week to ${dayWords(s.day)}: ${s.redRuns} of ${s.runs} runs red (${pct(s.redRuns, s.runs)})`,
+  const grey = s.grey;
+  const render = limit => [`🧪 E2E week to ${dayWords(s.day)}: ${s.redRuns} of ${s.runs} runs red (${pct(s.redRuns, s.runs)})`,
     s.reds ? `${s.reds} red suites: ${groups}` : 'No red suite this week',
-    s.caught.length ? `Caught a bug: ${list(s.caught)}` : 'No red suite caught a bug',
-    ...(s.idle.length ? [`Red, caught nothing: ${s.idle.map(row => `${row.suite} (${row.noise + row.ours + row.unnamed})`).join(', ')}`] : []),
-    plumbingLine(s), decision(s) ? `Your call: ${decision(s)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`];
-  return lines.join('\n');
+    s.caught.length ? `Caught a bug: ${list(s.caught, row => row.suite, limit)}` : 'No red suite caught a bug',
+    ...(s.idle.length ? [`Red, caught nothing: ${list(s.idle, row => `${row.suite} (${row.noise + row.ours + row.unnamed})`, limit)}`] : []),
+    plumbingLine(s), 'Grey', ...(!grey.read ? ['lane registry not read yet'] : !grey.rows.length ? ['No tolerant or suspended suites.'] : [
+      ...grey.rows.slice(0, limit).map(row => `${row.suite} (${row.lane}, ${row.ageText}, ${row.nights.filter(night => night.green === false).length}/${row.nights.length} red)`),
+      ...(grey.rows.length > limit ? [`…and ${grey.rows.length - limit} more`] : [])]),
+    prGreyText(grey), decision(s, limit) ? `Your call: ${decision(s, limit)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`].join('\n');
+  // Shrink every suite list together: a large scorecard or decision must not crowd out the decision line and links.
+  let limit = Math.max(s.caught.length, s.idle.length, s.prune.length, grey.rows.length), text = render(limit);
+  while (text.length >= 4096 && limit > 0) text = render(--limit);
+  return text;
 }
 
 /** The GitHub issue body: the verdict, the same numbers as tables, the decision, and where each number comes from. */
@@ -60,6 +72,7 @@ export function issueBody(s) {
     ...(s.causes.length ? ['', `Top causes: ${s.causes.map(row => `${label(row.id)} ${row.n}`).join(', ')}.`] : []),
     '', '**Scorecard** (last 7 days; a catch = the fix changed the app, the extension or the engine)', '',
     ...(score ? ['| Suite | Caught a bug | Test noise | Our CI and AI | Not named | Job time |', '|---|---|---|---|---|---|', score] : ['No red suite.']),
+    '', ...greyLines(s.grey),
     '', `**Where e2e work went** (week of ${dayWords(s.work.week)}; target: plumbing under ${pct(PLUMBING_TARGET, 1)})`, '',
     '| Kind | Commits |', '|---|---|', ...WORK_KINDS.map(kind => `| ${kind.label} | ${s.work.counts[kind.id] || 0} |`),
     ...(s.files.length ? ['', `Changed most: ${s.files.map(row => `\`${row.file}\` ${row.commits}`).join(', ')}.`] : []),

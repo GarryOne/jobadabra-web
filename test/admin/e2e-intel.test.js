@@ -111,3 +111,24 @@ test('GET ?snapshot=1 hands the weekly summary the row the page draws; none yet 
   assert.equal(await response.text(), stored);
   assert.equal((await get('wrong')).status, 404);
 });
+
+test('public main lanes and observed suite nights live in the same snapshot, survive an hourly update, and replace an empty registry', async () => {
+  const {ingest} = await import('../../admin/e2e-intel.js');
+  const e = env(), at = new Date('2026-10-30T12:00:00Z');
+  const send = body => ingest(new Request('https://test/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify({runs: [], fails: [], ...body})}), e, at);
+  const lanes = {suites: {quality: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: 'Unkeyed question'}, old: {lane: 'retired', since: '2026-10-01'}}};
+  await send({lanes, mainBands: {quality: {agree: {lower: 0.8, upper: 0.95}}}, prGreys: [{day: '2026-10-30', reason: 'main', n: 2}], suiteNights: [{runId: 9, day: '2026-10-29', kind: 'nightly', suite: 'quality', platform: 'mac', green: true}, {runId: 10, day: '2026-10-30', kind: 'pr', suite: 'quality', platform: 'mac', green: true}]});
+  await send({suiteNights: [{runId: 9, day: '2026-10-29', kind: 'nightly', suite: 'quality', platform: 'mac', green: false, rates: {agree: 0.6}}]});
+  const s = JSON.parse(e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body);
+  assert.equal(s.lanes.suites.quality.since, '2026-10-29');
+  assert.equal(s.lanes.suites.quality.returns, undefined);
+  assert.equal(s.suiteNights.length, 1, 'PR runs are not nights; re-reading a run replaces its observation');
+  assert.equal(s.suiteNights[0].green, false);
+  assert.deepEqual(s.suiteNights[0].rates, {agree: 0.6});
+  assert.deepEqual(s.mainBands, {quality: {agree: {lower: 0.8, upper: 0.95}}});
+  assert.deepEqual(s.prGreys, [{day: '2026-10-30', reason: 'main', n: 2}]);
+  const known = await (await call(e, {headers: {Authorization: 'Bearer pub'}})).json();
+  assert.deepEqual(known.suiteNights, [9], 'settled runs still missing suite history can be backfilled');
+  await send({lanes: {suites: {}}});
+  assert.deepEqual(JSON.parse(e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body).lanes, {suites: {}});
+});
