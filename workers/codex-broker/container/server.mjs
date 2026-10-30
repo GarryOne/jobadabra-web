@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
+import {weeklyWindow} from './weekly.mjs';
 
 const HOME = process.env.CODEX_HOME, AUTH = path.join(HOME, 'auth.json');
 const CALL_TIMEOUT_MS = 100000;   // under the callers' own wait, so a hung codex comes back with its last output instead of a dropped request (28 Oct 2026)
@@ -50,7 +51,7 @@ function readLimits() {
         const line = buf.slice(0, i); buf = buf.slice(i + 1);
         let m; try { m = JSON.parse(line); } catch { continue; }
         if (m.id === 1) { send({method: 'initialized'}); send({id: 2, method: 'account/rateLimits/read'}); }
-        if (m.id === 2) { const p = m.result?.rateLimits?.primary; done(p ? {usedPercent: p.usedPercent, resetsAt: p.resetsAt} : null); }
+        if (m.id === 2) done(weeklyWindow(m.result?.rateLimits));
       }
     });
     send({id: 1, method: 'initialize', params: {clientInfo: {name: 'codex-broker', title: 'codex-broker', version: '1'}}});

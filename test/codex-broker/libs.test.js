@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {verifyRunToken} from '../../workers/codex-broker/lib/oidc.mjs';
 import {laneOf} from '../../workers/codex-broker/lib/lanes.mjs';
 import {allow, newMeter, record, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
+import {weeklyWindow} from '../../workers/codex-broker/container/weekly.mjs';
 import {refuseReply} from '../../workers/codex-broker/lib/guard.mjs';
 import {modelOf, tierOfClaude} from '../../workers/codex-broker/lib/tiers.mjs';
 import {slots} from '../../workers/codex-broker/lib/queue.mjs';
@@ -122,4 +123,13 @@ test('a planted injection\'s reply is refused: tokens, login fields, long encodi
   for (const text of [`Here: ${jwt}`, '{"refresh_token": "abc"}', 'x'.repeat(120), 'sk-' + 'a'.repeat(30), 'y '.repeat(10001)])
     assert.match(refuseReply(text), /^reply-refused/, text.slice(0, 20));
   assert.equal(refuseReply('{"verdict":"pass","reason":"the image is mostly red"}'), null);
+});
+
+test('the week reading is the window that lasts a week, whichever slot it sits in', () => {
+  const day = {usedPercent: 3, resetsAt: 1, windowDurationMins: 300}, week = {usedPercent: 32, resetsAt: 2, windowDurationMins: 10080};
+  assert.deepEqual(weeklyWindow({primary: week, secondary: null}), {usedPercent: 32, resetsAt: 2});
+  assert.deepEqual(weeklyWindow({primary: day, secondary: week}), {usedPercent: 32, resetsAt: 2});   // the 5h window in primary must not be taken for the week
+  assert.equal(weeklyWindow({primary: day, secondary: null}), null);
+  assert.equal(weeklyWindow({primary: {usedPercent: 32, resetsAt: 2}}), null);   // no length given: not trusted
+  assert.equal(weeklyWindow(undefined), null);
 });
