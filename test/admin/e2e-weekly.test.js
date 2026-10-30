@@ -71,13 +71,43 @@ const greySnapshot = (since = '2026-10-29') => ({at: monday.toISOString(), lanes
   gone: {lane: 'retired', since: '2026-10-01', why: 'Removed'}
 }}});
 
-test('Grey uses UTC calendar age, missing exit conditions, and the same rows in the issue and Telegram', () => {
+test('Grey keeps full rows in the issue and compact suite lines in Telegram', () => {
   const s = weekly(greySnapshot(), new Date('2026-10-30T23:59:00Z'));
   assert.deepEqual(s.grey.rows.map(row => [row.suite, row.age]), [['paused', 2], ['quality', 1]]);
   assert.match(issueBody(s), /quality.*tolerant.*ai.*An unkeyed ask.*2026-10-29.*1 day.*no exit condition yet/);
-  assert.match(telegramText(s), /Grey[^]*quality[^]*no exit condition yet/);
+  assert.match(telegramText(s), /\nquality \(tolerant, 1 day, 0\/0 red\)\n/);
+  assert.doesNotMatch(telegramText(s), /no exit condition yet|An unkeyed ask/);
   assert.match(issueBody(s), /PR grey reasons not stored; counts unavailable/);
   assert.match(issueBody(weekly({}, monday)), /lane registry not read yet/);
+});
+
+test('300 detailed Grey suites fit one Telegram message without losing the decision or links', t => {
+  const suites = Array.from({length: 300}, (_, i) => `suite-${String(i).padStart(3, '0')}`);
+  const why = 'W'.repeat(500), returns = 'R'.repeat(500);
+  const s = weekly({lanes: {suites: Object.fromEntries(suites.map(suite => [suite,
+    {lane: 'tolerant', since: '2026-10-10', why, returns}]))},
+  suiteNights: suites.flatMap(suite => ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']
+    .map((day, i) => ({suite, day, kind: 'nightly', green: i !== 0})))}, monday);
+  const url = 'https://github.com/GarryOne/jobadabra-web/issues/9';
+  const text = telegramText(s, url);
+  t.diagnostic(`300 Grey suites: ${text.length} Telegram characters`);
+  assert.ok(text.length < 4096, `Telegram text has ${text.length} characters`);
+  assert.match(text, /\nsuite-000 \(tolerant, 23 days, 1\/7 red\)\n/);
+  const shown = text.split('\n').filter(line => /^suite-\d+ \(/.test(line)).length;
+  assert.ok(shown > 0 && shown < 300);
+  assert.ok(text.includes(`\n…and ${300 - shown} more\n`));
+  assert.match(text, /\nYour call: Grey: suite-000 .*keep, fix or retire\?/);
+  assert.ok(text.endsWith(`https://www.jobadabra.top/admin/operations/e2e\n${url}`));
+  assert.doesNotMatch(text, /W{500}|R{500}|2026-10-26 red/);
+  const body = issueBody(s);
+  const fullRows = body.split('\n').filter(line => /^suite-\d+ ·/.test(line));
+  assert.equal(fullRows.length, 300);
+  assert.ok(fullRows.every(line => line.includes(why) && line.includes(returns)));
+  assert.match(body, /2026-10-26 red/);
+
+  const busy = {...s, caught: suites.map(suite => ({suite})), idle: suites.map(suite => ({suite, noise: 1, ours: 0, unnamed: 0})),
+    prune: suites.map(suite => ({suite, reds: 1, min: 10}))};
+  assert.ok(telegramText(busy, url).length < 4096, 'the cap covers scorecard and decision lists too');
 });
 
 test('Grey expiry is strictly more than 14 days; it joins prune in ONE owner decision', () => {
