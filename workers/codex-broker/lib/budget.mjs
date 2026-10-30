@@ -24,7 +24,9 @@ export const ownSharePct = (meter, tokensPerPercent = TOKENS_PER_PERCENT) => Obj
  * A refusal is said as a reason word the job shows in its check ("budget:own-share", "budget:week"); the job then replays or goes grey, never a paid engine.
  */
 export function allow(lane, meter, weekUsedPercent, tokensPerPercent = TOKENS_PER_PERCENT) {
-  const own = ownSharePct(meter, tokensPerPercent);
+  // Why (30 Oct 2026, owner's goal: a green hand beta): the seed ratio was never replaced by a measured one, so 43.2M tokens read 60.06% while Codex said the whole week, the owner's
+  // sessions included, was 32% used: every scheduled and manual run was refused with "own-share 60.1% of 60%". A part cannot exceed the whole, so the share is capped by the week reading.
+  const own = Math.min(ownSharePct(meter, tokensPerPercent), weekUsedPercent ?? Infinity);
   if (own >= LIMITS.own[lane]) return {ok: false, why: `budget:own-share ${own.toFixed(1)}% of ${LIMITS.own[lane]}% (${lane})`};
   if (weekUsedPercent != null && weekUsedPercent >= LIMITS.week[lane]) return {ok: false, why: `budget:week ${weekUsedPercent}% of ${LIMITS.week[lane]}% (${lane})`};
   return {ok: true};
