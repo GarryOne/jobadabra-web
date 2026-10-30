@@ -53,6 +53,17 @@ export function jobMinutes(jobs = []) {
   return {queueMin: Math.round(queue * 10) / 10, runMin: Math.round(running * 10) / 10};
 }
 
+/** Existing GitHub job reads -> successful first-try suite seconds only; no setup jobs, log text or non-main release runs. */
+// Why (30 Oct 2026, a8): promise steps need artifact lists and ZIP reads; ship job medians from existing reads first, without expanding the hourly call caps.
+export function suiteJobTimes(run) {
+  if (run.kind !== 'pr' && run.headBranch !== 'main') return [];
+  return (run.jobs || []).flatMap(job => {
+    const id = suiteJob(job, run), seconds = (Date.parse(job.completed_at) - Date.parse(job.started_at)) / 1000;
+    return id && /^[\w.+-]{1,80}$/.test(id.suite) && job.conclusion === 'success' && !again(job) && Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400
+      ? [{suite: id.suite, seconds}] : [];
+  });
+}
+
 // One red's cause. deps (async, may return null = could not read): commitsBetween(a, b) -> [{sha, message}], filesOf(sha) -> [file], filesBetween(a, b) -> [file],
 // prFiles(pr) -> [file], diffOf(sha) -> text, ask({system, user}) -> text or null (no AI token: null). log === null: the log was not read this pass (the red is read again later).
 export async function causeOfRed({run, red, log, next}, deps) {
@@ -87,7 +98,7 @@ export function answerText(data) {
 export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
   const out = {runs: [], fails: [], suiteNights: []};
   for (const [index, run] of runs.entries()) {
-    out.runs.push({runId: run.databaseId, createdAt: run.createdAt, kind: run.kind, conclusion: run.conclusion, minutes: minutesOf(run.createdAt, run.updatedAt), ...jobMinutes(run.jobs), pr: run.pr || null});
+    out.runs.push({runId: run.databaseId, createdAt: run.createdAt, kind: run.kind, conclusion: run.conclusion, minutes: minutesOf(run.createdAt, run.updatedAt), ...jobMinutes(run.jobs), suiteJobs: suiteJobTimes(run), pr: run.pr || null});
     if (run.conclusion === 'cancelled') continue;   // a cancelled run is a try that showed nothing: its jobs are not reds
     if (['nightly', 'scheduled'].includes(run.kind)) for (const job of run.jobs || []) {
       const id = suiteJob(job, run);

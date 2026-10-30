@@ -143,3 +143,31 @@ test('PR greys count only this week and only stored reasons, using the shared su
   assert.deepEqual(s.grey.pr, {main: 2, runner: 0, 'ai-credit': 1, install: 0, tolerant: 0});
   assert.match(issueBody(s), /main's own red 2 · runner 0 · AI credit 1 · install 0 · tolerant 0/);
 });
+
+test('weekly speed uses thirty days of shared rows, the slowest three, and the strict PR warning', () => {
+  const speedRuns = [1, 2, 3].flatMap(runId => ['scheduled', 'pr'].map((kind, j) => ({runId: runId + 10 * j, kind, createdAt: '2026-10-10T12:00:00Z',
+    suiteJobs: (kind === 'pr' ? [['interactions', 481]] : [['jobs', 307], ['activityfailures', 194], ['focus', 22], ['updates', 7]])
+      .map(([suite, seconds]) => ({suite, seconds}))})));
+  const s = weekly({...snapshot, speedRuns}, monday);
+  const lines = telegramText(s).split('\n');
+  assert.ok(lines.includes('Slowest: jobs 5m07s (3 runs), activityfailures 3m14s (3 runs), focus 22s (3 runs)'));
+  assert.ok(lines.includes('PR suites over 8 min: interactions (8m01s, 3 runs)'));
+  assert.match(issueBody(s), /Slowest: jobs 5m07s \(3 runs\)/);
+  assert.match(telegramText(weekly({...snapshot, speedRuns: speedRuns.map(r => r.kind === 'pr' ? {...r, suiteJobs: [{suite: 'interactions', seconds: 480}]} : r)}, monday)), /PR suites over 8 min: none/);
+  assert.doesNotMatch(telegramText(weekly(snapshot, monday)), /Slowest:|PR suites over 8 min:/, 'missing data adds no line');
+});
+
+test('a busy week with 300 Grey, scorecard and slow PR suites keeps speed, decision and links under Telegram limit', t => {
+  const suites = Array.from({length: 300}, (_, i) => `suite-${String(i).padStart(3, '0')}-${'x'.repeat(60)}`);
+  const speedRuns = [1, 2, 3].flatMap(runId => ['scheduled', 'pr'].map((kind, j) => ({runId: runId + j * 10, kind, createdAt: '2026-11-01T12:00:00Z', suiteJobs: suites.map(suite => ({suite, seconds: 481}))})));
+  const lanes = {suites: Object.fromEntries(suites.map(suite => [suite, {lane: 'tolerant', since: '2026-10-10'}]))};
+  const s = weekly({...snapshot, speedRuns, lanes}, monday), url = 'https://github.com/GarryOne/jobadabra-web/issues/99999';
+  const busy = {...s, caught: suites.map(suite => ({suite})), idle: suites.map(suite => ({suite, noise: 1, ours: 0, unnamed: 0})), prune: suites.map(suite => ({suite, reds: 1, min: 10}))};
+  const text = telegramText(busy, url);
+  t.diagnostic(`Busy speed week: ${text.length} Telegram characters`);
+  assert.ok(text.length < 4096);
+  assert.match(text, /Slowest:/);
+  assert.match(text, /PR suites over 8 min:/);
+  assert.match(text, /Your call:/);
+  assert.ok(text.endsWith(url));
+});

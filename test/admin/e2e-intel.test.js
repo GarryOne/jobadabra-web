@@ -132,3 +132,17 @@ test('public main lanes and observed suite nights live in the same snapshot, sur
   await send({lanes: {suites: {}}});
   assert.deepEqual(JSON.parse(e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body).lanes, {suites: {}});
 });
+
+test('suite timings survive snapshot refresh, deduplicate re-reads, expire after thirty days and drop unbounded fields', async () => {
+  const {ingest} = await import('../../admin/e2e-intel.js');
+  const e = env(), at = new Date('2026-10-30T12:00:00Z');
+  const send = runs => ingest(new Request('https://test/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify({runs, fails: []})}), e, at);
+  const timed = (id, extra = {}) => run(id, 'success', {createdAt: '2026-10-29T12:00:00Z', kind: 'scheduled', suiteJobs: [{suite: 'jobs', seconds: 307, log: 'never stored'}], ...extra});
+  await send([timed(1), timed(2, {createdAt: '2026-09-30T11:59:59Z'}), timed(3, {suiteJobs: [{suite: 'invalid', seconds: -1}, {suite: 'too-long', seconds: 86401}]})]);
+  await send([timed(1, {suiteJobs: [{suite: 'jobs', seconds: 308}]})]);
+  await send([]);
+  const s = await buildSnapshot(e.STATS, at);
+  assert.deepEqual(s.speedRuns, [{runId: 1, createdAt: '2026-10-29T12:00:00Z', kind: 'scheduled', suiteJobs: [{suite: 'jobs', seconds: 308}]}]);
+  const later = await buildSnapshot(e.STATS, new Date('2026-12-01T12:00:00Z'));
+  assert.deepEqual(later.speedRuns, []);
+});
