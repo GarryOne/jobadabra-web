@@ -140,7 +140,11 @@ export const seeds = {
     }
     const {weekOf} = await import('../admin/e2e-work.js'), weeks = [...new Set(work.map(row => weekOf(row.day)))];
     const workFiles = weeks.flatMap((week, w) => weekFiles.map((file, i) => ({week, file, commits: 18 - i * 3 - w})));
-    await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles})}), env);
+    const week = weekOf(dayAt(0).slice(0, 10)), escapes = [
+      {week, sha: 'a'.repeat(40), suites: ['apply'], none: false, journey: 'Applying with a silent Chrome extension'},
+      {week, sha: 'b'.repeat(40), suites: [], none: true, journey: 'a card stuck on Checking'},
+    ];
+    await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles, escapes})}), env);
   },
   'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and stored PR reasons; direct snapshot works for before shots too
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
