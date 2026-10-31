@@ -5,6 +5,7 @@
 import {mediaRange} from './range.js';
 import {videoIngest, videoView} from '../../admin/lab-video.js';
 import * as sentryAlert from '../../admin/sentry-alert.js';
+import {startE2eIntel} from '../../shared/e2e-intel-start.js';
 import {replaysIngest} from '../../admin/applying-replays.js';
 import {fidelityIngest} from '../../admin/applying-fidelity.js';
 import {verifyIngest} from '../../admin/applying-verify.js';
@@ -297,6 +298,8 @@ export default {
       ctx.waitUntil(readyTick(env).then(done => { if (done.started || done.finished) console.log(`ready tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`ready tick: ${error.message}`)));   // Ready to send: due nights to the Queue, over-time nights finished (api/ready-tick.js; nothing while READY_TO_SEND is off)
       ctx.waitUntil(readySweep(env).catch(error => console.error(`ready sweep: ${error.message}`)));   // Ready to send: a batch older than a day loses its data (api/ready.js)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
+      // Why (31 Oct 2026, owner "Start it from the Worker"): GitHub's hourly schedule of e2e-intel.yml ran every ~4.5 h; this trigger fires on time, one tick an hour (shared/e2e-intel-start.js). All 5 account cron triggers are used.
+      ctx.waitUntil(startE2eIntel(env, new Date(event.scheduledTime || Date.now()), dispatch).then(started => { if (started) console.log('scheduled e2e-intel.yml cron=*/5'); }).catch(error => console.error(`e2e-intel start failed: ${error.message}; GitHub's own schedule is the backup`)));
       return;
     }
     ctx.waitUntil(sentryAlert.purge(env).catch(error => console.error(`sentry alert purge: ${error.message}`)));
