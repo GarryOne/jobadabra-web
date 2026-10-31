@@ -248,7 +248,7 @@ test('guarded admin read shows broker fallback spend, holds and caps from its se
   }}};
   const data = await read(env);
   assert.equal(data.fallback.claude, 4.25); assert.equal(data.fallback.freeAi, 0.12);
-  const request = new Request('https://x.dev/admin/ai-cost', {headers: {cookie: 'stats_key=fixture-key'}});
+  const request = new Request('https://x.dev/admin/intelligence/ai-cost', {headers: {cookie: 'stats_key=fixture-key'}});
   // Use the same supported owner bearer as the local page-shot Worker.
   env.STATS_API_KEY = 'fixture-owner';
   const response = await view(new Request(request, {headers: {Authorization: 'Bearer fixture-owner'}}), env);
@@ -258,7 +258,7 @@ test('guarded admin read shows broker fallback spend, holds and caps from its se
   assert.match(html, /Claude \$5.00/); assert.match(html, /Free AI \$2.00/); assert.match(html, /reserved: Claude \$0.03/);
   let accessed = false;
   env.CODEX_BROKER.fetch = async () => { accessed = true; throw new Error('offline'); };
-  assert.equal((await view(new Request('https://x.dev/admin/ai-cost'), env)).status, 404);
+  assert.equal((await view(new Request('https://x.dev/admin/intelligence/ai-cost'), env)).status, 404);
   assert.equal(accessed, false);
   const unavailable = await view(new Request(request, {headers: {Authorization: 'Bearer fixture-owner'}}), env);
   assert.match(await unavailable.text(), /CI fallback: data unavailable/);
