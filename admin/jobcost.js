@@ -26,8 +26,8 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'sentry-fix': ['Sentry fixer', 'Self-heal'],
   'weekly-self-review': ['Weekly self-review', 'Self-heal'],
   'product-brain': ['Product brain', 'Product brain'],
-  'changelog-publish': ['Changelog publish', 'What\'s new'],   // jobs/changelog-publish.mjs: Haiku writes each new version's entry (DIGEST_ANTHROPIC_KEY)
-  'daily-digest': ['Daily build digest', 'Build log'],   // jobs/daily-digest.mjs: Haiku groups the day's merged PRs (DIGEST_ANTHROPIC_KEY)
+  'changelog-publish': ['Changelog publish', 'What\'s new'],   // jobs/changelog-publish.mjs: a Haiku-tier call on the Codex broker writes each new version's entry (usd 0: the plan has no dollars; `calls` is the cost)
+  'daily-digest': ['Daily build digest', 'Build log'],   // jobs/daily-digest.mjs: a Haiku-tier call on the Codex broker groups the day's merged PRs (usd 0; `calls`)
   'pool-live': ['Pool live runs', 'Live tests'],   // the CI pool on real sites (.github/workflows/record-sites.yml)
   'pool-watch': ['Pool daily watch', 'Live tests'],   // the daily live watch list, its own $25 month cap (.github/workflows/watch-live.yml)
   'replay-refill': ['Replay refill', 'Live tests'],   // the CI refill of replay answers, its own key (.github/workflows/replay-refill.yml)

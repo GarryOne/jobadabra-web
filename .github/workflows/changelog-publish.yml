@@ -1,5 +1,5 @@
 name: CI · Changelog publish
-# The What's new page publishes itself (owner, 18 Oct 2026): every stable release and every build the beta gate approved gets an entry, drafted by Haiku in plain words (new features / improvements / bug fixes),
+# The What's new page publishes itself (owner, 18 Oct 2026): every stable release and every build the beta gate approved gets an entry, drafted by a Haiku-tier call on the Codex broker (since 31 Oct 2026; no Anthropic key) in plain words (new features / improvements / bug fixes),
 # checked by admin/changelog.js and published to https://www.jobpilotto.top/changelog (PUT /changelog/data, SELFHEAL_PUBLISH_KEY). No commit, no PR. When the AI cannot draft (limit, bad key, outage) the version goes out as a PLAIN entry built without it, the run is red with the refusal named + a Telegram message, and the next run that can reach the AI writes it again (admin/changelog-plain.js).
 # This run drafts only versions NEWER than the newest on the page; the one-time backfill of older versions (+ the 0.0.1 start entry) was run once from the owner's Mac, `node jobs/changelog-publish.mjs --plan|--backfill`, never from here.
 # Runs hourly at :23 (the fallback; the release workflow starts it on each release), or by hand: `gh workflow run changelog-publish.yml`.
@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
   actions: read   # the alert tells only when the run before was not already red (admin/ai-refusal.js)
+  id-token: write   # Why (31 Oct 2026, owner: "We should use fully the Codex"): the run's OIDC token is how the job proves itself to the Codex broker (desktop/e2e/lib/broker-client.mjs); no Anthropic key
 
 concurrency:
   group: changelog-publish
@@ -23,7 +24,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: GarryOne/jobadabra   # the public repo's PRs, runs and tags (read with this repo's token: public data)
-      DIGEST_ANTHROPIC_KEY: ${{ secrets.DIGEST_ANTHROPIC_KEY }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
       BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # the alert when the AI refuses (CI alerts bot first, else this one)
       BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
@@ -45,7 +45,7 @@ jobs:
         if: always()
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
-        run: if [ -s "$RUNNER_TEMP/cost.json" ]; then node desktop/e2e/ai-cost-report.mjs --job changelog-publish --file "$RUNNER_TEMP/cost.json"; else echo "no AI call this run"; fi
+        run: if [ -s "$RUNNER_TEMP/cost.json" ]; then node desktop/e2e/ai-cost-report.mjs --job changelog-publish --provider openai --file "$RUNNER_TEMP/cost.json"; else echo "no AI call this run"; fi
       - name: Summary
         if: always()
         run: |

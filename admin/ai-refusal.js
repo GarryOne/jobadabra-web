@@ -1,23 +1,27 @@
 // What a job does when the AI refuses (owner, 24 Oct 2026: the Anthropic workspace hit its monthly limit; the changelog job stayed green and "retried at the next run" for a day, the daily digest failed 7 of 8 runs unseen).
-// One place for every job that calls the Anthropic API from here: name the refusal (limit / auth / rate / overloaded), tell the owner on Telegram (once per outage, not every hour), never print the key.
+// One place for every job that asks the Codex broker from here (since 31 Oct 2026 no scheduled job calls the Anthropic API: owner, "We should use fully the Codex"): name the refusal (limit / auth / rate / overloaded),
+// say "AI skipped", tell the owner on Telegram (once per outage, not every hour), never print a token.
 // Guard: test/admin/ai-refusal.test.js. The Telegram bot is the CI alerts one when this repo has it, else the Build Log bot (the secrets this repo holds).
 export class AiRefused extends Error {
-  constructor(status, reason) { super(`model answered ${status}: ${reason}`); this.name = 'AiRefused'; this.status = status; this.reason = reason; this.kind = kindOf(status, reason); }
+  constructor(status, reason) { super(`broker answered ${status}: ${reason}`); this.name = 'AiRefused'; this.status = status; this.reason = reason; this.kind = kindOf(status, reason); }
 }
 
-// 400 with "usage limits" is the workspace's own spend cap (it answers 400, not 429); 429 is a rate limit; 529 and 5xx are the API's trouble.
+// The broker's words: 'capped' = its allowance (daily, own share, week) or its login said no (429/503); 'no-token' = this run has no GitHub OIDC token (the workflow needs id-token: write); 'unreachable' = no answer; else its HTTP status
+// (401/403: it did not know the run's token or repository; 5xx: the Codex call itself failed).
 export function kindOf(status, reason = '') {
-  if (status === 401 || status === 403) return 'auth';
+  if (status === 'capped') return 'limit';
+  if (status === 'no-token' || status === 401 || status === 403) return 'auth';
+  if (status === 'unreachable') return 'overloaded';
   if (status === 429) return 'rate';
   if (status === 529 || status >= 500) return 'overloaded';
-  if (/usage limit|spend(ing)? limit|credit balance|billing|quota/i.test(reason)) return 'limit';
+  if (/usage limit|spend(ing)? limit|credit balance|billing|quota|budget/i.test(reason)) return 'limit';
   return 'other';
 }
-const WORDS = {limit: "the Anthropic workspace's spend limit is reached", auth: 'the Anthropic key was refused (wrong, revoked or no access)', rate: 'Anthropic is rate-limiting this key', overloaded: 'Anthropic is overloaded or down', other: 'Anthropic refused the request'};
+const WORDS = {limit: "the Codex plan's allowance or login is not available", auth: 'the Codex broker did not accept this run (no run token, or a repository it does not know)', rate: 'the Codex broker is rate-limiting', overloaded: 'the Codex broker is unreachable or its Codex call failed', other: 'the Codex broker refused the request'};
 
 export const isRefusal = error => error instanceof AiRefused;
-// "AI refused (limit): <the API's own words>": for the log line, the red run and the Telegram message.
-export const describe = error => `AI refused (${error.kind}): ${WORDS[error.kind]}. ${error.reason}`;
+// "AI skipped (limit): <the broker's own words>": for the log line, the red run and the Telegram message.
+export const describe = error => `AI skipped (${error.kind}): ${WORDS[error.kind]}. ${error.reason}`;
 // A limit or a bad key will not clear within the run: the job stops asking and uses its fallback for everything left.
 export const staysDown = error => isRefusal(error) && ['limit', 'auth', 'rate', 'overloaded'].includes(error.kind);
 

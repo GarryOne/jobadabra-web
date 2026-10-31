@@ -27,6 +27,13 @@ test('a live run of the owner\'s repo is accepted', async () => {
   assert.equal((await verifyRunToken(await sign(good), opts(jwks))).event_name, 'pull_request');
 });
 
+test('the broker takes run tokens of the public repo and the private site repo, and no third (31 Oct 2026: the site\'s changelog and digest jobs run on Codex)', async () => {
+  const {sign, jwks} = await signer(), both = {...opts(jwks), repository: ['GarryOne/jobadabra', 'GarryOne/jobadabra-web']};
+  for (const repository of ['GarryOne/jobadabra', 'GarryOne/jobadabra-web']) assert.equal((await verifyRunToken(await sign({...good, repository}), both)).repository, repository);
+  const third = await sign({...good, repository: 'GarryOne/jobadabra-lab'});
+  await assert.rejects(() => verifyRunToken(third, both), /wrong repository/);
+});
+
 test('every other caller is refused with its reason', async () => {
   const {sign, jwks} = await signer(), other = await signer();
   const cases = [

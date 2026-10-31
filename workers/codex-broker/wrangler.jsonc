@@ -7,7 +7,7 @@
   "workers_dev": true,
   "observability": {"enabled": true},
   // Why (31 Oct 2026, owner: '$2/day'): Free AI has its own UTC-day cap, separate from Claude's $5/day.
-  "vars": {"AUDIENCE": "jobadabra-codex-broker", "REPOSITORY": "GarryOne/jobadabra", "FALLBACK_FREE_AI_DAY_USD": "2"},
+  "vars": {"AUDIENCE": "jobadabra-codex-broker", "REPOSITORY": "GarryOne/jobadabra,GarryOne/jobadabra-web", "FALLBACK_FREE_AI_DAY_USD": "2"},
   "containers": [
     {"class_name": "CodexBroker", "image": "./container/Dockerfile", "image_build_context": ".", "instance_type": "basic", "max_instances": 1}
   ],

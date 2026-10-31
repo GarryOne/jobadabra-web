@@ -1,5 +1,5 @@
 // The daily build digest ("what we built today", spec docs/superpowers/specs/2026-10-16-daily-digest.md): the pure parts. A day's merged PRs are cut down to a few lines each,
-// Haiku groups them by goal and answers a FIXED JSON shape, and this file validates that answer and writes the markdown (the intro and the PR numbers are code's, never the AI's).
+// Haiku-tier (on the Codex broker) groups them by goal and answers a FIXED JSON shape, and this file validates that answer and writes the markdown (the intro and the PR numbers are code's, never the AI's).
 // Used by jobs/daily-digest.mjs (CI) and the admin page. Guard: test/admin/build-digest.test.js (a fixture of the 16 Oct 2026 PRs, no live AI).
 import {AiRefused} from './ai-refusal.js';
 export const MODEL = 'claude-haiku-5-5';
@@ -95,38 +95,31 @@ export function render({day, groups, open, numbers}) {
   return `${intro}\n\n${body}${body ? '\n\n' : ''}**Still open:** ${open || 'Nothing open.'}\n`;
 }
 
-// What the API said when it refused: its error type and message ("invalid_request_error: You have reached your specified API usage limits…"), never the key.
-export async function whyRefused(response, key = '') {
-  let text = '';
-  try { text = await response.text(); } catch { return 'no reason given'; }
-  let said = text;
-  try { const error = JSON.parse(text)?.error; if (error?.message) said = `${error.type ? `${error.type}: ` : ''}${error.message}`; } catch { /* not JSON: the raw text */ }
-  if (key) said = said.split(key).join('[key]');
-  return said.replace(/\s+/g, ' ').trim().slice(0, 300) || 'no reason given';
-}
-
-// Ask the model (fetch is injected, a test passes a fake). -> {text, usage, stopReason} of the Messages API; throws on a non-2xx.
-export async function ask({system, user}, {key, model = MODEL, fetch: doFetch = fetch, maxTokens = MAX_TOKENS}) {
-  const response = await doFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'},
-    body: JSON.stringify({model, max_tokens: maxTokens, system, messages: [{role: 'user', content: user}]})});
-  if (!response.ok) throw new AiRefused(response.status, await whyRefused(response, key));
-  const out = await response.json();
-  return {text: (out.content || []).map(part => part.text || '').join(''), usage: out.usage || {}, stopReason: out.stop_reason || ''};
+// Ask the model on the Codex plan (owner, 31 Oct 2026: "Why Anthropic is reached? We should use fully the Codex"). `broker` is askBroker of desktop/e2e/lib/broker-client.mjs (the public tree's; a test passes a fake):
+// it takes a Messages-shaped request, runs it on the Codex broker with this run's GitHub OIDC token (Haiku -> tier small) and answers {ok, message: {content, stop_reason, usage}} or {ok: false, status, detail}.
+// -> {text, usage, stopReason}; a refusal throws AiRefused (status 'capped' = the broker's budget or login said no, 'no-token', 'unreachable', or the broker's HTTP status), so jobs skip the AI loudly and use their fallback.
+export async function ask({system, user}, {broker, model = MODEL, maxTokens = MAX_TOKENS}) {
+  if (!broker) throw new AiRefused('no-token', 'no broker client given to the job');
+  const result = await broker({model, max_tokens: maxTokens, system, messages: [{role: 'user', content: user}]});
+  if (!result.ok) throw new AiRefused(result.status, String(result.detail || 'no reason given').replace(/\s+/g, ' ').trim().slice(0, 300));
+  const message = result.message || {};
+  return {text: (message.content || []).map(part => part.text || '').join(''), usage: message.usage || {}, stopReason: message.stop_reason || ''};
 }
 
 // The whole step: summaries + open PRs -> {markdown, groups, numbers, usage} (one retry on a bad answer), or throws.
-export async function makeDigest({day, prs, open = [], key, model, fetch: doFetch}) {
+export async function makeDigest({day, prs, open = [], broker, model}) {
   const summaries = prs.map(summarize), numbers = summaries.map(item => item.number);
-  if (!numbers.length) return {markdown: render({day, groups: [], open: '', numbers}), groups: [], open: '', numbers, usage: {}};
+  if (!numbers.length) return {markdown: render({day, groups: [], open: '', numbers}), groups: [], open: '', numbers, usage: {}, calls: 0};
   const prompt = buildPrompt(summaries, open);
   const usage = {input_tokens: 0, output_tokens: 0};
-  let failure = '', maxTokens = MAX_TOKENS;
+  let failure = '', maxTokens = MAX_TOKENS, calls = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const {text, usage: used, stopReason} = await ask(prompt, {key, model, fetch: doFetch, maxTokens});
+    calls += 1;   // counted before the call: a refused call still used the allowance
+    const {text, usage: used, stopReason} = await ask(prompt, {broker, model, maxTokens});
     usage.input_tokens += used.input_tokens || 0; usage.output_tokens += used.output_tokens || 0;
     if (stopReason === 'max_tokens') { failure = `cut off at the ${maxTokens}-token limit after ${used.output_tokens || '?'} tokens, ${numbers.length} PRs`; maxTokens = MORE_TOKENS; continue; }
     const checked = validate(text, numbers);
-    if (!checked.error) return {markdown: render({day, groups: checked.groups, open: checked.open, numbers}), groups: checked.groups, open: checked.open, numbers, usage};
+    if (!checked.error) return {markdown: render({day, groups: checked.groups, open: checked.open, numbers}), groups: checked.groups, open: checked.open, numbers, usage, calls};
     failure = checked.error;
   }
   throw new Error(`the model's answer was unusable twice (${failure})`);

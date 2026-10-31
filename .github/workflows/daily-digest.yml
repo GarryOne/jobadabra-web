@@ -1,7 +1,7 @@
 name: CI · Daily build digest
 # "What we built today" (spec docs/superpowers/specs/2026-10-16-daily-digest.md): every hour jobs/daily-digest.mjs asks the site what it holds for the Zurich day, and only when PRs were merged since
-# (at most once an hour, 8 drafts a day) has Haiku regroup them; the draft shows on https://www.jobpilotto.top/admin/operations/build-log. From 23:00 Zurich (and just after midnight for the day before) the final one is stored.
-# The hourly schedule is DST-proof: the script reads the Zurich hour itself. The AI key is the Self-heal workspace's (DIGEST_ANTHROPIC_KEY, no fallback); the spend is reported to /admin/intelligence/ai-cost as job daily-digest.
+# (at most once an hour, 8 drafts a day) has a Haiku-tier call on the Codex broker regroup them; the draft shows on https://www.jobpilotto.top/admin/operations/build-log. From 23:00 Zurich (and just after midnight for the day before) the final one is stored.
+# The hourly schedule is DST-proof: the script reads the Zurich hour itself. The AI runs on the Codex broker since 31 Oct 2026 (owner: "We should use fully the Codex"; no Anthropic key, no fallback: a refusal says "AI skipped" and alerts once); the spend is reported to /admin/intelligence/ai-cost as job daily-digest.
 on:
   schedule:
     - cron: '11 * * * *'
@@ -15,6 +15,7 @@ permissions:
   contents: read
   pull-requests: read
   actions: read   # the alert tells only when the run before was not already red (admin/ai-refusal.js)
+  id-token: write   # Why (31 Oct 2026, owner: "We should use fully the Codex"): the run's OIDC token is how the job proves itself to the Codex broker (desktop/e2e/lib/broker-client.mjs); no Anthropic key
 
 concurrency:
   group: daily-digest-${{ github.run_id }}   # a run of its own (tests/test_workflow_contract.py); the site keeps one row a day, so a repeat is harmless
@@ -27,7 +28,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: GarryOne/jobadabra   # the public repo's PRs, runs and tags (read with this repo's token: public data)
-      DIGEST_ANTHROPIC_KEY: ${{ secrets.DIGEST_ANTHROPIC_KEY }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
       BUILDLOG_TELEGRAM_TOKEN: ${{ secrets.BUILDLOG_TELEGRAM_TOKEN }}   # the Build Log bot (its own bot and chat); missing: the digest is stored, the post is skipped with a line
       BUILDLOG_TELEGRAM_CHAT: ${{ secrets.BUILDLOG_TELEGRAM_CHAT }}
@@ -52,7 +52,7 @@ jobs:
         run: |
           for day in $REWRITE_DAYS; do
             node jobs/daily-digest.mjs --day "$day" --force --final --rewrite --cost "$RUNNER_TEMP/cost-$day.json"
-            node desktop/e2e/ai-cost-report.mjs --job daily-digest --file "$RUNNER_TEMP/cost-$day.json"
+            node desktop/e2e/ai-cost-report.mjs --job daily-digest --provider openai --file "$RUNNER_TEMP/cost-$day.json"
           done
       - name: The What's new page has the newest stable release (no AI)
         if: always()
@@ -61,4 +61,4 @@ jobs:
         if: always()
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
-        run: if [ -s "$RUNNER_TEMP/cost.json" ]; then node desktop/e2e/ai-cost-report.mjs --job daily-digest --file "$RUNNER_TEMP/cost.json"; else echo "no AI call this run"; fi
+        run: if [ -s "$RUNNER_TEMP/cost.json" ]; then node desktop/e2e/ai-cost-report.mjs --job daily-digest --provider openai --file "$RUNNER_TEMP/cost.json"; else echo "no AI call this run"; fi
