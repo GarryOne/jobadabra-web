@@ -1,6 +1,7 @@
-// The broker's own share of the Codex week and the two brakes (spec ci-on-codex-subscription-design, "Using the allowance"): 60% own share for scheduled + benchmarks + drift, 75% for PR checks (60 + their 15), and the whole-week usedPercent as a second brake at 85% / 97%.
-// Why (28 Oct 2026, owner: "burn these tokens"; Gitar on #2375; 30 Oct 2026, owner, JOB-45): usedPercent includes the owner's own sessions, so own tokens protect his 25%; drift keeps the scheduled brakes.
-export const LIMITS = {own: {pr: 75, scheduled: 60, bench: 60, drift: 60}, week: {pr: 97, scheduled: 85, bench: 85, drift: 85}};
+// The broker's own share and Codex's whole-week usedPercent both stop every lane at 100% of the Codex week.
+// Why (28 Oct 2026, owner: "burn these tokens"; Gitar on #2375; 30 Oct 2026, owner, JOB-45): own tokens and usedPercent meter CI and the whole week; the original caps reserved 25% for the owner.
+// Why (31 Oct 2026, owner: "CI can use up to 100%"): the owner gives CI the whole allowance in every lane; keep both refusal brakes at exhaustion.
+export const LIMITS = {own: {pr: 100, scheduled: 100, bench: 100, drift: 100}, week: {pr: 100, scheduled: 100, bench: 100, drift: 100}};
 export const DAILY = {drift: 24};   // Why (30 Oct 2026, owner, JOB-45): 20 stored-answer prompts + up to 4 judges per UTC day; the broker must stop reruns and failed calls from exceeding 24.
 // Seed for tokens per 1% of the week (PR 0, 28 Oct 2026: 1% >= ~40 calls of ~18k tokens); the broker replaces it with its measured ratio.
 export const TOKENS_PER_PERCENT = 720000;
@@ -22,7 +23,7 @@ export function recordCall(meter, lane, now) {
 
 /** Adds completed tokens, never another call; a weekly reset preserves daily reservations. `now` is epoch seconds. */
 export function record(meter, lane, tokens, now, nextResetsAt) {
-  // resetsAt 0 = never set (fresh meter, Codex limits not read yet): adopt a week from now and keep the tokens. Without this, 0 + a week is 1970 and every call opened a fresh meter, so the 60%/75% brake never fired (Gitar on #221).
+  // resetsAt 0 = never set (fresh meter, Codex limits not read yet): adopt a week from now and keep the tokens. Without this, 0 + a week is 1970 and every call opened a fresh meter, so the own-share brake never fired (Gitar on #221).
   if (!meter.resetsAt) meter.resetsAt = nextResetsAt ?? now + 604800;
   const m = now >= meter.resetsAt ? newMeter(nextResetsAt ?? now + 604800) : meter;
   if (m !== meter && meter.daily) m.daily = meter.daily;
