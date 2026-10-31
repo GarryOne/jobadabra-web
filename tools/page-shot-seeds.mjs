@@ -109,6 +109,11 @@ export const seeds = {
     const topup = await env.STATS.prepare("SELECT id FROM pro_promo_codes WHERE label = 'Friends top-up'").first();
     if (credit && topup?.id) await env.STATS.prepare('INSERT INTO pro_promo_credit_uses (code, install, at) VALUES (?, ?, ?)').bind(topup.id, 'demo-install-credit', at).run().catch(() => {});
   },
+  'ai-cost-fallback': async ({env}) => {   // fictional CI spend; no broker, Telegram or AI is contacted
+    await seeds['ai-cost-pro']({env});
+    env.CODEX_BROKER = {fetch: async () => Response.json({fallback: {day: new Date().toISOString().slice(0, 10),
+      claude: 4.25, freeAi: 0.12, claudeCap: 5, freeAiCap: 2, held: {claude: 0, freeAi: 0}}})};
+  },
   'ai-cost-pro': async ({env}) => {   // fictional charged calls only; no provider request or real account
     const at = new Date().toISOString();
     for (const [account, credit, action] of [['fixture-a', -100000, 'kit'], ['fixture-a', -80000, 'tailor'], ['fixture-b', -60000, 'answer']]) {

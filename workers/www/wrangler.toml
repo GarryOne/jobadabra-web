@@ -130,6 +130,11 @@ queue = "ready-runs"
 binding = "READY_RUNNER"
 service = "www-ready-runner"
 
+# Read-only broker health for the guarded AI cost page; no provider credentials cross this binding.
+[[services]]
+binding = "CODEX_BROKER"
+service = "jobadabra-codex-broker"
+
 [[d1_databases]]
 binding = "STATS"
 database_name = "www-stats"

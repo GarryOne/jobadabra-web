@@ -1,6 +1,6 @@
 // The Codex broker (spec docs/superpowers/specs/2026-10-28-ci-on-codex-subscription-design.md in the public repo): every CI, scheduled and benchmark AI call runs here on the owner's one ChatGPT/Codex login.
 // A job proves itself with GitHub's per-run OIDC token (lib/oidc.mjs); the login lives only in this Durable Object's storage and is written through after every call, before the reply is sent.
-// No paid fallback: over budget, login lost or container down are said as a reason (429/503), and the job replays or goes grey.
+// At Codex exhaustion only, a day-capped Claude/Free AI fallback answers; other refusals retain their existing controls.
 import {Container, getContainer} from '@cloudflare/containers';
 import {verifyRunToken, githubJwks} from './lib/oidc.mjs';
 import {laneOf} from './lib/lanes.mjs';
@@ -8,6 +8,7 @@ import {allow, newMeter, record, recordCall, callsToday} from './lib/budget.mjs'
 import {refuseReply} from './lib/guard.mjs';
 import {slots} from './lib/queue.mjs';
 import {modelOf} from './lib/tiers.mjs';
+import {exhausted, fallbackEnabled, fallbackCall, fallbackToday} from './lib/fallback.mjs';
 
 export {ContainerProxy} from '@cloudflare/containers';   // required by the outbound host list below: without it every start fails with "ctx.exports.ContainerProxy is undefined" (28 Oct 2026)
 
@@ -17,6 +18,10 @@ const pass = req => fetch(req);
 const json = (status, body) => new Response(JSON.stringify(body), {status, headers: {'content-type': 'application/json'}});
 
 export class CodexBroker extends Container {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.brokerEnv = env;
+  }
   defaultPort = 8080;
   sleepAfter = '10m';
   enableInternet = false;
@@ -55,7 +60,7 @@ export class CodexBroker extends Container {
   async health() {
     const meter = (await this.ctx.storage.get('meter')) || newMeter(0);
     // Daily counts describe today, even before the first call after UTC midnight.
-    return json(200, {state: (await this.ctx.storage.get('login')) ? ((await this.ctx.storage.get('lost')) ? 'login-lost' : 'ready') : 'no-login', limits: this.limits, own: meter.tokens, daily: {drift: callsToday(meter, 'drift')}, queue: this.gate.stats()});
+    return json(200, {state: (await this.ctx.storage.get('login')) ? ((await this.ctx.storage.get('lost')) ? 'login-lost' : 'ready') : 'no-login', limits: this.limits, own: meter.tokens, daily: {drift: callsToday(meter, 'drift')}, queue: this.gate.stats(), fallback: await fallbackToday(this.ctx.storage, this.brokerEnv)});
   }
 
   async call(lane, body) {
@@ -65,15 +70,23 @@ export class CodexBroker extends Container {
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});
     if (await this.ctx.storage.get('lost')) return json(503, {why: 'login-lost'});
     this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
+    if (this.limits?.resetsAt && this.limits.resetsAt <= Date.now() / 1000) this.limits = null;
     // Check and persist admission together: concurrent calls and reruns share one UTC allowance.
     // No refund on a queue/transport/model failure; the reservation commits before Codex is called.
     const verdict = await this.ctx.storage.transaction(async storage => {
-      const meter = (await storage.get('meter')) || newMeter(0), now = Date.now() / 1000;
+      let meter = (await storage.get('meter')) || newMeter(0);
+      const now = Date.now() / 1000;
+      if (meter.resetsAt && meter.resetsAt <= now) meter = {...newMeter(0), daily: meter.daily};
       const check = allow(lane, meter, this.limits?.usedPercent ?? null, undefined, now);
+      if (!check.ok && exhausted(check.why) && fallbackEnabled(this.brokerEnv)) {
+        await storage.put('meter', recordCall(meter, lane, now));
+        return {ok: true, fallback: true};
+      }
       if (check.ok) await storage.put('meter', recordCall(meter, lane, now));
       return check;
     });
     if (!verdict.ok) return json(429, {why: verdict.why});
+    if (verdict.fallback) return fallbackCall(this.ctx.storage, this.brokerEnv, body, lane, this.limits?.usedPercent ?? null);
     const release = await this.gate.acquire(lane === 'drift' ? 'scheduled' : lane);   // nightly drift shares scheduled queue priority
     try {
       const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, model})});
@@ -81,6 +94,7 @@ export class CodexBroker extends Container {
       let answer;
       try { answer = JSON.parse(text); } catch { return json(502, {why: `container: ${text.slice(0, 300)}`}); }   // the platform's own error text (not our server's JSON): say it, never crash (a 1101 hid it, 28 Oct 2026)
       if (answer.authFile) await this.ctx.storage.put('login', answer.authFile);   // write-through BEFORE the reply goes out: a rotated token is never only in the container
+      if (!reply.ok && exhausted(answer.error) && fallbackEnabled(this.brokerEnv)) return fallbackCall(this.ctx.storage, this.brokerEnv, body, lane, this.limits?.usedPercent ?? null);
       if (!reply.ok) { if (answer.error === 'login-lost') await this.ctx.storage.put('lost', true); return json(reply.status === 500 && answer.error === 'login-lost' ? 503 : 502, {why: refuseReply(answer.error) ? 'codex-failed (detail withheld: token-shaped)' : answer.error}); }
       if (answer.limits) { this.limits = answer.limits; await this.ctx.storage.put('limits', answer.limits); }
       const used = answer.tokens.input + answer.tokens.output;
