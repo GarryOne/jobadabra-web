@@ -140,8 +140,10 @@ export function runsToRead(listed, settled, waiting, max = 200) {
 }
 
 /** Oldest-first listed runs -> the beta runs whose suite counts the site lacks, newest first (the page fills from today back), at most `max` a pass. */
-export function betaRunsToRead(listed, stored, max = 40) {
-  return listed.filter(run => run.kind === 'beta' && !stored.has(run.databaseId)).slice(-max);
+// Why (1 Nov 2026, Gitar on #244): the run list starts at a calendar date (up to ~31 days back) but the site keeps 30 days (cleanBetaRun); a run in that gap was read every hour and thrown away.
+export function betaRunsToRead(listed, stored, max = 40, now = new Date()) {
+  const from = now.getTime() - 30 * 86400000;
+  return listed.filter(run => run.kind === 'beta' && !stored.has(run.databaseId) && Date.parse(run.createdAt) >= from).slice(-max);
 }
 
 /** Oldest-first listed runs -> unread suite history for the last seven observed main nights, bounded per hourly pass; settled red classification does not suppress history. */

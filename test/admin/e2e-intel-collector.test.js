@@ -130,9 +130,11 @@ test('a beta run\'s suite jobs become green / red / not-run counts, red names an
   assert.equal(betaRunRow({...base, jobs: undefined}, at), null, 'jobs not read (a failed GitHub call): no row, read again next hour; never zero suites');
   assert.equal(betaRunRow({...base, kind: 'nightly'}, at), null);
   assert.deepEqual(betaRunRow({...base, jobs: []}, at).green, 0, 'a run with no suite jobs at all is a real row of zeros');
-  const listed = Array.from({length: 5}, (_, i) => ({databaseId: i + 1, kind: i === 2 ? 'nightly' : 'beta'}));
-  assert.deepEqual(betaRunsToRead(listed, new Set([1])).map(item => item.databaseId), [2, 4, 5], 'beta runs the site lacks, nightlies never');
-  assert.deepEqual(betaRunsToRead(listed, new Set(), 2).map(item => item.databaseId), [4, 5], 'newest first within a pass\'s cap');
+  const listed = Array.from({length: 5}, (_, i) => ({databaseId: i + 1, kind: i === 2 ? 'nightly' : 'beta', createdAt: `2026-10-${20 + i}T10:00:00Z`}));
+  assert.deepEqual(betaRunsToRead(listed, new Set([1]), 40, at).map(item => item.databaseId), [2, 4, 5], 'beta runs the site lacks, nightlies never');
+  assert.deepEqual(betaRunsToRead(listed, new Set(), 2, at).map(item => item.databaseId), [4, 5], 'newest first within a pass\'s cap');
+  assert.deepEqual(betaRunsToRead([{databaseId: 8, kind: 'beta', createdAt: '2026-10-02T10:00:00Z'}, {databaseId: 9, kind: 'beta', createdAt: '2026-10-02T12:30:00Z'}], new Set(), 40, at).map(item => item.databaseId), [9],
+    'a run past the 30-day keep window is never read (cleanBetaRun would drop its row, so it would be read again every hour)');
 });
 
 // Same fixture strings as public desktop/test/owner-report.test.js on branch escapes.
