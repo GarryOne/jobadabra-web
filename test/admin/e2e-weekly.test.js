@@ -77,7 +77,7 @@ test('Grey keeps full rows in the issue and compact suite lines in Telegram', ()
   assert.match(issueBody(s), /quality.*tolerant.*ai.*An unkeyed ask.*2026-10-29.*1 day.*no exit condition yet/);
   assert.match(telegramText(s), /\nquality \(tolerant, 1 day, 0\/0 red\)\n/);
   assert.doesNotMatch(telegramText(s), /no exit condition yet|An unkeyed ask/);
-  assert.match(issueBody(s), /PR grey reasons not stored; counts unavailable/);
+  assert.match(issueBody(s), /Grey jobs not recorded yet; counts unavailable/);
   assert.match(issueBody(weekly({}, monday)), /lane registry not read yet/);
 });
 
@@ -136,12 +136,6 @@ test('a combined prune/Grey decision asks once; recorded quality rates never inv
   const s = weekly({...snapshot, ...greySnapshot('2026-10-10'), quality: [{day: '2026-11-01', pairs: 10, within8: 8, over20: 0}]}, monday);
   assert.equal((decision(s).match(/\?/g) || []).length, 1);
   assert.match(issueBody(s), /2026-11-01 result not stored/);
-});
-
-test('PR greys count only this week and only stored reasons, using the shared summary', () => {
-  const s = weekly({...greySnapshot(), prGreys: [{day: '2026-11-01', reason: 'main', n: 2}, {day: '2026-11-01', reason: 'ai-credit', n: 1}, {day: '2026-10-01', reason: 'runner', n: 90}]}, monday);
-  assert.deepEqual(s.grey.pr, {main: 2, runner: 0, 'ai-credit': 1, install: 0, tolerant: 0});
-  assert.match(issueBody(s), /main's own red 2 · runner 0 · AI credit 1 · install 0 · tolerant 0/);
 });
 
 test('weekly speed uses thirty days of shared rows, the slowest three, and the strict PR warning', () => {

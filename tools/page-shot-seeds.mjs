@@ -151,7 +151,7 @@ export const seeds = {
     ];
     await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles, escapes})}), env);
   },
-  'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and stored PR reasons; direct snapshot works for before shots too
+  'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and the stored grey ledger (suite × reason); direct snapshot works for before shots too
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
     const suiteNights = Array.from({length: 7}, (_, back) => ({runId: 9100 + 6 - back, day: dayAt(back), kind: 'nightly', suite: 'quality', platform: 'mac',
       green: ![1, 4].includes(back), rates: {agree: [0.92, 0.70, 0.94, 0.90, 0.74, 0.91, 0.93][back]}}));
@@ -162,7 +162,9 @@ export const seeds = {
         'notion-real': {lane: 'tolerant', input: 'outside', since: '2026-10-28', why: 'The fixture service can refuse or delay a request.', returns: 'Seven steady fixture service nights.'},
         'fixture-suite': {lane: 'suspended', input: 'clock', since: '2026-10-10', why: 'The fixture flipped red then green on the same commit.'}
       }}, suiteNights, mainBands: {quality: {agree: {lower: 0.80, upper: 0.95}}},
-      prGreys: Object.entries({main: 3, runner: 2, 'ai-credit': 1, install: 2, tolerant: 4}).map(([reason, n]) => ({day: dayAt(0), reason, n})),
+      greyJobs: [['apply', 'timing', 'pr', 0], ['apply', 'timing', 'pr', 1], ['apply', 'timing', 'beta', 3], ['applyflows', 'timing', 'scheduled', 1], ['applyflows', 'timing', 'pr', 0],
+        ['settings', 'picker', 'pr', 0], ['settings', 'picker', 'pr', 2], ['wizard', 'timing', 'after-merge', 5]]
+        .map(([suite, reason, kind, back], i) => ({runId: 9200 + i, day: dayAt(back), kind, suite, reason})),
       days: suiteNights.map(night => ({day: night.day, kind: 'nightly', runs: 1, reds: night.green ? 0 : 1, greens: night.green ? 1 : 0, redMin: night.green ? 0 : 12})),
       fails: suiteNights.filter(night => !night.green).map(night => ({day: night.day, kind: 'nightly', suite: 'quality', platform: 'mac', cause: 'ai', n: 1, min: 12})),
       latest: suiteNights.map(night => ({runId: night.runId, day: night.day, kind: 'nightly', conclusion: night.green ? 'success' : 'failure', minutes: 12})),

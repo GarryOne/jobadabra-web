@@ -66,7 +66,7 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
 }
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr, suiteJobs?: [{suite, seconds}]}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
-//   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, prGreys?: [{day, reason, n}],
+//   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, greyJobs?: [{runId, day, kind: pr|main|beta|nightly, suite, reason}] (public tools/grey_records.py, one row per run and suite),
 //   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}], escapes?: [{week, sha, suites, none, journey}]} (public-main commits).
 // GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
