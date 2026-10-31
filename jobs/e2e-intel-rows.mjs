@@ -1,6 +1,7 @@
 // The pure part of the e2e collector (jobs/e2e-intel.mjs does the I/O): which kind of run each workflow run is, which suite jobs were red on their first try,
 // how long a job waited for a runner and how long it ran, and the cause of each red (admin/e2e-causes.js) from facts, then the fix's trailer, then the AI.
 // No network here: GitHub and the AI come in as functions. Guard: test/admin/e2e-intel-collector.test.js.
+import {cleanBetaRun} from '../admin/e2e-beta.js';
 import {causePrompt, factCause, failureLine, likelyFixes, prCause, readAnswer, suiteOfJob, trailerCause} from '../admin/e2e-causes.js';
 
 export const minutesOf = (from, to) => (from && to ? Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 6000) / 10) || 0 : 0);
@@ -64,6 +65,23 @@ export function suiteJobTimes(run) {
   });
 }
 
+/** One beta run's suite jobs -> the row /admin/e2e draws (admin/e2e-beta.js): green / red / not run-or-unfinished, the red suites' names, whether every Release job passed. null: not a beta run, or its jobs were not read (read again next hour). */
+// Why (1 Nov 2026, a8): counted per job from the run's own job list (no new GitHub call kind); a flake that passed on its second try is green, as the job's conclusion says.
+export function betaRunRow(run, now = new Date()) {
+  if (run.kind !== 'beta' || !Array.isArray(run.jobs)) return null;
+  let green = 0, red = 0, grey = 0;
+  const redSuites = [];
+  for (const job of run.jobs) {
+    const id = suiteJob(job, run);
+    if (!id) continue;
+    if (job.conclusion === 'success') green += 1;
+    else if (job.conclusion === 'failure' || job.conclusion === 'timed_out') { red += 1; redSuites.push(`${id.platform === 'windows' ? 'Windows' : 'Mac + Linux'} · ${id.suite}`); }
+    else grey += 1;
+  }
+  const release = run.jobs.filter(job => /^Release\b/.test(job.name || ''));
+  return cleanBetaRun({runId: run.databaseId, createdAt: run.createdAt, sha: String(run.headSha || ''), conclusion: run.conclusion, green, red, grey, released: release.length > 0 && release.every(job => job.conclusion === 'success'), redSuites: redSuites.sort()}, now);
+}
+
 // One red's cause. deps (async, may return null = could not read): commitsBetween(a, b) -> [{sha, message}], filesOf(sha) -> [file], filesBetween(a, b) -> [file],
 // prFiles(pr) -> [file], diffOf(sha) -> text, ask({system, user}) -> text or null (no AI token: null). log === null: the log was not read this pass (the red is read again later).
 export async function causeOfRed({run, red, log, next}, deps) {
@@ -119,6 +137,13 @@ export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
 export function runsToRead(listed, settled, waiting, max = 200) {
   const fresh = listed.filter(run => !settled.has(run.databaseId) && !waiting.has(run.databaseId));
   return (fresh.length ? fresh : listed.filter(run => waiting.has(run.databaseId))).slice(-max);
+}
+
+/** Oldest-first listed runs -> the beta runs whose suite counts the site lacks, newest first (the page fills from today back), at most `max` a pass. */
+// Why (1 Nov 2026, Gitar on #244): the run list starts at a calendar date (up to ~31 days back) but the site keeps 30 days (cleanBetaRun); a run in that gap was read every hour and thrown away.
+export function betaRunsToRead(listed, stored, max = 40, now = new Date()) {
+  const from = now.getTime() - 30 * 86400000;
+  return listed.filter(run => run.kind === 'beta' && !stored.has(run.databaseId) && Date.parse(run.createdAt) >= from).slice(-max);
 }
 
 /** Oldest-first listed runs -> unread suite history for the last seven observed main nights, bounded per hourly pass; settled red classification does not suppress history. */

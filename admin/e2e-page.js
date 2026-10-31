@@ -15,6 +15,7 @@ import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
 import {greySummary, greyNightText, GREY_NOTE} from './e2e-grey.js';
 import {weekOf} from './e2e-work.js';
 import {GREEN_CSS, greenCard} from './e2e-green.js';
+import {BETA_CSS, betaCard} from './e2e-beta.js';
 import {PR_JOB_BUDGET_SECONDS, PR_SPLIT_SECONDS, speedSummary, speedTime} from './e2e-speed.js';
 
 const DAY = 86400000;
@@ -125,7 +126,7 @@ export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/job
     + filterLinks(Object.entries(KIND_NAMES).map(([value, text]) => [value, text, `?range=${range}${value === 'all' ? '' : `&kind=${value}`}`]), kind);
   const w = windowOf(snapshot, range, now, kind), name = `${RANGES[range].name}${kind === 'all' ? '' : ` · ${KIND_NAMES[kind]}`}`;
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>e2e-intel.yml</code> publishes every finished e2e run hourly; the first run fills this page.</p></section>`
-    : `${filters}${greenCard(snapshot, {kind, days: RANGES[range].days, now, kindName: id => KIND_NAMES[id] || id, scopeName: name})}${top(w, {repo})}${tiles(w)}
+    : `${filters}${greenCard(snapshot, {kind, days: RANGES[range].days, now, kindName: id => KIND_NAMES[id] || id, scopeName: name})}${['all', 'beta'].includes(kind) ? betaCard(snapshot, {days: RANGES[range].days, now, repo, scopeName: RANGES[range].name}) : ''}${top(w, {repo})}${tiles(w)}
 ${qualityCard(snapshot.quality || [], repo)}
 ${greyCard(snapshot, now, repo)}
 ${speedCard(snapshot, now)}
@@ -140,7 +141,7 @@ ${workCard(snapshot, now)}
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>E2E · Operations · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}${CHIP_STYLE}
-.filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}${SCORECARD_CSS}${GREEN_CSS}</style></head><body><main>
+.filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}${SCORECARD_CSS}${GREEN_CSS}${BETA_CSS}</style></head><body><main>
 <header><h1>🧪 Why e2e goes red</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · every e2e run: beta, nightly, main after merge, scheduled, soak, PR, harness` : ''}</span></header>
 ${body}</main></body></html>`;
 }
