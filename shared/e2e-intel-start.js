@@ -11,11 +11,14 @@ export const e2eIntelDue = date => date.getUTCMinutes() === E2E_INTEL_MINUTE;
 
 /**
  * Starts e2e-intel.yml on main of the repo that holds it (this one, private) when `now` is the hourly tick. `dispatch(env, inputs, workflow)` is the Worker's (workers/www/index.js).
- * The repo is E2E_INTEL_REPO (default GarryOne/jobadabra-web, NOT env.GITHUB_REPO: that is the public repo); the token is E2E_INTEL_GITHUB_TOKEN, else GITHUB_TOKEN (as api/brain.js does for its private repo).
- * Resolves to true when it dispatched, false off-tick; throws what dispatch throws (the caller logs it: the GitHub schedule is the backup, and a failed 5-minute tick must not page).
+ * The repo is E2E_INTEL_REPO (default GarryOne/jobadabra-web) and the token MUST be E2E_INTEL_GITHUB_TOKEN (a fine-grained token on this repo, Actions: write): repo and token travel together,
+ * as in api/brain.js. Why (31 Oct 2026, Gitar on #240): the site's GITHUB_TOKEN is the public repo's (index.js dispatch), so falling back to it would answer 403/404 every hour, only as a log line,
+ * while the page quietly went back to GitHub's late schedule. Without the token the start is refused out loud (the caller logs it; GitHub's own schedule stays the backup).
+ * Resolves to true when it dispatched, false off-tick; throws what dispatch throws.
  */
 export async function startE2eIntel(env, now, dispatch) {
   if (!e2eIntelDue(now)) return false;
-  await dispatch({...env, GITHUB_REPO: env.E2E_INTEL_REPO || 'GarryOne/jobadabra-web', GITHUB_TOKEN: env.E2E_INTEL_GITHUB_TOKEN || env.GITHUB_TOKEN}, undefined, E2E_INTEL_WORKFLOW);
+  if (!env.E2E_INTEL_GITHUB_TOKEN) throw new Error('E2E_INTEL_GITHUB_TOKEN is not set (the site GITHUB_TOKEN covers the public repo, not this one)');
+  await dispatch({...env, GITHUB_REPO: env.E2E_INTEL_REPO || 'GarryOne/jobadabra-web', GITHUB_TOKEN: env.E2E_INTEL_GITHUB_TOKEN}, undefined, E2E_INTEL_WORKFLOW);
   return true;
 }

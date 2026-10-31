@@ -14,16 +14,23 @@ test('of the twelve 5-minute ticks in an hour, exactly one (:40) starts the coll
   }
 });
 
-test('on the tick it dispatches e2e-intel.yml on THIS repo with the collector token and no inputs; off the tick it does nothing', async () => {
+test('on the tick it dispatches e2e-intel.yml on THIS repo with the dedicated token and no inputs; off the tick it does nothing', async () => {
   const calls = [], dispatch = async (env, inputs, workflow) => { calls.push({repo: env.GITHUB_REPO, token: env.GITHUB_TOKEN, inputs, workflow}); };
-  const env = {GITHUB_REPO: 'GarryOne/jobadabra', GITHUB_TOKEN: 'site-token'};
+  const env = {GITHUB_REPO: 'GarryOne/jobadabra', GITHUB_TOKEN: 'site-token', E2E_INTEL_GITHUB_TOKEN: 'own-token'};
   assert.equal(await startE2eIntel(env, tick(9, 35), dispatch), false);
   assert.deepEqual(calls, [], 'off the tick: nothing starts');
   assert.equal(await startE2eIntel(env, tick(9, 40), dispatch), true);
-  assert.deepEqual(calls, [{repo: 'GarryOne/jobadabra-web', token: 'site-token', inputs: undefined, workflow: 'e2e-intel.yml'}], 'the public GITHUB_REPO is not the target; no inputs (the workflow declares none)');
-  await startE2eIntel({...env, E2E_INTEL_REPO: 'Owner/other', E2E_INTEL_GITHUB_TOKEN: 'own-token'}, tick(10, 40), dispatch);
-  assert.deepEqual([calls[1].repo, calls[1].token], ['Owner/other', 'own-token'], 'a dedicated repo var and token win');
+  assert.deepEqual(calls, [{repo: 'GarryOne/jobadabra-web', token: 'own-token', inputs: undefined, workflow: 'e2e-intel.yml'}], 'the public GITHUB_REPO and the site token are not used; no inputs (the workflow declares none)');
+  await startE2eIntel({...env, E2E_INTEL_REPO: 'Owner/other'}, tick(10, 40), dispatch);
+  assert.equal(calls[1].repo, 'Owner/other', 'a dedicated repo var wins');
   await assert.rejects(startE2eIntel(env, tick(11, 40), async () => { throw new Error('GitHub dispatch failed: 403'); }), /403/, 'a refused start is thrown, never swallowed here');
+});
+
+test('without E2E_INTEL_GITHUB_TOKEN the tick refuses out loud and never sends the site token to the private repo (Gitar, #240)', async () => {
+  const calls = [];
+  await assert.rejects(startE2eIntel({GITHUB_REPO: 'GarryOne/jobadabra', GITHUB_TOKEN: 'site-token'}, tick(9, 40), async (...args) => { calls.push(args); }), /E2E_INTEL_GITHUB_TOKEN is not set/);
+  assert.deepEqual(calls, []);
+  assert.equal(await startE2eIntel({}, tick(9, 35), async () => { calls.push(1); }), false, 'off the tick a missing token is not an error');
 });
 
 test('the Worker\'s */5 trigger really sends the request GitHub needs, on the :40 tick only, and a refusal does not break the tick', async () => {
@@ -32,12 +39,12 @@ test('the Worker\'s */5 trigger really sends the request GitHub needs, on the :4
   console.error = (...args) => errors.push(args.join(' '));
   try {
     const run = async (minute, env) => { const tasks = []; await worker.scheduled({cron: '*/5 * * * *', scheduledTime: tick(12, minute).getTime()}, env, {waitUntil: task => tasks.push(task)}); await Promise.allSettled(tasks); };
-    const env = {GITHUB_REPO: 'GarryOne/jobadabra', GITHUB_TOKEN: 'site-token'};
+    const env = {GITHUB_REPO: 'GarryOne/jobadabra', GITHUB_TOKEN: 'site-token', E2E_INTEL_GITHUB_TOKEN: 'own-token'};
     await run(35, env);
     assert.deepEqual(requests.filter(r => r.url.includes('/actions/workflows/')), [], ':35 starts nothing');
     await run(40, env);
     const starts = requests.filter(r => r.url.includes('/actions/workflows/'));
-    assert.deepEqual(starts.map(r => [r.url, r.method, r.auth, JSON.parse(r.body)]), [[`https://api.github.com/repos/GarryOne/jobadabra-web/actions/workflows/${E2E_INTEL_WORKFLOW}/dispatches`, 'POST', 'Bearer site-token', {ref: 'main'}]]);
+    assert.deepEqual(starts.map(r => [r.url, r.method, r.auth, JSON.parse(r.body)]), [[`https://api.github.com/repos/GarryOne/jobadabra-web/actions/workflows/${E2E_INTEL_WORKFLOW}/dispatches`, 'POST', 'Bearer own-token', {ref: 'main'}]]);
     globalThis.fetch = async () => new Response(null, {status: 403});
     await run(40, env);
     assert.ok(errors.some(line => /e2e-intel start failed: GitHub dispatch failed: 403/.test(line)), 'a refusal is logged, the other 5-minute work still ran');
