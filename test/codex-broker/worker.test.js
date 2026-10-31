@@ -400,3 +400,29 @@ test('vision token-count HTTP refusals name and alert the Claude cause before go
   }
   assert.equal(notes.length, 1); assert.match(notes[0], /Claude refused \(limit\)/);
 });
+
+test('an unknown effort is a 400 before admission or container dispatch', async t => {
+  for (const effort of ['', 'max', 'HIGH', 'minimal', 1, null, {}, []]) await t.test(JSON.stringify(effort), async () => {
+    t.mock.method(Date, 'now', () => day);
+    const {broker, storage} = harness();
+    broker.containerFetch = async () => { assert.fail('invalid effort must not reach Codex'); };
+    const response = await broker.call('scheduled', {...body, effort});
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {why: 'effort must be low, medium, high or xhigh'});
+    assert.equal(await storage.get('meter'), undefined);
+  });
+});
+
+test('a valid effort reaches Codex and counts for more of the week: low and none 1x, high 2x, xhigh 4x', async t => {
+  t.mock.method(Date, 'now', () => day);
+  for (const [effort, counted] of [[undefined, 5], ['low', 5], ['medium', 5], ['high', 10], ['xhigh', 20]]) {
+    const {broker, storage} = harness();
+    let sent;
+    broker.containerFetch = async (url, init) => { sent = JSON.parse(init.body); return success(); };
+    const response = await broker.call('scheduled', {...body, tier: 'large', ...(effort ? {effort} : {})});
+    assert.equal(response.status, 200);
+    assert.equal(sent.effort, effort);
+    assert.equal(sent.model, 'gpt-6-astra');
+    assert.equal((await storage.get('meter')).tokens.scheduled, counted, `${effort ?? 'default'} effort`);
+  }
+});

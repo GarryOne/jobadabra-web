@@ -8,3 +8,13 @@ export const modelOf = tier => (Object.hasOwn(TIERS, tier ?? DEFAULT_TIER) ? TIE
 
 /** Takes a Claude model id ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", dated or not); returns its tier, or null. The engine uses it so each workflow keeps its tier. */
 export const tierOfClaude = id => (/haiku/i.test(id || '') ? 'small' : /sonnet/i.test(id || '') ? 'mid' : /opus/i.test(id || '') ? 'large' : null);
+
+// Reasoning effort per call (owner, 31 Oct 2026: "a higher/more intelligent Codex model? Sol with high reasoning, or Astra with low reasoning"). Optional; omitted = the CLI's default, as before.
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+/** Takes the effort a caller sent; returns true when it is one of EFFORTS (own values only: no coercion). */
+export const validEffort = effort => EFFORTS.includes(effort);
+// Why (31 Oct 2026, coordinator + owner): a higher effort spends more of the Codex week per call. Whether Codex's reported output_tokens already include the reasoning tokens is not measured yet, so the meter
+// multiplies the reported tokens by this seed: low and medium count as 1, high as 2, xhigh as 4. Over-counting only makes the own-share brake fire earlier. Replace by the measured ratio after the first high-effort runs.
+export const EFFORT_WEIGHT = {low: 1, medium: 1, high: 2, xhigh: 4};
+/** Takes the effort of an accepted call (undefined = default); returns the meter's multiplier for its tokens. */
+export const weightOf = effort => (Object.hasOwn(EFFORT_WEIGHT, effort ?? '') ? EFFORT_WEIGHT[effort] : 1);
