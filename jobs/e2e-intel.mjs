@@ -13,7 +13,7 @@ import path from 'node:path';
 import {nightOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
-import {answerText, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
+import {answerText, betaRunRow, betaRunsToRead, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
 import {WORK_IDS, parseLog, workRows, weekOf} from '../admin/e2e-work.js';
 import {cleanLanes} from '../admin/e2e-grey.js';
 
@@ -139,8 +139,8 @@ async function main() {
     .map(run => ({...run, workflow, kind: kindOf(run, workflow)})))
     .filter(run => run.kind && ['success', 'failure', 'cancelled'].includes(run.conclusion)).map(run => ({...run, pr: run.kind === 'pr' ? prOf[run.headBranch] || null : null}))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  let have = [], pending = [], quality = [], suiteNights = [];
-  if (key) ({have, pending, quality = [], suiteNights = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
+  let have = [], pending = [], quality = [], suiteNights = [], betaStored = [];
+  if (key) ({have, pending, quality = [], suiteNights = [], betaRuns: betaStored = []} = await (await fetch(`${base}?v=${RULES_VERSION}`, {headers: {Authorization: `Bearer ${key}`}})).json());
   const settled = new Set(have), waiting = new Set(pending);
   const nights = await readNights(liveNights(listed.filter(run => run.workflow === 'e2e.yml'), new Set(quality)).slice(0, 40));
   const todo = runsToRead(listed, settled, waiting, MAX_RUNS);
@@ -152,11 +152,14 @@ async function main() {
   // Backfill already-settled nights too: old snapshots have no suite greens. These are existing jobs, not new suite runs or AI calls.
   const history = nightRunsToRead(listed, new Set(suiteNights));
   const needed = [...new Map([...history, ...fixes].map(run => [run.databaseId, run])).values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  await eight(needed, async run => { run.jobs = (await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`))?.jobs || []; });
+  // The beta runs the site has no suite counts for (admin/e2e-beta.js): their jobs are read too; a failed read leaves jobs unset so the run is tried again next hour, never stored as zero suites.
+  const betas = betaRunsToRead(listed, new Set(betaStored));
+  const readJobs = async run => { const read = await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`); run.jobs = read ? read.jobs || [] : undefined; };
+  await eight([...new Map([...needed, ...betas].map(run => [run.databaseId, run])).values()], readJobs);
   const wanted = new Set(todo.map(run => run.databaseId));
   const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
-  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, suiteNights: rows.suiteNights};
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, suiteNights: rows.suiteNights, betaRuns: betas.map(run => betaRunRow(run)).filter(Boolean)};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
   console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');

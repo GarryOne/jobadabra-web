@@ -117,6 +117,24 @@ test('a registry arriving after runs were settled still backfills seven nights f
   assert.deepEqual(nightRunsToRead(listed, new Set(), 2).map(row => row.databaseId), [8, 9]);
 });
 
+test('a beta run\'s suite jobs become green / red / not-run counts, red names and a release flag; a run whose jobs were not read gives no row', async () => {
+  const {betaRunRow, betaRunsToRead} = await import('../../jobs/e2e-intel-rows.mjs');
+  const at = new Date('2026-11-01T12:00:00Z'), e2e = (platform, suite, conclusion) => job(`E2E · ${platform} · ${suite}`, conclusion);
+  const jobs = [e2e('Mac + Linux', 'apply', 'success'), e2e('Mac + Linux', 'foryou', 'failure'), e2e('Windows', 'foryou', 'timed_out'), e2e('Windows', 'apply', 'skipped'), e2e('Windows', 'jobs', 'cancelled'), e2e('Mac + Linux', 'quality', null),
+    job('Build · Mac', 'success'), job('Release · Mac beta', 'success'), job('Release · Windows beta', 'success')];
+  const base = run(7, '2026-10-31T10:01:00Z', 'abcdef1234567890', jobs, {workflow: 'desktop.yml', conclusion: 'failure'});
+  assert.deepEqual(betaRunRow(base, at), {runId: 7, createdAt: '2026-10-31T10:01:00Z', sha: 'abcdef1', conclusion: 'failure', green: 1, red: 2, grey: 3, released: true, redSuites: ['Mac + Linux · foryou', 'Windows · foryou']},
+    'build and release jobs are not suites; skipped, cancelled and unfinished jobs are grey; timed_out is red');
+  assert.equal(betaRunRow({...base, jobs: jobs.slice(0, 6).concat(job('Release · Mac beta', 'success'), job('Release · Windows beta', 'failure'))}, at).released, false, 'one failed Release job = not released');
+  assert.equal(betaRunRow({...base, jobs: jobs.slice(0, 6)}, at).released, false, 'no Release job = not released');
+  assert.equal(betaRunRow({...base, jobs: undefined}, at), null, 'jobs not read (a failed GitHub call): no row, read again next hour; never zero suites');
+  assert.equal(betaRunRow({...base, kind: 'nightly'}, at), null);
+  assert.deepEqual(betaRunRow({...base, jobs: []}, at).green, 0, 'a run with no suite jobs at all is a real row of zeros');
+  const listed = Array.from({length: 5}, (_, i) => ({databaseId: i + 1, kind: i === 2 ? 'nightly' : 'beta'}));
+  assert.deepEqual(betaRunsToRead(listed, new Set([1])).map(item => item.databaseId), [2, 4, 5], 'beta runs the site lacks, nightlies never');
+  assert.deepEqual(betaRunsToRead(listed, new Set(), 2).map(item => item.databaseId), [4, 5], 'newest first within a pass\'s cap');
+});
+
 // Same fixture strings as public desktop/test/owner-report.test.js on branch escapes.
 test('escape parser pins the public escapeOf shapes and rejects malformed trailers', async () => {
   const {escapeOf} = await import('../../jobs/e2e-intel.mjs');

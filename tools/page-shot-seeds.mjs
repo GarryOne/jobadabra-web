@@ -173,6 +173,23 @@ export const seeds = {
       if (!res.ok) throw new Error(`e2e-green seed: ingest answered ${res.status}`);
     }
   },
+  'e2e-beta': async ({env}) => {   // fixture-only beta runs for the "Suites per beta run" card (1 Nov 2026): 14 days, 2-4 betas a day, 62 suites each; reds fall from a bad stretch to a few, two betas released; not live measurements
+    const {ingest} = await import('../admin/e2e-intel.js');
+    env.SELFHEAL_PUBLISH_KEY = 'demo-publish';
+    const at = Date.now(), runs = [], betaRuns = [], reds = [4, 0, 43, 37, 4, 1, 2, 1, 0, 1, 1, 2, 8, 1, 0, 1, 2, 0, 1, 0, 0, 3, 1, 0, 0], hours = [1, 6, 14, 22];
+    let runId = 9000, step = 0;
+    for (let back = 13; back >= 0; back--) for (const hour of hours.slice(0, 2 + (back % 3))) {
+      const when = new Date(at - back * 86400000), createdAt = `${when.toISOString().slice(0, 10)}T${String(hour).padStart(2, '0')}:${String((step * 7) % 60).padStart(2, '0')}:00Z`;
+      if (Date.parse(createdAt) > at) continue;
+      const red = reds[step % reds.length], stopped = step % 11 === 6, grey = stopped ? 40 : 0, cancelled = step % 17 === 9;
+      const names = Array.from({length: red}, (_, i) => `${i % 2 ? 'Windows' : 'Mac + Linux'} · ${['apply', 'foryou', 'settings', 'quality', 'calendar', 'interviews', 'cardstates', 'jobs'][(step + i) % 8]}`).sort();
+      runs.push({runId, createdAt, kind: 'beta', conclusion: cancelled ? 'cancelled' : red ? 'failure' : 'success', minutes: 26});
+      betaRuns.push({runId, createdAt, sha: (0xabc000 + step * 4099).toString(16).padStart(7, '0'), conclusion: cancelled ? 'cancelled' : red ? 'failure' : 'success', green: 62 - red - grey, red, grey, released: !red && !grey && !cancelled && step % 5 === 3, redSuites: names});
+      runId += 1; step += 1;
+    }
+    const res = await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails: [], betaRuns})}), env);
+    if (!res.ok) throw new Error(`e2e-beta seed: ingest answered ${res.status}`);
+  },
   'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and the stored grey ledger (suite × reason); direct snapshot works for before shots too
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
     const suiteNights = Array.from({length: 7}, (_, back) => ({runId: 9100 + 6 - back, day: dayAt(back), kind: 'nightly', suite: 'quality', platform: 'mac',

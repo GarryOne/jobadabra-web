@@ -8,6 +8,7 @@ import {cleanNight} from './e2e-quality.js';
 import {WORK_IDS, weekOf} from './e2e-work.js';
 import {greyData} from './e2e-grey.js';
 import {speedData} from './e2e-speed.js';
+import {betaData} from './e2e-beta.js';
 
 const DAY = 86400000, KEEP_DAYS = 30, LATEST = 25;
 export const KINDS = ['beta', 'nightly', 'after-merge', 'scheduled', 'soak', 'canary', 'pr', 'harness'];
@@ -60,13 +61,14 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
     db.prepare('SELECT week, file, commits FROM e2e_work_files WHERE week >= ? ORDER BY week DESC, commits DESC').bind(dayOf(new Date(now.getTime() - (KEEP_DAYS + 6) * DAY))).all()]);
   const previous = await db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
   const prior = previous ? JSON.parse(previous.body) : {};
-  const grey = greyData(prior, data, now), speed = speedData(prior, data, now);
-  return {...grey, ...speed, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
+  const grey = greyData(prior, data, now), speed = speedData(prior, data, now), beta = betaData(prior, data, now);
+  return {...grey, ...speed, ...beta, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
     caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr, suiteJobs?: [{suite, seconds}]}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
 //   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, greyJobs?: [{runId, day, kind: pr|main|beta|nightly, suite, reason}] (public tools/grey_records.py, one row per run and suite),
+//   betaRuns?: [{runId, createdAt, sha, conclusion, green, red, grey, released, redSuites}] (admin/e2e-beta.js: one beta run's suite jobs green / red / not run + whether it released),
 //   work?: [{day, kind, commits}], workFiles?: [{week, file, commits}], escapes?: [{week, sha, suites, none, journey}]} (public-main commits).
 // GET ?snapshot=1: the stored snapshot (the page's one row). GET ?v=N: {have: runs stored at rules N or newer, pending: runs with a red still "open" or "unknown"} (CI reads the rest, and the pending ones again).
 export async function ingest(request, env, now = new Date()) {
@@ -84,7 +86,8 @@ export async function ingest(request, env, now = new Date()) {
     const {results: nights = []} = await env.STATS.prepare('SELECT run_id FROM e2e_quality WHERE day >= ?').bind(since).all();
     const snapshot = await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first();
     const suiteNights = [...new Set((snapshot ? JSON.parse(snapshot.body).suiteNights || [] : []).map(row => row.runId))];
-    return json({suiteNights, have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting], quality: nights.map(row => row.run_id)});
+    const betaRuns = [...new Set((snapshot ? JSON.parse(snapshot.body).betaRuns || [] : []).map(row => row.runId))];
+    return json({suiteNights, betaRuns, have: have.map(row => row.run_id).filter(id => !waiting.has(id)), pending: [...waiting], quality: nights.map(row => row.run_id)});
   }
   if (request.method !== 'PUT') return new Response('Not found', {status: 404});
   const body = await request.text();

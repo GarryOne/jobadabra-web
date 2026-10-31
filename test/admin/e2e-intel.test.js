@@ -146,3 +146,19 @@ test('suite timings survive snapshot refresh, deduplicate re-reads, expire after
   const later = await buildSnapshot(e.STATS, new Date('2026-12-01T12:00:00Z'));
   assert.deepEqual(later.speedRuns, []);
 });
+
+test('beta runs\' suite counts are validated, kept in the snapshot, replaced on a re-read, expire after thirty days, and listed back so the collector reads only the missing ones', async () => {
+  const {ingest} = await import('../../admin/e2e-intel.js');
+  const e = env(), at = new Date('2026-11-01T12:00:00Z');
+  const send = betaRuns => ingest(new Request('https://test/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify({runs: [], fails: [], betaRuns})}), e, at);
+  const beta = (runId, extra = {}) => ({runId, createdAt: '2026-10-31T10:01:00Z', sha: 'abcdef1234', conclusion: 'failure', green: 60, red: 2, grey: 0, released: false, redSuites: ['Windows · foryou', 'Mac + Linux · apply'], ...extra});
+  await send([beta(1), beta(2, {green: -3}), beta(3, {createdAt: '2026-09-01T10:00:00Z'}), beta(4, {sha: 'zz', note: 'never stored'}), beta(5, {released: true, red: 0, conclusion: 'success', redSuites: []})]);
+  await send([beta(1, {green: 62, red: 0, conclusion: 'success', redSuites: [], released: true})]);
+  const s = await buildSnapshot(e.STATS, at);
+  assert.deepEqual(s.betaRuns.map(row => [row.runId, row.green, row.red, row.released]), [[5, 60, 0, true], [1, 62, 0, true]],
+    'bad shapes are dropped (negative count, 30 days old, bad commit); a re-read run replaces its row; the second PUT keeps the first one\'s rows');
+  assert.equal(s.betaRuns.every(row => row.note === undefined), true);
+  const known = await (await call(e, {headers: {Authorization: 'Bearer pub'}})).json();
+  assert.deepEqual(known.betaRuns.sort(), [1, 5], 'the collector is told which beta runs the site already has');
+  assert.deepEqual((await buildSnapshot(e.STATS, new Date('2026-12-05T12:00:00Z'))).betaRuns, [], 'thirty days later the rows are gone');
+});
