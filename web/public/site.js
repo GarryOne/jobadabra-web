@@ -59,6 +59,7 @@
       if (!open) return;
       menu.hidden = false;
       caret.setAttribute('aria-expanded', 'true');
+      menu.classList.remove('right');   // Why (#243, Gitar): measure from the default position, else the last open's .right makes the check alternate
       menu.classList.toggle('right', menu.getBoundingClientRect().right > innerWidth - 12);   // never past the screen's edge
     });
     wrap.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { closeChoice(split); caret.focus(); } });

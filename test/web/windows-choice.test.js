@@ -56,6 +56,8 @@ test('site.js makes the pair a split button: the Store stays the main click, the
   assert.match(site, /'focusout'/);
   assert.match(site, /document\.addEventListener\('click'/);
   assert.match(site, /innerWidth/, 'the menu never runs past the screen edge on a phone');
+  // #243 (Gitar): measuring with the last open's .right still on made the menu alternate left/right on every open; measure from the default position.
+  assert.ok(site.indexOf("menu.classList.remove('right')") > 0 && site.indexOf("menu.classList.remove('right')") < site.indexOf("classList.toggle('right'"), 'the .right class is cleared before the edge is measured');
 });
 
 test('the two choices say what each gives, and the Store is the first one', () => {
