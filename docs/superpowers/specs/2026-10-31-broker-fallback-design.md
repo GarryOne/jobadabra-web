@@ -13,13 +13,13 @@ CI may use 100% of the owner's Codex week. At exhaustion it currently loses AI j
 - Claude receives images and JSON schemas. Free AI uses the product translator; unsupported images go grey, never silently disappear. Invalid/empty/truncated/refused responses are not judgments; raw Free AI completion/refusal flags are checked before translation. Known usage is charged even if the answer is unusable.
 - Successful replies retain `{reply,tokens,ms,lane,tier,model,weekUsedPercent}` plus `engine: "claude" | "free-ai"`. The public CI client stays unchanged (it does not currently log an engine).
 - Broker durable storage is the single cost authority. `/health` adds today's totals/caps/reservations, without prompts or credentials. The existing admin guard stays in place; a Worker service binding reads broker health, and the page shows “CI fallback: Claude $x, Free AI $y today”. Missing binding/failure shows unavailable, never a fabricated zero.
-- The existing Telegram sendMessage pattern (`BRAIN_BOT_TOKEN`, `BRAIN_CHAT_ID`) sends one attempted cap note per engine per UTC day. The deduplication marker is committed before sending, so retries/evictions do not duplicate it. Telegram failures never invalidate an AI reply.
+- The existing Telegram sendMessage pattern (`BRAIN_BOT_TOKEN`, `BRAIN_CHAT_ID`) sends one attempted cap note per engine per UTC day. The deduplication marker is committed before sending, so retries/evictions do not duplicate it. Telegram failures never invalidate an AI reply. Claude HTTP refusals (including vision token counting) use the existing `kindOf` classifier: limit/auth/rate/overloaded/other. They send a separate note once per kind per UTC day before trying Free AI; final unavailable/unsupported reasons preserve the kind, never raw provider details. Provider-refusal markers cannot suppress budget-cap notes.
 
 ## Acceptance criteria
 1. Fake Codex exhaustion/usage-limit error returns the appropriate Claude tier's answer; ordinary Codex answers do not call a fallback.
 2. Claude at $5 selects Free AI; both caps return the grey reason word; UTC rollover selects Claude again.
 3. Concurrent calls reserve before provider dispatch and cannot spend the same balance. Reconstructed objects retain spend and uncertain reservations.
-4. Telegram is attempted once per cap per day; a new day can send another note.
+4. Telegram is attempted once per cap and per Claude refusal kind per day; a new day can send another note. Fake 400 usage-limit and 429 answers prove refusal classification, fallback and final reason words.
 5. Admin reads the broker's day totals and renders them under the existing access guard; no real provider is used in tests or previews.
 6. Images/schema survive Claude translation; unsupported search and Free AI images fail explicitly. Bad provider replies are charged safely and refused.
 

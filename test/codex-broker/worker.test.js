@@ -350,3 +350,53 @@ test('Free AI filtered or errored completions go grey while known usage is still
     assert.equal(state.spent['free-ai'], 12); assert.equal(state.held['free-ai'], 0);
   }
 });
+
+test('Claude HTTP refusals name the cause, alert once per kind/day separately from caps, and still try Free AI', async t => {
+  let now = day;
+  t.mock.method(Date, 'now', () => now);
+  for (const [status, text, kind] of [[400, 'workspace usage limits exceeded', 'limit'], [401, 'revoked', 'auth'], [429, 'too many requests', 'rate'], [529, 'busy', 'overloaded']]) {
+    const notes = [];
+    const env = fallbackEnv();
+    const {broker, storage, restart} = harness(undefined, env);
+    await storage.put('limits', {usedPercent: 100});
+    t.mock.method(globalThis, 'fetch', async (url, init) => {
+      if (url.includes('telegram.org')) { notes.push(JSON.parse(init.body).text); return Response.json({ok: true}); }
+      return Response.json({error: {message: text + ' sk-' + 'a'.repeat(30)}}, {status});
+    });
+    for (let i = 0; i < 3; i++) {
+      const response = await restart().call('pr', body);
+      assert.equal(response.status, 200); assert.equal((await response.json()).engine, 'free-ai');
+    }
+    assert.equal(notes.length, 1); assert.match(notes[0], new RegExp(`Claude refused \\(${kind}\\)`));
+    assert.ok(!notes[0].includes('sk-'), 'raw provider details never reach Telegram');
+    env.FALLBACK_FREE_AI_DAY_USD = '0';
+    const refused = await broker.call('pr', body);
+    assert.equal(refused.status, 503); assert.equal((await refused.json()).why, `fallback:unavailable (claude ${kind})`);
+    assert.equal(notes.length, 1);
+    await storage.put('fallback:' + new Date(now).toISOString().slice(0, 10), spentDay(5_000_000));
+    env.FALLBACK_FREE_AI_DAY_USD = '2';
+    await restart().call('pr', body);
+    assert.equal(notes.length, 2, 'a provider refusal marker must not suppress a budget-cap note');
+    now += 86400000;
+    await restart().call('pr', body);
+    assert.equal(notes.length, 3, 'provider outage reminder can recur on the next UTC day');
+  }
+});
+
+test('vision token-count HTTP refusals name and alert the Claude cause before going grey', async t => {
+  t.mock.method(Date, 'now', () => day);
+  const notes = [];
+  const env = fallbackEnv();
+  const {broker, storage} = harness(undefined, env);
+  await storage.put('limits', {usedPercent: 100});
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (url.includes('telegram.org')) { notes.push(JSON.parse(init.body).text); return Response.json({ok: true}); }
+    assert.ok(url.endsWith('/count_tokens'));
+    return Response.json({error: {message: 'workspace usage limits exceeded'}}, {status: 400});
+  });
+  for (let i = 0; i < 2; i++) {
+    const response = await broker.call('pr', {...body, images: [{name: 'img.png', base64: 'ZmFrZQ=='}]});
+    assert.equal(response.status, 503); assert.equal((await response.json()).why, 'fallback:unsupported (claude limit)');
+  }
+  assert.equal(notes.length, 1); assert.match(notes[0], /Claude refused \(limit\)/);
+});

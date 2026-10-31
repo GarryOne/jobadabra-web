@@ -3,6 +3,7 @@ import {HAIKU, SONNET, OPUS, claudeUsd} from '../../../shared/pro-claude.js';
 import {modelFor, costUsd} from '../../../shared/free-ai-models.js';
 import {toWorkersAi, fromWorkersAi} from '../../../shared/free-ai-translate.js';
 import {refuseReply} from './guard.mjs';
+import {kindOf} from '../../../admin/ai-refusal.js';
 
 const MODELS = {small: HAIKU, mid: SONNET, large: OPUS};
 const CLAUDE_CAP = 5_000_000;
@@ -28,18 +29,19 @@ export async function fallbackToday(storage, env) {
     held: {claude: usd(state.held.claude), freeAi: usd(state.held['free-ai'])}};
 }
 
-async function notify(storage, env, day, engine, fetcher) {
+async function notify(storage, env, day, engine, fetcher, refusal = null) {
   if (!env.BRAIN_BOT_TOKEN || !env.BRAIN_CHAT_ID) return;
   const send = await storage.transaction(async tx => {
     const key = `fallback:${day}`, state = await tx.get(key) || fresh();
-    if (state.notified[engine]) return false;
-    state.notified[engine] = true;
+    const marker = refusal ? `${engine}-refused:${refusal}` : engine;
+    if (state.notified[marker]) return false;
+    state.notified[marker] = true;
     await tx.put(key, state);
     return true;
   });
   if (send) await fetcher(`https://api.telegram.org/bot${env.BRAIN_BOT_TOKEN}/sendMessage`, {method: 'POST', signal: AbortSignal.timeout(5000),
     headers: {'content-type': 'application/json'}, body: JSON.stringify({chat_id: env.BRAIN_CHAT_ID,
-      text: `CI fallback: ${engine === 'claude' ? 'Claude' : 'Free AI'} daily cap $${usd(caps(env)[engine])} reached (${day} UTC). ${engine === 'claude' ? 'Trying Free AI.' : 'Further judgments go grey.'} /admin/ai-cost`})}).catch(() => {});
+      text: refusal ? `CI fallback: Claude refused (${refusal}). Trying Free AI. /admin/ai-cost` : `CI fallback: ${engine === 'claude' ? 'Claude' : 'Free AI'} daily cap $${usd(caps(env)[engine])} reached (${day} UTC). ${engine === 'claude' ? 'Trying Free AI.' : 'Further judgments go grey.'} /admin/ai-cost`})}).catch(() => {});
 }
 
 function messageBody(body, maxTokens) {
@@ -89,7 +91,13 @@ export async function fallbackCall(storage, env, body, lane, weekUsedPercent, fe
   if (body.search) return json(503, {why: 'fallback:search-unsupported'});
   if (typeof body.prompt !== 'string' || !body.prompt.trim()) return json(400, {why: 'fallback:invalid-prompt'});
   const day = dayOf(), started = Date.now();
-  let unavailable = false;
+  let unavailable = false, claudeRefusal = null;
+  const why = reason => claudeRefusal ? `${reason} (claude ${claudeRefusal})` : reason;
+  const refused = async response => {
+    claudeRefusal = kindOf(response.status, await response.text().catch(() => ''));
+    await notify(storage, env, day, 'claude', fetcher, claudeRefusal);
+    unavailable = true;
+  };
   for (const engine of ['claude', 'free-ai']) {
     const model = engine === 'claude' ? MODELS[body.tier ?? 'mid'] : modelFor(undefined, env);
     const cap = caps(env)[engine];
@@ -101,14 +109,15 @@ export async function fallbackCall(storage, env, body, lane, weekUsedPercent, fe
     try {
       request = messageBody(body, 4096);
       if (engine === 'free-ai') request = await toWorkersAi(request);
-    } catch { return json(503, {why: 'fallback:unsupported'}); }
+    } catch { return json(503, {why: why('fallback:unsupported')}); }
     let countedInput = 0;
     if (engine === 'claude' && body.images?.length) {
       try {
         const counted = await fetcher('https://api.anthropic.com/v1/messages/count_tokens', {method: 'POST', signal: AbortSignal.timeout(10_000),
           headers: {'content-type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': env.ANTHROPIC_API_KEY},
           body: JSON.stringify({model, messages: request.messages})});
-        const data = counted.ok ? await counted.json() : null;
+        if (!counted.ok) { await refused(counted); continue; }
+        const data = await counted.json();
         if (!Number.isSafeInteger(data?.input_tokens) || data.input_tokens <= 0) throw new Error('no vision count');
         countedInput = data.input_tokens;
       } catch { unavailable = true; continue; }
@@ -124,7 +133,7 @@ export async function fallbackCall(storage, env, body, lane, weekUsedPercent, fe
         if (!response.ok) {
           // A returned HTTP error did not complete a message; ambiguous transport/parse failures keep the hold.
           if (response.status < 500 && response.status !== 408) await settle(storage, day, engine, hold.amount, 0);
-          unavailable = true; continue;
+          await refused(response); continue;
         }
         message = await response.json();
       } else {
@@ -149,5 +158,5 @@ export async function fallbackCall(storage, env, body, lane, weekUsedPercent, fe
     return json(200, {reply, tokens: {input: usage.input_tokens, output: usage.output_tokens}, ms: Date.now() - started,
       lane, tier: body.tier ?? 'mid', model, weekUsedPercent, engine});
   }
-  return json(unavailable ? 503 : 429, {why: unavailable ? 'fallback:unavailable' : `budget:fallback-day $5 Claude; $${usd(freeCap(env))} Free AI (UTC)`});
+  return json(unavailable ? 503 : 429, {why: unavailable ? why('fallback:unavailable') : `budget:fallback-day $5 Claude; $${usd(freeCap(env))} Free AI (UTC)`});
 }
