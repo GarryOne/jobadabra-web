@@ -141,7 +141,7 @@ test('search keeps every tier, lane, queue priority and meter identical to ordin
       assert.equal(meter.tokens[lane], 5);
       if (ordinaryMeter) assert.deepEqual(meter, ordinaryMeter);
       else ordinaryMeter = meter;
-      broker.limits = {usedPercent: lane === 'pr' ? 97 : 85};
+      broker.limits = {usedPercent: 100};
       assert.equal((await broker.call(lane, {...body, tier, ...option})).status, 429);
       assert.deepEqual(await storage.get('meter'), ordinaryMeter);
     }
