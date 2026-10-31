@@ -117,7 +117,7 @@ test('public main lanes and observed suite nights live in the same snapshot, sur
   const e = env(), at = new Date('2026-10-30T12:00:00Z');
   const send = body => ingest(new Request('https://test/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify({runs: [], fails: [], ...body})}), e, at);
   const lanes = {suites: {quality: {lane: 'tolerant', input: 'ai', since: '2026-10-29', why: 'Unkeyed question'}, old: {lane: 'retired', since: '2026-10-01'}}};
-  await send({lanes, mainBands: {quality: {agree: {lower: 0.8, upper: 0.95}}}, greyJobs: [{runId: 5, day: '2026-10-30', kind: 'pr', suite: 'apply', reason: 'main'}], suiteNights: [{runId: 9, day: '2026-10-29', kind: 'nightly', suite: 'quality', platform: 'mac', green: true}, {runId: 10, day: '2026-10-30', kind: 'pr', suite: 'quality', platform: 'mac', green: true}]});
+  await send({lanes, mainBands: {quality: {agree: {lower: 0.8, upper: 0.95}}}, suiteNights: [{runId: 9, day: '2026-10-29', kind: 'nightly', suite: 'quality', platform: 'mac', green: true}, {runId: 10, day: '2026-10-30', kind: 'pr', suite: 'quality', platform: 'mac', green: true}]});
   await send({suiteNights: [{runId: 9, day: '2026-10-29', kind: 'nightly', suite: 'quality', platform: 'mac', green: false, rates: {agree: 0.6}}]});
   const s = JSON.parse(e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body);
   assert.equal(s.lanes.suites.quality.since, '2026-10-29');
@@ -126,7 +126,7 @@ test('public main lanes and observed suite nights live in the same snapshot, sur
   assert.equal(s.suiteNights[0].green, false);
   assert.deepEqual(s.suiteNights[0].rates, {agree: 0.6});
   assert.deepEqual(s.mainBands, {quality: {agree: {lower: 0.8, upper: 0.95}}});
-  assert.deepEqual(s.greyJobs, [{runId: 5, day: '2026-10-30', kind: 'pr', suite: 'apply', reason: 'main'}]);
+  assert.equal(s.greyJobs, undefined, 'the retired grey ledger is not kept');
   const known = await (await call(e, {headers: {Authorization: 'Bearer pub'}})).json();
   assert.deepEqual(known.suiteNights, [9], 'settled runs still missing suite history can be backfilled');
   await send({lanes: {suites: {}}});

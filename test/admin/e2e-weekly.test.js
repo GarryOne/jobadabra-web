@@ -77,7 +77,7 @@ test('Grey keeps full rows in the issue and compact suite lines in Telegram', ()
   assert.match(issueBody(s), /quality.*tolerant.*ai.*An unkeyed ask.*2026-10-29.*1 day.*no exit condition yet/);
   assert.match(telegramText(s), /\nquality \(tolerant, 1 day, 0\/0 red\)\n/);
   assert.doesNotMatch(telegramText(s), /no exit condition yet|An unkeyed ask/);
-  assert.match(issueBody(s), /Grey jobs not recorded yet; counts unavailable/);
+  assert.doesNotMatch(issueBody(s), /not recorded yet|suite × reason/);
   assert.match(issueBody(weekly({}, monday)), /lane registry not read yet/);
 });
 

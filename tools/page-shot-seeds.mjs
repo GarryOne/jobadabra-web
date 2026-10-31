@@ -162,9 +162,6 @@ export const seeds = {
         'notion-real': {lane: 'tolerant', input: 'outside', since: '2026-10-28', why: 'The fixture service can refuse or delay a request.', returns: 'Seven steady fixture service nights.'},
         'fixture-suite': {lane: 'suspended', input: 'clock', since: '2026-10-10', why: 'The fixture flipped red then green on the same commit.'}
       }}, suiteNights, mainBands: {quality: {agree: {lower: 0.80, upper: 0.95}}},
-      greyJobs: [['apply', 'timing', 'pr', 0], ['apply', 'timing', 'pr', 1], ['apply', 'timing', 'beta', 3], ['applyflows', 'timing', 'scheduled', 1], ['applyflows', 'timing', 'pr', 0],
-        ['settings', 'picker', 'pr', 0], ['settings', 'picker', 'pr', 2], ['wizard', 'timing', 'after-merge', 5]]
-        .map(([suite, reason, kind, back], i) => ({runId: 9200 + i, day: dayAt(back), kind, suite, reason})),
       days: suiteNights.map(night => ({day: night.day, kind: 'nightly', runs: 1, reds: night.green ? 0 : 1, greens: night.green ? 1 : 0, redMin: night.green ? 0 : 12})),
       fails: suiteNights.filter(night => !night.green).map(night => ({day: night.day, kind: 'nightly', suite: 'quality', platform: 'mac', cause: 'ai', n: 1, min: 12})),
       latest: suiteNights.map(night => ({runId: night.runId, day: night.day, kind: 'nightly', conclusion: night.green ? 'success' : 'failure', minutes: 12})),

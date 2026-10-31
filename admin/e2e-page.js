@@ -12,7 +12,7 @@ import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {BARS, rateOf} from './e2e-quality.js';
 import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
-import {greySummary, greyNightText, GREY_REASONS, GREY_TREND_TITLE} from './e2e-grey.js';
+import {greySummary, greyNightText, GREY_NOTE} from './e2e-grey.js';
 import {weekOf} from './e2e-work.js';
 import {PR_JOB_BUDGET_SECONDS, PR_SPLIT_SECONDS, speedSummary, speedTime} from './e2e-speed.js';
 
@@ -95,16 +95,7 @@ function greyCard(snapshot, now, repo) {
   return `<section class="card"><h2>Grey</h2>${!grey.read ? '<p class="muted">lane registry not read yet</p>' : !grey.rows.length ? '<p class="muted">No tolerant or suspended suites.</p>' :
     `<div class="scroll"><table><tr><th>Suite</th><th>Lane · input</th><th>Why</th><th>Since</th><th>Returns</th><th>Last 7 nights observed</th></tr>${grey.rows.map(row =>
       `<tr><td><code>${esc(row.suite)}</code></td><td>${esc(row.lane)} · ${esc(row.input || 'input not named')}</td><td>${esc(row.why || 'reason not named')}</td><td>${esc(row.since || 'unknown')} (${esc(row.ageText)})</td><td>${esc(row.returns)}</td><td>${row.nights.map(night => chip(esc(greyNightText(night)), night.green === null ? 'off' : night.green ? 'good' : 'bad')).join(' ') || '<span class="muted">No suite nights stored yet.</span>'}</td></tr>`).join('')}</table></div>`}
-${greyTrendTable(grey, repo)}</section>`;
-}
-
-/** Greys, last 7 days: suites down, reasons across, each count linking its newest run; an unstored ledger is said, never drawn as zeros. */
-function greyTrendTable(grey, repo) {
-  if (!grey.trend) return '<p class="muted">Grey jobs not recorded yet; counts unavailable.</p>';
-  if (!grey.trend.rows.length) return '<p class="muted">No grey jobs recorded in the last 7 days.</p>';
-  const {rows, reasons} = grey.trend;
-  return `<h3>${esc(GREY_TREND_TITLE)}</h3><div class="scroll"><table><tr><th>Suite</th>${reasons.map(reason => `<th class="num">${esc(GREY_REASONS[reason])}</th>`).join('')}<th class="num">Total</th></tr>${rows.map(row =>
-    `<tr><td><code>${esc(row.suite)}</code></td>${reasons.map(reason => `<td class="num">${row.cells[reason] ? `<a href="https://github.com/${esc(repo)}/actions/runs/${Number(row.cells[reason].runId)}">${row.cells[reason].n}</a>` : '<span class="muted">·</span>'}</td>`).join('')}<td class="num">${row.total}</td></tr>`).join('')}</table></div>`;
+<p class="muted">${esc(GREY_NOTE)}</p></section>`;
 }
 
 function budgetBar(seconds) {

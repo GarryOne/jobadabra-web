@@ -94,7 +94,7 @@ test('Grey shows tolerant and suspended rows, seven observed nights, rates only 
   assert.doesNotMatch(grey, /2026-10-23/);
   assert.match(grey, /60%.*main.*80%.*95%/);
   assert.doesNotMatch(grey, /gone/);
-  assert.match(grey, /Grey jobs not recorded yet; counts unavailable/);
+  assert.match(grey, /red or green: its one try is the verdict/);
   assert.match(page(snapshot, {now}), /lane registry not read yet/);
   assert.doesNotMatch(page({...snapshot, lanes, suiteNights}, {now: at}).split('<h2>Grey</h2>')[1].split('</section>')[0], /60%/);
 });
