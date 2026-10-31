@@ -102,6 +102,10 @@ export async function draftEntry({tag, prev, first, version, date, channel}, {su
   return {entry, calls, dropped};
 }
 
+// The per-version log line of a run: what was drafted and how many broker calls it took. Why (31 Oct 2026, Gitar on #241): it read the removed `done.cost` and would have crashed the first version of every
+// run, before any plain entry shipped or any refusal was named; it is a function so a test runs it on every shape draftEntry / draftOrPlain return.
+export const versionLine = (work, done) => `${work.tag}: ${done.entry ? `${done.entry.groups.map(group => `${group.kind} ${group.items.length}`).join(', ')}${done.plain ? ' [plain, no AI]' : ''}` : 'nothing a user would notice (hidden)'}, ${done.dropped.length} dropped by the word floor, ${done.calls} broker ${done.calls === 1 ? 'call' : 'calls'}`;
+
 // One version -> its entry, whatever the AI does (owner, 24 Oct 2026: a refused AI must never leave the page without the release). `ai` = {down: error|null} is shared by the run: after a refusal that will not clear
 // (limit, bad key, rate, overload) no more calls are made. -> {entry, cost, dropped, hidden?, plain?, error?}: `plain` = built without the AI (marked for a redraft), `error` = what to make the run red with.
 export async function draftOrPlain(work, {subjects, ai = {down: null}, ...rest}) {
@@ -155,7 +159,7 @@ async function main() {
     calls += done.calls;
     const why = done.error && (isRefusal(done.error) ? describe(done.error) : done.error.message);
     if (done.error) { failures.push(`${work.version}: ${why}`); console.log(`::error::${work.version}: ${why}${done.plain ? ' (published as a plain entry, written again at the next run that can reach the AI)' : work.redraft ? ' (stays plain)' : ' (not published; retried at the next run)'}`); }
-    console.log(`${work.tag}: ${done.entry ? `${done.entry.groups.map(group => `${group.kind} ${group.items.length}`).join(', ')}${done.plain ? ' [plain, no AI]' : ''}` : 'nothing a user would notice (hidden)'}, ${done.dropped.length} dropped by the word floor, $${done.cost.toFixed(4)}`);
+    console.log(versionLine(work, done));
     for (const line of done.dropped) console.log(`  dropped: ${line}`);
     if (work.redraft) { if (done.entry && !done.plain) redraft.push(done.entry); }
     else if (done.entry) entries.push(done.entry);

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {problems} from '../../admin/changelog.js';
-import {PATHSPEC, chunksOf, draftEntry, estimate, newerThanStored, plan, startEntry} from '../../jobs/changelog-publish.mjs';
+import {PATHSPEC, chunksOf, draftEntry, draftOrPlain, estimate, newerThanStored, plan, startEntry, versionLine} from '../../jobs/changelog-publish.mjs';
 
 const release = (version, extra = {}) => ({tagName: `desktop-v${version}`, isPrerelease: true, isDraft: false, publishedAt: '2026-10-18T01:00:00Z', body: '', ...extra});
 const approved = {body: 'Beta-approved: abc123'};
@@ -158,4 +158,14 @@ test('when nothing fit to show can be built without the AI, the refusal is still
   const done = await draftOrPlain(work, {subjects: ['wip'], ai: {down: null}, broker: refusing('capped', LIMIT).broker});
   assert.ok(done.error);
   assert.equal(done.entry, undefined);
+});
+
+test('the run\'s per-version log line reads what every result shape carries: an AI entry, a plain one, a hidden version (Gitar #241: it read the removed `cost` and would have crashed the run)', async () => {
+  const ai = await draftEntry(work, {subjects: ['Fix dropdowns'], broker: model(group('Dropdowns', 'fixes')).broker});
+  assert.equal(versionLine(work, ai), 'desktop-v0.7.20: fixes 1, 0 dropped by the word floor, 1 broker call');
+  const plainRun = await draftOrPlain(work, {subjects, ai: {down: null}, broker: refusing('capped', LIMIT).broker});
+  assert.match(versionLine(work, plainRun), /\[plain, no AI\], 0 dropped by the word floor, 0 broker calls$/);
+  const hidden = await draftEntry(work, {subjects: ['Refactor tests'], broker: model('{"groups":[]}').broker});
+  assert.equal(versionLine(work, hidden), 'desktop-v0.7.20: nothing a user would notice (hidden), 0 dropped by the word floor, 1 broker call');
+  assert.doesNotMatch([ai, plainRun, hidden].map(done => versionLine(work, done)).join('\n'), /NaN|undefined|\$/);
 });
