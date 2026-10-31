@@ -12,7 +12,7 @@ const percent = value => `${Math.round(value * 100)}%`;
 // The reason words the public repo's one writer (desktop/e2e/lib/grey-record.mjs, called by flaky-proof.mjs --grey) puts in a job's "grey-<suite>" artifact: timing (every failure
 // of both tries was timing) or picker (the PR's picked step no longer exists). The other words are the PR verdict's (main, tolerant, suspended, ai-credit, runner, install):
 // accepted here so a later writer needs no site change, but a reason nobody records is never counted as zero (the card draws only reasons seen).
-export const GREY_REASONS = {main: "main's own red", runner: 'runner', 'ai-credit': 'AI credit', install: 'install', tolerant: 'tolerant', suspended: 'suspended', timing: 'timing', picker: 'picker'};
+export const GREY_REASONS = {main: "main's own red", runner: 'runner', 'ai-credit': 'AI credit', install: 'install', tolerant: 'tolerant', suspended: 'suspended', timing: 'timing', environment: 'environment', picker: 'picker'};
 // The run kinds jobs/e2e-intel-rows.mjs kindOf names: the collector stamps a record's kind, run and day from the run it was read in, never from the artifact.
 const GREY_KINDS = ['pr', 'after-merge', 'scheduled', 'nightly', 'beta', 'soak', 'canary', 'harness'];
 
@@ -40,7 +40,10 @@ export function greyData(previous = {}, data = {}, now = new Date()) {
   // One row per e2e run and suite (a later read replaces an earlier reason); validated again here, whatever the artifact said.
   for (const row of [...(previous.greyJobs || []), ...(Array.isArray(data.greyJobs) ? data.greyJobs.slice(0, 2000) : [])]) {
     if (isDay(row?.day) && row.day >= from && row.day <= to && Object.hasOwn(GREY_REASONS, row.reason) && GREY_KINDS.includes(row.kind) && suiteName(row.suite) && Number.isInteger(row.runId) && row.runId > 0)
-      ledger.set(`${row.runId}:${row.suite}`, {runId: row.runId, day: row.day, kind: row.kind, suite: row.suite, reason: row.reason});
+      {
+      const suite = row.suite.replace(/-\d+of\d+$/, '');   // shards are one suite, as on the nights rows
+      ledger.set(`${row.runId}:${suite}`, {runId: row.runId, day: row.day, kind: row.kind, suite, reason: row.reason});
+    }
   }
   return {...(lanes ? {lanes} : {}), ...((Array.isArray(data.greyJobs) || Array.isArray(previous.greyJobs)) ? {greyJobs: [...ledger.values()].sort((a, b) => b.day.localeCompare(a.day) || b.runId - a.runId).slice(0, 2000)} : {}),
     suiteNights: [...observations.values()].sort((a, b) => b.day.localeCompare(a.day) || b.runId - a.runId).slice(0, 10000),

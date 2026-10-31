@@ -21,7 +21,12 @@ test('greyData keeps valid rows only, one per run and suite (the last reason win
   assert.deepEqual(greyData(first, {}, now).greyJobs, first.greyJobs, 'a failed artifact read sends nothing and keeps the ledger');
   assert.deepEqual(greyData(first, {greyJobs: []}, now).greyJobs.length, 6, 'an empty read adds nothing; rows age out only by day');
   assert.equal(greyData({}, {}, now).greyJobs, undefined, 'never stored stays absent, not an empty ledger');
-  assert.ok(['main', 'runner', 'ai-credit', 'install', 'tolerant', 'suspended', 'timing', 'picker'].every(reason => reason in GREY_REASONS));
+  assert.ok(['main', 'runner', 'ai-credit', 'install', 'tolerant', 'suspended', 'timing', 'environment', 'picker'].every(reason => reason in GREY_REASONS));
+});
+
+test('shards of one suite are one suite, and one row per run and suite', () => {
+  const kept = greyData({}, {greyJobs: [row(1, '2026-11-01', 'pr', 'applyflows-1of2', 'timing'), row(1, '2026-11-01', 'pr', 'applyflows-2of2', 'environment')]}, now).greyJobs;
+  assert.deepEqual(kept, [{runId: 1, day: '2026-11-01', kind: 'pr', suite: 'applyflows', reason: 'environment'}]);
 });
 
 test('the summary counts suite x reason for the last 7 days and links each cell to its newest run', () => {

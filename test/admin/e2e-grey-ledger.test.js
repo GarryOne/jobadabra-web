@@ -26,6 +26,13 @@ test('a run whose artifacts could not be read is reported failed, never counted 
   assert.deepEqual(rows, []);
   const allFailed = await readGreyJobs([run(1)], {list: async () => { throw new Error('x'); }, read: async () => ({})});
   assert.equal(allFailed.rows, undefined, 'nothing read: unknown');
-  const unreadable = await readGreyJobs([run(1)], {list: async () => [art(1, 'grey-apply')], read: async () => { throw new Error('zip'); }});
-  assert.deepEqual([...unreadable.failed], [1], 'an artifact that cannot be read fails its run');
+  const unreadable = await readGreyJobs([run(1)], {list: async () => [art(1, 'grey-apply')], read: async () => { throw new Error('download'); }});
+  assert.deepEqual([...unreadable.failed], [1], 'an artifact that cannot be downloaded fails its run: it is read again');
+});
+
+test('an artifact whose content can never parse is skipped and logged: its run settles and its other records are kept (Gitar, #237)', async () => {
+  const never = () => Object.assign(new Error('no readable grey.json'), {transient: false});
+  const {rows, failed} = await readGreyJobs([run(1)], {list: async () => [art(1, 'grey-bad'), art(2, 'grey-good')], read: async id => { if (id === 1) throw never(); return {suite: 'apply', reason: 'timing'}; }});
+  assert.equal(failed.size, 0, 'a permanent parse failure never leaves the run unsettled');
+  assert.deepEqual(rows.map(row => row.suite), ['apply']);
 });
