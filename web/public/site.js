@@ -21,6 +21,51 @@
     links.addEventListener('click', event => { if (event.target.closest('a')) set(false); });
   }
 
+  // Windows download choice (owner, 31 Oct 2026: "offer on the website, a dropdown, to download the Windows version as a binary, or from the Windows Store"). Every Windows button is the Store
+  // link (as it was) followed by its own `a.dl-exe` link with the same ?from=; here the pair becomes one split button: the main button stays the Store, the caret opens both choices. Both
+  // links are counted by their own route (/download/windows, /download/windows-exe). Without this script both links stay on the page. The words live only here.
+  // Guarded by test/web/windows-choice.test.js.
+  const CHOICES = [
+    {title: 'Microsoft Store', note: 'Installs and updates with no warning. New versions arrive after Microsoft’s review (1–3 days).'},
+    {title: 'Direct download (.exe)', note: 'The newest version now. Windows asks once (More info → Run anyway). It updates itself in the app.'}];
+  const splits = [];
+  for (const store of document.querySelectorAll('a[href^="/download/windows?"]')) {
+    const exe = store.nextElementSibling;
+    if (!exe || !exe.matches('a.dl-exe')) continue;
+    const wrap = Object.assign(document.createElement('span'), {className: 'dl-split'});
+    const caret = Object.assign(document.createElement('button'), {type: 'button', className: 'btn btn-primary dl-caret',
+      innerHTML: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'});
+    const menu = Object.assign(document.createElement('div'), {className: 'dl-menu', id: `dl-menu-${splits.length + 1}`, hidden: true});
+    for (const [index, link] of [store, exe].entries()) {
+      const choice = Object.assign(document.createElement('a'), {href: link.getAttribute('href')});
+      choice.append(Object.assign(document.createElement('b'), {textContent: CHOICES[index].title}), Object.assign(document.createElement('span'), {textContent: CHOICES[index].note}));
+      menu.append(choice);
+    }
+    caret.setAttribute('aria-label', 'Other ways to download for Windows');
+    caret.setAttribute('aria-haspopup', 'true');
+    caret.setAttribute('aria-expanded', 'false');
+    caret.setAttribute('aria-controls', menu.id);
+    store.before(wrap);
+    wrap.append(store, caret, menu);
+    exe.remove();
+    splits.push({wrap, caret, menu});
+  }
+  const closeChoice = ({caret, menu}) => { menu.hidden = true; caret.setAttribute('aria-expanded', 'false'); };
+  for (const split of splits) {
+    const {wrap, caret, menu} = split;
+    caret.addEventListener('click', () => {
+      const open = menu.hidden;
+      for (const other of splits) closeChoice(other);
+      if (!open) return;
+      menu.hidden = false;
+      caret.setAttribute('aria-expanded', 'true');
+      menu.classList.toggle('right', menu.getBoundingClientRect().right > innerWidth - 12);   // never past the screen's edge
+    });
+    wrap.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { closeChoice(split); caret.focus(); } });
+    wrap.addEventListener('focusout', event => { if (!menu.hidden && !wrap.contains(event.relatedTarget)) closeChoice(split); });
+  }
+  if (splits.length) document.addEventListener('click', event => { for (const split of splits) if (!split.wrap.contains(event.target)) closeChoice(split); });
+
   if (!calm && 'IntersectionObserver' in window) {
     const seen = new IntersectionObserver(entries => entries.forEach(entry => {
       if (entry.isIntersecting) { entry.target.classList.add('in'); seen.unobserve(entry.target); }

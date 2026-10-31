@@ -138,7 +138,8 @@ test('the stage script: plays in turn, steps jump, pause, phone posters, nothing
   const css = read('home.css');
   assert.match(css, /@media \(max-width: 720px\) \{ \.stage-screen \{ aspect-ratio: 4 \/ 3; \} \}/, 'phones show the 4:3 copies');
   assert.match(css, /\.stage-screen \{[^}]*rgb\(255 178 36/, 'a restrained amber glow around the frame');
-  assert.match(css, /\.hero\.split \{ grid-template-columns: minmax\(420px, 3\.8fr\) minmax\(0, 8fr\)/, 'the hero is one row: words left, the stage right');
+  // 440px (was 420 until 31 Oct 2026): the Mac button and the Windows split button (its caret) must fit one row in the words column.
+  assert.match(css, /\.hero\.split \{ grid-template-columns: minmax\(440px, 3\.8fr\) minmax\(0, 8fr\)/, 'the hero is one row: words left, the stage right');
 });
 
 // Round 9 (owner, 24 Oct 2026: "move the subtitles/captions out of the video, let's put them below, at least on mobile, they hide some buttons/actions"):
