@@ -2,7 +2,7 @@
 // same numbers as the page, one decision for the owner if any"; rules I and J). Drawn from the snapshot /admin/operations/e2e draws (admin/e2e-intel.js) with the page's
 // own functions, so there is no second count. Pure: jobs/e2e-weekly.mjs posts it. Guard: test/admin/e2e-weekly.test.js.
 import {CAUSES, GROUPS} from './e2e-causes.js';
-import {greySummary, greyLines, greyTrendLines} from './e2e-grey.js';
+import {greySummary, greyLines} from './e2e-grey.js';
 import {speedLines, speedSummary} from './e2e-speed.js';
 import {windowOf} from './e2e-page.js';
 import {scoreRows, workWeeks} from './e2e-scorecard.js';
@@ -56,9 +56,9 @@ export function telegramText(s, issueUrl = '') {
     ...speedLines(s.speed, Math.max(1, limit)), plumbingLine(s), 'Grey', ...(!grey.read ? ['lane registry not read yet'] : !grey.rows.length ? ['No tolerant or suspended suites.'] : [
       ...grey.rows.slice(0, limit).map(row => `${row.suite} (${row.lane}, ${row.ageText}, ${row.nights.filter(night => night.green === false).length}/${row.nights.length} red)`),
       ...(grey.rows.length > limit ? [`…and ${grey.rows.length - limit} more`] : [])]),
-    ...greyTrendLines(grey, Math.max(1, limit)), decision(s, limit) ? `Your call: ${decision(s, limit)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`].join('\n');
+    decision(s, limit) ? `Your call: ${decision(s, limit)}` : 'No decision for you this week.', `${PAGE}${issueUrl ? `\n${issueUrl}` : ''}`].join('\n');
   // Shrink every suite list together: a large scorecard or decision must not crowd out the decision line and links.
-  let limit = Math.max(s.caught.length, s.idle.length, s.prune.length, grey.rows.length, grey.trend?.rows.length || 0, s.speed?.slowPr.length || 0), text = render(limit);
+  let limit = Math.max(s.caught.length, s.idle.length, s.prune.length, grey.rows.length, s.speed?.slowPr.length || 0), text = render(limit);
   while (text.length >= 4096 && limit > 0) text = render(--limit);
   return text;
 }
