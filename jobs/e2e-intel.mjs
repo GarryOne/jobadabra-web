@@ -16,6 +16,7 @@ import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
 import {answerText, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
 import {WORK_IDS, parseLog, workRows, weekOf} from '../admin/e2e-work.js';
 import {cleanLanes} from '../admin/e2e-grey.js';
+import {githubLedger, readGreyJobs} from './e2e-grey-ledger.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.E2E_INTEL_URL || 'https://www.jobpilotto.top/e2e/data';
@@ -153,10 +154,13 @@ async function main() {
   const history = nightRunsToRead(listed, new Set(suiteNights));
   const needed = [...new Map([...history, ...fixes].map(run => [run.databaseId, run])).values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   await eight(needed, async run => { run.jobs = (await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`))?.jobs || []; });
-  const wanted = new Set(todo.map(run => run.databaseId));
+  // The grey records of the runs being read now (a settled run is never read twice, so a run whose records could not be read stays unsettled and is read again next hour).
+  const {rows: greyJobs, failed: greyFailed} = await readGreyJobs(todo, githubLedger(repo));
+  if (greyFailed.size) console.log(`::warning::grey records not read for ${greyFailed.size} run(s); they are read again next hour`);
+  const wanted = new Set(todo.map(run => run.databaseId).filter(id => !greyFailed.has(id)));
   const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
-  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, suiteNights: rows.suiteNights};
+  const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, greyJobs, suiteNights: rows.suiteNights};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
   console.log(`AI: ${aiCalls} call(s), ${aiNeurons} tokens on ${MODEL}${process.env.E2E_CAUSE_CF_TOKEN ? '' : ' (no E2E_CAUSE_CF_TOKEN: reds no fact names stay unknown)'}`);
   const out = process.argv.indexOf('--out');
