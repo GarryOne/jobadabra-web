@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Writes the daily build digest ("what we built today", spec docs/superpowers/specs/2026-10-16-daily-digest.md) from the PRs merged on one Zurich day, with Haiku (admin/build-digest.js does the cutting, validating and rendering).
+// Writes the daily build digest ("what we built today", spec docs/superpowers/specs/2026-10-16-daily-digest.md) from the PRs merged on one Zurich day, with a Haiku-tier call on the Codex broker (since 31 Oct 2026; admin/build-digest.js does the cutting, validating and rendering).
 //   node jobs/daily-digest.mjs [--day YYYY-MM-DD] [--force [--final] [--rewrite]] [--out results.json] [--cost cost.json] [--prs prs.json --open open.json]
 // Hourly (daily-digest.yml): asks the site what it holds (GET /digest/data), plans (build-digest.js plan: unchanged set, once an hour, 8 drafts, final from 23:00 Zurich) and stores the draft (PUT, SELFHEAL_PUBLISH_KEY).
-// Needs gh with GH_TOKEN (unless --prs) and DIGEST_ANTHROPIC_KEY (the Self-heal workspace key; a missing key fails loudly, no fallback). --out: a list of {day, final, markdown, groups, open, numbers, usd}; --cost: {usd, calls} for desktop/e2e/ai-cost-report.mjs --job daily-digest --file.
+// Needs gh with GH_TOKEN (unless --prs) and `permissions: id-token: write` (the broker's run token; a refusal fails loudly: "AI skipped", no fallback). --out: a list of {day, final, markdown, groups, open, numbers, usd}; --cost: {usd, calls} for desktop/e2e/ai-cost-report.mjs --job daily-digest --file.
 import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync} from 'node:fs';
-import {MODEL, countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from '../admin/build-digest.js';
+import {countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from '../admin/build-digest.js';
 import {post} from '../admin/build-digest-telegram.js';
-import {AiRefused, isRefusal, reportRefusal} from '../admin/ai-refusal.js';
-import {usageCost} from '../desktop/e2e/lib/vision.mjs';
+import {isRefusal, reportRefusal} from '../admin/ai-refusal.js';
+import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/codex-broker
 import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
@@ -26,18 +26,18 @@ export function collect(day) {
 }
 
 // One day: look at what the site holds, decide (plan), write the digest, store it. Returns what happened, for the log and for the Telegram step (--out).
-async function runDay({day, late, key, publishKey, now}) {
+async function runDay({day, late, publishKey, now}) {
   const {prs, open} = arg('prs') ? {prs: JSON.parse(readFileSync(arg('prs'), 'utf8')), open: arg('open') ? JSON.parse(readFileSync(arg('open'), 'utf8')) : []} : collect(day);
   const numbers = prs.map(pr => pr.number);
   let stored = null;
   if (publishKey && !process.argv.includes('--force')) stored = await (await fetch(`${base}?day=${day}`, {headers: {Authorization: `Bearer ${publishKey}`}})).json();
   const decision = process.argv.includes('--force') ? {final: process.argv.includes('--final')} : plan({now, numbers, stored, late, zurichHour: zurichHour(now)});
   if (decision.skip) { console.log(`${day}: skipped (${decision.skip})`); return null; }
-  const digest = await makeDigest({day, prs, open, key});
-  const usd = usageCost(MODEL, digest.usage) ?? 0, {count, min, max} = countOf(digest.numbers);
-  console.log(`${day}: ${decision.final ? 'FINAL' : 'draft'}, ${count} PRs${count ? ` (#${min}-#${max})` : ''}, ${digest.groups.length} groups, $${usd.toFixed(4)}`);
+  const digest = await makeDigest({day, prs, open, broker: askBroker});
+  const usd = 0, {calls} = digest, {count, min, max} = countOf(digest.numbers);   // the Codex plan has no dollars; `calls` is what the job costs
+  console.log(`${day}: ${decision.final ? 'FINAL' : 'draft'}, ${count} PRs${count ? ` (#${min}-#${max})` : ''}, ${digest.groups.length} groups, ${calls} broker ${calls === 1 ? 'call' : 'calls'}`);
   const rewrite = process.argv.includes('--rewrite');   // a closed day written again in the new form: stored over the old one, no Telegram post
-  const result = {day, final: decision.final, ...(rewrite ? {rewrite: true} : {}), markdown: digest.markdown, groups: digest.groups, open: digest.open, numbers: digest.numbers, usd};
+  const result = {day, final: decision.final, ...(rewrite ? {rewrite: true} : {}), markdown: digest.markdown, groups: digest.groups, open: digest.open, numbers: digest.numbers, usd, calls};
   if (publishKey) {
     const response = await fetch(base, {method: 'PUT', headers: {Authorization: `Bearer ${publishKey}`, 'Content-Type': 'application/json'}, body: JSON.stringify(result)});
     if (!response.ok) throw new Error(`the site refused the digest (${response.status})`);
@@ -49,20 +49,19 @@ async function runDay({day, late, key, publishKey, now}) {
 }
 
 async function main() {
-  const key = process.env.DIGEST_ANTHROPIC_KEY, now = new Date(), results = [];
-  if (!key) { await reportRefusal(new AiRefused(401, 'DIGEST_ANTHROPIC_KEY is not set in this run'), {job: 'Daily build digest', effect: 'No digest written.', workflow: 'daily-digest.yml', zurichHour: zurichHour(now), run: (cmd, ...args) => execFileSync(cmd, args, {encoding: 'utf8'})}); process.exit(1); }
+  const now = new Date(), results = [];
   const publishKey = process.env.SELFHEAL_PUBLISH_KEY;
   // Yesterday too, until a run has closed it (daysToRun): a missed night no longer leaves a day open.
   const days = daysToRun(now, arg('day'));
   // A refusal by the AI (limit, bad key, overload) is named, told on Telegram once per outage, and fails the run: the digest of that day is retried at the next run (owner, 24 Oct 2026: 7 of 8 runs failed unseen).
-  try { for (const item of days) { const result = await runDay({...item, key, publishKey, now}); if (result) results.push(result); } }
+  try { for (const item of days) { const result = await runDay({...item, publishKey, now}); if (result) results.push(result); } }
   catch (error) {
     if (!isRefusal(error)) throw error;
     await reportRefusal(error, {job: 'Daily build digest', effect: 'Nothing was written for today; the next run tries again.', workflow: 'daily-digest.yml', zurichHour: zurichHour(now), run: (cmd, ...args) => execFileSync(cmd, args, {encoding: 'utf8'})});
     process.exit(1);
   }
   if (arg('out')) writeFileSync(arg('out'), JSON.stringify(results));
-  if (arg('cost')) writeFileSync(arg('cost'), JSON.stringify({usd: results.reduce((sum, item) => sum + item.usd, 0), calls: results.length}));
+  if (arg('cost')) writeFileSync(arg('cost'), JSON.stringify({usd: results.reduce((sum, item) => sum + item.usd, 0), calls: results.reduce((sum, item) => sum + item.calls, 0)}));
   if (!arg('out') && !publishKey) for (const item of results) console.log(item.markdown);
 }
 

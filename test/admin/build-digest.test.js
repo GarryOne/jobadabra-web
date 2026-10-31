@@ -2,14 +2,15 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {ask, buildPrompt, countOf, dayWords, makeDigest, plan, prList, render, summarize, validate, whyRefused, zurichDay, zurichHour} from '../../admin/build-digest.js';
+import {ask, buildPrompt, countOf, dayWords, makeDigest, plan, prList, render, summarize, validate, zurichDay, zurichHour} from '../../admin/build-digest.js';
 
 const prs = JSON.parse(readFileSync(new URL('../fixtures/prs-2026-10-16.json', import.meta.url), 'utf8'));
 const numbers = prs.map(pr => pr.number);
 
 // A fake model: three goals, each PR in one of them.
 const fakeAnswer = (list, extra = {}) => JSON.stringify({groups: [0, 1, 2].map(i => ({emoji: ['🧭', '🤖', '🧪'][i], title: `Goal ${i}`, bullets: [{lead: `Lead ${i}`, text: `Plain sentence ${i}.`, prs: list.filter((_, k) => k % 3 === i)}]})), open: 'The bot token.', ...extra});
-const fakeFetch = (texts) => { const calls = []; return {calls, fetch: async (url, init) => { calls.push(JSON.parse(init.body)); const text = texts[Math.min(calls.length - 1, texts.length - 1)]; return {ok: true, json: async () => ({content: [{text}], usage: {input_tokens: 9000, output_tokens: 1200}})}; }}; };
+// A fake Codex broker (askBroker's answer shape): texts in order (the last repeats); each request body (Messages shape) is kept in `calls`.
+const fakeFetch = (texts) => { const calls = []; return {calls, broker: async body => { calls.push(body); const text = texts[Math.min(calls.length - 1, texts.length - 1)]; return {ok: true, message: {content: [{type: 'text', text}], stop_reason: 'end_turn', usage: {input_tokens: 9000, output_tokens: 1200}}}; }}; };
 
 test('the day is the Zurich day, not the UTC one', () => {
   assert.equal(zurichDay(new Date('2026-10-16T22:30:00Z')), '2026-10-17');
@@ -70,16 +71,17 @@ test('the intro is written by code, with the count and range of the day', () => 
 
 test('makeDigest: asks once, validates, reports the tokens; a bad first answer is retried once; two bad ones throw', async () => {
   const good = fakeFetch([fakeAnswer(numbers)]);
-  const done = await makeDigest({day: '2026-10-16', prs, open: [], key: 'k', fetch: good.fetch});
+  const done = await makeDigest({day: '2026-10-16', prs, open: [], broker: good.broker});
   assert.equal(good.calls.length, 1);
   assert.equal(good.calls[0].model, 'claude-haiku-5-5');
   assert.deepEqual(done.usage, {input_tokens: 9000, output_tokens: 1200});
+  assert.equal(done.calls, 1, 'one broker call');
   assert.equal(done.groups.length, 3);
   const retry = fakeFetch(['not json', fakeAnswer(numbers)]);
-  assert.equal((await makeDigest({day: '2026-10-16', prs, key: 'k', fetch: retry.fetch})).usage.input_tokens, 18000);
-  await assert.rejects(makeDigest({day: '2026-10-16', prs, key: 'k', fetch: fakeFetch(['no']).fetch}), /unusable twice/);
+  assert.equal((await makeDigest({day: '2026-10-16', prs, broker: retry.broker})).usage.input_tokens, 18000);
+  await assert.rejects(makeDigest({day: '2026-10-16', prs, broker: fakeFetch(['no']).broker}), /unusable twice/);
   const none = fakeFetch(['unused']);
-  assert.match((await makeDigest({day: '2026-10-16', prs: [], key: 'k', fetch: none.fetch})).markdown, /Nothing was merged/);
+  assert.match((await makeDigest({day: '2026-10-16', prs: [], broker: none.broker})).markdown, /Nothing was merged/);
   assert.equal(none.calls.length, 0);
 });
 
@@ -103,40 +105,37 @@ test('plan: a draft only when the PR set changed, once an hour, 8 a day; the fin
 // 16 Oct 2026: 116 PRs, 3,000 tokens of room: Haiku's JSON was cut off at max_tokens, twice, and the run said only "not JSON".
 test('a cut-off answer (stop_reason max_tokens) is retried once with more room and, if still cut, named as such', async () => {
   const calls = [];
-  const cut = (answers) => async (url, init) => {
-    const body = JSON.parse(init.body); calls.push(body.max_tokens);
+  const cut = answers => async body => {
+    calls.push(body.max_tokens);
     const [text, stop] = answers[Math.min(calls.length - 1, answers.length - 1)];
-    return {ok: true, json: async () => ({content: [{text}], stop_reason: stop, usage: {input_tokens: 9000, output_tokens: body.max_tokens}})};
+    return {ok: true, message: {content: [{type: 'text', text}], stop_reason: stop, usage: {input_tokens: 9000, output_tokens: body.max_tokens}}};
   };
   const half = fakeAnswer(numbers).slice(0, 300);
-  const done = await makeDigest({day: '2026-10-16', prs, key: 'k', fetch: cut([[half, 'max_tokens'], [fakeAnswer(numbers), 'end_turn']])});
+  const done = await makeDigest({day: '2026-10-16', prs, broker: cut([[half, 'max_tokens'], [fakeAnswer(numbers), 'end_turn']])});
   assert.deepEqual(calls, [8000, 16000]);
   assert.equal(done.groups.length, 3);
   calls.length = 0;
-  await assert.rejects(makeDigest({day: '2026-10-16', prs, key: 'k', fetch: cut([[half, 'max_tokens']])}), /unusable twice \(cut off at the 16000-token limit after 16000 tokens, 116 PRs\)/);
+  await assert.rejects(makeDigest({day: '2026-10-16', prs, broker: cut([[half, 'max_tokens']])}), /unusable twice \(cut off at the 16000-token limit after 16000 tokens, 116 PRs\)/);
 });
 
-// A refused call says why (the daily digest failed with only "model answered 400", 17 Oct 2026): the API's error type and message, never the key.
-const refused = (status, body) => async () => ({ok: false, status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body))});
-const LIMIT = {type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits. You will regain access on 2026-11-01.'}};
+// A skipped call says why (the daily digest once failed with only "model answered 400", 17 Oct 2026): the broker's own words, and no token ever.
+const skipped = (status, detail) => async () => ({ok: false, status, detail});
+const BUDGET = 'broker: budget:week 100% of 100% (scheduled)';
 
-test('a refused ask names the API error type and message', async () => {
-  await assert.rejects(ask({system: 's', user: 'u'}, {key: 'sk-ant-secret-123', fetch: refused(400, LIMIT)}),
-    {message: 'model answered 400: invalid_request_error: You have reached your specified API usage limits. You will regain access on 2026-11-01.'});
+test('a refused ask names the broker status and its reason', async () => {
+  await assert.rejects(ask({system: 's', user: 'u'}, {broker: skipped('capped', BUDGET)}), {message: `broker answered capped: ${BUDGET}`});
+  await assert.rejects(ask({system: 's', user: 'u'}, {broker: skipped('no-token', 'no GitHub OIDC token here')}), {message: 'broker answered no-token: no GitHub OIDC token here'});
+  await assert.rejects(ask({system: 's', user: 'u'}, {}), {message: /^broker answered no-token: /}, 'no broker client given = refused, not a crash');
 });
 
-test('the key never appears in the error, even when the API echoes it', async () => {
-  const echo = {error: {type: 'authentication_error', message: 'invalid x-api-key sk-ant-secret-123'}};
-  await assert.rejects(ask({system: 's', user: 'u'}, {key: 'sk-ant-secret-123', fetch: refused(401, echo)}), error => {
-    assert.ok(!error.message.includes('sk-ant-secret-123'), error.message);
-    assert.match(error.message, /^model answered 401: authentication_error: invalid x-api-key \[key\]$/);
-    return true;
-  });
+test('a long or empty reason is cut to a short one', async () => {
+  const long = await ask({system: 's', user: 'u'}, {broker: skipped(502, 'x'.repeat(2000))}).catch(error => error);
+  assert.equal(long.reason.length, 300);
+  assert.equal((await ask({system: 's', user: 'u'}, {broker: skipped('unreachable', '')}).catch(error => error)).reason, 'no reason given');
 });
 
-test('a body that is not JSON, empty, or unreadable still gives a short reason', async () => {
-  assert.equal(await whyRefused({text: async () => '<html>Bad gateway</html>'}, 'k'), '<html>Bad gateway</html>');
-  assert.equal(await whyRefused({text: async () => ''}, 'k'), 'no reason given');
-  assert.equal(await whyRefused({text: async () => { throw new Error('stream'); }}, 'k'), 'no reason given');
-  assert.equal((await whyRefused({text: async () => 'x'.repeat(2000)}, 'k')).length, 300);
+test('ask sends the Messages request the broker client turns into a Haiku-tier call, and returns text, usage and the stop reason', async () => {
+  const fake = fakeFetch(['hello']);
+  assert.deepEqual(await ask({system: 'sys', user: 'usr'}, {broker: fake.broker}), {text: 'hello', usage: {input_tokens: 9000, output_tokens: 1200}, stopReason: 'end_turn'});
+  assert.deepEqual([fake.calls[0].model, fake.calls[0].system, fake.calls[0].messages], ['claude-haiku-5-5', 'sys', [{role: 'user', content: 'usr'}]]);
 });

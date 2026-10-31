@@ -7,7 +7,8 @@ import {PATHSPEC, chunksOf, draftEntry, estimate, newerThanStored, plan, startEn
 const release = (version, extra = {}) => ({tagName: `desktop-v${version}`, isPrerelease: true, isDraft: false, publishedAt: '2026-10-18T01:00:00Z', body: '', ...extra});
 const approved = {body: 'Beta-approved: abc123'};
 const work = {tag: 'desktop-v0.7.20', prev: 'desktop-v0.7.16', version: '0.7.20', date: '2026-10-18', channel: 'beta'};
-const model = (...texts) => { const calls = []; return {calls, fetch: async (url, init) => { calls.push(JSON.parse(init.body)); const text = texts.shift(); return new Response(JSON.stringify({content: [{type: 'text', text}], usage: {input_tokens: 1500, output_tokens: 400}, stop_reason: 'end_turn'})); }}; };
+// A fake Codex broker (askBroker's answer shape): the texts in order; every request body (Messages shape) is kept in `calls`.
+const model = (...texts) => { const calls = []; return {calls, broker: async body => { calls.push(body); const text = texts.shift(); return {ok: true, tier: 'small', message: {content: [{type: 'text', text}], stop_reason: 'end_turn', usage: {input_tokens: 1500, output_tokens: 400}}}; }}; };
 
 test('stable releases and approved betas get an entry; a build that failed its gate does not; its commits roll into the next one', () => {
   const releases = [release('0.7.15', {isPrerelease: false}), release('0.7.16', {isPrerelease: false}), release('0.7.17', approved), release('0.7.18'), release('0.7.19', approved), release('0.7.20', {isDraft: true, ...approved}), {...release('pr-assets-1'), tagName: 'pr-assets-1'}];
@@ -38,28 +39,28 @@ test('the 0.0.1 entry is the project start, dated at the first commit, and passe
 
 test('the draft is grouped by kind, rule-breakers are dropped, and the cost is measured', async () => {
   const ai = model(JSON.stringify({groups: [{kind: 'fixes', items: [{emoji: '🐛', lead: 'Dropdowns fixed', text: 'Required dropdowns fill again.'}, {lead: 'Pro', text: 'Pro costs $29.'}]}, {kind: 'features', items: [{emoji: '🔎', lead: 'Better search', text: 'Search shows more jobs.'}]}]}));
-  const done = await draftEntry(work, {subjects: ['Fix dropdowns', 'Add search'], key: 'k', fetch: ai.fetch});
+  const done = await draftEntry(work, {subjects: ['Fix dropdowns', 'Add search'], broker: ai.broker});
   assert.deepEqual(done.entry.groups.map(group => group.kind), ['features', 'fixes']);
   assert.equal(done.dropped.length, 1);
-  assert.ok(done.cost > 0 && done.cost < 0.01, `cost ${done.cost}`);
+  assert.equal(done.calls, 1, 'one broker call');
   assert.match(ai.calls[0].messages[0].content, /0\.7\.20 \(changes since 0\.7\.16\)/);
   const first = model('{"groups":[]}');
-  await draftEntry({...work, prev: 'abc1234', first: true}, {subjects: ['x'], key: 'k', fetch: first.fetch});
+  await draftEntry({...work, prev: 'abc1234', first: true}, {subjects: ['x'], broker: first.broker});
   assert.match(first.calls[0].messages[0].content, /changes since the start of the project/);
 });
 
 test('nothing a user would notice is hidden, not retried; no commits cost nothing', async () => {
-  assert.equal((await draftEntry(work, {subjects: [], key: 'k', fetch: model().fetch})).hidden, true);
-  const done = await draftEntry(work, {subjects: ['Refactor tests'], key: 'k', fetch: model('{"groups":[]}').fetch});
+  assert.equal((await draftEntry(work, {subjects: [], broker: model().broker})).hidden, true);
+  const done = await draftEntry(work, {subjects: ['Refactor tests'], broker: model('{"groups":[]}').broker});
   assert.equal(done.hidden, true);
-  assert.ok(done.cost > 0);
+  assert.equal(done.calls, 1);
 });
 
 test('an unusable AI answer is retried once, then the version is not published and the error says why', async () => {
   const good = JSON.stringify({groups: [{kind: 'features', items: [{lead: 'New', text: 'A thing.'}]}]});
-  assert.ok((await draftEntry(work, {subjects: ['x'], key: 'k', fetch: model('sorry', good).fetch})).entry);
-  await assert.rejects(draftEntry(work, {subjects: ['x'], key: 'k', fetch: model('sorry', 'still no').fetch}), /0\.7\.20: the model's answer was unusable twice \(not JSON\)/);
-  await assert.rejects(draftEntry(work, {subjects: ['x'], key: 'k', fetch: async () => new Response('{"error":{"message":"credit balance too low"}}', {status: 400})}), /credit balance too low/);
+  assert.ok((await draftEntry(work, {subjects: ['x'], broker: model('sorry', good).broker})).entry);
+  await assert.rejects(draftEntry(work, {subjects: ['x'], broker: model('sorry', 'still no').broker}), /0\.7\.20: the model's answer was unusable twice \(not JSON\)/);
+  await assert.rejects(draftEntry(work, {subjects: ['x'], broker: async () => ({ok: false, status: 'capped', detail: 'broker: budget:week 100% of 100% (scheduled)'})}), /budget:week 100% of 100%/);
 });
 
 const group = (lead, kind = 'features') => JSON.stringify({groups: [{kind, items: [{lead, text: `${lead} works now.`}]}]});
@@ -81,7 +82,7 @@ test('big versions are cut in chunks of at most 300 subjects', () => {
 
 test('a big version is drafted per chunk and merged by one short call; each prompt stays small', async () => {
   const ai = model(group('One'), group('Two', 'fixes'), group('Merged'));
-  const done = await draftEntry(work, {subjects: many(450), key: 'k', fetch: ai.fetch});
+  const done = await draftEntry(work, {subjects: many(450), broker: ai.broker});
   assert.equal(ai.calls.length, 3);
   assert.match(ai.calls[0].messages[0].content, /part 1 of 2/);
   assert.match(ai.calls[2].messages[0].content, /One/);
@@ -91,29 +92,28 @@ test('a big version is drafted per chunk and merged by one short call; each prom
 
 test('a version of one chunk costs one call; a failed merge falls back to the chunk results, never publishing a rule-breaker', async () => {
   const one = model(group('Only'));
-  await draftEntry(work, {subjects: many(300), key: 'k', fetch: one.fetch});
+  await draftEntry(work, {subjects: many(300), broker: one.broker});
   assert.equal(one.calls.length, 1);
   const bad = model(group('One'), group('Two', 'fixes'), 'no json', 'no json');
-  const done = await draftEntry(work, {subjects: many(450), key: 'k', fetch: bad.fetch});
+  const done = await draftEntry(work, {subjects: many(450), broker: bad.broker});
   assert.deepEqual(done.entry.groups.map(item => item.kind), ['features', 'fixes']);
 });
 
-test('the run stops at its spend cap: no call is made past it and the version is not published', async () => {
+test('the run stops at its call cap: no broker call is made past it and the version is not published', async () => {
   const ai = model(group('One'), group('Two'), group('Three'));
-  const spend = {total: 0.15, cap: 0.15};
-  await assert.rejects(draftEntry(work, {subjects: many(10), key: 'k', fetch: ai.fetch, spend}), /spend cap/);
+  const spend = {total: 12, cap: 12};
+  await assert.rejects(draftEntry(work, {subjects: many(10), broker: ai.broker, spend}), /call cap of 12 broker calls/);
   assert.equal(ai.calls.length, 0);
 });
 
-test('the $0 estimate says per version the chunks, tokens in and out, and the cost', () => {
-  const {chunks, tokensIn, tokensOut, cost} = estimate(many(650));
+test('the estimate says per version the chunks, tokens in and out, and the broker calls (no dollars: the Codex plan)', () => {
+  const {chunks, tokensIn, tokensOut, calls} = estimate(many(650));
   assert.equal(chunks, 3);
   assert.ok(tokensIn > 650 * 3 && tokensIn < 25000, `in ${tokensIn}`);
-  assert.ok(tokensOut > 0 && cost > 0 && cost < 0.05, `cost ${cost}`);
-  // measured on the 18 Oct 2026 backfill (a full answer is ~2,000 output tokens): 216 subjects cost $0.0016, 15 cost $0.0007, 5 cost $0.0003, 1,140 (4 chunks + join) $0.0112
-  const near = (subjects, actual) => { const {cost} = estimate(many(subjects)); assert.ok(cost > actual * 0.6 && cost < actual * 1.6, `${subjects} subjects: est ${cost} vs ${actual}`); };
-  near(216, 0.0016); near(15, 0.0007); near(5, 0.0003); near(989, 0.0112);
-  assert.deepEqual(estimate([]), {chunks: 0, tokensIn: 0, tokensOut: 0, cost: 0});
+  assert.ok(tokensOut > 0);
+  assert.equal(calls, 4, '3 chunk calls + 1 merge call');
+  assert.equal(estimate(many(5)).calls, 1);
+  assert.deepEqual(estimate([]), {chunks: 0, tokensIn: 0, tokensOut: 0, calls: 0});
 });
 
 test('an automatic run drafts only versions newer than the newest stored one; older gaps wait for --backfill', () => {
@@ -123,31 +123,31 @@ test('an automatic run drafts only versions newer than the newest stored one; ol
   assert.equal(newerThanStored(list, {}).length, 4);
 });
 
-// The AI refuses (owner, 24 Oct 2026): the version still goes out, as a plain entry; a 429 and the 400 limit both stop further calls; an ok answer stays the AI's.
-const refusing = (status, error) => { const calls = []; return {calls, fetch: async () => { calls.push(1); return new Response(JSON.stringify({type: 'error', error}), {status}); }}; };
-const LIMIT = {type: 'invalid_request_error', message: 'You have reached your specified workspace API usage limits. You will regain access on 2026-11-01'};
+// The AI is skipped (owner, 24 Oct 2026; on the Codex broker since 31 Oct 2026): the version still goes out, as a plain entry; the broker's 'capped' and a 429 both stop further calls; an ok answer stays the AI's.
+const refusing = (status, detail) => { const calls = []; return {calls, broker: async () => { calls.push(1); return {ok: false, status, detail}; }}; };
+const LIMIT = 'broker: budget:week 100% of 100% (scheduled)';   // the broker's own words when the Codex allowance is used up (429/503 = 'capped')
 const subjects = ['Fix required dropdowns that stayed empty', 'Add a Compare view for two jobs'];
 
-test('a limit (400) publishes a plain entry marked plain, names the refusal, and the next version makes no call', async () => {
+test('a Codex budget refusal (\'capped\') publishes a plain entry marked plain, names the refusal, and the next version makes no call', async () => {
   const {draftOrPlain} = await import('../../jobs/changelog-publish.mjs');
-  const ai = {down: null}, fake = refusing(400, LIMIT);
-  const first = await draftOrPlain(work, {subjects, ai, key: 'k', fetch: fake.fetch});
+  const ai = {down: null}, fake = refusing('capped', LIMIT);
+  const first = await draftOrPlain(work, {subjects, ai, broker: fake.broker});
   assert.equal(first.plain, true);
   assert.equal(first.entry.plain, true);
   assert.deepEqual(problems(first.entry), []);
-  assert.match(first.error.message, /usage limits/);
+  assert.match(first.error.message, /^broker answered capped: .*budget:week/);
   assert.equal(first.error.kind, 'limit');
-  const second = await draftOrPlain({...work, version: '0.7.21'}, {subjects, ai, key: 'k', fetch: fake.fetch});
+  const second = await draftOrPlain({...work, version: '0.7.21'}, {subjects, ai, broker: fake.broker});
   assert.equal(second.plain, true);
   assert.equal(fake.calls.length, 1, 'no call once the AI is down');
 });
 
-test('a 429 is also plain and red; an ok answer is the AI entry with no error', async () => {
+test('a 429 from the broker is also plain and red; an ok answer is the AI entry with no error', async () => {
   const {draftOrPlain} = await import('../../jobs/changelog-publish.mjs');
-  const limited = await draftOrPlain(work, {subjects, ai: {down: null}, key: 'k', fetch: refusing(429, {type: 'rate_limit_error', message: 'slow down'}).fetch});
+  const limited = await draftOrPlain(work, {subjects, ai: {down: null}, broker: refusing(429, 'broker: slow down').broker});
   assert.equal(limited.plain, true);
   assert.equal(limited.error.kind, 'rate');
-  const fine = await draftOrPlain(work, {subjects, ai: {down: null}, key: 'k', ...model(JSON.stringify({groups: [{kind: 'fixes', items: [{emoji: '🐛', lead: 'Dropdowns fixed', text: 'Required dropdowns fill again.'}]}]}))});
+  const fine = await draftOrPlain(work, {subjects, ai: {down: null}, ...model(JSON.stringify({groups: [{kind: 'fixes', items: [{emoji: '🐛', lead: 'Dropdowns fixed', text: 'Required dropdowns fill again.'}]}]}))});
   assert.equal(fine.plain, undefined);
   assert.equal(fine.error, undefined);
   assert.equal(fine.entry.plain, undefined);
@@ -155,7 +155,7 @@ test('a 429 is also plain and red; an ok answer is the AI entry with no error', 
 
 test('when nothing fit to show can be built without the AI, the refusal is still an error and nothing is hidden', async () => {
   const {draftOrPlain} = await import('../../jobs/changelog-publish.mjs');
-  const done = await draftOrPlain(work, {subjects: ['wip'], ai: {down: null}, key: 'k', fetch: refusing(400, LIMIT).fetch});
+  const done = await draftOrPlain(work, {subjects: ['wip'], ai: {down: null}, broker: refusing('capped', LIMIT).broker});
   assert.ok(done.error);
   assert.equal(done.entry, undefined);
 });

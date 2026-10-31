@@ -7,7 +7,8 @@ const json = s => JSON.parse(new TextDecoder().decode(b64(s)));
 
 /**
  * Verifies a run token. Takes the JWT, {jwks: () => Promise<{keys}>, audience, repository, now (ms)}; returns the claims, or throws Error('oidc: <reason>').
- * Checks signature (RS256 against the issuer's published key), issuer, audience, expiry and that the token's repository is the one allowed.
+ * Checks signature (RS256 against the issuer's published key), issuer, audience, expiry and that the token's repository is one of those allowed (`repository` is one name or a list: the public repo and,
+ * since 31 Oct 2026, the private site repo whose scheduled jobs write on the Codex plan).
  */
 export async function verifyRunToken(jwt, {jwks, audience, repository, now = Date.now()}) {
   const parts = String(jwt || '').split('.');
@@ -23,7 +24,7 @@ export async function verifyRunToken(jwt, {jwks, audience, repository, now = Dat
   if (claims.iss !== ISSUER) throw new Error('oidc: wrong issuer');
   if (claims.aud !== audience) throw new Error('oidc: wrong audience');
   if (!(claims.exp * 1000 > now)) throw new Error('oidc: expired');
-  if (claims.repository !== repository) throw new Error('oidc: wrong repository');
+  if (![].concat(repository).includes(claims.repository)) throw new Error('oidc: wrong repository');
   return claims;
 }
 

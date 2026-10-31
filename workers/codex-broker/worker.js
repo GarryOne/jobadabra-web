@@ -123,7 +123,7 @@ export default {
     }
     if (url.pathname === '/call' && request.method === 'POST') {
       let claims;
-      try { claims = await verifyRunToken((request.headers.get('authorization') || '').replace(/^Bearer /, ''), {jwks: jwks(env), audience: env.AUDIENCE || 'jobadabra-codex-broker', repository: env.REPOSITORY || 'GarryOne/jobadabra'}); }
+      try { claims = await verifyRunToken((request.headers.get('authorization') || '').replace(/^Bearer /, ''), {jwks: jwks(env), audience: env.AUDIENCE || 'jobadabra-codex-broker', repository: repositories(env)}); }
       catch (e) { return json(401, {why: String(e.message)}); }
       return broker.fetch(new Request('http://c/call', {method: 'POST', body: await request.text(), headers: {'x-lane': laneOf(claims)}}));
     }
@@ -131,5 +131,7 @@ export default {
   },
 };
 
+// Why (31 Oct 2026, owner: "Move all 11 now"): the private site repo's changelog and digest jobs run on the Codex plan too, so the broker accepts run tokens of both repos (REPOSITORY is a comma list).
+const repositories = env => String(env.REPOSITORY || 'GarryOne/jobadabra,GarryOne/jobadabra-web').split(',').map(name => name.trim()).filter(Boolean);
 let jwksReader;
 const jwks = () => (jwksReader ||= githubJwks());
