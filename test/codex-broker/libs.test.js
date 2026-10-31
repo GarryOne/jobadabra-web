@@ -94,39 +94,29 @@ test('weekly resets preserve daily reservations; token completions never count c
   assert.equal(callsToday(m, 'drift', driftDay), 1);
 });
 
-test('drift keeps scheduled weekly own-share and whole-week brakes', () => {
-  const m = record(newMeter(2000000000), 'drift', 60 * TOKENS_PER_PERCENT, driftDay);
-  assert.match(allow('drift', m, 80).why, /budget:own-share 60\.0% of 60% \(drift\)/);
-  assert.deepEqual(allow('drift', newMeter(2000000000), 85), {ok: false, why: 'budget:week 85% of 85% (drift)'});
-});
-
-test('scheduled work stops at 60% own share, PR checks keep going to 75%, the week brake binds on a busy owner week', () => {
-  let m = newMeter(2000000000);
-  m = record(m, 'scheduled', 60 * TOKENS_PER_PERCENT, 1, 0);
-  assert.equal(allow('scheduled', m, 80).ok, false);
-  assert.match(allow('scheduled', m, 80).why, /own-share/);
-  assert.equal(allow('bench', m, 80).ok, false);
-  assert.equal(allow('pr', m, 80).ok, true);
-  m = record(m, 'pr', 15 * TOKENS_PER_PERCENT, 1, 0);
-  assert.equal(allow('pr', m, 80).ok, false);
-  const fresh = newMeter(2000000000);
-  assert.equal(allow('scheduled', fresh, 85).ok, false);
-  assert.match(allow('scheduled', fresh, 85).why, /week/);
-  assert.equal(allow('pr', fresh, 96).ok, true);
-  assert.equal(allow('pr', fresh, 97).ok, false);
-  assert.equal(allow('scheduled', fresh, null).ok, true);
+test('every lane may use the week up to 100%: refused at 100, allowed at 99.9', () => {
+  for (const lane of ['pr', 'scheduled', 'bench', 'drift']) {
+    const fresh = newMeter(2000000000);
+    const below = record(newMeter(2000000000), lane, 99.9 * TOKENS_PER_PERCENT, 1);
+    const full = record(newMeter(2000000000), lane, 100 * TOKENS_PER_PERCENT, 1);
+    assert.deepEqual(allow(lane, below, null), {ok: true}, `${lane}: own share below cap`);
+    assert.deepEqual(allow(lane, full, null), {ok: false, why: `budget:own-share 100.0% of 100% (${lane})`});
+    assert.deepEqual(allow(lane, fresh, 99.9), {ok: true}, `${lane}: week below cap`);
+    assert.deepEqual(allow(lane, fresh, 100), {ok: false, why: `budget:week 100% of 100% (${lane})`});
+    assert.deepEqual(allow(lane, below, 99.9), {ok: true}, `${lane}: both below cap`);
+    assert.deepEqual(allow(lane, fresh, null), {ok: true}, `${lane}: no week reading yet`);
+  }
 });
 
 // Owner's goal, 30 Oct 2026 (a hand beta, green): /health read whole week 32%, broker tokens 43,241,035; the seed ratio called that 60.06% and refused every scheduled call.
-test('own share never exceeds the whole-week reading: 43.2M tokens on a week Codex says is 32% used is allowed; on a 61% week it is refused', () => {
-  let m = newMeter(2000000000);
-  m = record(m, 'pr', 163226, 1, 0); m = record(m, 'scheduled', 40985043, 1, 0); m = record(m, 'bench', 2092766, 1, 0);
-  assert.ok(ownSharePct(m) > 60 && ownSharePct(m) < 60.1, 'by the seed alone the broker reads 60.06%');
-  assert.equal(allow('scheduled', m, 32).ok, true);
-  assert.equal(allow('bench', m, 32).ok, true);
-  assert.equal(allow('pr', m, 32).ok, true);
-  assert.match(allow('scheduled', m, 61).why, /own-share 60\.1% of 60%/);
-  assert.equal(allow('scheduled', m, null).ok, false, 'no whole-week reading yet: the seed estimate stands');
+test('own share never exceeds the whole-week reading: a 100.1% seed estimate is allowed at 99.9% whole-week use and refused at 100%', () => {
+  const m = record(newMeter(2000000000), 'scheduled', 100.1 * TOKENS_PER_PERCENT, 1);
+  assert.equal(ownSharePct(m), 100.1, 'by the seed alone the broker reads over 100%');
+  for (const lane of ['pr', 'scheduled', 'bench', 'drift']) {
+    assert.deepEqual(allow(lane, m, 99.9), {ok: true}, lane);
+    assert.deepEqual(allow(lane, m, 100), {ok: false, why: `budget:own-share 100.0% of 100% (${lane})`});
+    assert.deepEqual(allow(lane, m, null), {ok: false, why: `budget:own-share 100.1% of 100% (${lane})`}, 'no whole-week reading yet: the seed estimate stands');
+  }
 });
 
 test('a meter with no reset date yet keeps counting across calls (Gitar #221: it was reset to 1970 on every call)', () => {
@@ -134,7 +124,7 @@ test('a meter with no reset date yet keeps counting across calls (Gitar #221: it
   for (let i = 0; i < 3; i++) m = record(m, 'scheduled', 10 * TOKENS_PER_PERCENT, 1793000000, undefined);
   assert.equal(ownSharePct(m), 30);
   assert.equal(allow('scheduled', m, null).ok, true);
-  m = record(m, 'scheduled', 30 * TOKENS_PER_PERCENT, 1793000000, undefined);
+  m = record(m, 'scheduled', 70 * TOKENS_PER_PERCENT, 1793000000, undefined);
   assert.equal(allow('scheduled', m, null).ok, false);
 });
 

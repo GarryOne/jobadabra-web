@@ -1,5 +1,5 @@
 // Which lane a call is in, read from the verified run token and never from what the caller says: PR checks always go before scheduled work and benchmarks.
-// Why (28 Oct 2026, spec ci-on-codex-subscription-design): a PR check must keep its own 15% of the week; scheduled and benchmark work stops at its 60% share.
+// Why (31 Oct 2026, owner: "CI can use up to 100%"): all lanes may use the whole week; PR checks keep queue priority over scheduled work and benchmarks.
 
 /** Lane of verified claims: PR first, the exact nightly drift workflow, benchmarks, then other scheduled/push/manual runs. */
 export function laneOf(claims) {

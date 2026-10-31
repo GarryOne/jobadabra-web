@@ -96,7 +96,7 @@ test('health and admission reset on the next UTC day, even with an old stored me
 test('weekly refusals do not consume daily slots and caller input cannot change the accepted lane', async t => {
   t.mock.method(Date, 'now', () => day);
   const {broker, storage} = harness();
-  await storage.put('limits', {usedPercent: 85});
+  await storage.put('limits', {usedPercent: 100});
   assert.equal((await broker.call('drift', {...body, lane: 'pr'})).status, 429);
   assert.equal((await (await broker.health()).json()).daily.drift, 0);
   broker.limits = {usedPercent: 0};
@@ -141,7 +141,7 @@ test('search keeps every tier, lane, queue priority and meter identical to ordin
       assert.equal(meter.tokens[lane], 5);
       if (ordinaryMeter) assert.deepEqual(meter, ordinaryMeter);
       else ordinaryMeter = meter;
-      broker.limits = {usedPercent: lane === 'pr' ? 97 : 85};
+      broker.limits = {usedPercent: 100};
       assert.equal((await broker.call(lane, {...body, tier, ...option})).status, 429);
       assert.deepEqual(await storage.get('meter'), ordinaryMeter);
     }
