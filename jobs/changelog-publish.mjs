@@ -108,10 +108,12 @@ export const versionLine = (work, done) => `${work.tag}: ${done.entry ? `${done.
 
 // One version -> its entry, whatever the AI does (owner, 24 Oct 2026: a refused AI must never leave the page without the release). `ai` = {down: error|null} is shared by the run: after a refusal that will not clear
 // (limit, bad key, rate, overload) no more calls are made. -> {entry, cost, dropped, hidden?, plain?, error?}: `plain` = built without the AI (marked for a redraft), `error` = what to make the run red with.
-export async function draftOrPlain(work, {subjects, ai = {down: null}, ...rest}) {
-  const fallback = error => { const entry = plainEntry(work, subjects); return entry ? {entry, plain: true, calls: 0, dropped: [], error} : {hidden: true, calls: 0, dropped: [], error}; };
+export async function draftOrPlain(work, {subjects, ai = {down: null}, spend = {total: 0, cap: Infinity}, ...rest}) {
+  // Why (31 Oct 2026, Gitar on #241): a refused or unusable draft already used broker calls (groupsFrom counts each one before it is made, and they count against the cap), so the fallback reports the difference, never 0.
+  const start = spend.total, used = () => spend.total - start;
+  const fallback = error => { const entry = plainEntry(work, subjects); return entry ? {entry, plain: true, calls: used(), dropped: [], error} : {hidden: true, calls: used(), dropped: [], error}; };
   if (ai.down) return fallback(ai.down);
-  try { return await draftEntry(work, {subjects, ...rest}); }
+  try { return await draftEntry(work, {subjects, spend, ...rest}); }
   catch (error) { if (staysDown(error)) ai.down = error; return fallback(error); }
 }
 

@@ -164,8 +164,18 @@ test('the run\'s per-version log line reads what every result shape carries: an 
   const ai = await draftEntry(work, {subjects: ['Fix dropdowns'], broker: model(group('Dropdowns', 'fixes')).broker});
   assert.equal(versionLine(work, ai), 'desktop-v0.7.20: fixes 1, 0 dropped by the word floor, 1 broker call');
   const plainRun = await draftOrPlain(work, {subjects, ai: {down: null}, broker: refusing('capped', LIMIT).broker});
-  assert.match(versionLine(work, plainRun), /\[plain, no AI\], 0 dropped by the word floor, 0 broker calls$/);
+  assert.match(versionLine(work, plainRun), /\[plain, no AI\], 0 dropped by the word floor, 1 broker call$/, 'the refused call is counted: it used the allowance');
+  const unusable = await draftOrPlain(work, {subjects, ai: {down: null}, broker: model('sorry', 'still no').broker});
+  assert.match(versionLine(work, unusable), /\[plain, no AI\], 0 dropped by the word floor, 2 broker calls$/, 'an answer unusable twice used two calls');
   const hidden = await draftEntry(work, {subjects: ['Refactor tests'], broker: model('{"groups":[]}').broker});
   assert.equal(versionLine(work, hidden), 'desktop-v0.7.20: nothing a user would notice (hidden), 0 dropped by the word floor, 1 broker call');
   assert.doesNotMatch([ai, plainRun, hidden].map(done => versionLine(work, done)).join('\n'), /NaN|undefined|\$/);
+});
+
+test('the run\'s spend counts every broker call, including the refused and unusable ones, across versions (Gitar #241)', async () => {
+  const spend = {total: 0, cap: 12}, ai = {down: null}, one = await draftOrPlain(work, {subjects, ai, spend, broker: model('sorry', 'still no').broker});
+  assert.equal(one.calls, 2);
+  const two = await draftOrPlain({...work, version: '0.7.21'}, {subjects, ai, spend, broker: model(group('Fine')).broker});
+  assert.equal(two.calls, 1);
+  assert.equal(spend.total, one.calls + two.calls, 'the sum of what each version reports is what counted against the cap');
 });
