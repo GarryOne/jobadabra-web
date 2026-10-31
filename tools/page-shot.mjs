@@ -37,6 +37,7 @@ try {
     if (reasons.length) { failed = true; console.error(`UNSTYLED ${pagePath} at ${width}px ${theme}: ${reasons.join('; ')}`); }
     else {
       if (args.scroll) { await page.locator(String(args.scroll)).first().scrollIntoViewIfNeeded(); await page.waitForTimeout(500); }   // --scroll '<selector>': shoot that part of the page (a full-page shot leaves iframes blank)
+      if (args.click) { await page.locator(String(args.click)).first().click(); await page.waitForTimeout(300); }   // --click '<selector>': press it before the shot (an open dropdown); after --scroll
       await page.screenshot({path: file, fullPage: !!args.full}); console.log(file);
     }
     await context.close();

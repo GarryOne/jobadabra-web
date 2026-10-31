@@ -2,7 +2,7 @@
    Builds on styles.css tokens and parts (.hero, .btn, .mac-window, section.block); only what those lack lives here. Guarded by site/test/landing.test.js. */
 
 /* Hero: words left, the clips right on one row (stacked on phones). */
-.hero.split { grid-template-columns: minmax(420px, 3.8fr) minmax(0, 8fr); justify-items: stretch; align-items: center; text-align: left; gap: 40px; padding-block: 56px 56px; }
+.hero.split { grid-template-columns: minmax(440px, 3.8fr) minmax(0, 8fr); justify-items: stretch; align-items: center; text-align: left; gap: 40px; padding-block: 56px 56px; }
 .hero.split .hero-copy { justify-items: start; gap: 18px; }
 .hero.split h1 { font-size: clamp(2.2rem, 3.6vw, 3.2rem); }
 .hero.split .eyebrow { justify-content: flex-start; }
@@ -68,6 +68,31 @@
 .downloads .btn svg { flex: none; }
 @media (max-width: 520px) { .downloads { grid-template-columns: minmax(0, 1fr); width: 100%; } }
 .hero .downloads-note { font: 400 .76rem var(--mono); color: #8a97a6; }
+
+/* Windows download choice (owner, 31 Oct 2026): the Windows button stays the Store link; a caret beside it opens both ways to get the app. site.js builds the split from the `a.dl-exe`
+   link that follows every Windows button; without the script that link stays a small line under the button. Guarded by test/web/windows-choice.test.js. */
+.dl-exe { font: 500 .82rem var(--sans); color: var(--muted); }
+.downloads .dl-exe { grid-column: 1 / -1; flex-basis: 100%; }
+.dl-split { position: relative; display: inline-flex; max-width: 100%; }
+.downloads .dl-split { display: flex; }
+.dl-split > a.btn { flex: 1 1 auto; border-start-end-radius: 0; border-end-end-radius: 0; }
+.dl-split > .dl-caret.btn { flex: none; width: auto; padding-inline: 10px; border-radius: 0 999px 999px 0; border-left: 1px solid rgb(20 17 12 / .28); }
+.os-card .dl-split { justify-self: start; }
+.dl-split > .btn:hover { transform: none; }
+.dl-caret svg { transition: transform .2s ease; }
+.dl-caret[aria-expanded="true"] svg { transform: rotate(180deg); }
+.dl-menu { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: min(350px, calc(100vw - 48px)); padding: 6px; display: grid; gap: 2px; text-align: left;
+  background: var(--raised); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow-lg); }
+.dl-menu[hidden] { display: none; }
+.dl-menu.right { left: auto; right: 0; }
+.dl-menu a { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: var(--ink); }
+.dl-menu a:hover, .dl-menu a:focus-visible { background: var(--signal-soft); }
+.dl-menu b { font: 600 .92rem var(--sans); }
+.dl-menu span { font: 400 .8rem/1.4 var(--sans); color: var(--muted); }
+@media (max-width: 520px) {   /* on a phone the menu opens in the flow, under the button: it can never leave its card or the screen */
+  .dl-split, .downloads .dl-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .dl-menu, .dl-menu.right { position: static; grid-column: 1 / -1; width: auto; margin-top: 8px; }
+}
 
 /* The live numbers: one band, four figures. */
 .numbers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line);

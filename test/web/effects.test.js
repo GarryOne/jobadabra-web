@@ -22,6 +22,7 @@ const LEFT_OUT = {
   '.heat-card': 'a wide table that scrolls sideways (/coverage heatmap)',
   '.alt-download': 'a button',
   '.car-btn': 'a button',
+  '.dl-menu': 'the Windows button\'s dropdown (Store or .exe): a menu that opens over the page, not a card',
 };
 
 // Every rule that draws a boxed card: a 1px border and a surface background.
