@@ -36,7 +36,7 @@ export const ownSharePct = (meter, tokensPerPercent = TOKENS_PER_PERCENT) => Obj
 
 /**
  * Whether `lane` may call now: {ok: true} or {ok: false, why}. weekUsedPercent is Codex's own whole-week figure (null = not read yet: not a reason to stop).
- * A refusal is said as a reason word the job shows in its check ("budget:daily", "budget:own-share", "budget:week"); the job then replays or goes grey, never a paid engine.
+ * A refusal is said as a reason word the job shows in its check ("budget:daily", "budget:own-share", "budget:week"); daily refusals replay or go grey; weekly exhaustion may select the broker's day-capped fallback.
  * This only checks: reserve accepted calls with recordCall() atomically. `now` is epoch seconds.
  */
 export function allow(lane, meter, weekUsedPercent, tokensPerPercent = TOKENS_PER_PERCENT, now = Date.now() / 1000) {

@@ -238,3 +238,28 @@ test('/admin/intelligence/ai-cost compares each install with the lines in force 
   assert.match(html, /db510466<\/td><td class="n">\$0\.42<\/td><td class="n">84%<\/td><td class="n">2\.5M<\/td><td class="n">167%<\/td>/);
   assert.match(html, /of \$200 \(alert at \$100\) · per install: \$0\.5 or 1\.5M tokens a day, \$5 a month/);
 });
+
+
+test('guarded admin read shows broker fallback spend, holds and caps from its service binding', async () => {
+  const env = {STATS_KEY: 'fixture-key', CODEX_BROKER: {fetch: async request => {
+    assert.equal(new URL(request.url).pathname, '/health');
+    return Response.json({fallback: {day: new Date().toISOString().slice(0, 10), claude: 4.25, freeAi: 0.12,
+      claudeCap: 5, freeAiCap: 2, held: {claude: 0.03, freeAi: 0}}});
+  }}};
+  const data = await read(env);
+  assert.equal(data.fallback.claude, 4.25); assert.equal(data.fallback.freeAi, 0.12);
+  const request = new Request('https://x.dev/admin/ai-cost', {headers: {cookie: 'stats_key=fixture-key'}});
+  // Use the same supported owner bearer as the local page-shot Worker.
+  env.STATS_API_KEY = 'fixture-owner';
+  const response = await view(new Request(request, {headers: {Authorization: 'Bearer fixture-owner'}}), env);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /CI fallback: Claude \$4.25, Free AI \$0.12 today/);
+  assert.match(html, /Claude \$5.00/); assert.match(html, /Free AI \$2.00/); assert.match(html, /reserved: Claude \$0.03/);
+  let accessed = false;
+  env.CODEX_BROKER.fetch = async () => { accessed = true; throw new Error('offline'); };
+  assert.equal((await view(new Request('https://x.dev/admin/ai-cost'), env)).status, 404);
+  assert.equal(accessed, false);
+  const unavailable = await view(new Request(request, {headers: {Authorization: 'Bearer fixture-owner'}}), env);
+  assert.match(await unavailable.text(), /CI fallback: data unavailable/);
+});
