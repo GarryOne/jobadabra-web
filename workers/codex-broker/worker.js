@@ -7,7 +7,7 @@ import {laneOf} from './lib/lanes.mjs';
 import {allow, newMeter, record, recordCall, callsToday} from './lib/budget.mjs';
 import {refuseReply} from './lib/guard.mjs';
 import {slots} from './lib/queue.mjs';
-import {modelOf} from './lib/tiers.mjs';
+import {modelOf, validEffort, weightOf, EFFORTS} from './lib/tiers.mjs';
 import {exhausted, fallbackEnabled, fallbackCall, fallbackToday} from './lib/fallback.mjs';
 
 export {ContainerProxy} from '@cloudflare/containers';   // required by the outbound host list below: without it every start fails with "ctx.exports.ContainerProxy is undefined" (28 Oct 2026)
@@ -65,6 +65,7 @@ export class CodexBroker extends Container {
 
   async call(lane, body) {
     if (Object.hasOwn(body, 'search') && typeof body.search !== 'boolean') return json(400, {why: 'search must be a boolean'});
+    if (Object.hasOwn(body, 'effort') && !validEffort(body.effort)) return json(400, {why: `effort must be ${EFFORTS.slice(0, -1).join(', ')} or ${EFFORTS.at(-1)}`});
     const model = modelOf(body.tier);
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
     if (!(await this.ctx.storage.get('login'))) return json(503, {why: 'no-login'});
@@ -97,7 +98,7 @@ export class CodexBroker extends Container {
       if (!reply.ok && exhausted(answer.error) && fallbackEnabled(this.brokerEnv)) return fallbackCall(this.ctx.storage, this.brokerEnv, body, lane, this.limits?.usedPercent ?? null);
       if (!reply.ok) { if (answer.error === 'login-lost') await this.ctx.storage.put('lost', true); return json(reply.status === 500 && answer.error === 'login-lost' ? 503 : 502, {why: refuseReply(answer.error) ? 'codex-failed (detail withheld: token-shaped)' : answer.error}); }
       if (answer.limits) { this.limits = answer.limits; await this.ctx.storage.put('limits', answer.limits); }
-      const used = answer.tokens.input + answer.tokens.output;
+      const used = (answer.tokens.input + answer.tokens.output) * weightOf(body.effort);   // a higher effort counts for more of the week (lib/tiers.mjs EFFORT_WEIGHT)
       // Completions also transact: a token write must never overwrite a newer daily reservation.
       await this.ctx.storage.transaction(async storage => {
         const latest = (await storage.get('meter')) || newMeter(0);

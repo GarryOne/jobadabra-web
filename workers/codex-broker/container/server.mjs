@@ -59,8 +59,8 @@ function readLimits() {
   });
 }
 
-// One call: {prompt, schema?, images?: [{name, base64}], search?: boolean} -> {reply, tokens: {input, output}, ms}. Throws Error with a reason word on a failed codex run.
-async function call({prompt, schema, images = [], model, search}) {
+// One call: {prompt, schema?, images?: [{name, base64}], search?: boolean, effort?: low|medium|high|xhigh} -> {reply, tokens: {input, output}, ms}. Throws Error with a reason word on a failed codex run.
+async function call({prompt, schema, images = [], model, search, effort}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'call-'));
   try {
     if (schema) fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(schema));
@@ -69,7 +69,7 @@ async function call({prompt, schema, images = [], model, search}) {
       fs.writeFileSync(path.join(dir, name), Buffer.from(img.base64, 'base64'));
       return name;
     });
-    const args = buildArgs({prompt, schema, imageNames, model, search});
+    const args = buildArgs({prompt, schema, imageNames, model, search, effort});
     const started = Date.now();
     const {code, out, err} = await run(args, dir);
     const reply = fs.existsSync(path.join(dir, 'out.txt')) ? fs.readFileSync(path.join(dir, 'out.txt'), 'utf8') : '';

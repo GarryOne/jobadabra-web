@@ -18,3 +18,10 @@ test('search true adds the public adapter live-search config before the prompt',
 test('search false preserves the original CLI arguments', () => {
   assert.deepEqual(buildArgs({prompt: 'hello', search: false}), [...original, '--', 'hello']);
 });
+
+test('effort adds the reasoning-effort config before the prompt; omitted effort leaves the CLI arguments untouched', () => {
+  assert.deepEqual(buildArgs({prompt: 'hello', effort: 'high'}), [...original, '-c', 'model_reasoning_effort="high"', '--', 'hello']);
+  assert.deepEqual(buildArgs({prompt: 'hello', search: true, effort: 'low'}), [...original, '-c', 'web_search="live"', '-c', 'model_reasoning_effort="low"', '--', 'hello']);
+  assert.deepEqual(buildArgs({prompt: 'hello', effort: undefined}), [...original, '--', 'hello']);
+  assert.deepEqual(buildArgs({prompt: 'x', effort: 'high"; sandbox_mode="danger-full-access'}), [...original, '-c', 'model_reasoning_effort="highsandboxmodedangerfullaccess"', '--', 'x'], 'a stray value cannot become another config key');
+});
