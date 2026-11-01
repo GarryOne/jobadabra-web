@@ -1,13 +1,13 @@
-// Guards the broker's pure rules (workers/codex-broker/lib): who may call, which lane, the allowance brakes, and the reply refusal.
+// Guards the broker's pure rules (workers/ai-broker/lib): who may call, which lane, the allowance brakes, and the reply refusal.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {verifyRunToken} from '../../workers/codex-broker/lib/oidc.mjs';
-import {laneOf, LANES} from '../../workers/codex-broker/lib/lanes.mjs';
-import {allow, newMeter, record, recordCall, callsToday, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/codex-broker/lib/budget.mjs';
-import {weeklyWindow} from '../../workers/codex-broker/container/weekly.mjs';
-import {refuseReply} from '../../workers/codex-broker/lib/guard.mjs';
-import {modelOf, tierOfClaude} from '../../workers/codex-broker/lib/tiers.mjs';
-import {slots} from '../../workers/codex-broker/lib/queue.mjs';
+import {verifyRunToken} from '../../workers/ai-broker/lib/oidc.mjs';
+import {laneOf, LANES} from '../../workers/ai-broker/lib/lanes.mjs';
+import {allow, newMeter, record, recordCall, callsToday, ownSharePct, TOKENS_PER_PERCENT} from '../../workers/ai-broker/lib/budget.mjs';
+import {weeklyWindow} from '../../workers/ai-broker/container/weekly.mjs';
+import {refuseReply} from '../../workers/ai-broker/lib/guard.mjs';
+import {modelOf, tierOfClaude} from '../../workers/ai-broker/lib/tiers.mjs';
+import {slots} from '../../workers/ai-broker/lib/queue.mjs';
 
 const enc = o => Buffer.from(JSON.stringify(o)).toString('base64url');
 async function signer() {
@@ -159,7 +159,7 @@ test('a Claude tier keeps its Codex counterpart, and an unknown tier is refused'
 });
 
 test('the Worker keeps its egress list and exports what the list needs (it cannot be loaded here, so its source is read)', async () => {
-  const src = (await import('node:fs')).readFileSync(new URL('../../workers/codex-broker/worker.js', import.meta.url), 'utf8');
+  const src = (await import('node:fs')).readFileSync(new URL('../../workers/ai-broker/worker.js', import.meta.url), 'utf8');
   assert.match(src, /export \{ContainerProxy\} from '@cloudflare\/containers'/);   // missing: every container start fails (28 Oct 2026)
   assert.match(src, /enableInternet = false/);
   assert.match(src, /interceptHttps = true/);   // without it HTTPS fails with the internet off: codex timed out on chatgpt.com (28 Oct 2026)
@@ -182,4 +182,10 @@ test('the week reading is the window that lasts a week, whichever slot it sits i
   assert.equal(weeklyWindow({primary: day, secondary: null}), null);
   assert.equal(weeklyWindow({primary: {usedPercent: 32, resetsAt: 2}}), null);   // no length given: not trusted
   assert.equal(weeklyWindow(undefined), null);
+});
+
+test('both audiences are accepted while the callers move (1 Nov 2026, ai-broker rename), and a third is refused', async () => {
+  const {sign, jwks} = await signer(), both = {...opts(jwks), audience: ['jobadabra-ai-broker', 'jobadabra-codex-broker']};
+  for (const aud of ['jobadabra-ai-broker', 'jobadabra-codex-broker']) assert.equal((await verifyRunToken(await sign({...good, aud}), both)).aud, aud);
+  await assert.rejects(async () => verifyRunToken(await sign({...good, aud: 'jobadabra-other'}), both), /wrong audience/);
 });

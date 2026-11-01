@@ -1,7 +1,7 @@
 // Guards the CLI boundary without starting Codex or using a login.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildArgs} from '../../workers/codex-broker/lib/args.mjs';
+import {buildArgs} from '../../workers/ai-broker/lib/args.mjs';
 
 const original = ['exec', '--skip-git-repo-check', '--ignore-user-config', '--ephemeral', '-s', 'read-only', '--disable', 'shell_tool', '--json', '-o', 'out.txt'];
 

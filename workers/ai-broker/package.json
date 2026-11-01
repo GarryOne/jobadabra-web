@@ -1,5 +1,5 @@
 {
-  "name": "jp-codex-broker",
+  "name": "jp-ai-broker",
   "private": true,
   "type": "module",
   "dependencies": {"@cloudflare/containers": "0.3.7"}

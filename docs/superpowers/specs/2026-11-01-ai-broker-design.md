@@ -13,13 +13,18 @@ Owner (1 Nov 2026): "Let's change the codex-broker to ai-broker, and support cla
 
 ## 1. Rename without losing the login
 - **Fact (Cloudflare docs, Durable Object class exports/migrations):** a Durable Object namespace belongs to one Worker script, so a plain rename of `jobadabra-codex-broker` would start an empty namespace and lose the login. Cloudflare has a documented **transfer** to another Worker in the same account (`transferred_classes` in legacy migrations; `expecting-transfer` / `transferred` in `exports`), and a Container can be attached to the incoming class. Today's Worker uses legacy `migrations` (tag `v1`).
-- **Target:** Worker `jobadabra-ai-broker`, class `AiBroker` (a rename inside the new Worker costs nothing; the old class name `CodexBroker` exists only in the transfer's `from`), folder `workers/ai-broker/`, tests `test/ai-broker/`, workflow `release-ai-broker.yml`, binding `AI_BROKER` in `www`, address `jobadabra-ai-broker.jobpilotto.workers.dev`.
-- **Step 0 — prove it on a throwaway pair** (`ab-proof-src`, `ab-proof-dst`; tiny Container class, one stored key): transfer the class with its Container, read the key back from the destination, learn what the old Worker needs afterwards (a `deleted_classes` step? can it be redeployed as a plain forwarder?), delete both. Result written into this spec before the live step. Docs do not say what happens to the *source's Container application*; the proof must show it.
-- **Live step (one deploy, by hand, `workflow_dispatch` only; hour named by a8, never 21:00–05:30 UTC):** deploy `jobadabra-ai-broker` with the transfer migration. Check `/health` says `ready` (login present) and one smoke call from the Mac (`/admin/call`) answers. `release-ai-broker.yml` has **no push trigger** until this has happened, so merging the PR cannot run the transfer by accident.
+- **Target:** Worker `jobadabra-ai-broker`, folder `workers/ai-broker/`, tests `test/ai-broker/`, workflow `release-ai-broker.yml`, address `jobadabra-ai-broker.jobpilotto.workers.dev`, container application `ai-broker`. The binding `AI_BROKER` in `www` follows in 5/7 (a service binding to a Worker that does not exist yet would fail the production deploy of `www`).
+- **Class name:** stays `CodexBroker` through the transfer (Cloudflare matches the namespace by class name on both sides) and is renamed `AiBroker` in 7/7 (an `exports` rename).
+- **Step 0, done 1 Nov 2026 on a throwaway pair** (`ab-proof-src` / `ab-proof-dst`, tiny container, one stored key, both deleted afterwards):
+  - Transfer works with a container, and the key was read back from the new Worker (twice).
+  - **The hazard:** deploying the new Worker in any other order created an empty namespace (`k: null`). The only order that carried the key: the destination declares `expecting-transfer` *with* the container (that deploy ends in an expected "durable object was not found in the account namespace list" error) → the source deploys `transferred` with no container and no binding → the source's container application is deleted (a namespace holds one application: `DURABLE_OBJECT_ALREADY_HAS_APPLICATION`) → the destination deploys its final config.
+  - A class rename inside the new Worker keeps the key and the container when the container application has its own fixed `name` (proven).
+  - The old Worker, after the commit, can be redeployed as a forwarder and the `transferred` tombstone may keep a stub class in code.
+- **Live step (by hand, runbook `workers/ai-broker/transfer/README.md`, configs `transfer/*.jsonc`; the hour named by a8, never 21:00–05:30 UTC, the owner present; ~3 minutes down):** the release workflow has **no push trigger** and refuses unless the new Worker's `/health` says `ready`, so merging cannot run or break the transfer.
 - **Old address kept:** `jobadabra-codex-broker` is redeployed as a ~20-line forwarder to `AI_BROKER` (service binding) so `jobadabra-codex-broker.jobpilotto.workers.dev/call` keeps answering (the run token travels unchanged). Removed in the last PR once the callers (grep both repos) have moved.
 - **OIDC audience:** the Worker accepts `jobadabra-ai-broker` and `jobadabra-codex-broker` until the public client moves; the old one is removed in the last PR.
-- **Rollback:** a transfer can be transferred back; the fallback of last resort is a fresh `codex login` on the Mac and `/admin/login` (an owner step, minutes). Not an automatic path, so the live step is not run without the owner's presence.
-- **Order of merges:** web side first (2/7 adds the new Worker and alias, dispatch-only), then the live step, then the public client (6/7), then cleanup (7/7).
+- **Rollback:** before the commit step nothing has moved. After it, moving back is **not proven**; the fallback of last resort is a fresh `codex login` on the Mac and `/admin/login` (an owner step, minutes), which is why the owner is present.
+- **Order:** merge 2/7 (nothing deploys), live step, then 3/7–5/7 (5/7 moves `www` to `AI_BROKER`), the public client (6/7), cleanup (7/7).
 
 ## 2. Engines and the flag
 | Engine | Runs on | Money | "Ran out" means |
@@ -65,4 +70,4 @@ Owner (1 Nov 2026): "Let's change the codex-broker to ai-broker, and support cla
 7. **7/7 Cleanup:** remove the old audience and the forwarder once no caller uses them; give `release-ai-broker.yml` its push trigger. Then the `ENGINE` switch (hour named by a8, not 21:00–05:30 UTC). The per-`ENGINE` unit tests (fakes only) run inside the existing broker test step: no new matrix or schedule. The live proof is three one-off manual runs of one existing small CI job, one per `ENGINE` value (a few minutes each, ~15 Actions minutes once, nothing recurring), reported to mac-07.
 
 ## Progress
-- [ ] 1/7 spec · [ ] 2/7 · [ ] 3/7 · [ ] 4/7 · [ ] 5/7 · [ ] 6/7 · [ ] 7/7
+- [x] 1/7 spec (#278) · [ ] 2/7 · [ ] 3/7 · [ ] 4/7 · [ ] 5/7 · [ ] 6/7 · [ ] 7/7

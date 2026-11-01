@@ -6,7 +6,7 @@ const b64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').pa
 const json = s => JSON.parse(new TextDecoder().decode(b64(s)));
 
 /**
- * Verifies a run token. Takes the JWT, {jwks: () => Promise<{keys}>, audience, repository, now (ms)}; returns the claims, or throws Error('oidc: <reason>').
+ * Verifies a run token. Takes the JWT, {jwks: () => Promise<{keys}>, audience (one name or a list), repository, now (ms)}; returns the claims, or throws Error('oidc: <reason>').
  * Checks signature (RS256 against the issuer's published key), issuer, audience, expiry and that the token's repository is one of those allowed (`repository` is one name or a list: the public repo and,
  * since 31 Oct 2026, the private site repo whose scheduled jobs write on the Codex plan).
  */
@@ -22,7 +22,7 @@ export async function verifyRunToken(jwt, {jwks, audience, repository, now = Dat
   const signed = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
   if (!(await crypto.subtle.verify('RSASSA-PKCS1-v1_5', publicKey, b64(parts[2]), signed))) throw new Error('oidc: bad signature');
   if (claims.iss !== ISSUER) throw new Error('oidc: wrong issuer');
-  if (claims.aud !== audience) throw new Error('oidc: wrong audience');
+  if (![].concat(audience).includes(claims.aud)) throw new Error('oidc: wrong audience');
   if (!(claims.exp * 1000 > now)) throw new Error('oidc: expired');
   if (![].concat(repository).includes(claims.repository)) throw new Error('oidc: wrong repository');
   return claims;
