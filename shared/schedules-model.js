@@ -25,7 +25,7 @@ export function parseWorkflow(text) {
   const runner = (String(text).match(/^\s*runs-on:\s*(.+)$/m) || [])[1]?.trim().replace(/['"]/g, '') || '';
   return {name, about: about.join(' ').replace(/\s+/g, ' ').trim().slice(0, 160), crons, manual, runner, ai: /ai-cost-report|ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|DIGEST_ANTHROPIC_KEY/.test(text)};
 }
-// The Worker's cron starts some workflows through the API (worker/src/scheduler.js jobsFor): {file: [cron, ...]} from `cron === '<cron>'` lines that name a `workflow: '<file>'`.
+// The Worker's cron starts some workflows through the API (app-core/src/scheduler.js jobsFor): {file: [cron, ...]} from `cron === '<cron>'` lines that name a `workflow: '<file>'`.
 export function parseWorkerCrons(text) {
   const out = {};
   for (const line of String(text).split('\n')) {

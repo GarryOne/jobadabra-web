@@ -15,9 +15,9 @@ import {pathToFileURL} from 'node:url';
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.CHANGELOG_URL || 'https://www.jobpilotto.top/changelog/data';
 // Only what a user can see reaches the AI (owner, 18 Oct 2026: "I have 5000 commits, be careful"): a commit that touches only tests, e2e, fixtures, recordings, scripts, docs, tools or CI is not read at all.
-export const PATHSPEC = ['desktop', 'src', 'config', 'extension', 'worker/src', 'requirements.txt', ':(exclude)desktop/e2e', ':(exclude)desktop/test', ':(exclude)desktop/scripts', ':(exclude)desktop/docs',
+export const PATHSPEC = ['desktop', 'src', 'config', 'extension', 'app-core/src', 'worker/src', 'requirements.txt', ':(exclude)desktop/e2e', ':(exclude)desktop/test', ':(exclude)desktop/scripts', ':(exclude)desktop/docs',
   ':(exclude,glob)**/fixtures/**', ':(exclude,glob)**/test/**', ':(exclude,glob)**/tests/**', ':(exclude,glob)**/recorded*/**'];
-const OLD_PATHS = ['desktop', 'src', 'config', 'tools', 'extension', 'worker/src', 'requirements.txt'];   // what the page read before the filter, only for the dry run's "before" count
+const OLD_PATHS = ['desktop', 'src', 'config', 'tools', 'extension', 'app-core/src', 'worker/src', 'requirements.txt'];   // what the page read before the filter, only for the dry run's "before" count
 // Why (31 Oct 2026): the Codex plan has no dollars; the run stops past MAX_CALLS broker calls (default 12 = 0.3% of the Codex week at ~40 calls per 1%). CHANGELOG_MAX_CALLS overrides it.
 const CHUNK = 300, CAP = Number(process.env.CHANGELOG_MAX_CALLS) || 12;   // subjects per AI call; broker calls a run may make
 const arg = name => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] ?? '' : ''; };

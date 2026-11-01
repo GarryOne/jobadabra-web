@@ -25,7 +25,7 @@ test('admin, api and shared never import each other the wrong way', () => {
   for (const folder of Object.keys(ALLOWED)) for (const file of files(folder)) for (const target of importsOf(file)) {
     const inSite = relative(site, target);
     const to = inSite.split(sep)[0];
-    if (!OURS.has(to)) continue;   // the public repo's validators (extension/, desktop/lib/, worker/src/, config/)
+    if (!OURS.has(to)) continue;   // the public repo's validators (extension/, desktop/lib/, app-core/src/, config/)
     if (!ALLOWED[folder].includes(to)) wrong.push(`${relative(site, file)} imports ${inSite}`);
   }
   assert.deepEqual(wrong, [], 'a file may only import its own folder and shared/ (the router in workers/ may import all)');

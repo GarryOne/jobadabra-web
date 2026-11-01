@@ -21,6 +21,7 @@ git checkout -q -f FETCH_HEAD
 if [ "$ref" = main ] && [ ! -f desktop/e2e/lib/applying-status.mjs ] && git fetch -q $depth origin site-private-repo-move 2>/dev/null; then
   git checkout -q -f FETCH_HEAD; ref="site-private-repo-move, main lacks the moved tables"
 fi
+"$(dirname "${BASH_SOURCE[0]}")/compat-app-core.sh" .   # the public repo is mid-move: see that file
 echo '.private/' >> .git/info/exclude
 rsync -a --exclude '.git' --exclude '.private/' --exclude 'README.md' --exclude 'CLAUDE.md' --exclude 'AGENTS.md' --exclude '.claude/' --exclude '.gitignore' --exclude '.public-*' .private/ ./
 # tests that list files with `git ls-files` must see this repo's files too

@@ -52,9 +52,9 @@ const files = [
   {name: 'manual.yml', text: 'name: Manual\non:\n  workflow_dispatch:\njobs:\n  a:\n    runs-on: ubuntu-24.04\n', runs: []},
   {name: 'old.yml', state: 'disabled_manually', text: "name: Old\non:\n  schedule:\n    - cron: '0 5 * * *'\njobs:\n  a:\n    runs-on: ubuntu-24.04\n", runs: []}];
 const SCHEDULER = `  if (cron === '40 */3 * * *') return [{workflow: 'ops-overview.yml', inputs: {}}];\n`;
-const gh = fakeGh({'GarryOne/jobadabra': {private: false, files: [files[0]], code: {'worker/src/scheduler.js': SCHEDULER}}, 'GarryOne/jobadabra-web': {private: true, files}});
+const gh = fakeGh({'GarryOne/jobadabra': {private: false, files: [files[0]], code: {'app-core/src/scheduler.js': SCHEDULER}}, 'GarryOne/jobadabra-web': {private: true, files}});
 gh.raw = true;
-const realGh = (path, raw) => (path.endsWith('worker/src/scheduler.js') ? SCHEDULER : gh(path, raw));
+const realGh = (path, raw) => (path.endsWith('app-core/src/scheduler.js') ? SCHEDULER : gh(path, raw));
 
 test('a workflow file gives its name, first comment, crons, hand-run flag, runner and AI use', () => {
   const parsed = parseWorkflow(WORKFLOW);

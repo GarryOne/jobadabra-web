@@ -103,7 +103,7 @@ import {index as employerIndex} from '../../api/employers.js';
 import {coverage} from '../../api/coverage.js';
 import * as pool from '../../api/pool.js';
 import * as testMail from '../../admin/test-mail.js';   // test-account-*@ inboxes for the tests (Email Worker + /admin/test-mail)
-import {handleReport} from '../../worker/src/report.js';
+import {handleReport} from '../../app-core/src/report.js';
 import {movesView} from '../../shared/ladder-moves.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -138,7 +138,7 @@ export async function waitlist(request, env) {
   return json(200, {ok: true});
 }
 
-// Form-structure reports from every Jobadabra app (desktop/lib/reports.js; worker/src/report.js checks them): a failure that
+// Form-structure reports from every Jobadabra app (desktop/lib/reports.js; app-core/src/report.js checks them): a failure that
 // recurs is queued for the private repo's triage (api/triage.js). Secrets GITHUB_TOKEN (the product brain's dispatch) and
 // REPORT_TOKEN (the owner's app, trusted); GITHUB_REPO in wrangler.toml.
 export async function dispatch(env, inputs, workflow, fetcher = fetch) {

@@ -68,7 +68,7 @@ const many = n => Array.from({length: n}, (_, i) => `Change ${i}`);
 
 test('only what a user can see is read: tests, e2e, fixtures, recordings, CI, docs and tools never reach the AI', () => {
   const spec = PATHSPEC.join(' ');
-  for (const kept of ['desktop', 'src', 'extension', 'worker/src', 'config']) assert.ok(PATHSPEC.includes(kept), kept);
+  for (const kept of ['desktop', 'src', 'extension', 'app-core/src', 'worker/src', 'config']) assert.ok(PATHSPEC.includes(kept), kept);
   for (const dropped of ['desktop/e2e', 'desktop/test', 'desktop/scripts', 'desktop/docs']) assert.match(spec, new RegExp(`:\\(exclude\\)${dropped}`), dropped);
   assert.match(spec, /exclude,glob\)\*\*\/fixtures\/\*\*/);
   assert.doesNotMatch(spec, /(^| )tools( |$)|\.github|(^| )docs( |$)/);

@@ -5,7 +5,7 @@ import {freeAi} from '../shared/free-ai.js';
 import {costUsd, SMALL} from '../shared/free-ai-models.js';
 import {tokenFor} from '../shared/guard.js';
 export const MODEL = 'claude-sonnet-5-5', MAX_TOKENS = 16000, MAX_BODY = 400 * 1024;
-const PRICE = {input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5};   // $ per million tokens, as worker/src/extension.js prices the same model
+const PRICE = {input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5};   // $ per million tokens, as app-core/src/extension.js prices the same model
 
 // The micro-dollars one Messages response cost.
 export const costMicro = (usage = {}) => Math.round((((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
