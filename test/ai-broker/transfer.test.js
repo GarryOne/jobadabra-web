@@ -56,3 +56,9 @@ test('both audiences are the default and in the config, and the workflow cannot 
   assert.doesNotMatch(workflow, /^\s*push:/m);   // a push trigger would deploy the new Worker name with an empty namespace
   assert.match(workflow, /"state":"ready"/);
 });
+
+test('run tokens of the repos under both owners are accepted while they move to the jobadabra org (1 Nov 2026)', () => {
+  const four = ['GarryOne/jobadabra', 'GarryOne/jobadabra-web', 'jobadabra/jobadabra', 'jobadabra/jobadabra-web'];
+  for (const config of [final, expect]) assert.deepEqual(config.vars.REPOSITORY.split(','), four);
+  assert.match(source, /env\.REPOSITORY \|\| 'GarryOne\/jobadabra,GarryOne\/jobadabra-web,jobadabra\/jobadabra,jobadabra\/jobadabra-web'/);
+});

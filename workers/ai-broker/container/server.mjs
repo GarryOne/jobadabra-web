@@ -73,7 +73,7 @@ async function call({prompt, schema, images = [], model, search, effort}) {
     const started = Date.now();
     const {code, out, err} = await run(args, dir);
     const reply = fs.existsSync(path.join(dir, 'out.txt')) ? fs.readFileSync(path.join(dir, 'out.txt'), 'utf8') : '';
-    if (code !== 0 || !reply) throw new Error(/401 Unauthorized|please log in|not logged in|token (is )?(expired|invalid|revoked)|refresh token/i.test(err) ? 'login-lost' : `codex-failed:${code} ${(err || out).replace(/\s+/g, ' ').slice(-300)}`);   // the worker refuses a token-shaped tail (lib/guard.mjs)
+    if (code !== 0 || !reply) throw new Error(/401 Unauthorized|please log in|not logged in|token (is )?(expired|invalid|revoked)|refresh token/i.test(err) ? 'login-lost' : `codex-failed:${code} ${(err || out).replace(/\s+/g, ' ').slice(-900)}`);   // the worker refuses a token-shaped tail (lib/guard.mjs); Why (1 Nov 2026, after the transfer): 300/200 characters showed only Codex's MCP noise, never the line that made it exit 1
     const usage = [...out.matchAll(/"usage":(\{[^}]*\})/g)].map(m => JSON.parse(m[1])).pop() || {};
     return {reply, tokens: {input: usage.input_tokens || 0, output: usage.output_tokens || 0}, ms: Date.now() - started};
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
@@ -93,6 +93,6 @@ http.createServer((req, res) => {
       }
       if (req.url === '/health') return reply(200, {hasLogin: !!readAuth(), limits: readAuth() ? await readLimits() : null});
       return reply(404, {error: 'not found'});
-    } catch (e) { return reply(500, {error: String(e.message || e).slice(0, 200), authFile: readAuth()}); }
+    } catch (e) { return reply(500, {error: String(e.message || e).slice(0, 1000), authFile: readAuth()}); }
   });
 }).listen(8080);
