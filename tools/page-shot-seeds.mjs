@@ -289,6 +289,20 @@ export const seeds = {
     const row = await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first(), snapshot = JSON.parse(row.body);
     await env.STATS.prepare('UPDATE e2e_snapshot SET body = ? WHERE id = 1').bind(JSON.stringify({...snapshot, speedRuns})).run();
   },
+  'gtm-readiness': async ({env}) => {   // fixture-only journeys (not live measurements): one stable, one red yesterday, one with few runs, one lately flaky; Tier 2 all green
+    const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
+    const journeys = [{id: 'J0', name: 'The app starts and draws every screen (smoke)', tier: 1}, {id: 'J1', name: 'Set up the app: key, CV, strategy, first search', tier: 1}, {id: 'J5', name: 'Apply: the extension fills the form, you submit', tier: 1},
+      {id: 'J12', name: 'Updates: only approved builds are offered', tier: 1}, {id: 'K', name: 'Kept safety and data steps', tier: 1}, {id: 'J8', name: 'Tailor a CV for a job', tier: 2}, {id: 'J9', name: 'Track an application through its stages', tier: 2}];
+    const tier1 = [];
+    for (let i = 0; i < 40; i++) for (const os of ['mac', 'windows']) {
+      const day = dayAt(Math.floor(i / 3)), kind = ['after-merge', 'beta', 'nightly'][i % 3], runId = 9000 + i;
+      tier1.push([runId, day, kind, os, 'J0', 1, 0, 0], [runId, day, kind, os, 'J1', 8, i === 7 ? 1 : 0, 0], [runId, day, kind, os, 'J5', 3, 0, i === 2 && os === 'windows' ? 1 : 0], [runId, day, kind, os, 'K', 9, 0, i === 14 ? 1 : 0]);
+      if (i < 6) tier1.push([runId, day, kind, os, 'J12', 3, 0, 0]);
+    }
+    const tier2 = [0, 1, 2, 3].flatMap(back => [{day: dayAt(back), journey: 'J8', tests: 4, runs: 30, red: back === 2 ? 1 : 0}, {day: dayAt(back), journey: 'J9', tests: 2, runs: 12, red: 0}]);
+    const snapshot = {schema: 1, at: at.toISOString(), journeys, tier1, tier2, read: {e2e: [], integration: []}};
+    await env.STATS.prepare('INSERT INTO gtm_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
+  },
   'ai-cost-free': async ({env}) => {   // one made-up install's Free AI day (26 Oct 2026 shape): $0.42 and 2.5M tokens, under the lines wrangler.toml sets; each step as this tree's log records it
     Object.assign(env, {FREE_AI_INSTALL_DAY_USD: '0.50', FREE_AI_INSTALL_MONTH_USD: '5', FREE_AI_MONTH_STOP_USD: '200', FREE_AI_MONTH_ALERT_USD: '100'});
     const day = new Date().toISOString().slice(0, 10), model = '@cf/qwen/qwen3-30b-a3b-fp8';
