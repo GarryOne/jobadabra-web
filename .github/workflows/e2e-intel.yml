@@ -40,3 +40,6 @@ jobs:
           node-version: '22'
       - name: Read the new runs and publish them
         run: node jobs/e2e-intel.mjs
+      - name: Read each journey's steps and publish GTM readiness
+        if: always()   # a red e2e read must not hide this one, nor the other way round (report only: no gate)
+        run: node jobs/gtm-readiness.mjs
