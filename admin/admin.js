@@ -37,6 +37,7 @@ export const PAGES = [
   {path: '/admin/operations/overview', group: 'Operations', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
   {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
   {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
+  {path: '/admin/operations/agent-coding', group: 'Operations', question: 'How does our agent code, ship and verify, and where does it go in circles?', name: 'Agent coding', icon: '🧭'},
   {path: '/admin/operations/e2e', group: 'Operations', question: 'Where does our e2e fixing time go: which suites go red, and why?', name: 'E2E', icon: '🧪'},
   {path: '/admin/operations/integrations', group: 'Operations', question: 'Are the integration tests green, quick and steady, and how much of e2e has moved to them?', name: 'Integrations', icon: '🧩'},
   {path: '/admin/operations/schedules', group: 'Operations', question: 'Are all our scheduled jobs running on time and green?', name: 'Schedules', icon: '⏰'},

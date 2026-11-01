@@ -27,11 +27,11 @@ const owner = {headers: {Cookie: 'jp_stats=k3y'}};
 const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
 const now = new Date('2026-10-12T12:00:00Z');
 
-test('the menu: every page has a group, no group row has more than 7 pages (Operations 8), Access is a lock link for the super admin only', () => {
+test('the menu: every page has a group, no group row has more than 7 pages (Operations 9), Access is a lock link for the super admin only', () => {
   const names = GROUPS.map(([name]) => name);
   for (const page of PAGES) assert.ok(names.includes(page.group), `${page.path} has a group from GROUPS`);
-  // Why (owner, 1 Nov 2026, "Raise the row limit to 8 for Operations"): Integrations joined E2E, PR checks and the rest of Operations as its own page; no page moved out.
-  const LIMIT = {Operations: 8};
+  // Why (owner, 1 Nov 2026, "Raise Operations to 9"): Agent coding joined as its own page after Integrations; no page moved out.
+  const LIMIT = {Operations: 9};
   for (const name of names) assert.ok(PAGES.filter(page => page.group === name && !page.superadmin).length <= (LIMIT[name] || 7), `${name} row is short`);
   const access = PAGES.find(page => page.superadmin);
   const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';

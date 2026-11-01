@@ -15,6 +15,23 @@ export const seeds = {
         reached: n % 7 === 3 ? 'code/bot' : n % 5 === 4 ? 'form' : 'ready', filled: 6 + (n * 3 + back) % 9, left: (n + back) % 4 === 0 ? 1 : 0, regression: back === 0 && n === 5}))}, at);
     }
   },
+  'agent-coding': async ({env}) => {   // made-up push-gate and CI days over 8 weeks: form stops dominating, fixes mostly product, one area circling this week (1 Nov 2026)
+    const {ingest} = await import('../admin/agent-coding.js');
+    const now = new Date(), put = (kind, days) => ingest(new Request('https://x/agent-coding/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify({kind, days})}), {STATS: env.STATS, SELFHEAL_PUBLISH_KEY: 'k'}, now);
+    const gate = [], ci = [], areas = ['desktop/renderer', 'src/ai', 'extension', 'desktop/main', 'src/sources', 'worker/src', 'desktop/lib', 'src/stores'];
+    const checks = [['desktop (clean checkout)', 'real', 400], ['spec proof', 'form', 55], ['file size', 'form', 9], ['stale expectations', 'form', 14], ['recorded cases', 'form', 21], ['python (clean checkout)', 'real', 310], ['journey gate', 'real', 150], ['why comments', 'form', 6]];
+    for (let back = 55; back >= 0; back--) {
+      const day = new Date(now.getTime() - back * 86400000).toISOString().slice(0, 10), weekend = [0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay()), n = weekend ? 3 : 9 + (back * 7) % 8, week = Math.floor(back / 7);
+      const form = Math.round(n * (0.35 + 0.08 * ((back * 5) % 4))), real = Math.round(n * (0.06 + 0.02 * (week % 3))), other = back % 5 === 0 ? 1 : 0;
+      gate.push({day, pushes: n, secs: n * 70, stopped: {form, real, other}, stoppedSecs: {form: form * 55, real: real * 190, other: other * 40},
+        steps: Object.fromEntries(checks.map(([name, cls, secs], i) => [name, {runs: n, fails: cls === 'form' ? Math.round(form / (i + 1)) : Math.round(real / 2), secs: n * secs / 10, cls}]))});
+      const merged = weekend ? 2 : 6 + (back * 3) % 6, circling = week === 0 && !weekend;
+      ci.push({day, prs: {merged, ci: Math.round(merged * (0.7 - week * 0.04))}, reds: {product: 3 + back % 3, test: 2 + back % 2, ci: 1 + back % 3, form: 2 + (back + 1) % 3, nofix: back % 4 === 0 ? 1 : 0},
+        fixPrs: Object.fromEntries(areas.filter((_, i) => (back + i) % 3 === 0 || (circling && i === 0)).map((area, i) => [area, circling && i === 0 ? (back < 3 ? 2 : 1) : 1])),
+        wall: Array.from({length: merged + 3}, (_, i) => 9 + ((i * 7 + back) % 20) + week * 0.4), queue: Array.from({length: merged + 3}, (_, i) => 0.4 + ((i + back) % 5) * 0.3), cancelledMin: merged * 2.1});
+    }
+    await put('gate', gate.slice(-30)); await put('gate', gate.slice(0, 26)); await put('ci', ci.slice(-30)); await put('ci', ci.slice(0, 26));
+  },
   'self-healing': async ({env}) => {   // made-up snapshots of the self-healing loop over 10 days, with long issue titles and detector names (26 Oct 2026, admin on a phone)
     const today = Date.now();
     for (let back = 9; back >= 0; back--) {
