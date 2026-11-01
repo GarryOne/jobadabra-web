@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {niceTicks, perDayChart, dayWords} from '../../admin/stats-chart.js';
+import {niceTicks, perDayChart, dayWords, fillDays} from '../../admin/stats-chart.js';
 import {page} from '../../admin/stats.js';
 
 // The owner's screenshot (1 Nov 2026): 7 days, 26 Oct to 1 Nov, visitors and downloaders, across a month change.
@@ -45,4 +45,15 @@ test('no day: nothing drawn; the page carries the tooltip box and script', () =>
   assert.match(html, /<svg class="perday"/);
   assert.match(html, /id="tip" role="tooltip"/);
   assert.ok(!html.includes('class="col"'), 'the old title-only columns are gone');
+});
+
+test('a day with no traffic is a zero column, so the spacing and the month label stay true', () => {
+  const quiet = [{day: '2026-10-30', visitors: 3, downloads: 1}, {day: '2026-11-02', visitors: 4, downloads: 0}];   // 31 Oct and 1 Nov had no traffic at all
+  const days = fillDays(quiet, '2026-10-30', '2026-11-02');
+  assert.deepEqual(days.map(day => day.day), ['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
+  assert.deepEqual(days[1], {day: '2026-10-31', visitors: 0, downloads: 0});
+  const svg = perDayChart(days);
+  assert.equal([...svg.matchAll(/data-tip="/g)].length, 4);
+  assert.ok(svg.includes('data-tip="Sat 31 Oct · 0 visitors · 0 downloaders"'));
+  assert.match(svg, />1 Nov<\/text>/, 'the month shows on the 1st even though it had no traffic');
 });

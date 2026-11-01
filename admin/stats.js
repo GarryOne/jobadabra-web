@@ -5,7 +5,7 @@ import {esc} from '../shared/html.js';
 import {filterLinks} from './admin.js';
 import {report, signups} from '../shared/traffic.js';
 import {TOOLTIP} from '../shared/scoutingcharts.js';
-import {perDayChart, PERDAY_STYLE} from './stats-chart.js';
+import {perDayChart, fillDays, PERDAY_STYLE} from './stats-chart.js';
 
 const today = (now = new Date()) => now.toISOString().slice(0, 10);
 
@@ -45,7 +45,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:6px 4px;bord
 <header><h1>🌐 Website</h1><span class="muted">${range}</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>Per day</h2><small class="legend muted"><i></i>visitors<i class="t"></i>downloaders</small>
-${perDayChart(data.perDay) || '<p class="muted">Nothing yet</p>'}</section>
+${perDayChart(fillDays(data.perDay, data.from, today())) || '<p class="muted">Nothing yet</p>'}</section>
 <div class="grid">
 ${bars('🔘 Download button', data.buttons, 'people who clicked it')}
 ${bars('💻 Platform', data.platforms, 'downloaders')}

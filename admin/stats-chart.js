@@ -29,6 +29,18 @@ export function dayWords(day) {
 
 const tipOf = day => `${dayWords(day.day)} · ${count(day.visitors)} ${day.visitors === 1 ? 'visitor' : 'visitors'} · ${count(day.downloads)} ${day.downloads === 1 ? 'downloader' : 'downloaders'}`;
 
+/** Every day from `from` to `to` (YYYY-MM-DD, UTC), a day the query has no row for as zeros.
+ * Why (#252, Gitar): report() groups by day, so a quiet day has no row and the columns would sit side by side as if it never happened. */
+export function fillDays(perDay, from, to) {
+  const byDay = new Map(perDay.map(day => [day.day, day]));
+  const days = [];
+  for (let at = Date.parse(`${from}T00:00:00Z`); at <= Date.parse(`${to}T00:00:00Z`); at += 86400000) {
+    const day = new Date(at).toISOString().slice(0, 10);
+    days.push(byDay.get(day) || {day, visitors: 0, downloads: 0});
+  }
+  return days;
+}
+
 /** perDay = [{day: 'YYYY-MM-DD', visitors, downloads}] oldest first -> the SVG, or '' when there is no day. */
 export function perDayChart(perDay) {
   if (!perDay.length) return '';
