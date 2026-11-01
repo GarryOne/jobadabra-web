@@ -140,9 +140,10 @@ test('the aggregate is its own top-level Schedules section, Testing has a Schedu
   const entry = PAGES.find(item => item.path === '/admin/schedules/all-jobs');
   assert.equal(entry.group, 'Schedules');
   assert.equal(PAGES.find(item => item.path === '/admin/testing/scheduled').group, 'Testing');
-  assert.equal(PAGES.some(item => item.path === '/admin/agents/schedules'), false, 'not an Agent Coding page any more');
+  const [old] = entry.old;   // the old address comes from the page's own entry (test/web/form-pages.test.js lets only the redirect list name it)
+  assert.equal(PAGES.some(item => item.path === old), false, 'not an Agent Coding page any more');
   for (const path of ['/admin/schedules/all-jobs', '/admin/testing/scheduled']) assert.equal(typeof HEADLINES[path], 'function', path);
-  const moved = await call(env(), '/admin/agents/schedules?state=red', owner);
+  const moved = await call(env(), `${old}?state=red`, owner);
   assert.deepEqual([moved.status, moved.headers.get('Location')], [301, '/admin/schedules/all-jobs?state=red']);
 });
 
