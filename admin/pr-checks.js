@@ -33,6 +33,11 @@ export async function ingest(request, env, now = new Date()) {
   return json({ok: true});
 }
 
+/** The newest monthly scorecard {month, days, checks}, or null (the Testing Overview reads each check's real catches). */
+export async function latestCard(db) {
+  try { const row = db ? await db.prepare('SELECT month, card FROM pr_check_months ORDER BY month DESC LIMIT 1').first() : null; return row ? {month: row.month, ...JSON.parse(row.card)} : null; } catch { return null; }
+}
+
 // ---- the page ----
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthWords = month => `${MONTHS[Number(month.slice(5, 7)) - 1] || month.slice(5, 7)} ${month.slice(0, 4)}`;

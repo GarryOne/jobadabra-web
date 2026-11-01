@@ -171,7 +171,7 @@ export async function ingest(request, env) {
   return new Response(JSON.stringify({ok: true, day}), {headers: {'Content-Type': 'application/json'}});
 }
 
-async function snapshots(env) {
+export async function snapshots(env) {
   try {
     const {results = []} = await env.STATS.prepare('SELECT day, body FROM selfheal_snapshots ORDER BY day DESC LIMIT 30').all();
     return results.map(row => { try { return {day: row.day, ...JSON.parse(row.body)}; } catch { return null; } }).filter(Boolean);

@@ -69,6 +69,11 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
     caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row, promptCases: promptCasesOfRow(row.promptCases)})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
+/** The ONE stored snapshot row (the e2e page's data), or null when none or unreadable. */
+export async function readSnapshot(db) {
+  try { const row = db ? await db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first() : null; return row ? JSON.parse(row.body) : null; } catch { return null; }
+}
+
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr, suiteJobs?: [{suite, seconds}]}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
 //   lanes?: {suites: {name: {lane, input, since, why, returns?}}}, suiteNights?: [{runId, day, kind, suite, platform, green, rates?}], mainBands?: {suite: {metric: {lower, upper}}}, greyJobs?: [{runId, day, kind: pr|main|beta|nightly, suite, reason}] (public tools/grey_records.py, one row per run and suite),
 //   betaRuns?: [{runId, createdAt, sha, conclusion, green, red, grey, released, redSuites}] (admin/e2e-beta.js: one beta run's suite jobs green / red / not run + whether it released),

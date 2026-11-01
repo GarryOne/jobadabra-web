@@ -84,6 +84,27 @@ export const seeds = {
       await env.STATS.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET at = excluded.at, body = excluded.body').bind(at.slice(0, 10), at, JSON.stringify(body)).run();
     }
   },
+  'testing-overview': async ({env}) => {   // the Testing Overview (1 Nov 2026): made-up e2e / integration / self-healing / scorecard rows; the workflows' last runs are the real ones in $TESTING_OVERVIEW_REAL_DIR/schedules.json (jobs/schedules-snapshot.mjs --dry --out) when set
+    const {clean} = await import('../admin/schedules.js');
+    const {readFileSync, existsSync} = await import('node:fs');
+    const now = new Date(), day = back => new Date(now.getTime() - back * 86400000).toISOString().slice(0, 10), put = (table, body, at = now.toISOString()) => env.STATS.prepare(`INSERT INTO ${table} (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body`).bind(at, JSON.stringify(body)).run();
+    const dir = process.env.TESTING_OVERVIEW_REAL_DIR, real = dir && existsSync(`${dir}/schedules.json`) ? JSON.parse(readFileSync(`${dir}/schedules.json`, 'utf8')) : null;
+    const demoRun = (conclusion, hours, n) => ({at: new Date(now.getTime() - hours * 3600000).toISOString(), conclusion, mins: 4, url: `https://github.com/GarryOne/jobadabra/actions/runs/${n}`});
+    const demoJob = (file, name, crons, recent) => ({repo: 'GarryOne/jobadabra', file, name, about: '', crons, source: 'github', manual: true, disabled: false, ai: false, weeklyMin: 0, billedMin: 0, recent});
+    await put('schedules_snapshot', clean(real || {at: now.toISOString(), repos: [{name: 'GarryOne/jobadabra', private: false, ok: true}], jobs: [demoJob('e2e.yml', 'CI · End-to-end on Mac + Linux', ['47 21,23,1 * * *'], [demoRun('success', 14, 1)]),
+      demoJob('desktop.yml', 'Release · Build, test, beta', ['17 5 * * *'], [demoRun('success', 9, 2)]), demoJob('integration.yml', 'CI · Integration tests', [], [demoRun('success', 3, 3)]), demoJob('smoke.yml', 'CI · Smoke (the app starts)', [], [demoRun('failure', 5, 4)]),
+      demoJob('mutation.yml', 'CI · Planted code bugs', ['0 1 * * 0'], [demoRun('success', 80, 5)]), demoJob('code-review.yml', 'CI · AI code review', ['10 */8 * * *'], [demoRun('success', 4, 6)])]}));
+    const suiteNight = (suite, back, green, runId) => ({runId, day: day(back), kind: 'nightly', suite, platform: 'mac', green});
+    await put('e2e_snapshot', {schema: 2, at: now.toISOString(), days: [], fails: [], breaks: [], work: [], workFiles: [], quality: [],
+      latest: [{runId: 9010, day: day(0), kind: 'after-merge', conclusion: 'success', minutes: 14}, {runId: 9009, day: day(0), kind: 'beta', conclusion: 'success', minutes: 31}, {runId: 9008, day: day(1), kind: 'nightly', conclusion: 'failure', minutes: 22}],
+      suiteNights: [suiteNight('interactions', 1, true, 9008), suiteNight('wander', 1, true, 9008), suiteNight('quality', 1, false, 9008)], caught: [{day: day(3), runId: 9001, suite: 'jobs', line: 'demo', pr: 1}, {day: day(12), runId: 8990, suite: 'apply', line: 'demo', pr: 2}]});
+    await put('integration_snapshot', {schema: 1, at: now.toISOString(), read: [], counts: {}, flaky: [], open: [], slow: [], move: {days: []}, runs: [{runId: 9020, layer: 'app', platform: 'linux', day: day(0), on: 'main', sha: 'abc1234', conclusion: 'success', tests: 120, failed: 0, ms: 90000}]});
+    await env.STATS.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET at = excluded.at, body = excluded.body').bind(day(0), now.toISOString(), JSON.stringify({schema: 1, at: now.toISOString(), totals: {filed: 40, real: 12}, byDetector: [],
+      periods: {last7: {totals: {}, byDetector: [{detector: 'AI screenshot review', fixed: 3, queued: 1}, {detector: 'AI code review', fixed: 2, queued: 0}, {detector: 'Interaction probe', fixed: 0, queued: 1}, {detector: 'Layout and DOM checks', fixed: 1, queued: 0}]}},
+      quality: {mutation: {rate: 100, note: '12 of 12 planted code bugs caught'}}, recall: {planted: 13, caught: 11, missed: ['page-overflow', 'a11y-contrast']}})).run();
+    await env.STATS.prepare('INSERT INTO pr_check_months (month, card, updated_at) VALUES (?, ?, ?) ON CONFLICT(month) DO UPDATE SET card = excluded.card').bind(day(0).slice(0, 7), JSON.stringify({days: 30, checks: [{name: 'CI · Integration tests', runs: 80, reds: 9, realCatches: 6, falseReds: 2, medianMin: 4, p90Min: 8, addedMin: 1, verdict: 'proven'},
+      {name: 'CI · Smoke (the app starts)', runs: 80, reds: 3, realCatches: 2, falseReds: 0, medianMin: 3, p90Min: 4, addedMin: 0, verdict: 'proven'}]}), now.toISOString()).run();
+  },
   email: async ({env}) => {   // made-up mail for /admin/growth/email (26 Oct 2026): 14 days of sends and refusals under made-up address hashes, a bounce, an unconfirmed stop, two held items
     const templates = ['digest', 'digest', 'digest', 'welcome', 'account-code', 'message'], why = ['rate', 'unsubscribed', 'not_opted_in', 'suppressed', 'failed'];
     const today = Date.now();
