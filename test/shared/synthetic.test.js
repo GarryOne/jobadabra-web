@@ -169,10 +169,12 @@ test('the 14-day map: one state per UTC day, oldest first; two reds in a row mak
   const round = async (who, iso) => settle(w.env.STATS, await runRound(who.env, {fetcher: who.fetcher}), iso);
   await round(good, '2026-10-30T12:05:00Z');                                                       // 30 Oct: green
   await round(w, '2026-10-31T12:05:00Z'); await round(good, '2026-10-31T12:20:00Z');               // 31 Oct: one blip -> green
-  await round(w, '2026-11-01T11:05:00Z'); await round(w, '2026-11-01T11:20:00Z');                  // 1 Nov: site red twice in a row -> red
+  await round(w, '2026-11-01T11:05:00Z'); await round(w, '2026-11-01T11:50:00Z');                  // 1 Nov: site red in two stored rounds in a row, a tick skipped between them -> red, as the alert would tell
   const days = await readDays(w.env, 14, new Date('2026-11-01T13:00:00Z'));
   assert.equal(days.length, 14);
   assert.deepEqual([days[0], days.at(-1)], [{day: '2026-10-19', state: 'none'}, {day: '2026-11-01', state: 'red'}]);
   assert.deepEqual(days.filter(item => item.state !== 'none'), [{day: '2026-10-30', state: 'green'}, {day: '2026-10-31', state: 'green'}, {day: '2026-11-01', state: 'red'}]);
+  await round(w, '2026-11-02T00:05:00Z'); const next = await readDays(w.env, 14, new Date('2026-11-02T13:00:00Z'));
+  assert.deepEqual(next.slice(-2).map(item => item.state), ['red', 'red'], 'the red at 11:50 and the next red at 00:05 are two stored rounds in a row: the streak is told, so 2 Nov is red too')
   assert.equal(await readDays({STATS: {prepare: () => { throw new Error('no table'); }}}), null);
 });
