@@ -70,16 +70,17 @@ export const prevOf = (crons, now) => crons.map(cron => step(cron, now, -1)).fil
 const ZURICH = {timeZone: 'Europe/Zurich'};
 export const clock = date => date.toLocaleTimeString('en-GB', {...ZURICH, hour: '2-digit', minute: '2-digit'});
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// One cron in plain words, in Europe/Zurich: "Daily 04:30", "Hourly at :17", "Every 3 h at :40", "Every 30 min", "Weekly Mon 04:00"; anything else keeps the cron text.
+// One cron in plain words, in Europe/Zurich: "Daily 04:30", "Hourly at :17", "Every 3 h at :40", "Every 30 min", "Weekly Mon 04:00", "Monthly on day 1 07:41"; anything else keeps the cron text.
 export function words(cron, now = new Date()) {
   const c = parseCron(cron); if (!c) return cron;
-  const [m, h, dom, , dow] = cron.trim().split(/\s+/);
+  const [m, h, dom, month, dow] = cron.trim().split(/\s+/);
   const at = hours => hours.map(hour => { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, c.minute.size === 1 ? [...c.minute][0] : 0)); return clock(d); });
   if (m.startsWith('*/') && h === '*') return `Every ${m.slice(2)} min`;
   if (c.minute.size === 1 && h === '*' && dom === '*' && dow === '*') return `Hourly at :${String([...c.minute][0]).padStart(2, '0')}`;
   if (c.minute.size === 1 && h.startsWith('*/') && dom === '*' && dow === '*') return `Every ${h.slice(2)} h at :${String([...c.minute][0]).padStart(2, '0')}`;
   if (c.minute.size === 1 && dom === '*' && /^\d+(,\d+)*$/.test(h) && dow === '*') return `Daily ${at([...c.hour].sort((a, b) => a - b)).join(' · ')}`;
   if (c.minute.size === 1 && dom === '*' && /^\d+$/.test(h) && c.dow.size === 1) return `Weekly ${DAYS[[...c.dow][0]]} ${at([...c.hour])[0]}`;
+  if (c.minute.size === 1 && /^\d+$/.test(h) && /^\d+$/.test(dom) && month === '*' && dow === '*') return `Monthly on day ${dom} ${at([...c.hour])[0]}`;   // Why (1 Nov 2026, nm): the upgrade test's 1st-of-the-month start showed as a raw cron on its Overview card
   return cron;
 }
 export const whenWords = (date, now = new Date()) => {

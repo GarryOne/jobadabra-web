@@ -71,6 +71,7 @@ test('a cron is said in words and its next and previous start are found, in Zuri
   assert.equal(words('40 */3 * * *', now), 'Every 3 h at :40');
   assert.equal(words('*/30 * * * *', now), 'Every 30 min');
   assert.equal(words('0 2 * * 1', now), 'Weekly Mon 04:00');
+  assert.equal(words('41 5 1 * *', now), 'Monthly on day 1 07:41');
   assert.equal(words('0 5 1 */2 *', now), '0 5 1 */2 *', 'a shape it cannot say keeps the cron text');
   assert.equal(nextOf(['17 * * * *'], now).toISOString(), '2026-10-20T18:17:00.000Z');
   assert.equal(prevOf(['17 * * * *'], now).toISOString(), '2026-10-20T17:17:00.000Z');
