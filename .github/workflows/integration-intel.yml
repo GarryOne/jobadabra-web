@@ -1,0 +1,36 @@
+name: CI · Integration intelligence
+# The integration tests' page (owner, 1 Nov 2026), https://www.jobadabra.top/admin/operations/integrations: reads the finished runs of the public repo's "CI · Integration tests"
+# (integration.yml) and their artifacts integration-results-<layer>, builds one snapshot (jobs/integration-intel.mjs) and PUTs it (Bearer SELFHEAL_PUBLISH_KEY).
+# Hourly, like e2e-intel.yml (the public repo cannot start a workflow here); a run is read once, the site keeps one snapshot row.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: integration-intel
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: GarryOne/jobadabra   # the public repo's runs, artifacts and tags (read with this repo's token: public data)
+      SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: .private
+      - name: Lay the public repo's tree under this one
+        run: .private/tools/tree.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Read the new runs and publish the snapshot
+        run: node jobs/integration-intel.mjs

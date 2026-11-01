@@ -190,6 +190,25 @@ export const seeds = {
     const res = await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails: [], betaRuns})}), env);
     if (!res.ok) throw new Error(`e2e-beta seed: ingest answered ${res.status}`);
   },
+  integration: async ({env}) => {   // made-up integration results for /admin/operations/integrations (1 Nov 2026): a week of main runs on three layers, two flaky tests, slow tests, 14 days of the move
+    const {ingest} = await import('../admin/integration-intel.js');
+    env.SELFHEAL_PUBLISH_KEY = 'demo-publish';
+    const dayAt = back => new Date(Date.now() - back * 86400000).toISOString().slice(0, 10), runs = [], layers = {extension: [38000, 0], app: [61000, 1], store: [9000, 2]};
+    for (let back = 6; back >= 0; back--) for (let n = 0; n < 2 + (back % 3); n++) for (const [layer, [base, offset]] of Object.entries(layers)) for (const platform of layer === 'app' ? ['linux', 'windows'] : ['linux']) {
+      const red = layer === 'app' && platform === 'windows' && back === 3 && n === 1 || layer === 'extension' && back === 5 && n === 0;
+      runs.push({runId: 41000 + back * 100 + n * 10 + offset, layer, platform, day: dayAt(back), on: 'main', sha: (back * 31 + n * 7 + offset + 1).toString(16).padStart(7, 'a'), conclusion: red ? 'failure' : 'success', tests: layer === 'app' ? 118 : layer === 'extension' ? 64 : 41, failed: red ? 1 : 0, ms: base + back * 700 + n * 300 + (platform === 'windows' ? 24000 : 0)});
+    }
+    const ref = (runId, sha) => ({runId, sha});
+    const flaky = [{layer: 'app', test: 'focus: the card keeps its state after Dismiss', file: 'integration/app/screen-focus.test.js', kind: 'same-commit', day: dayAt(3), red: ref(41310, 'a00005e'), green: ref(41311, 'a00005e')},
+      {layer: 'extension', test: 'recorded page: two-step form reads both steps', file: 'integration/extension/forms.test.mjs', kind: 'unchanged-files', day: dayAt(5), red: ref(41500, 'a000084'), green: ref(41400, 'a000075')}];
+    const slowest = [['app', 'settings: engine panel and ⌘K open on every tab', 'integration/app/screen-settings.test.js', 9400], ['extension', 'recorded page: long Workday form fills to the end', 'integration/extension/workday.test.mjs', 8100],
+      ['app', 'activity: failures wording for every cause', 'integration/app/screen-activity-failures.test.js', 6200], ['extension', 'recorded page: sign-in wall stops the read', 'integration/extension/wall.test.mjs', 4300], ['app', 'calendar: month grid with 40 events', 'integration/app/screen-calendar.test.js', 3900],
+      ['store', 'scoring: 500 jobs dedupe by employer and title', 'integration/store/dedupe.test.mjs', 2800], ['app', 'foryou: empty, loading and full states', 'integration/app/screen-foryou.test.js', 2500], ['store', 'strategy: places re-judged on a change', 'integration/store/strategy.test.mjs', 1700],
+      ['extension', 'recorded page: cookie banner is left alone', 'integration/extension/banner.test.mjs', 1500], ['store', 'store: round trip of 200 rows', 'integration/store/roundtrip.test.mjs', 900]].map(([layer, test, file, ms]) => ({layer, test, file, ms, runs: 5}));
+    const days = Array.from({length: 14}, (_, i) => { const back = 13 - i; return {day: dayAt(back), e2eSuites: 29 - Math.floor(i / 5), e2eSteps: 296 - i * 5, integration: {extension: i > 8 ? 8 + (i - 8) * 8 : 0, app: 40 + i * 6, store: i > 10 ? (i - 10) * 14 : 0}}; });
+    const body = {runs, flaky, slowest, counts: {extension: {tests: 64, files: 9}, app: {tests: 118, files: 16}, store: {tests: 41, files: 6}}, move: {days, e2eSteps: days[13].e2eSteps, lanes: 28}};
+    await ingest(new Request('https://demo/integration/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify(body)}), env);
+  },
   'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and the stored grey ledger (suite × reason); direct snapshot works for before shots too
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
     const suiteNights = Array.from({length: 7}, (_, back) => ({runId: 9100 + 6 - back, day: dayAt(back), kind: 'nightly', suite: 'quality', platform: 'mac',

@@ -6,7 +6,7 @@ export const AREAS = [
   {id: 'search', label: 'Job search & scouting', hint: 'Scouting, search lab, random draws, daily digest', link: '/admin/job-search/lab'},
   {id: 'other', label: 'Everything else', hint: 'Builds, watchdogs, cost and site jobs', link: ''}];
 // File names (without .yml) per area; a new job lands in "Everything else" until it is listed here (test/schedules.test.js lists the unlisted ones in its failure text).
-const HEALING = ['ui-findings', 'ui-fix', 'ui-verdict', 'ui-ranking', 'finder-review', 'sentry-fix', 'fix-verdicts', 'issue-fixed', 'page-cases', 'record-sites', 'watch-live', 'harness', 'harness-daily', 'judge-exam', 'self-heal-stats', 'search-lab-heal', 'form-learning', 'e2e-intel', 'e2e-weekly', 'hosted-e2e'];
+const HEALING = ['ui-findings', 'ui-fix', 'ui-verdict', 'ui-ranking', 'finder-review', 'sentry-fix', 'fix-verdicts', 'issue-fixed', 'page-cases', 'record-sites', 'watch-live', 'harness', 'harness-daily', 'judge-exam', 'self-heal-stats', 'search-lab-heal', 'form-learning', 'e2e-intel', 'integration-intel', 'e2e-weekly', 'hosted-e2e'];
 const SEARCH = ['scout', 'central-scout', 'scout-canary', 'search-lab', 'random-draw', 'daily-digest', 'product-brain', 'proposer', 'aliases', 'playbooks'];
 export const areaOf = file => { const id = String(file).replace(/\.ya?ml$/, ''); return HEALING.includes(id) ? 'healing' : SEARCH.includes(id) ? 'search' : 'other'; };
 

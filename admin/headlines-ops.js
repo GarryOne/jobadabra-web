@@ -4,6 +4,7 @@ import {byWeek, dayOf, since, sum} from './admin.js';
 import {issues, fixer} from './sentry.js';
 import {read, summarize} from './jobcost.js';
 import {headline as schedules} from './schedules.js';
+import {mainRuns} from './integration-page.js';
 
 const first = async (env, sql, ...binds) => { try { return env.STATS ? await env.STATS.prepare(sql).bind(...binds).first() : null; } catch { return null; } };
 const all = async (env, sql, ...binds) => { try { return env.STATS ? (await env.STATS.prepare(sql).bind(...binds).all()).results || [] : []; } catch { return []; } };
@@ -73,4 +74,12 @@ async function e2e(env, now) {
   return [{label: 'E2E reds, 7 days', value: `${num(reds)} of ${num(runs)}`, sub: top ? `top cause: ${top[0]} (${top[1]})` : 'no failures', status: !runs ? 'none' : share < 0.1 ? 'good' : share < 0.3 ? 'warn' : 'bad'}];
 }
 
-export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/e2e': e2e, '/admin/operations/schedules': schedules, '/admin/operations/self-healing': selfHealing, '/admin/operations/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
+// Integration tests (table integration_snapshot id 1, admin/integration-intel.js): main's green share over 7 days, all layers. 100% good, 90%+ warn, else bad (the same bands as the page's chips).
+async function integration(env, now) {
+  const row = await first(env, 'SELECT body FROM integration_snapshot WHERE id = 1');
+  if (!row) return [{label: 'Integration green, 7 days', value: 'No data', sub: 'the integration snapshot has not arrived yet', status: 'none', placeholder: true}];
+  const {runs} = mainRuns(json(row.body), '7d', now), greens = runs.filter(run => run.green).length;
+  return [{label: 'Integration green, 7 days', value: runs.length ? `${num(greens)} of ${num(runs.length)}` : 'No runs', sub: 'main runs of the three layers that ended green', status: !runs.length ? 'none' : greens === runs.length ? 'good' : greens / runs.length >= 0.9 ? 'warn' : 'bad'}];
+}
+
+export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/e2e': e2e, '/admin/operations/integrations': integration, '/admin/operations/schedules': schedules, '/admin/operations/self-healing': selfHealing, '/admin/operations/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};

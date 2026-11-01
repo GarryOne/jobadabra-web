@@ -38,15 +38,15 @@ export function shareOf(days, kinds, keys) {
 }
 
 /** Per series, one point per day from the oldest to today: {day, runs, greens, share}. Days with no finished run have share null (a gap, never 0%). */
-export function greenPerDay(snapshot, {kind = 'all', days = 7, now = new Date(), kindName} = {}) {
+export function greenPerDay(snapshot, {kind = 'all', days = 7, now = new Date(), kindName, lines = null} = {}) {
   const keys = Array.from({length: days}, (_, i) => dayKey(now, days - 1 - i));
-  const series = seriesFor(kind, kindName).map(item => ({...item, points: keys.map(day => ({day, ...shareOf(snapshot?.days, item.kinds, new Set([day]))}))}));
+  const series = (lines || seriesFor(kind, kindName)).map(item => ({...item, points: keys.map(day => ({day, ...shareOf(snapshot?.days, item.kinds, new Set([day]))}))}));
   return {keys, series};
 }
 
 /** The last 2 days against the 7 days before them, for the filter's headline kind (main after merge for 'all'). delta is in whole points; trend up|down|flat, or null when either side has no run. */
-export function greenTrend(snapshot, {kind = 'all', now = new Date(), kindName} = {}) {
-  const series = kind === 'all' ? GREEN_SERIES[0] : seriesFor(kind, kindName)[0];
+export function greenTrend(snapshot, {kind = 'all', now = new Date(), kindName, headline = null} = {}) {
+  const series = headline || (kind === 'all' ? GREEN_SERIES[0] : seriesFor(kind, kindName)[0]);
   const recent = shareOf(snapshot?.days, series.kinds, new Set([dayKey(now, 0), dayKey(now, 1)]));
   const before = shareOf(snapshot?.days, series.kinds, new Set(Array.from({length: 7}, (_, i) => dayKey(now, i + 2))));
   const delta = recent.share === null || before.share === null ? null : Math.round((recent.share - before.share) * 100);
@@ -70,7 +70,7 @@ function trendTile(trend, kindLabel) {
 }
 
 const W = 720, H = 190, LEFT = 38, RIGHT = 12, TOP = 10, BOTTOM = 26;
-function chart(data) {
+function chart(data, what = 'e2e') {
   const n = data.keys.length, x = i => LEFT + (n === 1 ? 0 : (i * (W - LEFT - RIGHT)) / (n - 1)), y = share => TOP + (1 - share) * (H - TOP - BOTTOM);
   const grid = [0, 0.25, 0.5, 0.75, 1].map(g => `<line class="grid" x1="${LEFT}" x2="${W - RIGHT}" y1="${y(g)}" y2="${y(g)}"/><text x="${LEFT - 6}" y="${y(g) + 4}" text-anchor="end">${g * 100}%</text>`).join('');
   const step = n > 10 ? 5 : 1, ticks = data.keys.map((day, i) => ((n - 1 - i) % step === 0 ? `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === n - 1 ? 'end' : i === 0 ? 'start' : 'middle'}">${dayWords(day)}</text>` : '')).join('');
@@ -82,7 +82,7 @@ function chart(data) {
       + `<circle class="hit" cx="${x(i).toFixed(1)}" cy="${y(point.share).toFixed(1)}" r="10"><title>${esc(pointText(series, point))}</title></circle>`)).join('');
     return `${segments}${dots}`;
   }).join('');
-  return `<svg class="gchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of finished e2e runs that ended green, per day, from ${esc(dayWords(data.keys[0]))} to ${esc(dayWords(data.keys[n - 1]))}">${grid}${ticks}${lines}</svg>`;
+  return `<svg class="gchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of finished ${what} runs that ended green, per day, from ${esc(dayWords(data.keys[0]))} to ${esc(dayWords(data.keys[n - 1]))}">${grid}${ticks}${lines}</svg>`;
 }
 
 function numbers(data) {
@@ -92,12 +92,13 @@ function numbers(data) {
   return `<details class="gnum"><summary class="muted">Numbers per day (green / finished runs)</summary><div class="scroll"><table><tr><th>Day</th>${head}</tr>${rows}</table></div></details>`;
 }
 
-/** The "Green runs per day" card: the 2-days-vs-7-days tiles, one line per run kind, a legend and the numbers. `days` = the page's range in days. */
-export function greenCard(snapshot, {kind = 'all', days = 7, now = new Date(), kindName = id => id, scopeName = ''} = {}) {
-  const data = greenPerDay(snapshot, {kind, days, now, kindName}), trend = greenTrend(snapshot, {kind, now, kindName});
+/** The "Green runs per day" card: the 2-days-vs-7-days tiles, one line per run kind, a legend and the numbers. `days` = the page's range in days.
+ *  `lines` / `headline` (series: {id, label, kinds, color}) let /admin/operations/integrations draw one line per test layer with the same chart; `what` names the runs. */
+export function greenCard(snapshot, {kind = 'all', days = 7, now = new Date(), kindName = id => id, scopeName = '', lines = null, headline = null, what = 'e2e'} = {}) {
+  const data = greenPerDay(snapshot, {kind, days, now, kindName, lines}), trend = greenTrend(snapshot, {kind, now, kindName, headline});
   const any = data.series.some(series => series.points.some(point => point.share !== null));
   return `<section class="card"><h2>Green runs per day · ${esc(scopeName)}</h2>
 <div class="tiles gtiles">${trendTile(trend, trend.series.label)}</div>
-${any ? `${data.series.length > 1 ? `<div class="gkey">${legend(data.series)}</div>` : ''}${chart(data)}${numbers(data)}` : '<p class="muted">No finished run in this range.</p>'}
+${any ? `${data.series.length > 1 ? `<div class="gkey">${legend(data.series)}</div>` : ''}${chart(data, what)}${numbers(data)}` : '<p class="muted">No finished run in this range.</p>'}
 <p class="muted">Share of finished runs that ended green; cancelled runs are left out. Hover a dot for the day's run count. The snapshot keeps whole days, so "last 2 days" is today and yesterday (UTC).</p></section>`;
 }
