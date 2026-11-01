@@ -30,7 +30,8 @@ test('every relative import of a night file resolves to a file the image has bes
 
 test('the Always on image copies only folders the public tree has', () => {
   const docker = readFileSync(new URL('hosted/Dockerfile', root), 'utf8');
-  for (const [, source] of docker.matchAll(/^COPY (\S+)(?: \S+)* \.\/?\S*$/gm)) for (const part of source.split(' ')) assert.ok(existsSync(new URL(part, root)), `${part} is in the joined tree`);
+  // Why (1 Nov 2026, Gitar on web#280): every token but the last (the destination) of a COPY line is a source; the first regex checked only the first one.
+  for (const [, args] of docker.matchAll(/^COPY (.+)$/gm)) for (const part of args.trim().split(/\s+/).slice(0, -1)) assert.ok(existsSync(new URL(part, root)), `${part} is in the joined tree`);
   assert.match(docker, /CMD \["python", "-m", "src", "hosted", "--serve"\]/);
 });
 
