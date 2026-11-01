@@ -4,8 +4,8 @@
 import {esc} from '../shared/html.js';
 import {CHIP_STYLE, chip} from './chip.js';
 
-export const COVERAGE_CSS = `${CHIP_STYLE}` + '.covcell{display:flex;align-items:center;gap:8px;min-width:110px}.covbar{flex:1 1 48px;max-width:84px;height:6px;border-radius:3px;background:#2a2f37;overflow:hidden}'
-  + '.covbar i{display:block;height:100%;background:#3987e5}.covlist summary{cursor:pointer;margin:10px 0 6px}.covlist .num{text-align:right}';
+export const COVERAGE_CSS = `${CHIP_STYLE}` + '.covcell{display:flex;align-items:center;gap:8px;min-width:110px}.covcell>span:first-child{min-width:46px}.covbar{flex:1 1 48px;max-width:84px;height:6px;border-radius:3px;background:#2a2f37;overflow:hidden}'
+  + '.covbar i{display:block;height:100%;background:#3987e5}.covh{margin:20px 0 8px;font-size:15px}.covlist summary{cursor:pointer;margin:10px 0 6px}.covlist .num{text-align:right}';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
 const num = value => (Number(value) || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
@@ -53,5 +53,5 @@ function journeysBlock(coverage) {
 export function coverageCard(coverage) {
   if (!coverage) return '<section class="card"><h2>Test coverage</h2><p class="muted">No coverage report read yet. The nightly <code>CI · Coverage report</code> of the public repo makes it; this page picks it up hourly.</p></section>';
   return `<section class="card"><h2>Test coverage · line % per layer</h2><p class="muted">Report only: nothing here fails or blocks a run. Measured nightly on <code>${esc(coverage.sha.slice(0, 7) || 'main')}</code>, ${esc(dayWords(coverage.at))}. “not measured” means that source was missing that night, never 0%.</p>${tiles(coverage)}`
-    + `<h2>By folder</h2>${foldersTable(coverage)}<h2>GTM journeys</h2>${journeysBlock(coverage)}</section>`;
+    + `<h3 class="covh">By folder</h3>${foldersTable(coverage)}<h3 class="covh">GTM journeys</h3>${journeysBlock(coverage)}</section>`;
 }
