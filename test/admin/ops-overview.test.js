@@ -87,8 +87,8 @@ test('the ingest needs the key, stores each PR once, rebuilds one snapshot row, 
   assert.match(html, /#1<\/a> PR 1/);
 });
 
-test('the page: first entry of Agents, owner only, and every state renders', async () => {
-  const operations = PAGES.filter(p => p.group === 'Agents');
+test('the page: first entry of Agent Coding, owner only, and every state renders', async () => {
+  const operations = PAGES.filter(p => p.group === 'Agent Coding');
   assert.equal(operations[0].path, '/admin/agents/overview');
   const e = env();
   assert.equal((await call(e, '/admin/agents/overview')).status, 404);

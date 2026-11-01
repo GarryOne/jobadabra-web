@@ -65,7 +65,7 @@ test('the page is the owner\'s: 404 without the key, days newest first with thei
 
 test('the menu lists the Build log under Agents', () => {
   const entry = PAGES.find(item => item.path === '/admin/agents/build-log');
-  assert.equal(entry.group, 'Agents');
+  assert.equal(entry.group, 'Agent Coding');
 });
 
 test('each goal is a card with its PR count; a long line is cut at a word and folds its full text; a short one does not; the prompt asks for the short form', () => {

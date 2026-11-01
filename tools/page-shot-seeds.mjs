@@ -57,6 +57,20 @@ export const seeds = {
     await put({kind: 'sdlc', days: days.map((day, i) => ({day, bugs: i % 4 === 0 ? 1 : 0, phases: {merged: 20 + i, nospec: 6 + i % 3, unmerged: 1 + i % 2, prCommits: 60 + i, fixAfter: 3 + i % 4, reverts: i % 5 === 0 ? 1 : 0, redMain: i % 3 === 0 ? 1 : 0},
       layers: {pr: Object.fromEntries(checks.map(([name, mins, fails], c) => [name, {runs: 60 + i, fails: fails + i % 3, secs: (60 + i) * mins * 60, catches: {product: c < 2 ? 3 : 0, test: c === 1 ? 2 : 0, ci: 1, form: c === 3 ? 4 : 1, flaky: c === 2 ? 3 : 0, nofix: 1}}])), main: {}, night: {}}}))});
   },
+  'schedules': async ({env}) => {   // made-up scheduled jobs in every area (1 Nov 2026, Testing → Scheduled and the Schedules section): real workflow names, invented runs
+    const now = Date.now(), run = (hoursAgo, conclusion) => ({at: new Date(now - hoursAgo * 3600000).toISOString(), conclusion, mins: 4, url: 'https://github.com/GarryOne/jobadabra/actions/runs/1'});
+    const job = (repo, file, name, about, crons, conclusions, extra = {}) => ({repo, file, name, about, crons, source: 'github', manual: true, disabled: false, ai: false, weeklyMin: 60, billedMin: 0, recent: conclusions.map((conclusion, i) => run(i * 24 + 3, conclusion)), ...extra});
+    const ok = Array(10).fill('success'), pub = 'GarryOne/jobadabra', web = 'GarryOne/jobadabra-web';
+    const jobs = [job(pub, 'e2e.yml', 'CI · E2E', 'Journeys on main, nightly burn-in', ['47 21,23,1 * * *'], ['failure', ...ok], {source: 'worker', billedMin: 0}), job(pub, 'desktop.yml', 'CI · Desktop beta', 'One lane per platform', ['0 4 * * *'], ok, {source: 'both'}),
+      job(pub, 'mutation.yml', 'CI · Mutation', 'Does the Finder catch serious bugs?', ['30 3 * * 1'], ok), job(pub, 'harness-daily.yml', 'CI · Harness daily', 'Every harness test once a day', ['10 5 * * *'], ['failure', 'failure', ...ok]),
+      job(pub, 'page-cases.yml', 'CI · Page cases', 'Replays all recorded cases', ['20 2 * * *'], ok), job(pub, 'windows-smoke.yml', 'CI · Windows smoke', 'The installer starts', ['40 6 * * *'], ok), job(pub, 'code-review.yml', 'CI · Code review', 'Review of open PRs', ['0 */4 * * *'], ok, {ai: true}),
+      job(pub, 'finder-review.yml', 'Finder review', 'The Finder learns from its own week', ['0 7 * * 1'], ok), job(web, 'search-lab.yml', 'Search lab', 'Fictional candidates, live search', ['15 */6 * * *'], ok, {billedMin: 90}),
+      job(web, 'e2e-intel.yml', 'E2E intel', 'Collects e2e runs', ['25 * * * *'], ok), job(web, 'hosted-e2e.yml', 'Hosted e2e', 'The hosted flow end to end', ['5 4 * * *'], ok),
+      job(pub, 'central-scout.yml', 'Central scout', 'Employer feeds, daily', ['0 3 * * *'], ok), job(web, 'random-draw.yml', 'Random draw', 'Random searches across Europe', ['0 */8 * * *'], ok), job(web, 'daily-digest.yml', 'Daily digest', 'The morning Telegram digest', ['30 6 * * *'], ok, {ai: true}),
+      job(web, 'ops-overview.yml', 'CI · Ops overview', 'Merged PRs by category', ['17 * * * *'], ok, {billedMin: 40}), job(pub, 'release-guard.yml', 'Release guard', 'Only desktop-v* may be Latest', ['5 * * * *'], ok),
+      job(web, 'schedules-snapshot.yml', 'Schedules snapshot', 'This page\'s feed', ['12 * * * *'], ok), job(pub, 'schedule-watchdog.yml', 'Schedule watchdog', 'Did the Worker start runs on time?', ['50 * * * *'], ok)];
+    await env.STATS.prepare('INSERT INTO schedules_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(new Date(now).toISOString(), JSON.stringify({schema: 1, at: new Date(now).toISOString(), repos: [{name: pub, private: false, ok: true}, {name: web, private: true, ok: true}], jobs})).run();
+  },
   'self-healing': async ({env}) => {   // made-up snapshots of the self-healing loop over 10 days, with long issue titles and detector names (26 Oct 2026, admin on a phone)
     const today = Date.now();
     for (let back = 9; back >= 0; back--) {

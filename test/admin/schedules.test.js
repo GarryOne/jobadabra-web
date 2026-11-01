@@ -1,4 +1,4 @@
-// /admin/agents/schedules: workflow parsing, cron words and next/previous start, areas, health, the collector on a fake GitHub, the ingest, and the page in each state.
+// /admin/schedules/all-jobs and /admin/testing/scheduled: workflow parsing, cron words and next/previous start, areas, health, the collector on a fake GitHub, the ingest, and the page in each state.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -80,9 +80,11 @@ test('a cron is said in words and its next and previous start are found, in Zuri
 });
 
 test('areas, state and missed runs', () => {
-  assert.deepEqual(['ui-findings.yml', 'sentry-fix.yml', 'record-sites.yml'].map(areaOf), ['healing', 'healing', 'healing']);
-  assert.deepEqual(['central-scout.yml', 'search-lab.yml', 'random-draw.yml', 'daily-digest.yml'].map(areaOf), ['search', 'search', 'search', 'search']);
-  assert.equal(areaOf('desktop.yml'), 'other');
+  assert.deepEqual(['ui-findings.yml', 'sentry-fix.yml', 'record-sites.yml'].map(areaOf), ['testing', 'testing', 'testing']);
+  assert.deepEqual(['central-scout.yml', 'random-draw.yml', 'daily-digest.yml'].map(areaOf), ['search', 'search', 'search']);
+  assert.deepEqual(['search-lab.yml', 'scout-canary.yml'].map(areaOf), ['testing', 'testing'], 'the search lab and its canary are tests (owner, 1 Nov 2026)');
+  assert.equal(areaOf('desktop.yml'), 'testing');
+  assert.equal(areaOf('ops-overview.yml'), 'other');
   const ok = {crons: ['17 * * * *'], recent: [{at: '2026-10-20T17:18:00Z', conclusion: 'success'}]};
   assert.deepEqual([stateOf(ok), missed(ok, now)], ['green', false]);
   assert.equal(stateOf({recent: [{conclusion: null}, {conclusion: 'failure'}]}), 'red', 'a run still going is skipped');
@@ -112,12 +114,12 @@ test('the ingest needs the key, cuts unknown fields and keeps one row; the page 
   assert.equal((await put(snapshot)).status, 200);
   assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM schedules_snapshot').get().n, 1);
   assert.equal(clean({...snapshot, jobs: [{...snapshot.jobs[0], evil: 1}]}).jobs[0].evil, undefined);
-  assert.equal((await call(e, '/admin/agents/schedules')).status, 404, 'no login, no page');
-  const res = await call(e, '/admin/agents/schedules', owner), html = await res.text();
+  assert.equal((await call(e, '/admin/schedules/all-jobs')).status, 404, 'no login, no page');
+  const res = await call(e, '/admin/schedules/all-jobs', owner), html = await res.text();
   assert.equal(res.status, 200);
   assert.match(html, /Ops overview/);
   assert.match(html, /Scheduled jobs/);
-  const filtered = await (await call(e, '/admin/agents/schedules?state=off', owner)).text();
+  const filtered = await (await call(e, '/admin/schedules/all-jobs?state=off', owner)).text();
   assert.ok(!/CI · Ops overview/.test(filtered.split('Run by hand only')[0].split('<table>')[1] || ''), 'the state filter hides green jobs');
 });
 
@@ -134,8 +136,32 @@ test('the page in each state: no data, grouped by area with counts, escaped text
   assert.match(html, /missed a run|green|red/);
 });
 
-test('the page is in the Agents menu with a headline tile', () => {
-  const entry = PAGES.find(item => item.path === '/admin/agents/schedules');
-  assert.equal(entry.group, 'Agents');
-  assert.equal(typeof HEADLINES['/admin/agents/schedules'], 'function');
+test('the aggregate is its own top-level Schedules section, Testing has a Scheduled tab, and the old address still answers', async () => {
+  const entry = PAGES.find(item => item.path === '/admin/schedules/all-jobs');
+  assert.equal(entry.group, 'Schedules');
+  assert.equal(PAGES.find(item => item.path === '/admin/testing/scheduled').group, 'Testing');
+  assert.equal(PAGES.some(item => item.path === '/admin/agents/schedules'), false, 'not an Agent Coding page any more');
+  for (const path of ['/admin/schedules/all-jobs', '/admin/testing/scheduled']) assert.equal(typeof HEADLINES[path], 'function', path);
+  const moved = await call(env(), '/admin/agents/schedules?state=red', owner);
+  assert.deepEqual([moved.status, moved.headers.get('Location')], [301, '/admin/schedules/all-jobs?state=red']);
+});
+
+test('Testing → Scheduled lists only the testing jobs and the aggregate filters by area, both from the one snapshot reader', async () => {
+  const snapshot = {at: '2026-10-20T17:00:00Z', repos: [], jobs: [
+    {repo: 'GarryOne/jobadabra', file: 'e2e.yml', name: 'CI · E2E', about: '', crons: ['0 2 * * *'], recent: []},
+    {repo: 'GarryOne/jobadabra', file: 'product-brain.yml', name: 'Product brain', about: '', crons: ['0 6 * * *'], recent: []},
+    {repo: 'GarryOne/jobadabra-web', file: 'ops-overview.yml', name: 'CI · Ops overview', about: '', crons: ['17 * * * *'], recent: []}]};
+  const only = page(snapshot, {only: 'testing', now});
+  assert.ok(only.includes('CI · E2E') && !only.includes('Product brain') && !only.includes('CI · Ops overview'), 'the Testing tab holds testing jobs only');
+  assert.ok(only.includes('<h1>⏰ Scheduled</h1>') && only.includes('Scheduled · Testing · Admin'));
+  assert.ok(!only.includes('aria-label="Area"'), 'no area filter on a page that is one area');
+  const all = page(snapshot, {now}), search = page(snapshot, {area: 'search', now});
+  assert.ok(all.includes('CI · E2E') && all.includes('Product brain') && all.includes('CI · Ops overview') && all.includes('aria-label="Area"'));
+  assert.ok(search.includes('Product brain') && !search.includes('CI · E2E'), 'the Area filter narrows the aggregate');
+  const e = env();
+  e.STATS.db.prepare('INSERT INTO schedules_snapshot (id, at, body) VALUES (1, ?, ?)').run(snapshot.at, JSON.stringify(snapshot));
+  const res = await call(e, '/admin/testing/scheduled', owner), html = await res.text();
+  assert.equal(res.status, 200);
+  assert.ok(html.includes('CI · E2E') && !html.includes('Product brain'));
+  assert.equal((await call(e, '/admin/testing/scheduled')).status, 404, 'no login, no page');
 });

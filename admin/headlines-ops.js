@@ -1,9 +1,9 @@
-// Headline numbers of the Testing and Agents pages (the Operations group, split on 1 Nov 2026): Self-healing, Sentry, AI cost, PR checks, Build log, E2E (admin/headlines.js draws them on the section's Overview).
+// Headline numbers of the Testing and Agent Coding pages (the Operations group, split on 1 Nov 2026): Self-healing, Sentry, AI cost, PR checks, Build log, E2E (admin/headlines.js draws them on the section's Overview).
 // Each loader reads what its page already has (one snapshot row, or the same rows/cache), never a new table scan. Statuses: good/warn/bad where a rule exists (written next to it), none where a number is only activity.
 import {byWeek, dayOf, since, sum} from './admin.js';
 import {issues, fixer} from './sentry.js';
 import {read, summarize} from './jobcost.js';
-import {headline as schedules} from './schedules.js';
+import {headline as schedules, headlineTesting as scheduledTesting} from './schedules.js';
 import {mainRuns} from './integration-page.js';
 
 const first = async (env, sql, ...binds) => { try { return env.STATS ? await env.STATS.prepare(sql).bind(...binds).first() : null; } catch { return null; } };
@@ -94,4 +94,4 @@ async function integration(env, now) {
   return [{label: 'Integration green, 7 days', value: runs.length ? `${num(greens)} of ${num(runs.length)}` : 'No runs', sub: 'main runs of the three layers that ended green', status: !runs.length ? 'none' : greens === runs.length ? 'good' : greens / runs.length >= 0.9 ? 'warn' : 'bad'}];
 }
 
-export const OPERATIONS = {'/admin/agents/build-log': buildLog, '/admin/testing/pr-checks': prChecks, '/admin/agents/agent-coding': agentCoding, '/admin/testing/e2e': e2e, '/admin/testing/integrations': integration, '/admin/agents/schedules': schedules, '/admin/testing/self-healing': selfHealing, '/admin/testing/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
+export const OPERATIONS = {'/admin/agents/build-log': buildLog, '/admin/testing/pr-checks': prChecks, '/admin/agents/agent-coding': agentCoding, '/admin/testing/e2e': e2e, '/admin/testing/integrations': integration, '/admin/schedules/all-jobs': schedules, '/admin/testing/scheduled': scheduledTesting, '/admin/testing/self-healing': selfHealing, '/admin/testing/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
