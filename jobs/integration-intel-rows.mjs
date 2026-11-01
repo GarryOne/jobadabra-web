@@ -25,7 +25,7 @@ export function runRow(run, result) {
 export function slowestOf(results, limit = 10) {
   const rows = new Map();
   for (const result of results) for (const item of result.tests) {
-    const key = `${result.layer}|${item.name}`, row = rows.get(key);
+    const key = `${result.layer}|${item.file}|${item.name}`, row = rows.get(key);
     if (!row || item.ms > row.ms) rows.set(key, {layer: result.layer, test: item.name, file: item.file, ms: item.ms, runs: 1});
   }
   return [...rows.values()].sort((a, b) => b.ms - a.ms).slice(0, limit);
@@ -44,16 +44,16 @@ export function pathMatches(patterns, file) {
 }
 
 /**
- * Walk the observations oldest first. A red test is kept "open"; a later green of the same test (same layer, platform, name) closes it:
+ * Walk the observations oldest first. A red test is kept "open"; a later green of the same test (same layer, platform, file and name) closes it:
  *  - on the same commit            -> flaky "same-commit" (red then green on identical code);
  *  - on another commit of main, with nothing the workflow watches changed in between (changedBetween(redSha, greenSha) -> files, null = unknown, never guessed) -> "unchanged-files";
  *  - otherwise a change in between may have fixed it: closed, not flaky.
  * observations: [{runId, sha, day, on, createdAt, layer, platform, name, file, ok}]; open: [{layer, platform, test, file, day, runId, sha, on}]. Returns {open, flaky}.
  */
 export async function advance(open, observations, {watched = [], changedBetween = async () => null} = {}) {
-  const still = new Map(open.map(item => [`${item.layer}|${item.platform}|${item.test}`, item])), flaky = [];
+  const still = new Map(open.map(item => [`${item.layer}|${item.platform}|${item.file}|${item.test}`, item])), flaky = [];
   for (const seen of observations.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.runId - b.runId)) {
-    const key = `${seen.layer}|${seen.platform}|${seen.name}`, red = still.get(key);
+    const key = `${seen.layer}|${seen.platform}|${seen.file}|${seen.name}`, red = still.get(key);
     if (!seen.ok) { if (!red) still.set(key, {layer: seen.layer, platform: seen.platform, test: seen.name, file: seen.file, day: seen.day, runId: seen.runId, sha: seen.sha, on: seen.on}); continue; }
     if (!red || red.runId === seen.runId) continue;
     still.delete(key);
