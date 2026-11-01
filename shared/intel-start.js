@@ -10,6 +10,8 @@
 export const INTEL_COLLECTORS = [
   {workflow: 'e2e-intel.yml', minute: 40, backup: 41},
   {workflow: 'integration-intel.yml', minute: 15, backup: 17},
+  // Why (1 Nov 2026, coordinator mac-07: /admin/testing/scheduled read "as of 15:02" at 18:41 while claiming "refreshed hourly"; GitHub ran it at 01:05, 07:29, 15:02): the Scheduled pages' own snapshot is a collector too, on the tick that was free.
+  {workflow: 'schedules-snapshot.yml', minute: 0, backup: 3},
 ];
 
 /** The collectors whose hourly tick is `date` (a 5-minute tick: at most one). */
