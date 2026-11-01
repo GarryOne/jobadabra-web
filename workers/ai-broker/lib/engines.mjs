@@ -5,6 +5,9 @@ import {apiConfigured} from './fallback.mjs';
 /** The engines a caller or the ENGINE var may ask for first. `claude-api` (the paid Anthropic API) is only ever a fallback in the order, never a first choice. */
 export const CHOICES = ['codex', 'claude', 'free-ai'];
 
+/** The engines that may move for doing worse (lib/adapt.mjs): the two subscriptions. */
+export const SUBS = ['codex', 'claude'];
+
 /** Fixed order: subscriptions before paid engines, paid before capped-free. `claude` is the Claude subscription (4/7), `claude-api` the Anthropic API with its $5/day cap. */
 export const ORDER = ['codex', 'claude', 'claude-api', 'free-ai'];
 
@@ -18,11 +21,23 @@ export const configured = (engine, env) => engine === 'codex' ? true : engine ==
  * The chain for this environment: `ENGINE` first, the others in ORDER. Unset = codex (today's behaviour). An unknown value is never guessed:
  * the chain stays the default and `warning` says so (shown in /health). `requested` is one call's own choice (body.engine, validated by the caller) and wins over ENGINE for that call.
  */
-export function chainOf(env, requested) {
+export function chainOf(env, requested, demoted = []) {
   const wanted = String(requested ?? env.ENGINE ?? '').trim();
-  if (!wanted) return {first: 'codex', chain: ORDER, warning: null};
-  if (!CHOICES.includes(wanted)) return {first: 'codex', chain: ORDER, warning: `unknown ENGINE "${wanted.slice(0, 30)}" (codex, claude, free-ai); using codex`};
-  return {first: wanted, chain: [wanted, ...ORDER.filter(engine => engine !== wanted)], warning: null};
+  if (!wanted) return {first: 'codex', chain: behind(ORDER, demoted, env), warning: null};
+  if (!CHOICES.includes(wanted)) return {first: 'codex', chain: behind(ORDER, demoted, env), warning: `unknown ENGINE "${wanted.slice(0, 30)}" (codex, claude, free-ai); using codex`};
+  return {first: wanted, chain: behind([wanted, ...ORDER.filter(engine => engine !== wanted)], demoted, env), warning: null};
+}
+
+// A demoted subscription goes right behind the other subscription when that one is configured and was behind it; with no other subscription there is nowhere to move.
+function behind(chain, demoted, env) {
+  let out = [...chain];
+  for (const engine of demoted) {
+    const other = SUBS.find(name => name !== engine);
+    if (!SUBS.includes(engine) || !configured(other, env) || out.indexOf(engine) > out.indexOf(other)) continue;
+    out = out.filter(name => name !== engine);
+    out.splice(out.indexOf(other) + 1, 0, engine);
+  }
+  return out;
 }
 
 const dayKey = day => `answered:${day}`, statKey = day => `stats:${day}`;
@@ -45,11 +60,11 @@ export async function recordOutcome(storage, day, engine, outcome, ms = 0) {
 /** For /health: the configured first engine, the chain with each engine's state, today's answered calls and average answer time per engine. No secret. */
 export async function engineHealth(storage, env, day, now = Date.now()) {
   const {first, chain, warning} = chainOf(env), counts = await storage.get(dayKey(day)) || {}, stats = await storage.get(statKey(day)) || {};
-  const claude = await storage.get('claude:state') || {};
+  const claude = await storage.get('claude:state') || {}, adapt = await storage.get('adapt') || {};
   const state = name => name !== 'claude' ? undefined : !configured('claude', env) ? 'not-configured' : (claude.invalidUntil || 0) > now ? 'token-invalid' : (claude.limitUntil || 0) > now ? 'ran-out' : 'ready';
   return {engine: first, chain: chain.map(name => {
     const row = stats[name] || {ok: 0, ranOut: 0, failed: 0, ms: 0};
     return {name, configured: configured(name, env), ...(state(name) ? {state: state(name)} : {}), answeredToday: counts[name] || 0, ranOutToday: row.ranOut, failedToday: row.failed, avgMs: row.ok ? Math.round(row.ms / row.ok) : null,
-      ...(name === 'claude' && claude.limits ? {limits: claude.limits} : {})};
+      ...(name === 'claude' && claude.limits ? {limits: claude.limits} : {}), ...((adapt.demoted?.[name] || 0) > now ? {demotedUntil: new Date(adapt.demoted[name]).toISOString()} : {})};
   }), ...(warning ? {warning} : {})};
 }

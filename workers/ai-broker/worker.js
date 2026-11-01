@@ -12,6 +12,7 @@ import {modelOf, validEffort, weightOf, EFFORTS} from './lib/tiers.mjs';
 import {exhausted, fallbackToday, newNote, apiPrecheck, apiStep, apiFinish, noteOnce} from './lib/fallback.mjs';
 import {chainOf, configured, recordOutcome, engineHealth, CHOICES} from './lib/engines.mjs';
 import {CLAUDE_MODELS} from './lib/tiers.mjs';
+import {demotedNow, recordPerf} from './lib/adapt.mjs';
 
 export {ContainerProxy} from '@cloudflare/containers';   // required by the outbound host list below: without it every start fails with "ctx.exports.ContainerProxy is undefined" (28 Oct 2026)
 
@@ -83,7 +84,7 @@ export class CodexBroker extends Container {
     if (Object.hasOwn(body, 'engine') && !CHOICES.includes(body.engine)) return json(400, {why: `engine must be ${CHOICES.slice(0, -1).join(', ')} or ${CHOICES.at(-1)}`});
     const model = modelOf(body.tier);
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
-    const env = this.brokerEnv, {chain} = chainOf(env, body.engine);   // body.engine = this one call's own first choice (e.g. one workflow trying claude); admission and caps stay the same
+    const env = this.brokerEnv, {chain} = chainOf(env, body.engine, body.engine === undefined ? await demotedNow(this.ctx.storage, env) : []);   // an engine doing worse is moved back (lib/adapt.mjs) unless this call names its own   // body.engine = this one call's own first choice (e.g. one workflow trying claude); admission and caps stay the same
     // Why (1 Nov 2026): with Codex first a refused login never counts toward the daily cap (as before the chain); with another engine first Codex's step checks it when reached.
     if (chain[0] === 'codex') { const refusal = await this.loginRefusal(); if (refusal) return refusal; }
     this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
@@ -107,7 +108,7 @@ export class CodexBroker extends Container {
     });
     if (!verdict.ok && !verdict.ranOut) return json(429, {why: verdict.why});   // the daily cap, or an exhausted week with nobody else configured: a control no other engine bypasses
     const note = newNote(), ctx = {storage: this.ctx.storage, env, body, lane, weekUsedPercent: this.limits?.usedPercent ?? null, note}, day = new Date(Date.now()).toISOString().slice(0, 10), skipped = [];
-    const skip = (engine, why, counted = true) => { skipped.push({engine, why}); return counted ? recordOutcome(this.ctx.storage, day, engine, why === 'ran-out' ? 'ranOut' : 'failed') : null; };
+    const skip = async (engine, why, counted = true) => { skipped.push({engine, why}); if (why === 'failed') await recordPerf(this.ctx.storage, env, engine, false); return counted ? recordOutcome(this.ctx.storage, day, engine, why === 'ran-out' ? 'ranOut' : 'failed') : null; };
     for (const engine of chain) {
       const started = Date.now();
       let reply = null;
@@ -121,6 +122,7 @@ export class CodexBroker extends Container {
       // Why (1 Nov 2026, Gitar on #289): an engine that sits BEFORE Codex and answers badly (refused, truncated, invalid JSON) must not end the chain while Codex has not run; after Codex a refusal stays the last-resort answer it always was. A 400 (empty prompt) is nobody's answer to retry.
       if (!reply.ok && reply.status !== 400 && chain.indexOf(engine) < chain.indexOf('codex')) { await skip(engine, 'bad-answer'); continue; }
       await recordOutcome(this.ctx.storage, day, engine, reply.ok ? 'ok' : 'failed', Date.now() - started);
+      if (reply.ok || reply.status === 502) await recordPerf(this.ctx.storage, env, engine, reply.ok);   // a real answer or a broken run; a refusal, a lost login or a 4xx says nothing about the engine
       // Why (1 Nov 2026, owner: CI jobs "need to be aware" which model answers, models behave differently): a reply names its engine and model, and `fellBack` lists the engines that were tried first and did not answer, with the reason.
       if (reply.ok && skipped.length) return json(200, {...(await reply.json()), fellBack: skipped});
       return reply;
