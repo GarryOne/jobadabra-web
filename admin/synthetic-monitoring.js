@@ -6,6 +6,7 @@ import {esc} from '../shared/html.js';
 import {PROBES, ROUND_MINUTES, readCard, readDaysByProbe} from '../shared/synthetic.js';
 import {words} from '../shared/schedules-model.js';
 import {CHIP_STYLE} from './chip.js';
+import {BAND_STYLE, verdictBand} from './verdict-band.js';
 import {read as readSchedules} from './schedules.js';
 import {lastOf} from './testing-overview-data.js';
 import {daysTo, historyOf, MAP_DAYS} from './testing-overview-history.js';
@@ -13,8 +14,16 @@ import {cellHtml, dayHeads, MAP_STYLE} from './testing-overview-map.js';
 import {lastChip} from './testing-overview.js';
 
 const REPO = 'GarryOne/jobadabra';
-/** What each Worker probe checks, in words; a probe added to shared/synthetic.js without a line here fails the guard test. */
+/** What each Worker probe checks, in a few words (the row shows it small and muted); a probe added to shared/synthetic.js without a line here fails the guard test. The full sentence is OWN_DETAIL (the tooltip). */
 export const OWN_WHAT = {
+  site: 'The website answers',
+  index: 'The employer index holds jobs',
+  license: 'The licence check answers',
+  'free-ai': 'Free AI models and caps are readable',
+  updates: 'The update feed offers both installers',
+  broker: 'The Free AI broker answers',
+};
+export const OWN_DETAIL = {
   site: 'The public website answers with the Jobadabra page',
   index: 'The employer index pack still holds employers and jobs',
   license: 'A fixed test install gets a plan answer back (the licence check)',
@@ -24,11 +33,11 @@ export const OWN_WHAT = {
 };
 /** The scheduled workflows that look at something live (not fixed or recorded inputs); each row reads the Scheduled tab's snapshot. */
 export const WORKFLOWS = [
-  {wf: 'release-guard.yml', label: 'Release · Guard Latest', what: 'Only a desktop release holds "Latest", the one the Download link and the updater follow'},
-  {wf: 'schedule-watchdog.yml', label: 'Schedule watchdog', what: "The Worker's timers started the scheduled runs on time"},
-  {wf: 'fresh-install-smoke.yml', label: 'Fresh-install smoke', what: 'The newest stable installer still installs on a clean Mac and Windows runner and opens the Jobs list'},
-  {wf: 'stable-canary.yml', label: 'Stable canary', what: "The stable build still works against the live world: Notion's API, the job sites' forms, certificates"},
-  {wf: 'watch-live.yml', label: 'Daily watch list', what: 'Watched employer forms still fill, recorded live (held, never Submit)'},
+  {wf: 'release-guard.yml', label: 'Release · Guard Latest', what: 'Only a desktop release holds "Latest"', detail: 'Only a desktop release holds "Latest", the one the Download link and the updater follow'},
+  {wf: 'schedule-watchdog.yml', label: 'Schedule watchdog', what: 'The timers started their runs on time', detail: "The Worker's timers started the scheduled runs on time"},
+  {wf: 'fresh-install-smoke.yml', label: 'Fresh-install smoke', what: 'The newest installer installs and opens', detail: 'The newest stable installer still installs on a clean Mac and Windows runner and opens the Jobs list'},
+  {wf: 'stable-canary.yml', label: 'Stable canary', what: 'The stable build works against the live world', detail: "The stable build still works against the live world: Notion's API, the job sites' forms, certificates"},
+  {wf: 'watch-live.yml', label: 'Daily watch list', what: 'Watched employer forms still fill', detail: 'Watched employer forms still fill, recorded live (held, never Submit)'},
 ];
 
 const none = why => ({state: 'none', why});
@@ -38,46 +47,51 @@ function ownLast(card, probe, now) {
   if (card.stale) return {state: 'red', word: 'no round', at: card.lastRoundAt, note: 'no probe round for over 45 min'};
   const found = (card.probes || []).find(item => item.probe === probe.id);
   if (!found) return none('no round has stored this probe yet');
-  const note = found.state === 'down' ? found.reason : !found.ok ? `one miss: ${found.reason}` : found.uptime24h != null ? `${found.uptime24h}% up in 24 h` : '';
-  return {state: found.state === 'down' ? 'red' : 'green', at: found.at, note};
+  // Why (1 Nov 2026, owner: "it's too hard to read. too much text"): one status per row; "100% up in 24 h" and a single miss go in the chip's tooltip, only a reason for red stays visible.
+  const why = found.state === 'down' ? found.reason : !found.ok ? `one miss: ${found.reason}` : found.uptime24h != null ? `${found.uptime24h}% up in 24 h` : '';
+  return {state: found.state === 'down' ? 'red' : 'green', at: found.at, why, note: found.state === 'down' ? found.reason : ''};
 }
 
 /** The table's rows from the stored readings: {data: {schedules, synthetic, syntheticDaysByProbe, repo, now}} -> {rows, counts, red}. */
 export function model(data) {
   const job = file => (data.schedules?.jobs || []).find(item => item.file === file && item.repo === data.repo);
-  const own = PROBES.map(probe => ({id: probe.id, label: probe.label, what: OWN_WHAT[probe.id] || '', cadence: `every ${60 / ROUND_MINUTES.length} min`, last: ownLast(data.synthetic, probe, data.now),
+  const own = PROBES.map(probe => ({id: probe.id, label: probe.label, what: OWN_WHAT[probe.id] || '', detail: OWN_DETAIL[probe.id] || '', cadence: `every ${60 / ROUND_MINUTES.length} min`, last: ownLast(data.synthetic, probe, data.now),
     days: historyOf({...data, syntheticDays: data.syntheticDaysByProbe?.[probe.id] ?? null}, [{last: {synthetic: true}}]), href: ''}));
-  const flows = WORKFLOWS.map(item => ({id: item.wf, label: item.label, what: item.what, cadence: (job(item.wf)?.crons || []).map(cron => words(cron, data.now)).join(', ') || 'no schedule listed',
+  const flows = WORKFLOWS.map(item => ({id: item.wf, label: item.label, what: item.what, detail: item.detail, cadence: (job(item.wf)?.crons || []).map(cron => words(cron, data.now)).join(', ') || 'no schedule listed',
     last: lastOf(data, {wf: item.wf}), days: historyOf(data, [{wf: item.wf}]), href: `https://github.com/${data.repo}/actions/workflows/${item.wf}`}));
   const rows = [...own, ...flows];
   const red = rows.filter(row => row.last.state === 'red').map(row => row.label);
   return {rows, red, counts: {all: rows.length, red: red.length, green: rows.filter(row => row.last.state === 'green').length, none: rows.filter(row => row.last.state === 'none').length}};
 }
 
-const rowHtml = (row, now) => `<tr class="${row.last.state === 'red' ? 'is-red' : ''}"><th scope="row">${row.href ? `<a href="${esc(row.href)}">${esc(row.label)}</a>` : esc(row.label)}<div class="muted small what">${esc(row.what)}</div></th>
+const rowHtml = (row, now) => `<tr class="${row.last.state === 'red' ? 'is-red' : ''}"><th scope="row"${row.detail ? ` title="${esc(row.detail)}"` : ''}><b class="nm">${row.href ? `<a href="${esc(row.href)}">${esc(row.label)}</a>` : esc(row.label)}</b><div class="muted what">${esc(row.what)}</div></th>
 <td class="when">${esc(row.cadence)}</td><td class="res">${lastChip(row.last, now)}</td>${row.days.map(cellHtml).join('')}</tr>`;
 
-const STYLE = `${CHIP_STYLE}
-.band .big{font-size:18px;line-height:1.35}.sm .when{white-space:nowrap;font-size:13px;color:#c9c3b6;padding-right:12px}.sm .res{white-space:nowrap;padding-right:12px}.sm th .what{font-weight:400;white-space:normal;max-width:380px}
-.sm tr.group th{padding:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8d949c}`;
+const STYLE = `${CHIP_STYLE}${BAND_STYLE}
+.band{margin-bottom:12px}.sm .when{white-space:nowrap;font-size:12px;color:#8d949c;padding-right:12px}.sm .res{white-space:nowrap;padding-right:12px}
+.sm th .nm{font-size:15px;font-weight:650}.sm th .nm a{color:#f4efe3}.sm th .what{font-size:12px;font-weight:400;white-space:normal;max-width:300px}
+.sm tr.group th{padding:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8d949c}
+.sm .legend{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#8d949c;margin:2px 0 8px}.sm .legend .c{width:14px;height:14px;font-size:10px;vertical-align:-2px;margin-right:3px}`;
 
 /** The page. `data` = the three stored readings plus {repo, now}; nothing here reads or writes. */
 export function page(data) {
   const {rows, red, counts} = model(data), now = data.now, days = daysTo(now);
-  const verdict = counts.red ? `🔴 <b>${counts.red} of ${counts.all} live checks ${counts.red === 1 ? 'is' : 'are'} red</b>: ${red.map(esc).join(', ')}.` : `🟢 <b>${counts.green} of ${counts.all} live checks are green.</b>${counts.none ? ` ${counts.none} ${counts.none === 1 ? 'has' : 'have'} no stored run to judge.` : ''}`;
+  const band = verdictBand({icon: counts.red ? '🔴' : '🟢', headline: `${counts.red || counts.green} of ${counts.all} live checks ${counts.red ? 'red' : 'green'}`,
+    chips: rows.filter(row => row.last.state === 'red').map(row => ({label: row.label, tone: 'bad', title: row.last.note || row.last.why || ''})),
+    note: counts.none ? `${counts.none} with no stored run` : ''});
   const group = title => `<tr class="group"><th colspan="${days.length + 3}">${title}</th></tr>`;
   const ownRows = rows.slice(0, PROBES.length), flowRows = rows.slice(PROBES.length);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Synthetic Monitoring · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}
 ${MAP_STYLE}</style></head><body><main>
 <header><h1>📡 Synthetic Monitoring</h1></header>
-<section class="card band"><div class="big">${verdict}</div></section>
-<section class="card hmap sm"><h2>What is checked, and how it went · last ${days.length} days</h2>
-<div class="keys"><span><i class="c c-green">✓</i>no check red</span><span><i class="c c-red">✕</i>a check was red</span><span><i class="c c-none"></i>no run that day</span><span><i class="c c-unknown"></i>not stored</span><span class="muted">a probe is red after 2 misses in a row, the rule that sends the Telegram line</span></div>
+${band}
+<section class="card hmap sm"><h2>Last ${days.length} days</h2>
+<div class="legend"><span><i class="c c-green">✓</i>green</span><span><i class="c c-red">✕</i>red</span><span><i class="c c-none"></i>no run</span><span><i class="c c-unknown"></i>not stored</span><span>· a probe is red after 2 misses in a row</span></div>
 <div class="scroll"><table><thead><tr><th class="m">Check</th><th>How often</th><th>Last result</th>${dayHeads(days)}</tr></thead>
-<tbody>${group('📡 The Worker probes the live services (one request each)')}${ownRows.map(row => rowHtml(row, now)).join('')}
-${group('⏰ Scheduled jobs that look at something live')}${flowRows.map(row => rowHtml(row, now)).join('')}</tbody></table></div>
-<p class="muted small">Not here: scheduled tests on fixed or recorded inputs (judge exam, answer drift, planted bugs, page cases, the weekly upgrade + data test). They are on <a href="/admin/testing/scheduled">Scheduled</a>.</p></section>
+<tbody>${group('📡 Live services · every 15 min')}${ownRows.map(row => rowHtml(row, now)).join('')}
+${group('⏰ Scheduled jobs on live things')}${flowRows.map(row => rowHtml(row, now)).join('')}</tbody></table></div>
+<p class="muted small">Fixed or recorded inputs are on <a href="/admin/testing/scheduled">Scheduled</a>.</p></section>
 </main></body></html>`;
 }
 

@@ -4,6 +4,7 @@ import {viewer, remember} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
 import {PAGES} from './admin.js';
 import {chip, CHIP_STYLE} from './chip.js';
+import {BAND_STYLE, verdictBand} from './verdict-band.js';
 import {load, resolve} from './testing-overview-data.js';
 import {daysTo} from './testing-overview-history.js';
 import {healthMap, MAP_STYLE, summaryBar} from './testing-overview-map.js';
@@ -33,32 +34,40 @@ const lineHtml = (line, now, scheduled) => `<li><div class="what">${esc(line.lab
 const bugsHtml = bugs => (bugs.why ? `<div class="bugs"><span class="muted">Bugs caught</span> <b>—</b> <span class="muted small">${esc(bugs.why)}</span></div>`
   : `<div class="bugs"><span class="muted">Bugs caught</span> <b>${esc(bugs.text)}</b>${bugs.window ? ` <span class="muted small">· ${esc(bugs.window)}</span>` : ''}${bugs.detail ? ` <span class="muted small">· ${esc(bugs.detail)}</span>` : ''}</div>`);
 
+// Why (1 Nov 2026, owner: "these widgets are hard to read. Let's have them one per row, rather than 3, being so crowded"): one card per row, laid out sideways: who it is on the left,
+// how it runs (lines + charts) in the middle, what it caught and where to look on the right.
 function cardHtml(card, now, scheduled) {
-  if (card.kind === 'planned') return `<article class="mcard planned" id="m-${esc(card.id)}"><h3>${card.icon} ${esc(card.title)} ${chip('◷ planned', 'off')}</h3><p class="muted">${esc(card.proves)}</p></article>`;
+  if (card.kind === 'planned') return `<article class="mcard planned" id="m-${esc(card.id)}"><div class="mc-head"><h3>${card.icon} ${esc(card.title)} ${chip('◷ planned', 'off')}</h3><p class="muted">${esc(card.proves)}</p></div></article>`;
   const head = card.state === 'link' ? (card.pending ? chip('◷ being built', 'off') : '') : chip(...CARD_CHIP[card.state]);
-  return `<article class="mcard" id="m-${esc(card.id)}"><h3>${card.icon} ${esc(card.title)} ${head}</h3><p class="muted">${esc(card.proves)}</p>
-<ul class="lines">${card.lines.filter(line => card.state !== 'link' || line.last.state !== 'none').map(line => lineHtml(line, now, scheduled)).join('')}</ul>${trendsHtml(card.trends)}${card.state === 'link' ? '' : bugsHtml(card.bugs)}
-${card.href ? `<a class="open" href="${esc(card.href)}">Open the page →</a>` : ''}</article>`;
+  const lines = card.lines.filter(line => card.state !== 'link' || line.last.state !== 'none').map(line => lineHtml(line, now, scheduled)).join('');
+  return `<article class="mcard" id="m-${esc(card.id)}"><div class="mc-head"><h3>${card.icon} ${esc(card.title)} ${head}</h3><p class="muted">${esc(card.proves)}</p></div>
+<div class="mc-body"><ul class="lines">${lines}</ul>${trendsHtml(card.trends)}</div>
+<div class="mc-side">${card.state === 'link' ? '' : bugsHtml(card.bugs)}${card.href ? `<a class="open" href="${esc(card.href)}">Open the page →</a>` : ''}</div></article>`;
 }
 
 const STYLE = `${CHIP_STYLE}
-.band{margin-bottom:12px}.band b{font-weight:650}.band .big{font-size:18px;line-height:1.35}
+${BAND_STYLE}.band{margin-bottom:12px}
 .ring{margin:22px 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8d949c}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mcard{background:#14181d;border:1px solid #262c33;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.mcard.planned{background:transparent;border-style:dashed;opacity:.8}.mcard h3{margin:0;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mcard p{margin:0;font-size:13px}
-.lines{list-style:none;margin:0;padding:0;display:grid;gap:6px}.lines li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px;border-top:1px solid #262c33;padding-top:6px}
-.lines li:first-child{border-top:0;padding-top:0}.lines .what{min-width:0}.small{font-size:12px}.bugs{font-size:13px;margin-top:auto}.open{font-size:13px;text-decoration:none}h2.details{margin:26px 0 0;font-size:17px}.mcard:target{outline:2px solid #f5b54a}`;
+.grid{display:grid;grid-template-columns:1fr;gap:10px}.mcard{background:#14181d;border:1px solid #262c33;border-radius:14px;padding:12px 16px;display:grid;grid-template-columns:minmax(250px,300px) minmax(0,1fr) minmax(160px,210px);gap:8px 22px;align-items:start;min-width:0}
+.mcard.planned{background:transparent;border-style:dashed;opacity:.8;grid-template-columns:1fr;padding:8px 16px}.mcard h3{margin:0 0 3px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mcard p{margin:0;font-size:12px}
+.mc-body{display:flex;gap:10px 28px;flex-wrap:wrap;align-items:flex-start;min-width:0}.mc-body .lines{flex:1 1 280px}.mc-body .nts{flex:0 1 auto;border-top:0;margin:0;padding:0}.mc-side{display:grid;gap:6px;justify-items:start}
+.lines{list-style:none;margin:0;padding:0;display:grid;gap:5px}.lines li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px}
+.lines .what{min-width:0}.small{font-size:12px}.bugs{font-size:13px}.open{font-size:13px;text-decoration:none}
+@media (max-width:760px){.mcard{grid-template-columns:1fr}.mc-side{grid-auto-flow:column;justify-content:space-between;justify-items:start;align-items:baseline}}
+h2.details{margin:26px 0 0;font-size:17px}.mcard:target{outline:2px solid #f5b54a}`;
 
 /** The page; `model` = resolve(...) output, `at` = when the rows were read. */
 export function page(model, {now = new Date()} = {}) {
-  const {counts, red} = model;
-  const verdict = counts.red ? `🔴 <b>${counts.red} of ${counts.live} methods ${counts.red === 1 ? 'is' : 'are'} red on the last run</b>: ${red.map(esc).join(', ')}.`
-    : `🟢 <b>${counts.green} of ${counts.live} methods ran green on the last run.</b>`;
+  const {counts, redCards} = model;
+  // Why (1 Nov 2026, owner: "here again too much text"): a short line, the red methods as chips that jump to their card, one muted note; never a sentence of names.
+  const band = verdictBand({icon: counts.red ? '🔴' : '🟢', headline: counts.red ? `${counts.red} of ${counts.live} methods red on the last run` : `${counts.green} of ${counts.live} methods green on the last run`,
+    chips: redCards.map(card => ({label: `${card.icon} ${card.title}`, tone: 'bad', href: `#m-${card.id}`})),
+    note: [counts.none ? `${counts.none} with no stored run` : '', `${counts.planned} planned`].filter(Boolean).join(' · ')});
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}
 ${MAP_STYLE}${NIGHTLY_STYLE}</style></head><body><main>
 <header><h1>🧪 Testing overview</h1><span class="muted">${model.rings.length} rings · ${counts.live} methods running · ${counts.planned} planned · unit tests are not listed: they are for agent development</span></header>
-<section class="card band"><div class="big">${verdict}${counts.none ? ` ${counts.none} ${counts.none === 1 ? 'has' : 'have'} no stored run to judge.` : ''} ${counts.planned} more ${counts.planned === 1 ? 'is' : 'are'} planned.</div></section>
+${band}
 ${summaryBar(counts)}
 ${healthMap(model, daysTo(now))}
 <h2 class="details">Each method in detail</h2>

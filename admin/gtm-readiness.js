@@ -5,6 +5,7 @@ import {esc} from '../shared/html.js';
 import {readSnapshot} from './gtm-intel.js';
 import {TRELLO_BOARD, TRELLO_CARD} from '../shared/gtm-trello.js';
 import {CHIP_STYLE, chip} from './chip.js';
+import {BAND_STYLE, verdictInner} from './verdict-band.js';
 import {QUIET_DAYS, STABLE_RUNS, WINDOW_DAYS, tier1Rows, tier2Rows, verdict} from './gtm-readiness-data.js';
 
 const REPO = 'GarryOne/jobadabra';
@@ -47,14 +48,14 @@ function tier2Card(rows) {
 <p class="muted">Runs of “CI · Integration tests”: they run on pull requests and on main (the integration job of CI · Tests), so a red on a PR can be a real bug a test caught. The history grows from the first collector run.</p></section>`;
 }
 
-const CSS = `${CHIP_STYLE}.gtmhero{display:flex;gap:24px;align-items:center;flex-wrap:wrap}.gauge{width:130px;height:130px;flex:none}.verdict{font-size:19px;margin:0 0 6px}.gtmhero>div{flex:1 1 320px;min-width:0}.gtmhero .muted{margin:0}
+const CSS = `${CHIP_STYLE}${BAND_STYLE}.gtmhero{display:flex;gap:24px;align-items:center;flex-wrap:wrap}.gauge{width:130px;height:130px;flex:none}.gtmhero>div{flex:1 1 320px;min-width:0}
 .scroll{overflow-x:auto}table{width:100%;font-size:14px}td:nth-child(2){min-width:170px}td:last-child{white-space:nowrap}th,td{padding-left:6px;padding-right:6px}h2{margin:0 0 8px}td.num,th.num{text-align:right}.nowrap{white-space:nowrap}
 .strip{display:inline-flex;gap:2px;vertical-align:middle}.strip i,.strip a{display:block;width:6px;height:18px;border-radius:2px}.strip .g{background:#3fb68b}.strip .r{background:#e5484d}.strip .e{background:var(--line,#262c33)}`;
 
 export function page(snapshot, {now = new Date()} = {}) {
   const rows = snapshot ? tier1Rows(snapshot, now) : [], say = verdict(rows);
   const body = !snapshot ? '<section class="card"><h2>No data yet</h2><p class="muted">The collector (<code>e2e-intel.yml</code>) fills this page from the e2e and integration runs.</p></section>'
-    : `<section class="card"><div class="gtmhero">${gauge(say.stable, say.total)}<div><p class="verdict"><b>${esc(say.text)}</b></p><p class="muted">Tier 1 = the journeys that block a user's flow; each is proved by e2e steps after every merge, in the beta and the night. Tier 2 = integration tests only.</p></div></div></section>
+    : `<section class="card"><div class="gtmhero">${gauge(say.stable, say.total)}<div>${verdictInner({headline: say.text, chips: say.chips, note: 'Tier 1 = journeys that block a flow · red = failed lately · amber = too few runs to judge'})}</div></div></section>
 ${tier1Card(rows)}\n${tier2Card(tier2Rows(snapshot, now))}`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>GTM readiness · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>

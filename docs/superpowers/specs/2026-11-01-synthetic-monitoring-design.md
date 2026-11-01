@@ -38,7 +38,7 @@ A broken service (index pack empty, update feed 502, Free AI key check refused, 
 
 **Risk, decided by the first real round (acceptance 5):** a Worker fetching its own public URL can be refused by Cloudflare (error 1042, same-zone Worker-to-Worker). If the first round is red on `unreachable` for every probe, the fix is a self service binding in `wrangler.toml` and the fetcher through it; the heartbeat below keeps the outside view either way.
 
-**Outside heartbeat (coordinator mac-07, 1 Nov 2026, PR 2):** when the site Worker itself is dead nothing above runs. The public bot Worker's cron (every 15 min) fetches the marker page and `/api/synthetic/last`; unreachable, or the last round older than 45 min, sends one Telegram line, at most once an hour. No store.
+**Outside heartbeat: dropped (owner, 1 Nov 2026: "SRE Job Pilotto Worker is an old telegram bot which should be decommissioned" → timers to the site Worker, delete the bot).** It was to live in the bot Worker, which is going away. The outside check that stays is the hourly `schedule-watchdog.yml` on GitHub's own cron (jobadabra #2895): it already catches the site Worker's timers stopping, and it now also reads `/api/synthetic/last` and files a line in its issue when the newest probe round is older than 45 min.
 
 **Reason text** is short and fixed-form (`HTTP 502`, `no employers in the list`, `timeout 10s`); never a response body.
 
@@ -57,7 +57,7 @@ Blocking anything; probing from outside Cloudflare (parked); a signed-licence ch
 - [x] Coordinator OK on "site Worker, not bot Worker" (mac-07, 1 Nov)
 - [x] Code and tests: `shared/synthetic.js`, migration, tick wiring, `/api/synthetic/last`, `test/shared/synthetic.test.js` (10 tests)
 - [ ] PR A `[nm] 1/3 Synthetic monitoring: probes, rows, alert` (this repo)
-- [ ] PR B `[nm] 1/3 Outside heartbeat of the probes` (public bot Worker, after A is deployed)
+- [x] PR B `[nm] 1/3 Outside heartbeat of the probes`: dropped, replaced by the watchdog's stale-round line (jobadabra #2895, merged 1 Nov 2026)
 - [ ] PR C `[nm] 1/3 Start schedules-snapshot hourly from the Worker` (public bot Worker; mac-07 asked, 1 Nov)
 - [ ] Tell `to` the data shape (above) so the planned card fills
 - [ ] Deployed; first real round seen in D1
