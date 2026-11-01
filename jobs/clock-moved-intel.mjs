@@ -24,6 +24,11 @@ export async function newestRun(repo, json = ghJson) {
   return newest ? {runId: newest.workflow_run.id, sha: newest.workflow_run.head_sha || '', day: String(newest.created_at || '').slice(0, 10)} : null;
 }
 
+/** True when the public repo's run has completed (every area job uploaded or failed), so the three artifacts it will have are all listed. */
+export async function runFinished(repo, runId, json = ghJson) {
+  return (await json('api', `repos/${repo}/actions/runs/${runId}`, '--jq', '{status: .status}'))?.status === 'completed';
+}
+
 /** The three report.json of one run, {area: parsed | null}; throws when the download itself fails (the caller keeps the stored part). A missing area folder is null. */
 export async function readReports(repo, runId, download = downloadReports) {
   const dir = mkdtempSync(path.join(tmpdir(), 'clock-moved-intel-'));
@@ -51,6 +56,8 @@ export async function clockMovedFor(stored, {repo, json = ghJson, read = readRep
   try {
     const newest = await newestRun(repo, json);
     if (!newest || newest.runId === stored?.runId) return stored || null;
+    // Why (Gitar on #269): an artifact is listed as soon as its job uploads it; a run read before its three jobs are done would be stored with the late areas "not measured" and never read again.
+    if (!await runFinished(repo, newest.runId, json)) return stored || null;
     const merged = mergeClockMoved(stored, await read(repo, newest.runId), newest);
     // Same guard as the coverage part (PR #267, Gitar): a run the site would reject must not replace the stored part and its trend.
     if (!merged || !cleanClockMoved(merged)) throw new Error(`the clock-moved reports of run ${newest.runId} have a shape the site does not accept`);

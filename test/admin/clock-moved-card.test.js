@@ -31,6 +31,8 @@ test('cleaning its own output gives it back unchanged, and a long bomb list is c
   const many = {...reports(), e2e: {judged: 9, redToday: 0, bombs: Array.from({length: 80}, (_, n) => bomb('e2e', `desktop/e2e/test/${n}.test.mjs`))}};
   const clean = cleanClockMoved({at: '2026-11-02', areas: many});
   assert.equal(clean.areas.e2e.bombs.length, 50, 'the rows are cut');
+  assert.equal(clean.areas.e2e.bombCount, 80, 'the count is of the whole list (Gitar on #269)');
+  assert.equal(clean.bombs, 80);
   assert.deepEqual(cleanClockMoved(clean), clean);
   assert.deepEqual(cleanClockMoved(sample()), sample());
 });
@@ -60,7 +62,7 @@ test('the trend compares with the last earlier night only', () => {
   assert.equal(mergeClockMoved(null, {desktop: null, e2e: null, python: null}, {runId: 1, sha: '', day: '2026-11-02'}), null);
 });
 
-const json = (answer, calls) => async (...args) => { calls.push(args); return answer(args.join(' ')); };
+const json = (answer, calls) => async (...args) => { calls.push(args); return /actions\/runs\//.test(args.join(' ')) ? {status: 'completed'} : answer(args.join(' ')); };
 const artifact = (id, extra = {}) => ({id: id * 10, expired: false, created_at: '2026-11-02T03:41:00Z', workflow_run: {id, head_sha: 'f'.repeat(40)}, ...extra});
 
 test('the collector reads the newest run once, keeps one total per night, and keeps what it has when none can be read', async () => {
@@ -69,12 +71,17 @@ test('the collector reads the newest run once, keeps one total per night, and ke
   const at = id => json(args => (/name=clock-moved-python/.test(args) ? null : artifact(id)), calls);
   const first = await clockMovedFor(null, {repo: 'o/r', json: at(100), read});
   assert.deepEqual([first.runId, first.at, first.history.length, first.bombs, first.redToday], [100, '2026-11-02', 1, 2, 1]);
-  assert.deepEqual(calls.map(call => /name=(clock-moved-\w+)/.exec(call.join(' '))[1]).sort(), ['clock-moved-desktop', 'clock-moved-e2e', 'clock-moved-python']);
+  assert.deepEqual(calls.filter(call => /artifacts\?name=/.test(call.join(' '))).map(call => /name=(clock-moved-\w+)/.exec(call.join(' '))[1]).sort(), ['clock-moved-desktop', 'clock-moved-e2e', 'clock-moved-python']);
   assert.equal(await clockMovedFor(first, {repo: 'o/r', json: at(100), read}), first, 'a run already read is not read again');
   assert.equal(reads.length, 1);
   const second = await clockMovedFor(first, {repo: 'o/r', json: json(() => artifact(101, {created_at: '2026-11-03T03:40:00Z'}), []), read});
   assert.deepEqual(second.history.map(row => row.day), ['2026-11-02', '2026-11-03']);
   assert.equal((await clockMovedFor(first, {repo: 'o/r', json: json(() => null, []), read})).runId, 100, 'no artifact: the stored one stays');
+  // Gitar on #269: the artifacts of a run still uploading are listed already; it is read once it has completed, not before.
+  const running = async (...args) => (/actions\/runs\//.test(args.join(' ')) ? {status: 'in_progress'} : artifact(104));
+  const readsBefore = reads.length;
+  assert.equal(await clockMovedFor(first, {repo: 'o/r', json: running, read}), first, 'a run still in progress is left for the next hour');
+  assert.equal(reads.length, readsBefore, 'and was not read');
   assert.equal(await newestRun('o/r', json(() => artifact(5, {expired: true}), [])), null, 'an expired artifact is not read');
   const log = [], realLog = console.log;
   console.log = line => log.push(line);

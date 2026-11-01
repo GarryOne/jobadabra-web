@@ -12,8 +12,9 @@ const cleanBomb = (area, row) => (text(row?.file) ? {area, file: text(row.file),
 /** One area's report.json: {judged, redToday, bombs: [{file, days, why}], unstable: []} -> counts and the bomb rows; null when the area has no report that night ("not measured", never 0). */
 export function cleanArea(area, report) {
   if (!report || typeof report !== 'object' || !Array.isArray(report.bombs)) return null;
-  const bombs = report.bombs.slice(0, 50).map(row => cleanBomb(area, row)).filter(Boolean);
-  return {judged: count(report.judged), redToday: count(report.redToday), bombs, bombCount: Math.max(bombs.length, count(report.bombCount)), unstable: Array.isArray(report.unstable) ? report.unstable.length : count(report.unstable)};
+  // Why (Gitar on #269): the count is of the whole list, cut only for the rows shown; a stored part (already cut) carries its own bombCount forward.
+  const valid = report.bombs.map(row => cleanBomb(area, row)).filter(Boolean), bombs = valid.slice(0, 50);
+  return {judged: count(report.judged), redToday: count(report.redToday), bombs, bombCount: Math.max(valid.length, count(report.bombCount)), unstable: Array.isArray(report.unstable) ? report.unstable.length : count(report.unstable)};
 }
 
 /**
