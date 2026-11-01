@@ -15,7 +15,7 @@ The website, `/admin`, and the CI jobs that feed them. Moved out of the public `
 | Folder | What |
 |---|---|
 | `web/` `admin/` `api/` `shared/` | the public pages, /admin, what the apps call, what both use (see `web/README.md`) |
-| `workers/` | `www` (the ONE Worker serving web + admin + api), `hosted-runner`, `ready-runner` |
+| `workers/` | `www` (the ONE Worker serving web + admin + api), `hosted-runner`, `ready-runner`, `bot` (the deploy shell of the Telegram bot Worker; its code is the public repo's `app-core/`) |
 | `db/migrations/` | D1 migrations |
 | `test/` | mirrors the folders above; `test/boundary.test.js` guards the import directions. Run: `node --test "test/**/*.test.js"` |
 | `media/` | the product-media recorder (videos and stills for the site); run it with `tools/media.sh` (by hand, never CI) |
