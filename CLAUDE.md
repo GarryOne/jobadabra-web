@@ -1,7 +1,7 @@
 # jobadabra-web: notes for Claude
 
 The website, `/admin` and the scheduled jobs that feed them: **private**, split out of the public `GarryOne/jobadabra` on 20 Oct 2026 (owner: "leave open-source rather less than more").
-**Visibility (owner, 24 Oct 2026):** this repo is public until 1 Nov 2026, then private again; nothing secret in it meanwhile.
+**Visibility (owner, 24 Oct 2026, replaced 1 Nov 2026):** the 24 Oct plan was "public until 1 Nov 2026, then private again". On 1 Nov the owner decided: "For now we want to keep all public, in this phase of product, to benefit from Github public tier" (via mac-07), so this repo stays public and **nothing secret goes in it** (secrets stay in GitHub/Cloudflare secrets).
 Read [README.md](README.md) first, then the public repo's `docs/rules/private-site.md` (`~/jobadabra`, or `gh repo view GarryOne/jobadabra`).
 
 ## The one rule
@@ -27,7 +27,7 @@ Nothing here may be needed by a public file, test or workflow. Never copy a priv
 - Secrets only in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Worker secrets. Never in code, docs, logs or PR text. The owner sets this repo's secrets; never print or copy a value.
 - No AI spend without the owner's yes. Keep `/admin` behind its keys; never open a route without the guard its siblings have.
 - Never edit another session's worktree. One issue per session.
-- Cost: this repo runs on private Actions minutes (about 4,000 a month at the move; the plan's allowance is the owner's call). Don't add a schedule or a matrix without saying what it costs.
+- Cost: this repo is PUBLIC (checked with `gh repo view`, 1 Nov 2026), so its Actions minutes are free; the owner keeps all repos public in this phase to use GitHub's public tier (owner, 1 Nov 2026, via mac-07: "For now we want to keep all public, in this phase of product, to benefit from Github public tier"). Making any repo private again brings back a minutes budget (about 4,000 a month on the old private plan): say so before it. Still say what a new schedule or matrix costs in runs.
 
 ## Not here
 The app, the extension, the engine (`src/`), the Telegram bot Worker (`worker/`), the user-called workflows and all their tests are in the **public** repo; do not copy them here.
