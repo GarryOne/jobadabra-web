@@ -69,3 +69,48 @@ test('the image copies the server and all its local imports from its build conte
     assert.ok(copied.has(path.posix.join(path.posix.dirname(entry), ref)), `the image contains ${ref}`);
   }
 });
+
+// Why (1 Nov 2026, pg via mac-07): each call used to spawn a `codex app-server` for the week figure. The first reading is waited for, later calls get it from memory, and a stale one is refreshed in the background.
+test('the Codex week figure is read once, then served from memory and refreshed in the background (not once per call)', async t => {
+  const tmp = new URL('../../.tmp/', import.meta.url);
+  fs.mkdirSync(tmp, {recursive: true});
+  const dir = fs.mkdtempSync(path.join(tmp.pathname, 'broker-limits-'));
+  t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+  let handler, lookups = 0, used = 40;
+  const spawn = (binary, args, options) => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.kill = () => {};
+    if (args[0] === 'app-server') {
+      lookups++;
+      child.stdin = {write(line) {
+        const {id} = JSON.parse(line);
+        if (id) queueMicrotask(() => child.stdout.emit('data', `${JSON.stringify({id, result: {rateLimits: {secondary: {usedPercent: used, windowDurationMins: 10080, resetsAt: 7}}}})}\n`));
+      }};
+    } else queueMicrotask(() => { fs.writeFileSync(path.join(options.cwd, 'out.txt'), 'reply'); child.stdout.emit('data', '{"usage":{"input_tokens":1,"output_tokens":1}}'); child.emit('close', 0); });
+    return child;
+  };
+  const load = ttl => vm.runInNewContext(fs.readFileSync(new URL('../../workers/ai-broker/container/server.mjs', import.meta.url), 'utf8').replace(/^import .*;\n/gm, ''), {
+    http: {createServer(fn) { handler = fn; return {listen() {}}; }},
+    fs, os: {tmpdir: () => dir}, path, spawn, buildArgs, weeklyWindow, Buffer, setTimeout, clearTimeout,
+    process: {env: {CODEX_HOME: path.join(dir, 'home'), HOME: dir, PATH: '', LIMITS_TTL_MS: String(ttl)}},
+  });
+  const call = () => new Promise(resolve => {
+    const request = new EventEmitter(); request.url = '/call'; request.method = 'POST';
+    handler(request, {setHeader() {}, end(text) { resolve(JSON.parse(text)); }});
+    request.emit('data', Buffer.from(JSON.stringify({prompt: 'p', model: 'm'}))); request.emit('end');
+  });
+  load(60000);
+  const answers = [await call(), await call(), await call()];
+  assert.equal(lookups, 1, 'three calls, one lookup');
+  for (const answer of answers) assert.deepEqual(answer.limits, {usedPercent: 40, resetsAt: 7});
+  // Gitar on #290: four calls that overlap a container start share one lookup.
+  lookups = 0; load(60000);
+  assert.equal((await Promise.all([call(), call(), call(), call()])).length, 4);
+  assert.equal(lookups, 1, 'four overlapping first calls, one lookup');
+  load(0);   // a stale reading: the call is answered at once with the old figure, the next one sees the refreshed figure
+  assert.equal((await call()).limits.usedPercent, 40);
+  used = 55;
+  assert.equal((await call()).limits.usedPercent, 40);   // stale figure served, refresh started
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal((await call()).limits.usedPercent, 55);
+});
