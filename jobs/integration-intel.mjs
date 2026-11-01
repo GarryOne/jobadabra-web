@@ -11,7 +11,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {LAYERS, MAX_RUNS} from '../admin/integration-intel.js';
-import {advance, countsOf, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
+import {advance, countsOf, inOrder, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.INTEGRATION_INTEL_URL || 'https://www.jobpilotto.top/integration/data';
@@ -76,7 +76,7 @@ async function main() {
   const todo = listed.filter(run => !have.has(run.databaseId)).slice(-MAX_READ);
   const read = [];
   for (let at = 0; at < todo.length; at += 6) await Promise.all(todo.slice(at, at + 6).map(async run => { read.push({run, ...(await readResults(run.databaseId))}); }));
-  const sure = read.filter(item => item.ok).sort((a, b) => a.run.createdAt.localeCompare(b.run.createdAt));   // a run not read for certain leaves no row, no observation: next hour reads it again
+  const sure = inOrder(read);   // oldest first, up to the first run not read for certain: it and the newer ones are read again next hour, in order (Gitar, #245)
   const rows = sure.flatMap(({run, results}) => results.map(result => runRow(run, result)));
   const observations = sure.flatMap(({run, results}) => results.flatMap(result => result.tests.map(item => ({...runRow(run, result), createdAt: run.createdAt, name: item.name, file: item.file, ok: item.ok}))));
   const changedBetween = memo(async (from, to) => (await ghAsync('api', `repos/${repo}/compare/${from}...${to}`, '--jq', '[.files[].filename]')));
@@ -85,7 +85,7 @@ async function main() {
   const results = newest ? sure.filter(({run}) => run.databaseId === newest.run.databaseId).flatMap(item => item.results) : [];
   const move = readMove(new Set((stored.move?.days || []).map(row => row.day)), since);
   const snapshot = {
-    runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...read.filter(item => item.ok).map(item => item.run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
+    runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...sure.map(item => item.run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
     slowest: results.length ? slowestOf(results) : stored.slowest || [], counts: results.length ? {...(stored.counts || {}), ...Object.fromEntries(Object.entries(countsOf(results)).filter(([, value]) => value.tests))} : stored.counts || {},
     move: {days: [...(stored.move?.days || []).filter(row => !move.days.some(item => item.day === row.day)), ...move.days].sort((a, b) => a.day.localeCompare(b.day)), e2eSteps: move.days.at(-1)?.e2eSteps ?? stored.move?.e2eSteps ?? null, lanes: move.lanes ?? stored.move?.lanes ?? null},
   };

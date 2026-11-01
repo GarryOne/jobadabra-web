@@ -78,3 +78,18 @@ export function grepCounts(output, sha = '') {
   for (const line of String(output).split('\n')) { const found = /^(.+):(\d+)$/.exec(sha && line.startsWith(`${sha}:`) ? line.slice(sha.length + 1) : line); if (found) counts[found[1]] = Number(found[2]); }
   return counts;
 }
+
+/**
+ * The runs of this pass that may be folded into the snapshot, oldest first: every run up to the first one not read for certain (a timeout, a rate limit), because a retried run
+ * replayed after newer ones would reach advance() out of order and miss its same-commit pair (Gitar, #245). A run still unreadable after `giveUpHours` is let go (read, no results),
+ * so one dead run never blocks the newer ones for good. read: [{run: {createdAt}, ok, results}].
+ */
+export function inOrder(read, now = Date.now(), giveUpHours = 48) {
+  const sorted = read.slice().sort((a, b) => a.run.createdAt.localeCompare(b.run.createdAt)), out = [];
+  for (const item of sorted) {
+    if (item.ok) { out.push(item); continue; }
+    if (now - Date.parse(item.run.createdAt) > giveUpHours * 3600000) { out.push({...item, ok: true, results: []}); continue; }
+    break;
+  }
+  return out;
+}
