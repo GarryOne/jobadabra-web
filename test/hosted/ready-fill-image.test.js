@@ -39,3 +39,17 @@ test('the runner Workers point at the Dockerfiles that live here', () => {
   assert.match(readFileSync(new URL('workers/ready-runner/wrangler.jsonc', root), 'utf8'), /"image": "\.\.\/\.\.\/hosted\/ready-fill\/Dockerfile"/);
   assert.match(readFileSync(new URL('workers/hosted-runner/wrangler.jsonc', root), 'utf8'), /"image": "\.\.\/\.\.\/hosted\/Dockerfile"/);
 });
+
+// Moved from the public repo's tests/test_hosted_run.py (1 Nov 2026, rs 5c/6): the Dockerfile lives here now, so the checks on its text do too.
+test('the Always on image starts the server and bakes in no secret', () => {
+  const docker = readFileSync(new URL('hosted/Dockerfile', root), 'utf8');
+  assert.match(docker, /CMD \["python", "-m", "src", "hosted", "--serve"\]/);
+  assert.doesNotMatch(docker, /(token|key|secret)\s*=\s*\S/i);
+});
+
+test('the Always on image has the headless browser for script-built pages', () => {
+  // Why (19 Oct 2026, owner): script-built job boards are read headlessly wherever the search runs, Cloudflare hosted included.
+  const docker = readFileSync(new URL('hosted/Dockerfile', root), 'utf8');
+  assert.ok(docker.includes('requirements-render.txt'));
+  assert.match(docker, /playwright install --with-deps chromium/);
+});
