@@ -8,6 +8,8 @@ import {BARS_CSS} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {GREEN_CSS, greenCard} from './e2e-green.js';
 import {LAYERS, readSnapshot} from './integration-intel.js';
+import {readStartProblem} from '../shared/intel-start.js';
+import {startLine} from './intel-start-line.js';
 
 const DAY = 86400000;
 export const RANGES = {'7d': {name: 'Last 7 days', days: 7}, '30d': {name: 'Last 30 days', days: 30}};
@@ -104,7 +106,7 @@ function moveCard(snapshot) {
 const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}${CHIP_STYLE}${GREEN_CSS}.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
 .filters{margin:8px 0 10px}h2{margin:0 0 8px}.scroll{overflow-x:auto}.verdict{font-size:17px;margin:0 0 10px}${BARS_CSS}`;
 
-export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date()} = {}) {
+export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date(), problem = null} = {}) {
   range = rangeOf(range);
   const name = RANGES[range].name, filters = filterLinks(Object.entries(RANGES).map(([value, {name: text}]) => [value, text, `?range=${value}`]), range);
   const stats = layerStats(snapshot, range, now), {keys} = mainRuns(snapshot, range, now);
@@ -113,13 +115,13 @@ export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now =
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Integration · Operations · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
 <header><h1>🧩 Integration tests</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · extension, app and store layers, runs of “CI · Integration tests”` : ''}</span></header>
-${body}</main></body></html>`;
+${startLine(problem)}${body}</main></body></html>`;
 }
 
 export async function view(request, env) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
-  const snapshot = await readSnapshot(env.STATS);
-  return new Response(page(snapshot, {range: rangeOf(url.searchParams.get('range')), repo: env.GITHUB_REPO || undefined}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const snapshot = await readSnapshot(env.STATS), problem = await readStartProblem(env.STATS, 'integration-intel.yml');
+  return new Response(page(snapshot, {range: rangeOf(url.searchParams.get('range')), repo: env.GITHUB_REPO || undefined, problem}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
