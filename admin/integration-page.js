@@ -8,6 +8,7 @@ import {BARS_CSS} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {GREEN_CSS, greenCard} from './e2e-green.js';
 import {LAYERS, readSnapshot} from './integration-intel.js';
+import {CLOCK_CSS, clockMovedCard} from './clock-moved-card.js';
 import {COVERAGE_CSS, coverageCard} from './coverage-card.js';
 import {readStartProblem} from '../shared/intel-start.js';
 import {startLine} from './intel-start-line.js';
@@ -105,14 +106,14 @@ function moveCard(snapshot) {
 }
 
 const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}${CHIP_STYLE}${GREEN_CSS}.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
-.filters{margin:8px 0 10px}h2{margin:0 0 8px}.scroll{overflow-x:auto}.verdict{font-size:17px;margin:0 0 10px}${BARS_CSS}${COVERAGE_CSS}`;
+.filters{margin:8px 0 10px}h2{margin:0 0 8px}.scroll{overflow-x:auto}.verdict{font-size:17px;margin:0 0 10px}${BARS_CSS}${COVERAGE_CSS}${CLOCK_CSS}`;
 
 export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date(), problem = null} = {}) {
   range = rangeOf(range);
   const name = RANGES[range].name, filters = filterLinks(Object.entries(RANGES).map(([value, {name: text}]) => [value, text, `?range=${value}`]), range);
   const stats = layerStats(snapshot, range, now), {keys} = mainRuns(snapshot, range, now);
   const body = !snapshot ? '<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>integration-intel.yml</code> publishes the integration results hourly; the first run fills this page.</p></section>'
-    : `${filters}${bandCard(stats)}\n${layersCard(stats, name)}\n${coverageCard(snapshot.coverage)}\n${greenCard(greenRows(snapshot, now), {days: RANGES[range].days, now, lines: LINES, headline: ALL, what: 'integration', scopeName: name})}\n${flakyCard(snapshot, repo, name, keys)}\n${slowCard(snapshot)}\n${moveCard(snapshot)}`;
+    : `${filters}${bandCard(stats)}\n${layersCard(stats, name)}\n${coverageCard(snapshot.coverage)}\n${clockMovedCard(snapshot.clockMoved)}\n${greenCard(greenRows(snapshot, now), {days: RANGES[range].days, now, lines: LINES, headline: ALL, what: 'integration', scopeName: name})}\n${flakyCard(snapshot, repo, name, keys)}\n${slowCard(snapshot)}\n${moveCard(snapshot)}`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Integration · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
 <header><h1>🧩 Integration tests</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · extension, app and store layers, runs of “CI · Integration tests”` : ''}</span></header>
