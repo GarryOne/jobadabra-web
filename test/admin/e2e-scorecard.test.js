@@ -1,4 +1,4 @@
-// /admin/operations/e2e's scorecard and "Where e2e work goes" (admin/e2e-scorecard.js; spec rules I and J, owner 28 Oct 2026): a suite's catches vs its noise, shards as one suite, and the weekly plumbing share against 15%.
+// /admin/testing/e2e's scorecard and "Where e2e work goes" (admin/e2e-scorecard.js; spec rules I and J, owner 28 Oct 2026): a suite's catches vs its noise, shards as one suite, and the weekly plumbing share against 15%.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {baseSuite, scoreRows, scorecardCard, workCard, workWeeks} from '../../admin/e2e-scorecard.js';

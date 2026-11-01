@@ -1,4 +1,4 @@
-// /admin/operations/e2e: where our e2e reds come from (owner, 18 Oct 2026; every run kind and a cause for every red, 27 Oct 2026). Draws the ONE snapshot row admin/e2e-intel.js
+// /admin/testing/e2e: where our e2e reds come from (owner, 18 Oct 2026; every run kind and a cause for every red, 27 Oct 2026). Draws the ONE snapshot row admin/e2e-intel.js
 // keeps: every finished e2e run (beta, nightly, main after a merge, scheduled, soak, PR, the daily harness tests), which suites went red, and why (admin/e2e-causes.js), and how steady the AI is in the quality suite (admin/e2e-quality.js). The top
 // (who caused it, top causes and suites, the biggest breaks, PR e2e's cost vs catch) is admin/e2e-top.js. No table scan. Guard: test/admin/e2e-page.test.js.
 import {viewer} from '../shared/auth.js';
@@ -140,7 +140,7 @@ ${workCard(snapshot, now)}
 <section class="card"><h2>Latest ${(snapshot.latest || []).length} runs</h2><div class="scroll"><table><tr><th>Run</th><th>Day</th><th>Kind</th><th>Result</th><th class="num">Minutes</th></tr>${(snapshot.latest || []).map(run =>
   `<tr><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(run.runId)}">#${Number(run.runId)}</a></td><td>${esc(run.day)}</td><td>${chip(esc(run.kind || 'beta'))}</td><td>${run.conclusion === 'failure' ? chip('red', 'bad') : run.conclusion === 'cancelled' ? chip('cancelled', 'off') : chip('green', 'good')}</td><td class="num">${num(run.minutes)}</td></tr>`).join('')
   || '<tr><td colspan="5" class="muted">No runs yet.</td></tr>'}</table></div></section>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>E2E · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>E2E · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:28px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}${CHIP_STYLE}
 .filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}${SCORECARD_CSS}${GREEN_CSS}${BETA_CSS}</style></head><body><main>

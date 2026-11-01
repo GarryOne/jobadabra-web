@@ -1,4 +1,4 @@
-// The red line on /admin/operations/e2e and /admin/operations/integrations (owner, 1 Nov 2026: "Red line on the page"): when the Worker's last on-time start of the page's collector failed,
+// The red line on /admin/testing/e2e and /admin/testing/integrations (owner, 1 Nov 2026: "Red line on the page"): when the Worker's last on-time start of the page's collector failed,
 // the page says "collector not starting: <reason>"; a good start clears it. The Worker had no E2E_INTEL_GITHUB_TOKEN and only a console line said so, for both pages, unseen.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -19,7 +19,7 @@ function d1() {
 }
 const seen = html => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '');   // what the owner reads
 const tick = (minute, hour = 12) => new Date(Date.UTC(2026, 10, 1, hour, minute));
-const PAGES = {'e2e-intel.yml': {path: '/admin/operations/e2e', html: e2ePage}, 'integration-intel.yml': {path: '/admin/operations/integrations', html: integrationPage}};
+const PAGES = {'e2e-intel.yml': {path: '/admin/testing/e2e', html: e2ePage}, 'integration-intel.yml': {path: '/admin/testing/integrations', html: integrationPage}};
 
 test('a refused start draws "collector not starting: <reason>" on that collector\'s page only, and the next good start clears it', async () => {
   const db = d1();

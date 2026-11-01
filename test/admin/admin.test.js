@@ -27,18 +27,17 @@ const owner = {headers: {Cookie: 'jp_stats=k3y'}};
 const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
 const now = new Date('2026-10-12T12:00:00Z');
 
-test('the menu: every page has a group, no group row has more than 7 pages (Operations 9), Access is a lock link for the super admin only', () => {
+test('the menu: every page has a group, no group row has more than 7 pages, Access is a lock link for the super admin only', () => {
   const names = GROUPS.map(([name]) => name);
   for (const page of PAGES) assert.ok(names.includes(page.group), `${page.path} has a group from GROUPS`);
-  // Why (owner, 1 Nov 2026, "Raise Operations to 9"): Agent coding joined as its own page after Integrations; no page moved out.
-  const LIMIT = {Operations: 9};
-  for (const name of names) assert.ok(PAGES.filter(page => page.group === name && !page.superadmin).length <= (LIMIT[name] || 7), `${name} row is short`);
+  // Why (owner, 1 Nov 2026, "2 groups"): Operations was split into Testing (5 pages) and Agents (4 pages + Access), so no group needs more than the usual 7.
+  for (const name of names) assert.ok(PAGES.filter(page => page.group === name && !page.superadmin).length <= 7, `${name} row is short`);
   const access = PAGES.find(page => page.superadmin);
   const row = html => html.match(/<div class="admin-sub">.*?<\/div>/s)?.[0] || '';
   const sup = nav('/admin/growth/website', {role: 'superadmin'}), adm = nav('/admin/growth/website', {role: 'admin', name: 'Ann'});
   assert.ok(sup.includes(`<span class="me">super admin <a href="${access.path}"`));
   assert.ok(!adm.includes(access.path));
-  assert.ok(!row(nav('/admin/operations/overview', {role: 'superadmin'})).includes(access.path), 'Access is not in a row');
+  assert.ok(!row(nav('/admin/agents/overview', {role: 'superadmin'})).includes(access.path), 'Access is not in a row');
 });
 
 test('Scouting lives in Job search next to the Lab, not in Intelligence, at the same address; its headline moved with it', () => {
@@ -111,7 +110,7 @@ test('the overview: a card per page and what needs attention, pulled from their 
   db.prepare("INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES ('2026-10-11T10:00:00Z', '2026-10-11', 'i1', '0.8', 'mac', 'hello', '')").run();
   const data = await report(e.STATS, now);
   const texts = data.attention.map(item => `${item.page} ${item.text}`);
-  for (const want of ['/admin/growth/app 1 new problem', 'Required questions filled fell from 90% to 50%', '/admin/operations/self-healing Self-healing missed 1 of 15', '/admin/growth/feedback 1 feedback message'])
+  for (const want of ['/admin/growth/app 1 new problem', 'Required questions filled fell from 90% to 50%', '/admin/testing/self-healing Self-healing missed 1 of 15', '/admin/growth/feedback 1 feedback message'])
     assert.ok(texts.some(text => text.includes(want)), want);
   const html = await (await get(e, '/admin', owner)).text();
   for (const page of PAGES.filter(p => p.path !== '/admin' && !p.superadmin)) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);

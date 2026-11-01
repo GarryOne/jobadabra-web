@@ -1,4 +1,4 @@
-// /admin/operations/build-log: the daily build digest, a day-by-day history (spec docs/superpowers/specs/2026-10-16-daily-digest.md). jobs/daily-digest.mjs (daily-digest.yml, hourly) writes it:
+// /admin/agents/build-log: the daily build digest, a day-by-day history (spec docs/superpowers/specs/2026-10-16-daily-digest.md). jobs/daily-digest.mjs (daily-digest.yml, hourly) writes it:
 // GET /digest/data?day= says what is stored for a day (so CI skips an unchanged set), PUT /digest/data stores a draft or the final one (Bearer SELFHEAL_PUBLISH_KEY). One row per day (digest_days); a closed day ignores later drafts.
 // The page draws the groups itself (never markdown parsed from a string). No AI here. Guard: test/admin/build-log.test.js.
 import {viewer} from '../shared/auth.js';
@@ -70,7 +70,7 @@ function dayCard(row, {open = false, repo}) {
 export function page(rows, {repo = 'GarryOne/jobadabra', day = ''} = {}) {
   const list = day ? rows.filter(row => row.day === day) : rows;
   const body = list.length ? list.map((row, i) => dayCard(row, {open: i === 0, repo})).join('') : `<section class="card"><h2>No digest yet</h2><p class="muted">The workflow <code>daily-digest.yml</code> writes the day's digest every hour when a PR was merged; the first run fills this page.</p></section>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Build log · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Build log · Agents · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.day{margin-bottom:22px}.day>summary,.goal summary{cursor:pointer;list-style:none}.day>summary{padding:6px 0 12px}.day>summary b{font-size:17px}
 .goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;margin-bottom:12px}.goal{margin:0}.goal h2{margin:0 0 8px}.goal ul{margin:0;padding:0;list-style:none}
 .goal li{padding:7px 0;border-top:1px solid #262c33}.goal li:first-child{border-top:0}.goal details p{margin:4px 0 0;font-size:14px}.goal li>b{font-weight:600}

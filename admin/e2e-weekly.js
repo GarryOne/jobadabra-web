@@ -1,5 +1,5 @@
 // The weekly e2e summary (owner, 28 Oct 2026; public repo docs/superpowers/specs/2026-10-28-e2e-reliability-design.md rule D: "Weekly: Telegram + one GitHub issue,
-// same numbers as the page, one decision for the owner if any"; rules I and J). Drawn from the snapshot /admin/operations/e2e draws (admin/e2e-intel.js) with the page's
+// same numbers as the page, one decision for the owner if any"; rules I and J). Drawn from the snapshot /admin/testing/e2e draws (admin/e2e-intel.js) with the page's
 // own functions, so there is no second count. Pure: jobs/e2e-weekly.mjs posts it. Guard: test/admin/e2e-weekly.test.js.
 import {CAUSES, GROUPS} from './e2e-causes.js';
 import {greySummary, greyLines} from './e2e-grey.js';
@@ -9,7 +9,7 @@ import {scoreRows, workWeeks} from './e2e-scorecard.js';
 import {summary as topSummary} from './e2e-top.js';
 import {PLUMBING_TARGET, WORK_KINDS, weekOf} from './e2e-work.js';
 
-export const PAGE = 'https://www.jobadabra.top/admin/operations/e2e';
+export const PAGE = 'https://www.jobadabra.top/admin/testing/e2e';
 const DAY = 86400000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;

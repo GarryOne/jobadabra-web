@@ -1,4 +1,4 @@
-// /admin/operations/e2e: the snapshot drawn in each state, owner only, in the menu under Operations, and the old /admin/e2e address going there.
+// /admin/testing/e2e: the snapshot drawn in each state, owner only, in the menu under Testing, and the old /admin/e2e address going there.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
@@ -43,14 +43,14 @@ test('the page: numbers, suites with chips, a bar per day, the run list; "no dat
   assert.equal(bars(windowOf(snapshot, '7d', now)).includes('3 red suites') || bars(windowOf(snapshot, '7d', now)).includes('5 red suites'), true);
 });
 
-test('owner only; the menu lists E2E under Operations; the old runs address goes to the tab', async () => {
-  assert.equal((await get('/admin/operations/e2e')).status, 404);
-  const response = await get('/admin/operations/e2e', {Cookie: 'jp_stats=k3y'});
+test('owner only; the menu lists E2E under Testing; the old runs address goes to the tab', async () => {
+  assert.equal((await get('/admin/testing/e2e')).status, 404);
+  const response = await get('/admin/testing/e2e', {Cookie: 'jp_stats=k3y'});
   assert.equal(response.status, 200);
   assert.match(await response.text(), /Why e2e goes red/);
-  assert.equal(PAGES.find(item => item.path === '/admin/operations/e2e').group, 'Operations');
+  assert.equal(PAGES.find(item => item.path === '/admin/testing/e2e').group, 'Testing');
   const old = await get('/admin/e2e', {Cookie: 'jp_stats=k3y'});
-  assert.equal(old.headers.get('Location'), '/admin/operations/e2e');
+  assert.equal(old.headers.get('Location'), '/admin/testing/e2e');
 });
 
 test('the top answers "why red?" in seconds: who caused it, top causes with test drift always named, top suites, the biggest breaks, PR e2e cost vs catch, main green per day', () => {
@@ -103,7 +103,7 @@ test('Grey does not add a page scan: the view reads one snapshot row and one col
   const {view} = await import('../../admin/e2e-page.js');
   const e = env(), reads = [];
   e.STATS.prepare = sql => { reads.push(sql); return {bind: () => ({first: async () => null}), first: async () => ({body: JSON.stringify(snapshot)})}; };
-  const response = await view(new Request('https://test/admin/operations/e2e', {headers: {Cookie: 'jp_stats=k3y'}}), e);
+  const response = await view(new Request('https://test/admin/testing/e2e', {headers: {Cookie: 'jp_stats=k3y'}}), e);
   assert.equal(response.status, 200);
   assert.deepEqual(reads, ['SELECT body FROM e2e_snapshot WHERE id = 1', 'SELECT at, ok, reason FROM intel_start WHERE workflow = ?'], 'the second is the red line\'s (1 Nov 2026, admin/intel-start-line.js): one row by its key');
 });

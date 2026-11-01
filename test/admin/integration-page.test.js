@@ -1,4 +1,4 @@
-// /admin/operations/integrations (owner, 1 Nov 2026): the snapshot drawn per layer, flaky tests, the slowest 10, the move; owner only; in the Operations menu; the collector's PUT validated.
+// /admin/testing/integrations (owner, 1 Nov 2026): the snapshot drawn per layer, flaky tests, the slowest 10, the move; owner only; in the Testing menu; the collector's PUT validated.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
@@ -59,12 +59,12 @@ test('a long list is cut to its newest rows, never refused; the ids of runs read
   assert.deepEqual([clean.runs.length, clean.runs[0].runId, clean.runs.at(-1).runId, clean.read], [3000, 1500, 4499, [5, 7]]);
 });
 
-test('owner only, in the Operations menu; the PUT needs the publish key and a snapshot-shaped body', async () => {
-  assert.equal((await get('/admin/operations/integrations')).status, 404);
-  const response = await get('/admin/operations/integrations', {Cookie: 'jp_stats=k3y'});
+test('owner only, in the Testing menu; the PUT needs the publish key and a snapshot-shaped body', async () => {
+  assert.equal((await get('/admin/testing/integrations')).status, 404);
+  const response = await get('/admin/testing/integrations', {Cookie: 'jp_stats=k3y'});
   assert.equal(response.status, 200);
   assert.match(await response.text(), /Integration tests/);
-  assert.equal(PAGES.find(item => item.path === '/admin/operations/integrations').group, 'Operations');
+  assert.equal(PAGES.find(item => item.path === '/admin/testing/integrations').group, 'Testing');
   const put = (key, body) => ingest(new Request('https://x/integration/data', {method: 'PUT', headers: key ? {Authorization: `Bearer ${key}`} : {}, body}), env(), now);
   assert.equal((await put(null, '{}')).status, 404);
   assert.equal((await put('wrong', '{}')).status, 404);

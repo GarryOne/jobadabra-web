@@ -30,7 +30,7 @@ const KINDS = cookie => ({
   'e2e report file (signed address)': [host => new Request(`https://${host}/admin/operations/e2e/report/1/tok/index.html`, {headers: html}), null],
   'old e2e report file': [host => new Request(`https://${host}/admin/e2e/report/1/tok/index.html`, {headers: html}), null],
   'admin POST': [host => new Request(`https://${host}/admin/form-filling/lab`, {method: 'POST', headers: {...html, Cookie: cookie}, body: '{}'}), null],
-  'e2e report PUT': [host => new Request(`https://${host}/admin/operations/e2e`, {method: 'PUT', headers: {Authorization: 'Bearer owner-key'}, body: '{}'}), null],
+  'e2e report PUT': [host => new Request(`https://${host}/admin/testing/e2e`, {method: 'PUT', headers: {Authorization: 'Bearer owner-key'}, body: '{}'}), null],
   'API POST': [host => new Request(`https://${host}/api/feedback`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}), null],
   'API PUT (central-scout)': [host => new Request(`https://${host}/api/index`, {method: 'PUT', headers: {Authorization: 'Bearer owner-key'}, body: '{}'}), null],
   'report POST': [host => new Request(`https://${host}/report/fill-failure`, {method: 'POST', body: '{}'}), null],

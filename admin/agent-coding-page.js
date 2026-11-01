@@ -1,4 +1,4 @@
-// Draws /admin/operations/agent-coding from the stored days (admin/agent-coding.js): a verdict band, then one card per stat (stopped pushes, what fixed a red, CI/tooling share, fix circles, CI minutes).
+// Draws /admin/agents/agent-coding from the stored days (admin/agent-coding.js): a verdict band, then one card per stat (stopped pushes, what fixed a red, CI/tooling share, fix circles, CI minutes).
 // Pure: rows [{kind, day, card: JSON string, updated_at}] + a clock in, HTML out. Weeks start on Monday (UTC), newest first. No AI; every colour pairs with a word or icon.
 import {esc} from '../shared/html.js';
 
@@ -100,9 +100,9 @@ details{margin-top:12px}summary{cursor:pointer;color:#8d949c;font-size:13px}.ac-
 
 export function page(rows, now = new Date()) {
   const weeks = weeksOf(rows, now), at = rows.map(item => item.updated_at).filter(Boolean).sort().at(-1);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Agent coding · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Agent coding · Agents · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}</style></head><body><main>
-<header><h1>🧭 Agent coding</h1><span class="muted ac-top">weekly · last ${WEEKS} weeks${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/operations/pr-checks">per-check scorecard →</a></span></header>
+<header><h1>🧭 Agent coding</h1><span class="muted ac-top">weekly · last ${WEEKS} weeks${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/testing/pr-checks">per-check scorecard →</a></span></header>
 ${verdict(weeks)}
 ${gateCard(weeks)}${fixedCard(weeks)}${shareCard(weeks)}${circlesCard(weeks)}${minutesCard(weeks)}</main></body></html>`;
 }

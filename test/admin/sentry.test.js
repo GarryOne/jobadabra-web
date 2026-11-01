@@ -36,19 +36,19 @@ test('the owner only; Sentry is asked with the token, production by default, eve
   const asked = [];
   const fetcher = async (url, init) => { asked.push({url: String(url), auth: init?.headers?.Authorization}); return new Response(JSON.stringify(String(url).includes('sentry.io') ? ISSUES : [])); };
   const env = {SENTRY_AUTH_TOKEN: 'tok', STATS_KEY: 'k3y'};
-  assert.equal((await view(new Request('https://x/admin/operations/sentry'), env, fetcher)).status, 404);
+  assert.equal((await view(new Request('https://x/admin/testing/sentry'), env, fetcher)).status, 404);
   const own = path => new Request(`https://x${path}`, {headers: {Cookie: 'jp_stats=k3y'}});
-  const html = await (await view(own('/admin/operations/sentry'), env, fetcher)).text();
+  const html = await (await view(own('/admin/testing/sentry'), env, fetcher)).text();
   assert.ok(html.includes('JOB-PILOTTO-APP-1V'));
   assert.match(asked[0].url, /environment=production/);
   assert.equal(asked[0].auth, 'Bearer tok');
-  await view(own('/admin/operations/sentry?scope=all'), env, fetcher);
+  await view(own('/admin/testing/sentry?scope=all'), env, fetcher);
   assert.doesNotMatch(asked.at(-1).url, /environment=/);
 });
 
 test('without the token or when Sentry fails, the page says why and how to fix it', async () => {
   assert.match(page({list: [], fix: {pulls: [], verdicts: [], run: null}, scope: 'users', error: 'no SENTRY_AUTH_TOKEN'}), /secret put SENTRY_AUTH_TOKEN/);
   const env = {SENTRY_AUTH_TOKEN: 'tok', STATS_KEY: 'k3y'};
-  const html = await (await view(new Request('https://x/admin/operations/sentry', {headers: {Cookie: 'jp_stats=k3y'}}), env, async () => new Response('no', {status: 401}))).text();
+  const html = await (await view(new Request('https://x/admin/testing/sentry', {headers: {Cookie: 'jp_stats=k3y'}}), env, async () => new Response('no', {status: 401}))).text();
   assert.match(html, /Sentry can't be read: HTTP 401/);
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Posts the weekly e2e summary (admin/e2e-weekly.js) as one GitHub issue in this repo and one Telegram message on the CI alerts bot (e2e-weekly.yml, Mondays).
 //   node jobs/e2e-weekly.mjs [--dry-run]      --dry-run prints the issue and the message instead of posting them
-// Reads the snapshot /admin/operations/e2e draws (GET /e2e/data?snapshot=1, SELFHEAL_PUBLISH_KEY), so the page, the issue and Telegram show the same numbers.
+// Reads the snapshot /admin/testing/e2e draws (GET /e2e/data?snapshot=1, SELFHEAL_PUBLISH_KEY), so the page, the issue and Telegram show the same numbers.
 // The issue lives in this repo, not the public one: this workflow's token writes issues here only, and the e2e analysis stays private (spec rule D, 28 Oct 2026).
 // Replaces the public repo's tools/e2e_weekly.py (its own classifier; retired in the public repo once this posts).
 import {execFileSync} from 'node:child_process';

@@ -1,5 +1,5 @@
 // The Worker's every-5-minutes trigger starts every CI collector once an hour, on time (owner, 31 Oct 2026: GitHub's own schedule ran e2e-intel every ~4.5 h; 1 Nov 2026: integration-intel had
-// never run, so /admin/operations/integrations read "No data yet"). Every test loops over INTEL_COLLECTORS: a collector added to the list is covered, one missing from it is caught by the folder check.
+// never run, so /admin/testing/integrations read "No data yet"). Every test loops over INTEL_COLLECTORS: a collector added to the list is covered, one missing from it is caught by the folder check.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {test} from 'node:test';

@@ -1,4 +1,4 @@
-// /admin/operations/schedules: workflow parsing, cron words and next/previous start, areas, health, the collector on a fake GitHub, the ingest, and the page in each state.
+// /admin/agents/schedules: workflow parsing, cron words and next/previous start, areas, health, the collector on a fake GitHub, the ingest, and the page in each state.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -112,12 +112,12 @@ test('the ingest needs the key, cuts unknown fields and keeps one row; the page 
   assert.equal((await put(snapshot)).status, 200);
   assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM schedules_snapshot').get().n, 1);
   assert.equal(clean({...snapshot, jobs: [{...snapshot.jobs[0], evil: 1}]}).jobs[0].evil, undefined);
-  assert.equal((await call(e, '/admin/operations/schedules')).status, 404, 'no login, no page');
-  const res = await call(e, '/admin/operations/schedules', owner), html = await res.text();
+  assert.equal((await call(e, '/admin/agents/schedules')).status, 404, 'no login, no page');
+  const res = await call(e, '/admin/agents/schedules', owner), html = await res.text();
   assert.equal(res.status, 200);
   assert.match(html, /Ops overview/);
   assert.match(html, /Scheduled jobs/);
-  const filtered = await (await call(e, '/admin/operations/schedules?state=off', owner)).text();
+  const filtered = await (await call(e, '/admin/agents/schedules?state=off', owner)).text();
   assert.ok(!/CI · Ops overview/.test(filtered.split('Run by hand only')[0].split('<table>')[1] || ''), 'the state filter hides green jobs');
 });
 
@@ -134,8 +134,8 @@ test('the page in each state: no data, grouped by area with counts, escaped text
   assert.match(html, /missed a run|green|red/);
 });
 
-test('the page is in the Operations menu with a headline tile', () => {
-  const entry = PAGES.find(item => item.path === '/admin/operations/schedules');
-  assert.equal(entry.group, 'Operations');
-  assert.equal(typeof HEADLINES['/admin/operations/schedules'], 'function');
+test('the page is in the Agents menu with a headline tile', () => {
+  const entry = PAGES.find(item => item.path === '/admin/agents/schedules');
+  assert.equal(entry.group, 'Agents');
+  assert.equal(typeof HEADLINES['/admin/agents/schedules'], 'function');
 });

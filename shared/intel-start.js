@@ -1,4 +1,4 @@
-// On-time hourly start of the CI collectors that feed /admin/operations/e2e and /admin/operations/integrations (owner, 31 Oct 2026: "Start it from the Worker").
+// On-time hourly start of the CI collectors that feed /admin/testing/e2e and /admin/testing/integrations (owner, 31 Oct 2026: "Start it from the Worker").
 // GitHub's own `schedule:` in each collector's workflow is best-effort: 60 e2e-intel runs from 21 to 31 Oct came a median 4.5 h apart (up to 7.6 h gaps), so the page showed runs hours old, and
 // integration-intel.yml had 0 schedule runs in its first 3 h (1 Nov 2026: the page read "No data yet"). Cloudflare's cron fires on time, so the Worker starts each workflow through the API;
 // GitHub's cron stays as the backup (the workflow's concurrency group queues a second start, it never runs two at once).

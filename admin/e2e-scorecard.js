@@ -1,4 +1,4 @@
-// Two cards of /admin/operations/e2e (owner, 28 Oct 2026; spec docs/superpowers/specs/2026-10-28-e2e-reliability-design.md rules I and J in the public repo):
+// Two cards of /admin/testing/e2e (owner, 28 Oct 2026; spec docs/superpowers/specs/2026-10-28-e2e-reliability-design.md rules I and J in the public repo):
 // the scorecard (which suites caught a bug and which only cost time) and where e2e work goes (commits per week by kind, against the owner's 15% plumbing target).
 // Pure: draws the snapshot rows admin/e2e-intel.js keeps. Guard: test/admin/e2e-scorecard.test.js.
 import {esc} from '../shared/html.js';

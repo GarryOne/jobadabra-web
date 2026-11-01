@@ -1,4 +1,4 @@
-// The top of /admin/operations/e2e (owner, 27 Oct 2026: "What are the biggest root causes? Is the flakiness? Is real bugs? ... code changed without adjusting the e2e" and
+// The top of /admin/testing/e2e (owner, 27 Oct 2026: "What are the biggest root causes? Is the flakiness? Is real bugs? ... code changed without adjusting the e2e" and
 // "having the e2e on the PRs it's very very slow ... I need to understand if this is worth or not"): who caused the reds (our CI and AI, the tests, the app), the top causes
 // with test drift always named, the top suites, the biggest breaks (one cause copied onto many suites), PR e2e's cost against what it caught, and main's green share per day.
 // Pure: draws the window admin/e2e-page.js computes. Guard: test/admin/e2e-page.test.js.

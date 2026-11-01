@@ -1,4 +1,4 @@
-// The green share per day on /admin/operations/e2e (owner, 31 Oct 2026): pure numbers from the snapshot's day rows, kinds grouped, cancelled runs out, empty days a gap.
+// The green share per day on /admin/testing/e2e (owner, 31 Oct 2026): pure numbers from the snapshot's day rows, kinds grouped, cancelled runs out, empty days a gap.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {greenCard, greenPerDay, greenTrend, seriesFor, shareOf} from '../../admin/e2e-green.js';

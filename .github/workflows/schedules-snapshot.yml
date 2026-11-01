@@ -1,5 +1,5 @@
 name: CI · Schedules snapshot
-# Every scheduled job we run, for https://www.jobpilotto.top/admin/operations/schedules (owner, 20 Oct 2026): reads the workflow files and latest runs of the public, site and lab repos
+# Every scheduled job we run, for https://www.jobpilotto.top/admin/agents/schedules (owner, 20 Oct 2026): reads the workflow files and latest runs of the public, site and lab repos
 # once an hour and publishes ONE snapshot (jobs/schedules-snapshot.mjs). Why a workflow and not the page asking GitHub: a page load would spend GitHub calls; here one write per hour.
 # SCHEDULES_READ_TOKEN: a fine-grained read-only token the owner creates (Actions + Contents: read on the three repos); the default token reads only this repo.
 on:

@@ -144,7 +144,7 @@ export const seeds = {
     await env.WAITLIST.put(`freeai:web:calls:${month}`, '100');
     await env.WAITLIST.put(`freeai:web:hits:${month}`, '40');
   },
-  e2e: async ({env}) => {   // made-up e2e runs for /admin/operations/e2e (28 Oct 2026, scorecard + where e2e work goes): a week of PR and nightly runs, reds of every group, four weeks of commits by kind
+  e2e: async ({env}) => {   // made-up e2e runs for /admin/testing/e2e (28 Oct 2026, scorecard + where e2e work goes): a week of PR and nightly runs, reds of every group, four weeks of commits by kind
     const {ingest} = await import('../admin/e2e-intel.js');
     env.SELFHEAL_PUBLISH_KEY = 'demo-publish';
     const today = Date.now(), dayAt = back => new Date(today - back * 86400000).toISOString(), reds = [['apply', 'product'], ['applyflows-1of2', 'flake'], ['applyflows-2of2', 'product'], ['quality', 'ai'],
@@ -207,7 +207,7 @@ export const seeds = {
     const res = await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails: [], betaRuns})}), env);
     if (!res.ok) throw new Error(`e2e-beta seed: ingest answered ${res.status}`);
   },
-  integration: async ({env}) => {   // made-up integration results for /admin/operations/integrations (1 Nov 2026): a week of main runs on three layers, two flaky tests, slow tests, 14 days of the move
+  integration: async ({env}) => {   // made-up integration results for /admin/testing/integrations (1 Nov 2026): a week of main runs on three layers, two flaky tests, slow tests, 14 days of the move
     const {ingest} = await import('../admin/integration-intel.js');
     env.SELFHEAL_PUBLISH_KEY = 'demo-publish';
     const dayAt = back => new Date(Date.now() - back * 86400000).toISOString().slice(0, 10), runs = [], layers = {extension: [38000, 0], app: [61000, 1], store: [9000, 2]};
@@ -226,7 +226,7 @@ export const seeds = {
     const body = {runs, flaky, slowest, counts: {extension: {tests: 64, files: 9}, app: {tests: 118, files: 16}, store: {tests: 41, files: 6}}, move: {days, e2eSteps: days[13].e2eSteps, lanes: 28}};
     await ingest(new Request('https://demo/integration/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify(body)}), env);
   },
-  'integration-not-starting': async ({env}) => {   // /admin/operations/integrations when the Worker's last start of its collector was refused (1 Nov 2026): the integration data plus the red line
+  'integration-not-starting': async ({env}) => {   // /admin/testing/integrations when the Worker's last start of its collector was refused (1 Nov 2026): the integration data plus the red line
     await seeds.integration({env});
     const {recordStarts} = await import('../shared/intel-start.js');
     await recordStarts(env.STATS, [{workflow: 'integration-intel.yml', error: 'E2E_INTEL_GITHUB_TOKEN is not set (the site GITHUB_TOKEN covers the public repo, not this one)'}]);
