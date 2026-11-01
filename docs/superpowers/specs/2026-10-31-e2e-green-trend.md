@@ -8,5 +8,5 @@
 | 2/2 | `e2e-intel.yml` started hourly (UTC :40) from the Worker's existing every-5-minutes trigger; GitHub's `41 * * * *` stays as the backup | "Start it from the Worker (Recommended)" |
 
 - Why 2/2: GitHub's schedule ran the collector a median 4.5 h apart (60 runs, 21–31 Oct), so the page's data was hours old.
-- The account has 5 of 5 cron triggers: no new one; the Worker shares the every-5-minutes trigger (`shared/e2e-intel-start.js`).
+- The account has 5 of 5 cron triggers: no new one; the Worker shares the every-5-minutes trigger (`shared/intel-start.js`).
 - Not built: hour-level green share. The snapshot keeps whole UTC days, so the card says "last 2 days (today + yesterday)".
