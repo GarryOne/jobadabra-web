@@ -76,9 +76,12 @@ export function lastOf(data, line) {
 /** One line: its label, the cadence (the cron in words when the workflow has one, else the catalogue's trigger), and the last run. */
 function lineOf(data, line) {
   const job = line.wf ? jobOf(data, line.wf) : null;
+  if (line.byHand) return {label: line.label, when: 'by hand, for debugging', last: byHand(lastOf(data, line))};
   const when = job?.crons?.length ? job.crons.map(cron => words(cron, data.now)).join(' · ') : line.when || (line.wf ? 'by hand' : '');
   return {label: line.label, when, last: lastOf(data, line)};
 }
+/** A by-hand line's last run: the same run, but state `hand` (grey, information) with what it ended as in `was`. Why (1 Nov 2026, owner: "let's fix this"): site-replays.yml has had no schedule since 17 Oct, and a by-hand run 5 days old made the Real-site pool card red. */
+const byHand = last => (['green', 'red'].includes(last.state) ? {...last, state: 'hand', was: last.state} : last);
 
 const num = value => (Number(value) || 0).toLocaleString('en-US');
 const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many}`;
@@ -116,7 +119,7 @@ function bugsOf(data, bugs) {
   return {why: 'no data'};
 }
 
-const rank = {red: 3, green: 2, none: 1};
+const rank = {red: 3, green: 2, none: 1, hand: 0};   // hand: a by-hand line never decides a card
 const cardState = lines => lines.map(line => line.last.state).reduce((worst, state) => (rank[state] > rank[worst] ? state : worst), 'none');
 
 /** The page's model: the rings in order, each with its method cards (live ones resolved, planned ones grey) and a count of live cards by verdict. */
@@ -125,7 +128,7 @@ export function resolve(data, {pages = []} = {}) {
   const live = METHODS.map(method => {
     const lines = method.lines.map(line => lineOf(data, line));
     const linked = pages.includes(method.href);   // a card links only to a page in the menu: GTM readiness and Testing → Scheduled land in their own PRs (1 Nov 2026)
-    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), days: method.linkOnly ? [] : historyOf(data, method.lines), trends: summaryForCard(nightly, method.id), href: linked ? method.href : '', pending: !linked};
+    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), days: method.linkOnly ? [] : historyOf(data, method.lines.filter(line => !line.byHand)), trends: summaryForCard(nightly, method.id), href: linked ? method.href : '', pending: !linked};
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
   const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here
