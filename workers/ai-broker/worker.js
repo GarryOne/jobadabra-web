@@ -108,7 +108,7 @@ export class CodexBroker extends Container {
     });
     if (!verdict.ok && !verdict.ranOut) return json(429, {why: verdict.why});   // the daily cap, or an exhausted week with nobody else configured: a control no other engine bypasses
     const note = newNote(), ctx = {storage: this.ctx.storage, env, body, lane, weekUsedPercent: this.limits?.usedPercent ?? null, note}, day = new Date(Date.now()).toISOString().slice(0, 10), skipped = [];
-    const skip = async (engine, why, counted = true) => { skipped.push({engine, why}); if (why === 'failed') await recordPerf(this.ctx.storage, env, engine, false); return counted ? recordOutcome(this.ctx.storage, day, engine, why === 'ran-out' ? 'ranOut' : 'failed') : null; };
+    const skip = async (engine, why, counted = true, detail = '') => { skipped.push({engine, why, ...(detail ? {detail} : {})}); if (why === 'failed') await recordPerf(this.ctx.storage, env, engine, false); return counted ? recordOutcome(this.ctx.storage, day, engine, why === 'ran-out' ? 'ranOut' : 'failed') : null; };
     for (const engine of chain) {
       const started = Date.now();
       let reply = null;
@@ -156,6 +156,15 @@ export class CodexBroker extends Container {
     } finally { release(); }
   }
 
+  // Why (1 Nov 2026, first live Claude call failed with no reason shown): a failed Claude step says why in `fellBack[].detail` and /health `lastError`, scrubbed: nothing token-shaped, at most 200 characters.
+  async claudeFailed(skip, text) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    const detail = (refuseReply(clean) ? '(detail withheld: token-shaped)' : clean).slice(0, 200);
+    const state = (await this.ctx.storage.get('claude:state')) || {};
+    await this.ctx.storage.put('claude:state', {...state, lastError: {at: Date.now(), text: detail}});
+    await skip('claude', 'failed', true, detail);
+  }
+
   // The Claude subscription's step: a Response when it answered (or refused a token-shaped reply), null when it is not configured, backing off, out of allowance (waits for the reset the CLI reports) or failed.
   // Why (1 Nov 2026): only measured signals say "ran out" (the CLI's own rate_limit_event or a limit message); an unknown failure is a plain failure and the chain moves on. An invalid token is shown in /health and sent to Telegram once a day.
   async claudeStep(lane, body, skip) {
@@ -169,7 +178,8 @@ export class CodexBroker extends Container {
     try {
       const reply = await this.containerFetch('http://c/claude', {method: 'POST', body: JSON.stringify({prompt: body.prompt, schema: body.schema, images: body.images, model})});
       let answer;
-      try { answer = JSON.parse(await reply.text()); } catch { await skip('claude', 'failed'); return null; }
+      let raw = '';
+      try { raw = await reply.text(); answer = JSON.parse(raw); } catch { await this.claudeFailed(skip, 'platform: ' + raw); return null; }   // the platform's own error text, not our server's JSON
       if (answer.limits) await storage.put('claude:state', {...((await storage.get('claude:state')) || {}), limits: answer.limits});
       if (!reply.ok) {
         const error = String(answer.error || '');
@@ -181,13 +191,13 @@ export class CodexBroker extends Container {
           const until = answer.resetsAt ? answer.resetsAt * 1000 : now + 600_000;   // the CLI's reset time, else ten minutes
           await storage.put('claude:state', {...((await storage.get('claude:state')) || {}), limitUntil: Math.max(until, now + 60_000)});
           await skip('claude', 'ran-out');
-        } else await skip('claude', 'failed');
+        } else await this.claudeFailed(skip, error);
         return null;
       }
       const refused = refuseReply(answer.reply);
       if (refused) return json(422, {why: refused});
       return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, tier: body.tier ?? 'mid', model, weekUsedPercent: this.limits?.usedPercent ?? null, engine: 'claude'});
-    } catch { await skip('claude', 'failed'); return null; }
+    } catch (e) { await this.claudeFailed(skip, 'call: ' + String(e?.message || e)); return null; }
     finally { release(); releaseClaude(); }
   }
 }
