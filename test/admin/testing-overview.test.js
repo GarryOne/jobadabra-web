@@ -47,7 +47,7 @@ test('last run: a workflow reads its newest finished run, the cadence is its cro
   assert.match(mutation.when, /^Weekly Sun/);
   const smoke = cardOf(model, 'smoke').lines[0];
   assert.deepEqual([smoke.last.state, smoke.when], ['red', 'every pull request']);
-  assert.equal(cardOf(model, 'smoke').lines[2].last.state, 'none', 'a workflow the snapshot does not list says so');
+  assert.equal(cardOf(model, 'upgrade').lines[0].last.state, 'none', 'a workflow the snapshot does not list says so');
 });
 
 test('last run: e2e by run kind (PR runs do not stand in), suites by their newest night, integration by main', () => {
@@ -89,7 +89,7 @@ test('the verdict counts live cards by their worst line; GTM readiness links onl
   const menu = resolve(data(), {pages: PAGES.map(item => item.path)});
   for (const card of menu.rings.flatMap(ring => ring.cards).filter(card => card.kind === 'live' && card.href)) assert.ok(PAGES.some(item => item.path === card.href), `${card.id} links to a menu page`);
   assert.equal(cardOf(menu, 'e2e').href, '/admin/testing/e2e');
-  assert.deepEqual(PLANNED.map(card => card.id).sort(), ['agents', 'faults', 'fresh-install', 'upgrade']);
+  assert.deepEqual(PLANNED.map(card => card.id).sort(), ['agents', 'faults', 'fresh-install']);
   const html = page(model, {now});
   assert.equal((html.match(/class="mcard planned"/g) || []).length, PLANNED.length);
   assert.doesNotMatch(html, /testing\/scheduled/);

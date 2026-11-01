@@ -24,8 +24,10 @@ export const METHODS = [
     lines: [{label: 'Every pull request that touches its area', wf: 'integration.yml', when: 'every pull request', last: {integration: true}}, {label: 'Page cases, full window', wf: 'page-cases.yml'}],
     bugs: {checks: ['integration.yml', 'page-cases.yml']}},
   {id: 'smoke', ring: 'prove', icon: '💨', title: 'Smoke', proves: 'The app starts and draws every Settings section; on Windows a fresh install.', href: '/admin/testing/pr-checks',
-    lines: [{label: 'Pull request and merge', wf: 'smoke.yml', when: 'every pull request'}, {label: 'Windows', wf: 'windows-smoke.yml'}, {label: 'Mac', wf: 'mac-smoke.yml', when: 'by hand'}],
+    lines: [{label: 'Pull request and merge', wf: 'smoke.yml', when: 'every pull request'}, {label: 'Windows', wf: 'windows-smoke.yml'}],
     bugs: {checks: ['smoke.yml']}},
+  {id: 'upgrade', ring: 'prove', icon: '⬆️', title: 'Upgrade and data test', proves: 'Installs an older release with a filled store, updates it, and checks nothing was lost.', href: '/admin/testing/scheduled',
+    lines: [{label: 'Newest stable release weekly, three newest monthly, report only', wf: 'upgrade-data.yml'}], bugs: {none: 'a red run is a finding to read, not yet counted as a bug'}},
   {id: 'gtm', ring: 'prove', icon: '🗺️', title: 'GTM readiness', proves: 'How stable each user journey is: pass rates of Tier 1 and Tier 2.', href: '/admin/testing/gtm-readiness', linkOnly: true,
     lines: [{label: 'Own page', last: {none: 'this page only links to it'}}], bugs: {none: 'the page measures readiness, not bugs'}},
 
@@ -60,7 +62,6 @@ export const METHODS = [
 
 // Owner-approved methods that are not built yet (1 Nov 2026): grey cards, so the page grows when one lands. A landed one moves up into METHODS with a workflow.
 export const PLANNED = [
-  {id: 'upgrade', ring: 'prove', icon: '⬆️', title: 'Upgrade and data test', proves: 'Installs an older release with a filled store, updates it, and checks nothing was lost.'},
   {id: 'faults', ring: 'find', icon: '⚡', title: 'Fault injection', proves: 'Notion errors, AI timeouts, offline, sleep and wake, full disk: every error screen is judged.'},
   {id: 'agents', ring: 'find', icon: '🤖', title: 'AI user agents', proves: 'A persona with a goal drives the app and reports where it got stuck or confused.'},
   {id: 'fresh-install', ring: 'prove', icon: '📦', title: 'Daily fresh-install smoke', proves: 'The packaged Mac and Windows builds install without warnings and open, every day.'},
