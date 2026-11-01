@@ -45,9 +45,10 @@ test('checks come from both uploads: a push-check stop that is not a form check 
 test('the tab draws the grid, the path and the phases from the three uploads; every corner has a word, not only a colour', () => {
   const rows = [row('gate', '2026-10-30', gateDay({'file size': {runs: 50, fails: 5, secs: 40, cls: 'form'}, 'python (clean checkout)': {runs: 40, fails: 6, secs: 3200, cls: 'real'}})),
     row('sdlc', '2026-10-30', sdlcDay({pr: {'CI · Tests · python': {runs: 40, fails: 9, secs: 8000, catches: catches({product: 3})}, 'CI · Pull request': {runs: 90, fails: 8, secs: 5400, catches: catches({form: 8})}}, main: {'CI · Tests': {runs: 30, fails: 2, secs: 600, catches: catches({nofix: 2})}}})),
-    row('sdlc', '2026-10-23', sdlcDay({}, {phases: {merged: 10, nospec: 1, unmerged: 0, prCommits: 20, fixAfter: 1, reverts: 0, redMain: 0}}))];
+    row('sdlc', '2026-10-23', sdlcDay({}, {phases: {merged: 10, nospec: 3, unmerged: 1, prCommits: 30, fixAfter: 3, reverts: 0, redMain: 0}})),
+    row('sdlc', '2026-10-16', sdlcDay({}, {phases: {merged: 10, nospec: 1, unmerged: 0, prCommits: 20, fixAfter: 1, reverts: 0, redMain: 0}}))];
   const html = sdlcPage(rows, now);
-  for (const word of ['Checks: value and cost', 'The path', 'The four phases', 'Make faster', 'Remove?', 'Cheap, quiet', 'Agent hooks', 'not measured yet', 'worse than last week', 'CI · Tests · python', 'file size']) assert.ok(html.includes(word), word);
+  for (const word of ['Checks: value and cost', 'The path', 'The four phases', 'Make faster', 'Remove?', 'Cheap, quiet', 'Agent hooks', 'not measured yet', 'worse than the week before', 'CI · Tests · python', 'file size']) assert.ok(html.includes(word), word);
   assert.match(html, /<svg class="ac-scatter"[^>]*role="img"/);
   assert.ok(html.includes('/admin/agents/agent-coding?tab=sdlc') && html.includes('aria-current="page"'));
   assert.ok(page(rows, now).includes('SDLC · the whole path'), 'the weekly page links to the tab');
@@ -62,4 +63,14 @@ test('with no upload the tab says so, draws no scatter, and names nothing that i
 test('a check name from the upload is escaped', () => {
   const rows = [row('sdlc', '2026-10-30', sdlcDay({pr: {'a<img src=x>': {runs: 40, fails: 1, secs: 100, catches: catches()}}}))];
   assert.ok(!sdlcPage(rows, now).includes('<img src=x>') && sdlcPage(rows, now).includes('a&lt;img src=x&gt;'));
+});
+
+test('the phases compare the last two COMPLETE weeks, never a half-finished one: this week alone says nothing, and a full week is not read as better because this week has few days yet', () => {
+  const thisWeekOnly = [row('sdlc', '2026-10-27', sdlcDay({}))];
+  assert.ok(sdlcPage(thisWeekOnly, now).includes('No SDLC upload yet for a full week'));
+  const rows = [row('sdlc', '2026-10-27', sdlcDay({}, {phases: {merged: 1, nospec: 0, unmerged: 0, prCommits: 1, fixAfter: 0, reverts: 0, redMain: 0}})),   // this week: one day, tiny counts
+    row('sdlc', '2026-10-21', sdlcDay({})), row('sdlc', '2026-10-14', sdlcDay({}))];
+  const html = sdlcPage(rows, now);
+  assert.ok(!html.includes('better than the week before'), 'a half week with small counts must not read as an improvement');
+  assert.ok(html.includes('same as the week before'));
 });

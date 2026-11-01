@@ -74,7 +74,7 @@ ${note(`Slow = ${SLOW_SECS} s or more per run. A real catch = a red that a produ
 }
 
 function pathCard(weeks) {
-  const [now] = weeks;
+  const now = weeks.find(week => week.sdlc.length || week.gate.length) || weeks[0];   // the newest week with an upload: on a Monday before the first upload this week is empty
   const catches = layer => CATCH_KEYS.map(key => [key, sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), check => check.catches[key]))]);
   const layerRow = (name, runs, stops, parts, secs, extra = '') => `<tr><td>${name}</td><td class="num">${runs}</td><td class="num">${stops}</td><td class="ac-cell">${stops ? bar(parts) : '<span class="muted">no stops</span>'}</td><td class="num">${hours(secs)}</td><td>${extra}</td></tr>`;
   const gate = ['form', 'real', 'other'].map(key => [key, sum(now.gate, day => day.stopped[key])]);
@@ -83,7 +83,7 @@ function pathCard(weeks) {
     ...['pr', 'main', 'night'].map(layer => { const runs = sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.runs)), stops = sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.fails));
       return runs ? layerRow(LAYERS[layer], runs, stops, catches(layer), sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.secs))) : ''; }),
     `<tr><td>Bugs the owner saw</td><td colspan="2" class="num">${sum(now.sdlc, day => day.bugs)}</td><td colspan="3" class="muted">issues opened with the bug label this week (they got past every layer above)</td></tr>`].join('');
-  return card('path', 'The path', `this week, from ${esc(weekWords(now.start))}: where the work goes and what each layer stops`, `<div class="ac-wide"><table><thead><tr><th>Layer</th><th class="num">Runs</th><th class="num">Stops</th><th>What the stops were</th><th class="num">Time</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  return card('path', 'The path', `week from ${esc(weekWords(now.start))}: where the work goes and what each layer stops`, `<div class="ac-wide"><table><thead><tr><th>Layer</th><th class="num">Runs</th><th class="num">Stops</th><th>What the stops were</th><th class="num">Time</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
 ${legend(['form', 'real', 'other'])}${legend(CATCH_KEYS.filter(key => key !== 'form'))}${note('Push gate: form = a trailer, comment, list or size check; real suite red = a suite. Other layers: what fixed each red, from the first later green commit.')}`);
 }
 
@@ -93,13 +93,14 @@ const SIGNALS = [
   ['Build', [['PR check stops per merged PR', w => round1(sum(w.sdlc, d => sum(Object.values(d.layers.pr || {}), c => c.fails)) / (sum(w.sdlc, d => d.phases.merged) || 1))]]],
   ['Maintain', [['fix PRs within 7 days of a merge in the same area', w => sum(w.sdlc, d => d.phases.fixAfter)], ['reverts', w => sum(w.sdlc, d => d.phases.reverts)], ['days main was red', w => sum(w.sdlc, d => d.phases.redMain)]]],
 ];
+// Why (1 Nov 2026, Gitar on web #251): this week is only the days uploaded so far, so a count compared with a full last week always read "better" early in the week. The phases compare the last two COMPLETE weeks.
 function phasesCard(weeks) {
-  const [now, before] = weeks;
-  if (!now.sdlc.length) return card('phases', 'The four phases', 'spec, plan, build, maintain', '<p class="muted">No SDLC upload yet.</p>');
+  const [, now, before] = weeks;
+  if (!now.sdlc.length) return card('phases', 'The four phases', 'spec, plan, build, maintain', '<p class="muted">No SDLC upload yet for a full week.</p>');
   const body = SIGNALS.map(([phase, signals]) => signals.map(([text, pick, whole], i) => { const a = pick(now), b = before.sdlc.length ? pick(before) : null, w = whole ? whole(now) : 0;
-    const arrow = b === null ? '<span class="muted">no last week</span>' : a > b * 1.2 + 0.05 ? '<span class="ac-up">▲ worse than last week</span>' : a < b * 0.8 - 0.05 ? '<span class="ac-down">▼ better than last week</span>' : '<span class="muted">≈ same as last week</span>';
+    const arrow = b === null ? '<span class="muted">no earlier week</span>' : a > b * 1.2 + 0.05 ? '<span class="ac-up">▲ worse than the week before</span>' : a < b * 0.8 - 0.05 ? '<span class="ac-down">▼ better than the week before</span>' : '<span class="muted">≈ same as the week before</span>';
     return `<tr>${i ? '' : `<td rowspan="${signals.length}"><b>${phase}</b></td>`}<td>${esc(text)}</td><td class="num">${a}${whole ? ` of ${w} · ${pct(a, w)}%` : ''}</td><td>${arrow}</td></tr>`; }).join('')).join('');
-  return card('phases', 'The four phases', 'spec, plan, build, maintain: a few signals each, this week against last', `<div class="ac-wide"><table><tbody>${body}</tbody></table></div>${note('Signals, not verdicts: they point at the phase to look at. A PR with no spec is one that changes product files without a spec or doc file.')}`);
+  return card('phases', 'The four phases', `spec, plan, build, maintain: the week from ${esc(weekWords(now.start))} against the one before`, `<div class="ac-wide"><table><tbody>${body}</tbody></table></div>${note('Signals, not verdicts: they point at the phase to look at. A PR with no spec is one that changes product files without a spec or doc file.')}`);
 }
 
 function verdict(weeks) {
