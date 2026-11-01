@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
-import {PROBES, ROUND_MINUTES, dueRound, lastRoute, purge, readCard, readDays, runRound, settle, tell, tick} from '../../shared/synthetic.js';
+import {PROBES, ROUND_MINUTES, dueRound, lastRoute, purge, readCard, readDays, readDaysByProbe, runRound, settle, tell, tick} from '../../shared/synthetic.js';
 
 const good = {
   'https://www.jobadabra.top/': '<html><title>Jobadabra: your job search on autopilot</title></html>',
@@ -177,4 +177,15 @@ test('the 14-day map: one state per UTC day, oldest first; two reds in a row mak
   await round(w, '2026-11-02T00:05:00Z'); const next = await readDays(w.env, 14, new Date('2026-11-02T13:00:00Z'));
   assert.deepEqual(next.slice(-2).map(item => item.state), ['red', 'red'], 'the red at 11:50 and the next red at 00:05 are two stored rounds in a row: the streak is told, so 2 Nov is red too')
   assert.equal(await readDays({STATS: {prepare: () => { throw new Error('no table'); }}}), null);
+  assert.equal(await readDaysByProbe({STATS: {prepare: () => { throw new Error('no table'); }}}), null);
+});
+
+test('the per-probe map: only the probe that had 2 reds in a row has the red day; the others stay green (Gitar, #273)', async () => {
+  const w = world({'https://www.jobadabra.top/': '<title>Oops</title>'});
+  const round = async (who, iso) => settle(who.env.STATS, await runRound(who.env, {fetcher: who.fetcher}), iso);
+  await round(w, '2026-11-01T11:05:00Z'); await round(w, '2026-11-01T11:50:00Z');
+  const by = await readDaysByProbe(w.env, 14, new Date('2026-11-01T13:00:00Z'));
+  assert.deepEqual(Object.keys(by).sort(), PROBES.map(probe => probe.id).sort());
+  assert.deepEqual([by.site.at(-1).state, by.index.at(-1).state, by.broker.at(-1).state], ['red', 'green', 'green']);
+  assert.deepEqual((await readDays(w.env, 14, new Date('2026-11-01T13:00:00Z'))).at(-1), {day: '2026-11-01', state: 'red'}, 'the Overview row is the union');
 });

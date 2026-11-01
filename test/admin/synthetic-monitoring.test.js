@@ -13,7 +13,7 @@ const run = (conclusion, at, n) => ({at, conclusion, mins: 1, url: `https://gith
 const job = (file, recent, crons) => ({repo, file, name: file, about: '', crons, source: 'github', manual: false, disabled: false, ai: false, weeklyMin: 0, billedMin: 0, recent});
 const probes = PROBES.map(probe => ({probe: probe.id, label: probe.label, ok: true, at: '2026-11-01T11:50:00Z', ms: 100, reason: '', state: 'up', since: '2026-10-30T00:00:00Z', uptime24h: 100}));
 const week = Array.from({length: 14}, (_, i) => ({day: new Date(now.getTime() - (13 - i) * 86400000).toISOString().slice(0, 10), state: 'green'}));
-const data = (extra = {}) => ({repo, now, syntheticDays: week, synthetic: {lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes},
+const data = (extra = {}) => ({repo, now, syntheticDaysByProbe: Object.fromEntries(PROBES.map(probe => [probe.id, week])), synthetic: {lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes},
   schedules: {at: '2026-11-01T11:00:00Z', jobs: [job('release-guard.yml', [run('success', '2026-11-01T11:23:00Z', 1)], ['23 * * * *']), job('schedule-watchdog.yml', [run('success', '2026-11-01T11:23:00Z', 2)], ['23 * * * *']),
     job('stable-canary.yml', [run('success', '2026-11-01T06:23:00Z', 3)], ['23 6 * * *']), job('watch-live.yml', [run('failure', '2026-11-01T05:00:00Z', 4)], ['0 5 * * *'])]}, ...extra});
 
@@ -47,8 +47,15 @@ test('a probe is red only when down (2 misses in a row); a single miss is a note
   assert.deepEqual(stale.rows.slice(0, PROBES.length).map(row => row.last.word), PROBES.map(() => 'no round'));
 });
 
+test("a probe's row shows that probe's own days: the broker's red day is not a red day on the website row", () => {
+  const red = week.map((cell, i) => (i === 13 ? {...cell, state: 'red'} : cell));
+  const result = model(data({syntheticDaysByProbe: Object.fromEntries(PROBES.map(probe => [probe.id, probe.id === 'broker' ? red : week]))}));
+  const lastDay = id => result.rows.find(row => row.id === id).days.at(-1).state;
+  assert.deepEqual([lastDay('broker'), lastDay('site'), lastDay('index')], ['red', 'green', 'green']);
+});
+
 test('unreadable tables or a missing snapshot say "no run" for those rows, never a green', () => {
-  const blind = model(data({synthetic: null, syntheticDays: null, schedules: null}));
+  const blind = model(data({synthetic: null, syntheticDaysByProbe: null, schedules: null}));
   assert.ok(blind.rows.every(row => row.last.state === 'none'));
   assert.equal(blind.counts.green, 0);
   assert.match(page(data({schedules: null})), /no schedule listed/);

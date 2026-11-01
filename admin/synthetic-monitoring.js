@@ -3,7 +3,7 @@
 // scheduled workflows that look at something live (the Scheduled tab's snapshot). Both are read by the readers that already exist; no query of its own, no AI. Guard: test/admin/synthetic-monitoring.test.js.
 import {viewer, remember} from '../shared/auth.js';
 import {esc} from '../shared/html.js';
-import {PROBES, ROUND_MINUTES, readCard, readDays} from '../shared/synthetic.js';
+import {PROBES, ROUND_MINUTES, readCard, readDaysByProbe} from '../shared/synthetic.js';
 import {words} from '../shared/schedules-model.js';
 import {CHIP_STYLE} from './chip.js';
 import {read as readSchedules} from './schedules.js';
@@ -41,11 +41,11 @@ function ownLast(card, probe, now) {
   return {state: found.state === 'down' ? 'red' : 'green', at: found.at, note};
 }
 
-/** The table's rows from the stored readings: {data: {schedules, synthetic, syntheticDays, repo, now}} -> {rows, counts, red}. */
+/** The table's rows from the stored readings: {data: {schedules, synthetic, syntheticDaysByProbe, repo, now}} -> {rows, counts, red}. */
 export function model(data) {
   const job = file => (data.schedules?.jobs || []).find(item => item.file === file && item.repo === data.repo);
-  const round = historyOf(data, [{last: {synthetic: true}}]);
-  const own = PROBES.map(probe => ({id: probe.id, label: probe.label, what: OWN_WHAT[probe.id] || '', cadence: `every ${60 / ROUND_MINUTES.length} min`, last: ownLast(data.synthetic, probe, data.now), days: round, href: ''}));
+  const own = PROBES.map(probe => ({id: probe.id, label: probe.label, what: OWN_WHAT[probe.id] || '', cadence: `every ${60 / ROUND_MINUTES.length} min`, last: ownLast(data.synthetic, probe, data.now),
+    days: historyOf({...data, syntheticDays: data.syntheticDaysByProbe?.[probe.id] ?? null}, [{last: {synthetic: true}}]), href: ''}));
   const flows = WORKFLOWS.map(item => ({id: item.wf, label: item.label, what: item.what, cadence: (job(item.wf)?.crons || []).map(cron => words(cron, data.now)).join(', ') || 'no schedule listed',
     last: lastOf(data, {wf: item.wf}), days: historyOf(data, [{wf: item.wf}]), href: `https://github.com/${data.repo}/actions/workflows/${item.wf}`}));
   const rows = [...own, ...flows];
@@ -82,8 +82,8 @@ ${group('⏰ Scheduled jobs that look at something live')}${flowRows.map(row => 
 
 /** What the page reads: the Worker's probe rounds and the Scheduled tab's snapshot, each through the reader that already exists. */
 export async function load(env, now = new Date()) {
-  const [schedules, synthetic, syntheticDays] = await Promise.all([readSchedules(env), readCard(env, now), readDays(env, MAP_DAYS, now)]);
-  return {repo: env.GITHUB_REPO || REPO, schedules, synthetic, syntheticDays, now};
+  const [schedules, synthetic, syntheticDaysByProbe] = await Promise.all([readSchedules(env), readCard(env, now), readDaysByProbe(env, MAP_DAYS, now)]);
+  return {repo: env.GITHUB_REPO || REPO, schedules, synthetic, syntheticDaysByProbe, now};
 }
 
 export async function view(request, env, now = new Date()) {
