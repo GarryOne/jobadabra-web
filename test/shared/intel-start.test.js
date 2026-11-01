@@ -78,12 +78,12 @@ test('every collector workflow keeps its GitHub schedule as the backup (after th
   }
 });
 
-test('every workflow named *-intel.yml that publishes to the site is in the list (the one integration-intel.yml was missing from)', () => {
+test('every *-intel.yml workflow with an hourly cron that publishes to the site is in the list (integration-intel.yml was missing from it); other hourly publishers (ops-overview.yml ...) are not collectors and stay out', () => {
   const intel = readdirSync(workflowDir).filter(file => /-intel\.yml$/.test(file));
   assert.ok(intel.includes('integration-intel.yml') && intel.includes('e2e-intel.yml'));
   for (const file of intel) {
     const yml = readFileSync(new URL(file, workflowDir), 'utf8');
-    if (!/SELFHEAL_PUBLISH_KEY/.test(yml) || !/^\s+- cron: '\d+ \* \* \* \*'/m.test(yml)) continue;   // hourly collectors only
+    if (!/SELFHEAL_PUBLISH_KEY/.test(yml) || !/^\s+- cron: '\d+ \* \* \* \*'/m.test(yml)) continue;   // the naming convention *-intel.yml is the scope: a collector under another name must be added to the list by hand
     assert.ok(INTEL_COLLECTORS.some(item => item.workflow === file), `${file} is an hourly collector: add it to INTEL_COLLECTORS (shared/intel-start.js)`);
   }
 });
