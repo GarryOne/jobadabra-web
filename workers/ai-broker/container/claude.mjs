@@ -9,6 +9,9 @@
 export const SYSTEM_PROMPT = "You are a helpful assistant. Follow the user's instructions exactly.";   // Why: an own, short prompt replaces Claude Code's default coding prompt; it must not shape answer length (the lean test used "Answer briefly." only to keep the reply short)
 const MEDIA = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif'};
 
+// Why (2 Nov 2026, the first digest call that the Claude engine took after Codex ran out): the real daily-digest prompt (145 PRs, 70k characters, 27k input tokens) takes Claude 85-117 s on this account, 72-105 s of it thinking, 20-29k output tokens. The same call measured with `--effort low` (85 s) and `MAX_THINKING_TOKENS=0` (no change: still 105 s of thinking) did not get shorter, so the CLI's thinking cannot be turned down from outside. The Codex kill at 100 s killed it at 103 s ("claude-failed:null ... thinking_duration_ms 95200"). Callers wait 180 s (desktop/e2e/lib/broker-client.mjs), so a Claude call gets 150 s.
+export const CLAUDE_TIMEOUT_MS = 150000;
+
 /** The CLI arguments of one call: no tools, no settings, no slash commands, no MCP, no saved session; the model is a full id (claude-haiku-5-5, ...). */
 export function claudeArgs({model, schema}) {
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--no-session-persistence',
@@ -35,7 +38,7 @@ const LIMIT = /usage limit|limit reached|hit your .{0,30}limit|out of (extra )?u
  * Reads the CLI's stream-json output. Returns {reply, tokens: {input, output}, limits} on success, or {error: 'claude-auth' | 'claude-limit' | 'claude-failed:<code> <tail>', resetsAt?}.
  * "Ran out" is read from the stream's own rate_limit_event when it says the window is not allowed, else (only when no status was seen) from the error text; anything unknown is a plain failure (never guessed as "ran out").
  */
-export function readClaude(stdout, stderr = '', code = 0) {
+export function readClaude(stdout, stderr = '', code = 0, timedOut = false) {
   let result = null, info = null;
   for (const line of String(stdout).split('\n')) {
     let event; try { event = JSON.parse(line); } catch { continue; }
@@ -48,6 +51,7 @@ export function readClaude(stdout, stderr = '', code = 0) {
     const usage = result.usage || {};
     return {reply: result.result, tokens: {input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0), output: usage.output_tokens || 0}, limits};
   }
+  if (timedOut) return {error: `claude-failed:timeout after ${CLAUDE_TIMEOUT_MS / 1000} s`, limits};   // killed by our timer: say so, not the tail of its stream
   const text = String(result?.result || stderr || stdout).replace(/\s+/g, ' ');
   if (info && info.status && !['allowed', 'allowed_warning'].includes(info.status)) return {error: 'claude-limit', resetsAt: info.resetsAt ?? null, limits};
   if (AUTH.test(text)) return {error: 'claude-auth', limits};
