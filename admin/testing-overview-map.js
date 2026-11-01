@@ -10,14 +10,14 @@ const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'O
 const dayName = day => { const d = new Date(`${day}T12:00:00Z`); return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()]} ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`; };
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** The one bar: every method by its last run, the segments in a fixed order (green, red, no run, planned), each labelled with its count and word. */
-export function summaryBar(counts) {
-  const parts = [['green', counts.green, '✓ green'], ['red', counts.red, '✕ red'], ['none', counts.none, '◷ no run stored'], ['planned', counts.planned, '◌ planned']].filter(([, n]) => n);
+/** The one bar: every item by its last run, the segments in a fixed order (green, red, none, planned), each labelled with its count and word. `text` renames it for another page (Testing → Scheduled: jobs, "no run yet", "disabled"). */
+export function summaryBar(counts, text = {}) {
+  const parts = [['green', counts.green, '✓ green'], ['red', counts.red, '✕ red'], ['none', counts.none, text.none || '◷ no run stored'], ['planned', counts.planned, text.planned || '◌ planned']].filter(([, n]) => n);
   const total = parts.reduce((sum, [, n]) => sum + n, 0) || 1;
-  return `<section class="card sbar"><h2>${counts.live + counts.planned} methods · by their last run</h2>
+  return `<section class="card sbar"><h2>${esc(text.title || `${counts.live + counts.planned} methods · by their last run`)}</h2>
 <div class="bar" role="img" aria-label="${esc(parts.map(([, n, word]) => `${n} ${word.slice(2)}`).join(', '))}">${parts.map(([kind, n, word]) => `<i class="s-${kind}" style="flex:${n} 1 0" title="${esc(`${n} ${word.slice(2)}`)}"><b>${n}</b></i>`).join('')}</div>
 <div class="keys">${parts.map(([kind, n, word]) => `<span><i class="k s-${kind}"></i>${esc(word)} <b>${n}</b></span>`).join('')}</div>
-<small class="muted">${Math.round(100 * counts.green / total)}% of all methods green on their last run, planned ones counted as not green yet.</small></section>`;
+<small class="muted">${text.note ?? `${Math.round(100 * counts.green / total)}% of all methods green on their last run, planned ones counted as not green yet.`}</small></section>`;
 }
 
 const cellTitle = cell => `${dayName(cell.day)} · ${cell.state === 'unknown' ? 'not stored (the snapshot keeps the newest runs only)' : cell.state === 'none' ? 'no run'
@@ -46,11 +46,13 @@ export function healthMap(model, days) {
 ${model.rings.map(ring => `<tbody><tr class="ring-row"><th colspan="${MAP_DAYS + 3}">${ring.icon} ${esc(ring.title)}</th></tr>${ring.cards.map(rowHtml).join('')}</tbody>`).join('')}</table></div></section>`;
 }
 
-export const MAP_STYLE = `${CHIP_STYLE}
-.sbar .bar{display:flex;gap:2px;height:30px;margin:10px 0 8px}.sbar .bar i{display:flex;align-items:center;padding:0 10px;border-radius:4px;min-width:28px;font-style:normal}
+// The bar and its key alone (Testing → Scheduled keeps its own .chip, so it takes this and not CHIP_STYLE).
+export const BAR_STYLE = `.sbar .bar{display:flex;gap:2px;height:30px;margin:10px 0 8px}.sbar .bar i{display:flex;align-items:center;padding:0 10px;border-radius:4px;min-width:28px;font-style:normal}
 .sbar .bar b{font-size:13px;color:#0b0d10}.s-green{background:#3fb68b}.s-red{background:#e5484d}.s-red b,.s-none b,.s-planned b{color:#f4efe3!important}.s-none{background:#3a4048}
 .s-planned{background:repeating-linear-gradient(135deg,#1b2027 0 6px,#262c33 6px 12px);border:1px dashed #3a4048}
-.keys{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#c9c3b6;align-items:center;margin:2px 0 8px}.keys>span{display:inline-flex;gap:6px;align-items:center}.keys i.k{width:12px;height:12px;border-radius:3px;display:inline-block}
+.keys{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#c9c3b6;align-items:center;margin:2px 0 8px}.keys>span{display:inline-flex;gap:6px;align-items:center}.keys i.k{width:12px;height:12px;border-radius:3px;display:inline-block}`;
+export const MAP_STYLE = `${CHIP_STYLE}
+${BAR_STYLE}
 .hmap table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}.hmap th,.hmap td{border-top:0;padding:3px 2px;font-size:13px;vertical-align:middle}
 .hmap thead th{font-size:11px;color:#8d949c;font-weight:500;text-align:center;line-height:1.2}.hmap thead th.m{text-align:left}.hmap thead th span{display:block;opacity:.7}.hmap thead th.today{color:#f5b54a}
 .hmap tbody th{text-align:left;font-weight:500;white-space:nowrap;padding-right:10px}.hmap tbody th a{color:#f4efe3;text-decoration:none}.hmap tbody th a:hover{color:#f5b54a}
