@@ -21,7 +21,7 @@ for (let n = 1; n <= 30; n++) {
 }
 for (let n = 1; n <= 4; n++) rows.push([id(n), day(n), 'beta', 'mac', 'J3', 1, 0, 0]);
 rows.push([id(1), day(1), 'beta', 'mac', 'K', 3, 1, 0]);
-rows.push([id(2), day(2), 'beta', 'mac', 'J4', 0, 0, 0]);   // seen 0: the suite never reached the journey: no observation
+rows.push([id(2), day(2), 'beta', 'mac', 'J4', 0, 0, 0]);   // seen 0, no failure, no cut: the run never exercised the journey: no observation
 const snapshot = cleanSnapshot({journeys, tier1: rows, tier2: [{day: '2026-11-01', journey: 'J8', tests: 4, runs: 50, red: 1}, {day: '2026-10-31', journey: 'J8', tests: 4, runs: 50, red: 0}, {day: '2026-10-31', journey: 'J9', tests: 2, runs: 10, red: 0}]}, now);
 
 test('stable = the last 10 runs green and no red in 3 days; a red on one OS is a red run; fewer than 10 runs is not stable', () => {
@@ -35,6 +35,12 @@ test('stable = the last 10 runs green and no red in 3 days; a red on one OS is a
   assert.equal(by.J3.state, 'few');
   assert.equal(by.J4.state, 'none', 'seen 0 is no observation');
   assert.equal(by.J2.share, 29 / 30);
+});
+
+test('a suite that died before any step (seen 0, cut) is one red run; seen 0 without a failure or cut is no run', () => {
+  const died = cleanSnapshot({journeys: [{id: 'J5', name: 'Apply', tier: 1}], tier1: [[7, '2026-11-01', 'beta', 'mac', 'J5', 0, 0, 1], [6, '2026-11-01', 'beta', 'mac', 'J5', 0, 0, 0]]}, now);
+  const [row] = tier1Rows(died, now);
+  assert.deepEqual([row.runs, row.share, row.strip.length, row.lastBad.runId], [1, 0, 1, 7]);
 });
 
 test('the last 20 runs are oldest to newest; the kept row is last and is not in the gauge', () => {

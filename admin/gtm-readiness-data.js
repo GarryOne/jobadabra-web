@@ -1,6 +1,6 @@
 // GTM readiness numbers (owner, 1 Nov 2026: "how ready is GTM our app, from the critical journeys point of view. How stable are they"). Pure: the stored snapshot -> rows.
 // Snapshot (admin/gtm-readiness.js reads it; admin/gtm-intel.js validates it): {at, journeys: [{id, name, tier}], tier1: [[runId, day, kind, os, journey, seen, failed, cut]],
-// tier2: [{day, journey, tests, runs, red}]}. A Tier 1 row is one run on one OS for one journey; seen = registry steps found in the run's steps.json. Guard: test/admin/gtm-readiness.test.js.
+// tier2: [{day, journey, tests, runs, red}]}. A Tier 1 row is one run on one OS for one journey; seen = registry steps found in the run's steps.json (0 with cut = 1: the suite died first). Guard: test/admin/gtm-readiness.test.js.
 // Why (1 Nov 2026): a run is red for a journey when a registry step FAILED, or the suite died before a registry step ran (cut); the e2e store keeps reds only, so greens come from the runs' steps.json.
 const DAY = 86400000;
 export const STABLE_RUNS = 10;   // stable = green in the last 10 runs of the journey (all OSes pooled by run) AND no red in the last QUIET_DAYS days; the owner may change both
@@ -18,7 +18,7 @@ export function tier1Rows(snapshot, now = new Date()) {
   const from = dayOf(new Date(now.getTime() - (WINDOW_DAYS - 1) * DAY)), prevFrom = dayOf(new Date(now.getTime() - (2 * WINDOW_DAYS - 1) * DAY));
   const rows = [];
   for (const journey of (snapshot?.journeys || []).filter(item => item.tier === 1)) {
-    const own = (snapshot.tier1 || []).map(rowOf).filter(row => row.journey === journey.id && row.seen > 0);
+    const own = (snapshot.tier1 || []).map(rowOf).filter(row => row.journey === journey.id && (row.seen > 0 || bad(row)));   // a suite that died before any step (seen 0, cut) is a red run
     const byRun = new Map();
     for (const row of own) { const one = byRun.get(row.runId) || {runId: row.runId, day: row.day, kind: row.kind, bad: false}; one.bad = one.bad || bad(row); byRun.set(row.runId, one); }
     const runs = [...byRun.values()].sort((a, b) => b.runId - a.runId), current = runs.filter(run => run.day >= from), previous = runs.filter(run => run.day >= prevFrom && run.day < from);
