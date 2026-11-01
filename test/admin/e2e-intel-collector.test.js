@@ -17,6 +17,8 @@ test('every run kind is named from its title; bisects, mutants and runs by hand 
   assert.equal(k('E2E for PR · settings · cv-facts-checks'), 'pr');
   assert.equal(k('E2E after merge · abc123 · quality'), 'after-merge');
   assert.equal(k('E2E check · on time (Worker cron)'), 'scheduled');
+  assert.equal(k('Night burn-in 2/5 · main'), 'nightly', 'a real title of 31 Oct 2026 (run on main, started by workflow_dispatch): without a kind no night was ever read');
+  assert.equal(k('Night burn-in 5/5 · main'), 'nightly');
   assert.equal(k('RC soak v0.9.1-rc.2'), 'soak');
   assert.equal(k('Bisect quality v1'), null);
   assert.equal(k('Mutant m3'), null);

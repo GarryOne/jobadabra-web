@@ -16,6 +16,8 @@ export function kindOf(run, workflow) {
   if (title.startsWith('E2E for PR')) return 'pr';
   if (title.startsWith('E2E after merge')) return 'after-merge';
   if (title.startsWith('E2E check')) return 'scheduled';
+  // Why (1 Nov 2026, found by reading `gh run list`, mac-07 for the owner): the night's passes ride "Night burn-in n/5 · main" since 31 Oct and had no kind, so no night run, suite night or live quality night was ever stored; liveNights below expected them.
+  if (/^Night burn-in \d\/\d/.test(title)) return 'nightly';
   if (title.startsWith('RC soak')) return 'soak';
   if (title.startsWith('Stable canary')) return 'canary';
   if (title.startsWith('Beta E2E')) return 'beta';
