@@ -2,6 +2,9 @@
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
+import {page} from '../../admin/schedules.js';
+import {resolve} from '../../admin/testing-overview-data.js';
+import {trendHtml, trendsHtml} from '../../admin/nightly-summary-html.js';
 import {NIGHTS, lastDays, loadNightlySummary, nightlySummary, summaryFor} from '../../admin/nightly-summary.js';
 
 const now = new Date('2026-11-02T10:00:00Z');
@@ -114,4 +117,42 @@ test('the one reader reads the snapshot row and the agent rows, and a broken sto
   assert.equal(job(summary, 'agent-coding').value, '1');   // one area with 3 fix PRs
   const broken = await loadNightlySummary({STATS: {prepare: () => { throw new Error('down'); }}}, now);
   assert.ok(broken.jobs.every(item => item.status === 'none'));
+});
+
+test('one renderer: a rate has its bar line and a verdict chip, a wall clock a number with no verdict chip, and a job with nothing says no data', () => {
+  const summary = nightlySummary({snapshot: {quality: [night(30, D(0), 90, 80)], days: [{day: D(0), kind: 'beta', runs: 1, wallMin: 30}]}}, now);
+  const quality = trendHtml(job(summary, 'quality-ai'));
+  assert.match(quality, /<b>89%<\/b> <span class="nchip good">✓ ok<\/span>/);
+  assert.match(quality, /<s style="bottom:80%"/, 'the dashed line sits at the 80% bar');
+  assert.equal((quality.match(/<i /g) || []).length, 14, 'one cell per night');
+  const clock = trendHtml(job(summary, 'beta-clock'));
+  assert.match(clock, /<b>30 min<\/b>/);
+  assert.doesNotMatch(clock, /nchip/, 'no bar exists for a wall clock, so no verdict chip');
+  assert.match(trendHtml(job(summary, 'wander')), /<span class="nchip off">◷ no data<\/span>/);
+  assert.equal(trendsHtml([]), '');
+  assert.match(trendHtml(job(nightlySummary({snapshot: {suiteNights: [row(1, D(0), 'wander', false)]}}, now), 'wander'), {compact: true}), /class="nt compact".*✕ off/s);
+});
+
+test('Testing → Scheduled: the new column has its header and one cell in every row, with the summary only on the workflows that have one', () => {
+  const snapshot = {at: now.toISOString(), repos: [], jobs: [
+    {repo: 'GarryOne/jobadabra', file: 'e2e.yml', name: 'CI · E2E', about: '', crons: ['0 2 * * *'], recent: []},
+    {repo: 'GarryOne/jobadabra', file: 'mutation.yml', name: 'CI · Mutation', about: '', crons: ['0 3 * * 1'], recent: []}]};
+  const summary = nightlySummary({snapshot: {quality: [night(30, D(0), 9, 8)]}}, now);
+  const html = page(snapshot, {only: 'testing', now, summary});
+  const header = html.match(/<tr><th>Job<\/th>.*?<\/tr>/s)[0], rows = [...html.matchAll(/<tr class="[^"]*"?><td><b><a/g)].length;
+  assert.match(header, /<th>Last night · 14 nights<\/th>/);
+  const cells = row => (row.match(/<td[ >]/g) || []).length, bodies = [...html.matchAll(/<tr class=""><td>.*?<\/tr>/gs)].map(match => match[0]);
+  assert.equal(bodies.length, 2, `${rows} rows`);
+  for (const body of bodies) assert.equal(cells(body), (header.match(/<th/g) || []).length, 'a td for every th');
+  assert.match(bodies[0], /Quality AI/);
+  assert.doesNotMatch(bodies[1], /class="nt/, 'a workflow with no summary shows a dash');
+  assert.match(page(snapshot, {only: 'testing', now}), /Last night · 14 nights/, 'a page with no summary still draws the column, empty');
+});
+
+test('Testing → Overview: the cards of e2e, interactions, wander and quality-ai carry their trends, every other card none', () => {
+  const model = resolve({e2e: {quality: [night(30, D(0), 9, 8)], suiteNights: [row(1, D(0), 'wander', true)]}, now, repo: 'GarryOne/jobadabra'});
+  const cards = model.rings.flatMap(ring => ring.cards).filter(card => card.kind === 'live'), byId = id => cards.find(card => card.id === id).trends.map(item => item.id);
+  assert.deepEqual(byId('e2e'), ['notion-real', 'beta-clock', 'night-clock'], 'in the summary\'s own order');
+  assert.deepEqual([byId('interactions'), byId('wander'), byId('quality-ai')], [['interactions'], ['wander'], ['quality-ai', 'prompt-cases']]);
+  assert.deepEqual(cards.filter(card => !['e2e', 'interactions', 'wander', 'quality-ai'].includes(card.id) && card.trends.length).map(card => card.id), []);
 });
