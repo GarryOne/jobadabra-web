@@ -6,6 +6,8 @@
 import {viewer, remember} from '../shared/auth.js';
 import {equal} from '../shared/guard.js';
 import {esc} from '../shared/html.js';
+import {readStartProblem} from '../shared/intel-start.js';
+import {startLine} from './intel-start-line.js';
 import {filterLinks} from './admin.js';
 import {graph, GRAPH_STYLE} from './schedules-graph.js';
 import {AREAS, areaOf, missed, nextOf, stateOf, whenWords, words, RUN_DOTS} from '../shared/schedules-model.js';
@@ -63,10 +65,11 @@ const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(17
 .chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}.chip.g{background:#3fb68b}.chip.r{background:#e5484d}.chip.o{background:#8d949c}.chip.w{background:#e0a43a}.small{font-size:12px}`;
 
 // `only` = an area id: the page lists that area alone (the Testing tab); '' = every area, with an Area filter.
-export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date()} = {}) {
+// problem: why the Worker could not start schedules-snapshot.yml on its last try (readStartProblem), drawn as the red "collector not starting" line the e2e and integrations pages show.
+export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date(), problem = null} = {}) {
   const scope = AREAS.find(item => item.id === only);
   const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${scope ? `Scheduled · ${esc(scope.label)}` : 'Schedules'} · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${CSS}${scope ? GRAPH_STYLE : ''}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
+<link rel="icon" href="/favicon-32.png"><style>${CSS}${scope ? GRAPH_STYLE : ''}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${startLine(problem)}${body}</main></body></html>`;
   if (!snapshot) return head('<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>schedules-snapshot.yml</code> publishes every scheduled job once an hour; the first run fills this page.</p></section>');
   const all = decorate(snapshot, now).filter(job => !scope || job.area === scope.id), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
   const repos = ['all', ...new Set(all.map(job => job.repo.split('/').pop()))];
@@ -100,10 +103,10 @@ const viewOf = only => async (request, env) => {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
-  const state = STATE_IDS.includes(url.searchParams.get('state')) ? url.searchParams.get('state') : 'all', snapshot = await read(env);
+  const state = STATE_IDS.includes(url.searchParams.get('state')) ? url.searchParams.get('state') : 'all', snapshot = await read(env), problem = await readStartProblem(env.STATS, 'schedules-snapshot.yml');
   const known = new Set((snapshot?.jobs || []).map(job => job.repo.split('/').pop())), repo = known.has(url.searchParams.get('repo')) ? url.searchParams.get('repo') : 'all';
   const area = AREAS.some(item => item.id === url.searchParams.get('area')) ? url.searchParams.get('area') : 'all';
-  return new Response(page(snapshot, {repo, state, area, only}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(snapshot, {repo, state, area, only, problem}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 };
 export const view = viewOf('');
 export const viewTesting = viewOf('testing');

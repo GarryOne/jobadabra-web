@@ -71,6 +71,10 @@ export const seeds = {
       job(web, 'schedules-snapshot.yml', 'Schedules snapshot', 'This page\'s feed', ['12 * * * *'], ok), job(pub, 'schedule-watchdog.yml', 'Schedule watchdog', 'Did the Worker start runs on time?', ['50 * * * *'], ok)];
     await env.STATS.prepare('INSERT INTO schedules_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(new Date(now).toISOString(), JSON.stringify({schema: 1, at: new Date(now).toISOString(), repos: [{name: pub, private: false, ok: true}, {name: web, private: true, ok: true}], jobs})).run();
   },
+  'schedules-not-starting': async context => {   // the Scheduled page when the Worker's last start of schedules-snapshot.yml was refused (1 Nov 2026, #263): the red "collector not starting" line
+    await seeds.schedules(context);
+    await context.env.STATS.prepare('INSERT INTO intel_start (workflow, at, ok, reason) VALUES (?, ?, 0, ?)').bind('schedules-snapshot.yml', new Date().toISOString(), 'E2E_INTEL_GITHUB_TOKEN is not set (the site GITHUB_TOKEN covers the public repo, not this one)').run();
+  },
   'self-healing': async ({env}) => {   // made-up snapshots of the self-healing loop over 10 days, with long issue titles and detector names (26 Oct 2026, admin on a phone)
     const today = Date.now();
     for (let back = 9; back >= 0; back--) {
