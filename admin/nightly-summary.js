@@ -28,6 +28,8 @@ function qualityAi(snapshot, days) {
   for (const night of nights) if (!byDay.has(night.day) || night.runId > byDay.get(night.day).runId) byDay.set(night.day, night);   // the night's newest run
   const series = days.map(day => { const night = byDay.get(day); return night ? {day, value: night.within8 / night.pairs, ok: night.within8 / night.pairs >= BARS.agree} : {day, value: null, ok: null}; });
   const last = newestWithValue(series), rate = rateOf(nights);
+  // Why (1 Nov 2026, Gitar on #266): the snapshot keeps 30 days of nights but the trend shows 14; with none inside the 14 there is no last night, and this used to throw (a 500 on both pages).
+  if (!last) return empty('quality-ai', title, files, 'no live quality night in the last 14 nights', bar);
   return {id: 'quality-ai', title, value: pct(last.value), sub: `${pct(rate.agree)} over the last ${rate.pairs} pairs · ${rate.jumps == null ? '–' : pct(rate.jumps)} jumps${rate.factsTotal ? ` · facts ${pct(rate.factsExact / rate.factsTotal)} exact` : ''}`,
     status: rate.agreeOk && rate.jumpsOk ? 'good' : 'bad', bar, series, files};
 }
@@ -36,8 +38,8 @@ function qualityAi(snapshot, days) {
 function promptCases(snapshot, days) {
   const files = ['prompt-cases-night.yml'], title = 'Prompt cases', bar = {value: null, label: 'nothing got worse than last night'};
   const byDay = new Map();
-  for (const night of [...(snapshot?.quality || [])].sort((a, b) => a.runId - b.runId)) if (night.promptCases) byDay.set(night.day, night.promptCases);
-  if (!byDay.size) return empty('prompt-cases', title, files, 'no night replayed yet', bar);
+  for (const night of [...(snapshot?.quality || [])].sort((a, b) => a.runId - b.runId)) if (night.promptCases && days.includes(night.day)) byDay.set(night.day, night.promptCases);   // only the nights the trend shows
+  if (!byDay.size) return empty('prompt-cases', title, files, 'no night replayed in the last 14 nights', bar);
   const series = days.map(day => { const p = byDay.get(day); return p && p.total ? {day, value: p.right / p.total, ok: p.status === 'not-asked' ? null : p.flipped === 0} : {day, value: null, ok: null}; });
   const last = [...byDay].at(-1)[1], when = [...byDay].at(-1)[0];
   const detail = last.status === 'not-asked' ? 'the broker said no; last baseline kept' : last.status === 'carried' ? 'no prompt changed, nothing asked' : `${last.noise} model noise · ${last.unconfirmed} unconfirmed · ${last.calls} calls`;
@@ -109,6 +111,7 @@ function agentCoding(rows, days) {
   };
   const series = days.map(day => (ci.has(day) ? {day, value: circles(day), ok: circles(day) === 0} : {day, value: null, ok: null}));
   const last = newestWithValue(series);
+  if (!last) return empty('agent-coding', title, files, 'no daily upload in the last 14 days', bar);   // rows are loaded for 21 days (the 7-day window); none inside the 14 shown is not a number
   return {id: 'agent-coding', title, value: String(last.value), sub: `areas going in circles on ${last.day}`, status: last.value ? 'bad' : 'good', bar, higherIsBetter: false, series, files};
 }
 

@@ -156,3 +156,14 @@ test('Testing → Overview: the cards of e2e, interactions, wander and quality-a
   assert.deepEqual([byId('interactions'), byId('wander'), byId('quality-ai')], [['interactions'], ['wander'], ['quality-ai', 'prompt-cases']]);
   assert.deepEqual(cards.filter(card => !['e2e', 'interactions', 'wander', 'quality-ai'].includes(card.id) && card.trends.length).map(card => card.id), []);
 });
+
+test('rows older than the 14 nights shown never make a job throw: each says there is nothing in the window (Gitar on #266: both pages answered 500)', () => {
+  const old = D(20), snapshot = {quality: [night(5, old, 9, 8, {promptCases: replay()})], suiteNights: ['interactions', 'wander', 'notion-real'].map((suite, i) => row(i, old, suite, true, suite === 'interactions' ? {recall: 0.8} : null)),
+    days: [{day: old, kind: 'beta', runs: 1, wallMin: 30}, {day: old, kind: 'nightly', runs: 1, wallMin: 30}]};
+  const agentRows = [{kind: 'ci', day: D(18), card: JSON.stringify({fixPrs: {site: 4}})}];
+  const summary = nightlySummary({snapshot, agentRows}, now);
+  assert.equal(summary.jobs.length, 8);
+  for (const item of summary.jobs) assert.deepEqual([item.value, item.status, item.series.length], ['–', 'none', 0], item.id);
+  assert.match(job(summary, 'quality-ai').sub, /last 14 nights/);
+  assert.match(job(summary, 'agent-coding').sub, /last 14 days/);
+});
