@@ -30,7 +30,7 @@ export const seeds = {
   'agent-coding': async ({env}) => {   // made-up push-gate and CI days over 8 weeks: form stops dominating, fixes mostly product, one area circling this week (1 Nov 2026)
     const {ingest} = await import('../admin/agent-coding.js');
     const now = new Date(), put = (kind, days) => ingest(new Request('https://x/agent-coding/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify({kind, days})}), {STATS: env.STATS, SELFHEAL_PUBLISH_KEY: 'k'}, now);
-    const gate = [], ci = [], areas = ['desktop/renderer', 'src/ai', 'extension', 'desktop/main', 'src/sources', 'worker/src', 'desktop/lib', 'src/stores'];
+    const gate = [], ci = [], areas = ['desktop/renderer', 'src/ai', 'extension', 'desktop/main', 'src/sources', 'app-core/src', 'worker/src', 'desktop/lib', 'src/stores'];
     const checks = [['desktop (clean checkout)', 'real', 400], ['spec proof', 'form', 55], ['file size', 'form', 9], ['stale expectations', 'form', 14], ['recorded cases', 'form', 21], ['python (clean checkout)', 'real', 310], ['journey gate', 'real', 150], ['why comments', 'form', 6]];
     for (let back = 55; back >= 0; back--) {
       const day = new Date(now.getTime() - back * 86400000).toISOString().slice(0, 10), weekend = [0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay()), n = weekend ? 3 : 9 + (back * 7) % 8, week = Math.floor(back / 7);

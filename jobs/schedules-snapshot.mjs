@@ -9,7 +9,7 @@ import {billedWeight, parseWorkerCrons, parseWorkflow, RUN_DOTS} from '../shared
 import {pathToFileURL} from 'node:url';
 
 const REPOS = (process.env.SCHEDULES_REPOS || 'GarryOne/jobadabra,GarryOne/jobadabra-web,GarryOne/jobadabra-lab').split(',');
-const WORKER_REPO = 'GarryOne/jobadabra', WORKER_FILE = 'worker/src/scheduler.js';
+const WORKER_REPO = 'GarryOne/jobadabra', WORKER_FILES = ['app-core/src/scheduler.js', 'worker/src/scheduler.js'];   // Why (1 Nov 2026, owner: jobadabra is desktop + extension only): the Worker's code moved to app-core/; the old path answers until the public move is on main
 const base = process.env.SCHEDULES_URL || 'https://www.jobpilotto.top/ops/data?kind=schedules';
 const WEEK = 7 * 86400000;
 
@@ -44,7 +44,7 @@ export async function collectRepo(repo, {gh = realGh, workerCrons = {}, now = ne
 
 export async function collect({gh = realGh, repos = REPOS, now = new Date()} = {}) {
   let workerCrons = {};
-  try { workerCrons = parseWorkerCrons(gh(`repos/${WORKER_REPO}/contents/${WORKER_FILE}`, true)); } catch { /* the Worker's own starts are then not listed */ }
+  for (const file of WORKER_FILES) { try { workerCrons = parseWorkerCrons(gh(`repos/${WORKER_REPO}/contents/${file}`, true)); break; } catch { /* try the next path; none readable: the Worker's own starts are not listed */ } }
   const parts = [];
   for (const repo of repos) parts.push(await collectRepo(repo, {gh, workerCrons, now}));
   return {schema: 1, at: now.toISOString(), repos: parts.map(part => part.repo), jobs: parts.flatMap(part => part.jobs)};

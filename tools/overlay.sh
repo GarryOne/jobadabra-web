@@ -15,5 +15,6 @@ ref="${2:-main}"
 if pid="$("$here/tools/overlay-busy.sh" "$out")"; then echo "overlay: $out is in use by pid $pid (tools/hero.sh or tools/media.sh): not rebuilt; wait for it to end, or work in another worktree" >&2; exit 3; fi
 rm -rf "$out"
 git clone --quiet --depth 1 --branch "$ref" "${PUBLIC_REPO_URL:-https://github.com/GarryOne/jobadabra.git}" "$out"
+"$here/tools/compat-app-core.sh" "$out"   # the public repo is mid-move: see that file
 lay "$out"
 echo "overlay: $(git -C "$out" rev-parse --short HEAD) of job-pilotto/$ref + $(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo local) of jobadabra-web -> $out"

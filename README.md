@@ -3,7 +3,7 @@
 The website, `/admin`, and the CI jobs that feed them. Moved out of the public `GarryOne/jobadabra` on 19-20 Oct 2026.
 
 **Rule: private may read public, public never reads private.** This repo only runs laid over a tree of the public repo
-(the site imports shared validators from `extension/`, `desktop/lib/`, `worker/src/`, `config/`).
+(the site imports shared validators from `extension/`, `desktop/lib/`, `app-core/src/`, `config/`).
 
 ## Work here
 - `tools/site-run.sh <cmd>`: runs a command in `.overlay` (public tree + this repo), rebuilt when older than an hour.

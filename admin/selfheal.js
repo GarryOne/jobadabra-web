@@ -28,7 +28,7 @@ export const PRINCIPLES = [
   ['Let CI log the misses it can see', 'A planted bug no detector caught, and a bug a person reported on GitHub that the Finder had not, get a Bug Tracker row with the replay command, so the weekly review sees them. Needs NOTION_BRAIN_WRITE_TOKEN.', 'new', 'lib/tracker-write.mjs'],
   ['Never call it a regression before checking the build', 'A finding that matches an issue a fix closed is a regression only if the tested build contains the fix (git\'s compare says); on an older build it is a stale sighting, commented on the closed issue and not filed.', 'new', 'lib/stale.mjs'],
   ['Say why, in a field', 'Every closed issue carries one `resolution:` label (fixed, false by cause, stale, duplicate, by design); every issue states how far its build was behind main and whether its suite finished; every producer run is kept as numbers. Conclusions about causes come from these, not from comments.', 'new', 'lib/resolution.mjs, lib/run-context.mjs, lib/run-summary.mjs'],
-  ['Be on time, and say when not', 'The Worker cron starts the publish every 3 hours, GitHub\'s schedule is the backup; this page shows its own age and turns amber, then red.', 'new', 'worker/src/scheduler.js'],
+  ['Be on time, and say when not', 'The Worker cron starts the publish every 3 hours, GitHub\'s schedule is the backup; this page shows its own age and turns amber, then red.', 'new', 'app-core/src/scheduler.js'],
   ['Learn from the owner\'s corrections', 'A reopened noise issue, a removed `confirmed` or a hand closure becomes a lesson for every judge; the weekly self-review proposes at most 3 rule changes as a PR that never merges itself.', 'in force', 'lib/reversals.mjs, finder-review.yml'],
 ];
 export function principlesSection() {

@@ -2,7 +2,7 @@
 // GitHub's own `schedule:` in each collector's workflow is best-effort: 60 e2e-intel runs from 21 to 31 Oct came a median 4.5 h apart (up to 7.6 h gaps), so the page showed runs hours old, and
 // integration-intel.yml had 0 schedule runs in its first 3 h (1 Nov 2026: the page read "No data yet"). Cloudflare's cron fires on time, so the Worker starts each workflow through the API;
 // GitHub's cron stays as the backup (the workflow's concurrency group queues a second start, it never runs two at once).
-// Same pattern as the public repo's worker/src/scheduler.js (#2653). The Worker's account has no free cron trigger (5 of 5 used), so this shares the Worker's every-5-minutes trigger and
+// Same pattern as the public repo's app-core/src/scheduler.js (#2653). The Worker's account has no free cron trigger (5 of 5 used), so this shares the Worker's every-5-minutes trigger and
 // acts on one tick an hour per collector. A new collector is one row below plus the same `run-name` and `workflow_dispatch:` in its workflow; the test loops over this list. Guard: test/shared/intel-start.test.js.
 
 /** Why (1 Nov 2026, owner "delegate" on the empty integrations page): ONE list, so a collector cannot be added to the workflows and forgotten here (integration-intel.yml was).

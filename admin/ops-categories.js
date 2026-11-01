@@ -9,7 +9,7 @@ export const CATEGORIES = [
   {id: 'ci', label: 'CI, harness & tooling', color: '#d95926', hint: 'workflows, tools/, hooks, the e2e harness'},
   {id: 'site', label: 'Admin & site', color: '#f5b54a', hint: 'site/: admin pages, the public website, its Worker'},
   {id: 'app', label: 'Desktop app', color: '#a78bfa', hint: 'desktop/ outside the harness'},
-  {id: 'engine', label: 'Engine & worker', color: '#199e70', hint: 'src/ (Python engine), worker/, config, templates'},
+  {id: 'engine', label: 'Engine & worker', color: '#199e70', hint: 'src/ (Python engine), app-core/, config, templates'},
   {id: 'docs', label: 'Docs, skills & rules', color: '#8d949c', hint: 'docs/, skills, rules, *.md'},
   {id: 'tests', label: 'Tests only', color: '#c9a227', hint: 'a PR that changes nothing but tests'},
   {id: 'mixed', label: 'Mixed', color: '#e377c2', hint: 'no category holds half of the changed lines'},
@@ -20,7 +20,7 @@ export const CATEGORY_IDS = CATEGORIES.map(category => category.id);
 
 const is = pattern => path => pattern.test(path);
 // The code that reads or answers a form (coordinator, 15 Oct 2026): a Pool-row trailer makes a PR a form fix only together with a change here, and then the recorded pages count with the fix.
-export const isFillCode = path => /^(extension|desktop\/lib\/ladder|desktop\/lib\/ai)\//.test(path) || /^worker\/src\/(answer-[^/]*|cv-facts|ai)\.js$/.test(path);
+export const isFillCode = path => /^(extension|desktop\/lib\/ladder|desktop\/lib\/ai)\//.test(path) || /^(app-core|worker)\/src\/(answer-[^/]*|cv-facts|ai)\.js$/.test(path);
 const isProof = path => /^desktop\/e2e\/(recorded|recorded-pending)\//.test(path) || path === 'desktop/e2e/recorded-case-map.json';
 export const isTest = path => /(^|\/)(tests?|__tests__)\/|\.test\.[cm]?[jt]s$|(^|\/)test_[^/]*\.py$/.test(path);
 // First match wins; the order is the precedence (a replay file under desktop/e2e is "replay", not harness).
@@ -36,13 +36,13 @@ const RULES = [
   [is(/^\.claude\/(skills|agents|commands)\//), 'docs'],
   [is(/^(site|preview|web|admin|api|shared|workers|db|media)\//), 'site'],
   [is(/^desktop\//), 'app'],
-  [is(/^(src|worker|config|templates)\//), 'engine'],
+  [is(/^(src|app-core|worker|config|templates)\//), 'engine'],
   [is(/^(docs|brand)\//), 'docs'],
   [is(/\.(md|txt)$|^LICENSE/), 'docs'],
 ];
 // A new top-level path must be added here (the test lists the repo's own): the fallback for files no rule above names.
 export const TOP_LEVEL = {'.claude': 'ci', '.github': 'ci', '.gitar': 'ci', brand: 'docs', config: 'engine', desktop: 'app', docs: 'docs', extension: 'forms', hosted: 'engine', site: 'site', preview: 'site', web: 'site', admin: 'site', api: 'site', shared: 'site', workers: 'site', db: 'site', media: 'site', jobs: 'ci', test: 'site',
-  src: 'engine', templates: 'engine', tests: 'engine', tools: 'ci', worker: 'engine'};
+  src: 'engine', templates: 'engine', tests: 'engine', tools: 'ci', worker: 'engine', 'app-core': 'engine'};
 const ROOT_FILES = {'.env.example': 'ci', '.gitattributes': 'ci', '.gitignore': 'ci', '.dependency-cruiser.cjs': 'ci', 'eslint.config.mjs': 'ci', 'requirements.txt': 'engine', 'requirements-render.txt': 'engine', 'requirements-transcribe.txt': 'engine'};
 
 // A file's category id, or null when nothing names it (a test then fails).
