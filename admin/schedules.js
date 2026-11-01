@@ -10,6 +10,8 @@ import {readStartProblem} from '../shared/intel-start.js';
 import {startLine} from './intel-start-line.js';
 import {filterLinks} from './admin.js';
 import {graph, GRAPH_STYLE} from './schedules-graph.js';
+import {loadNightlySummary, summaryFor} from './nightly-summary.js';
+import {NIGHTLY_STYLE, trendsHtml} from './nightly-summary-html.js';
 import {AREAS, areaOf, missed, nextOf, stateOf, whenWords, words, RUN_DOTS} from '../shared/schedules-model.js';
 
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
@@ -51,11 +53,11 @@ const dots = job => `<div class="dots" title="oldest to newest">${Array.from({le
 const chip = job => (job.state === 'off' ? '<span class="chip o">disabled</span>' : job.state === 'red' ? '<span class="chip r">red</span>' : job.state === 'green' ? '<span class="chip g">green</span>' : '<span class="chip o">no run yet</span>')
   + (job.missed ? ' <span class="chip w">missed a run</span>' : '');
 const sourceNote = job => (job.source === 'worker' ? ' · started by the Worker cron' : job.source === 'both' ? ' · Worker cron + GitHub backup' : '');
-function row(job, now) {
+function row(job, now, summary = null) {
   const last = job.recent.find(run => run.conclusion) || job.recent[0], url = `https://github.com/${esc(job.repo)}/actions/workflows/${esc(job.file)}`;
   return `<tr class="${job.state === 'red' ? 'red' : ''}"><td><b><a href="${url}">${esc(job.name || job.file)}</a></b><div class="muted small">${esc(job.about)}</div></td><td><span class="repo">${esc(job.repo.split('/').pop())}</span></td>
 <td>${job.schedule.map(esc).join('<br>')}<div class="muted small">${job.next ? `next ${esc(whenWords(job.next, now))}` : ''}${esc(sourceNote(job))}</div></td>
-<td>${chip(job)}<div class="muted small">${last ? `${esc(stamp(last.at, now))}${last.mins ? ` · ${esc(num(last.mins))} min` : ''}` : ''}</div></td><td>${dots(job)}</td><td class="num">${num(job.billedMin)}</td>
+<td>${chip(job)}<div class="muted small">${last ? `${esc(stamp(last.at, now))}${last.mins ? ` · ${esc(num(last.mins))} min` : ''}` : ''}</div></td><td>${dots(job)}</td><td>${trendsHtml(summaryFor(summary, job.file), {compact: true}) || '<span class="muted">–</span>'}</td><td class="num">${num(job.billedMin)}</td>
 <td>${job.ai ? '<a href="/admin/intelligence/ai-cost">ai-cost →</a>' : '<span class="muted">no AI</span>'}</td></tr>`;
 }
 const STATES = [['all', 'All'], ['red', 'Red'], ['green', 'Green'], ['off', 'Disabled']];
@@ -66,10 +68,10 @@ const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(17
 
 // `only` = an area id: the page lists that area alone (the Testing tab); '' = every area, with an Area filter.
 // problem: why the Worker could not start schedules-snapshot.yml on its last try (readStartProblem), drawn as the red "collector not starting" line the e2e and integrations pages show.
-export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date(), problem = null} = {}) {
+export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date(), problem = null, summary = null} = {}) {
   const scope = AREAS.find(item => item.id === only);
   const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${scope ? `Scheduled · ${esc(scope.label)}` : 'Schedules'} · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${CSS}${scope ? GRAPH_STYLE : ''}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${startLine(problem)}${body}</main></body></html>`;
+<link rel="icon" href="/favicon-32.png"><style>${CSS}${NIGHTLY_STYLE}${scope ? GRAPH_STYLE : ''}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${startLine(problem)}${body}</main></body></html>`;
   if (!snapshot) return head('<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>schedules-snapshot.yml</code> publishes every scheduled job once an hour; the first run fills this page.</p></section>');
   const all = decorate(snapshot, now).filter(job => !scope || job.area === scope.id), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
   const repos = ['all', ...new Set(all.map(job => job.repo.split('/').pop()))];
@@ -80,12 +82,12 @@ export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only 
     return tile(area.label, `${mine.length - red}/${mine.length}`, `green · ${red} red`, red ? 'bad' : ''); }).join('');
   const sections = AREAS.map(area => { const mine = shown.filter(job => job.area === area.id); if (!mine.length) return '';
     const red = scheduled.filter(job => job.area === area.id && job.state === 'red').length;
-    return `<tr class="area"><td colspan="7"><b>${esc(area.label)}</b> <span class="muted small">${esc(area.hint)}</span> <span class="chip ${red ? 'r' : 'g'}">${scheduled.filter(job => job.area === area.id).length} jobs · ${red} red</span>${area.link && !scope ? ` <a class="small" href="${area.link}">${area.link} →</a>` : ''}</td></tr>${mine.map(job => row(job, now)).join('')}`; }).join('');
+    return `<tr class="area"><td colspan="8"><b>${esc(area.label)}</b> <span class="muted small">${esc(area.hint)}</span> <span class="chip ${red ? 'r' : 'g'}">${scheduled.filter(job => job.area === area.id).length} jobs · ${red} red</span>${area.link && !scope ? ` <a class="small" href="${area.link}">${area.link} →</a>` : ''}</td></tr>${mine.map(job => row(job, now, summary)).join('')}`; }).join('');
   const failed = (snapshot.repos || []).filter(r => r.ok === false).map(r => r.name);
   return head(`<div class="tiles">${tile('Scheduled jobs', num(c.all), `plus ${num(manual.length)} by hand only`)}${tile('Red now', num(c.red), 'last finished run failed', c.red ? 'bad' : '')}${tile('Missed a run', num(c.missed), 'a due start never began', c.missed ? 'warn' : '')}${tile('Billed min / week', num(c.billed), 'Mac ×10, Windows ×2; public repos are free')}</div>
 ${scope ? graph(scheduled, now) : `<div class="tiles">${areaTiles}</div>`}${failed.length ? `<p class="muted">Could not read: ${esc(failed.join(', '))}. Their jobs show the last known data or are missing.</p>` : ''}
 <div class="filter-rows">${scope ? '' : filterLinks([['all', 'All', link(repo, state, 'all')], ...AREAS.map(item => [item.id, item.label, link(repo, state, item.id)])], area, 'Area')}${filterLinks(repos.map(r => [r, r === 'all' ? 'All' : r, link(r, state)]), repo, 'Repo')}${filterLinks(STATES.map(([value, name]) => [value, name, link(repo, value)]), state, 'State')}</div>
-<section class="card wrap"><table><tr><th>Job</th><th>Repo</th><th>Schedule · next start (Europe/Zurich)</th><th>Last run</th><th>Last 14</th><th class="num">Min/wk</th><th>AI cost</th></tr>${sections || '<tr><td colspan="7" class="muted">No job matches.</td></tr>'}</table></section>
+<section class="card wrap"><table><tr><th>Job</th><th>Repo</th><th>Schedule · next start (Europe/Zurich)</th><th>Last run</th><th>Last 14</th><th>Last night · 14 nights</th><th class="num">Min/wk</th><th>AI cost</th></tr>${sections || '<tr><td colspan="8" class="muted">No job matches.</td></tr>'}</table></section>
 <details><summary>Run by hand only (${num(manual.length)})</summary><p class="muted small">Workflows with workflow_dispatch and no schedule.</p>${manual.length ? `<ul>${manual.map(job => `<li><a href="https://github.com/${esc(job.repo)}/actions/workflows/${esc(job.file)}">${esc(job.name || job.file)}</a> <span class="repo">${esc(job.repo.split('/').pop())}</span> ${chip(job)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</details>`);
 }
 
@@ -106,7 +108,7 @@ const viewOf = only => async (request, env) => {
   const state = STATE_IDS.includes(url.searchParams.get('state')) ? url.searchParams.get('state') : 'all', snapshot = await read(env), problem = await readStartProblem(env.STATS, 'schedules-snapshot.yml');
   const known = new Set((snapshot?.jobs || []).map(job => job.repo.split('/').pop())), repo = known.has(url.searchParams.get('repo')) ? url.searchParams.get('repo') : 'all';
   const area = AREAS.some(item => item.id === url.searchParams.get('area')) ? url.searchParams.get('area') : 'all';
-  return new Response(page(snapshot, {repo, state, area, only, problem}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(snapshot, {repo, state, area, only, problem, summary: await loadNightlySummary(env)}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 };
 export const view = viewOf('');
 export const viewTesting = viewOf('testing');

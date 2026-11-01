@@ -2,6 +2,7 @@
 // how long a job waited for a runner and how long it ran, and the cause of each red (admin/e2e-causes.js) from facts, then the fix's trailer, then the AI.
 // No network here: GitHub and the AI come in as functions. Guard: test/admin/e2e-intel-collector.test.js.
 import {cleanBetaRun} from '../admin/e2e-beta.js';
+import {RATE_SUITES, ratesOf} from '../admin/e2e-rates.js';
 import {causePrompt, factCause, failureLine, likelyFixes, prCause, readAnswer, suiteOfJob, trailerCause} from '../admin/e2e-causes.js';
 
 export const minutesOf = (from, to) => (from && to ? Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 6000) / 10) || 0 : 0);
@@ -44,6 +45,8 @@ export function redJobs(run) {
   }
   return out;
 }
+// The night jobs whose logs hold rates (admin/e2e-rates.js): read like a red's log, but green or red.
+export const rateJobs = run => (['nightly', 'scheduled'].includes(run.kind) ? (run.jobs || []).flatMap(job => { const id = suiteJob(job, run); return id && RATE_SUITES.includes(id.suite) && ['success', 'failure'].includes(job.conclusion) ? [{jobId: job.id}] : []; }) : []);
 // Did this suite pass on its first try in this run?
 export const passedFirst = (run, suite, platform) => (run.jobs || []).some(job => {
   const id = suiteJob(job, run);
@@ -122,7 +125,10 @@ export async function rowsOf(runs, {logOf = () => '', ...deps} = {}) {
     if (run.conclusion === 'cancelled') continue;   // a cancelled run is a try that showed nothing: its jobs are not reds
     if (['nightly', 'scheduled'].includes(run.kind)) for (const job of run.jobs || []) {
       const id = suiteJob(job, run);
-      if (id && ['success', 'failure'].includes(job.conclusion)) out.suiteNights.push({runId: run.databaseId, day: run.createdAt.slice(0, 10), kind: run.kind, ...id, green: passedFirst(run, id.suite, id.platform)});
+      if (id && ['success', 'failure'].includes(job.conclusion)) {
+        const rates = RATE_SUITES.includes(id.suite) ? ratesOf(id.suite, logOf(job.id)) : null;   // the suite's measured rates from its own log (admin/e2e-rates.js), when the log was read
+        out.suiteNights.push({runId: run.databaseId, day: run.createdAt.slice(0, 10), kind: run.kind, ...id, green: passedFirst(run, id.suite, id.platform), ...(rates ? {rates} : {})});
+      }
     }
     for (const red of redJobs(run)) {
       const next = runs.slice(index + 1).find(later => streamOf(later) === streamOf(run) && passedFirst(later, red.suite, red.platform));

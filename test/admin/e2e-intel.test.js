@@ -65,6 +65,7 @@ test('the snapshot holds the last 30 days per day and per suite, and the page re
   await put(e, {rules: 1, runs: [run(1), run(2, 'success'), run(3, 'failure', {createdAt: '2026-08-01T10:00:00Z'})], fails: [fail(1, 'apply', 'mac', 'test'), fail(1, 'apply', 'windows', 'test'), fail(3, 'old', 'mac', 'flake', {day: '2026-08-01'})]});
   const snapshot = await buildSnapshot(e.STATS, now);
   assert.deepEqual(snapshot.days.map(d => [d.day, d.runs, d.reds, d.greens, d.redMin]), [['2026-10-17', 2, 1, 1, 26]]);
+  assert.deepEqual(snapshot.days.map(d => d.wallMin), [52], 'wall minutes are the start-to-end minutes of every finished run of the day (the nightly trends divide them by runs)');
   assert.deepEqual(snapshot.fails.map(f => [f.suite, f.platform, f.cause, f.n]).sort(), [['apply', 'mac', 'test', 1], ['apply', 'windows', 'test', 1]]);
   const stored = e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get();
   assert.equal(JSON.parse(stored.body).schema, snapshot.schema);

@@ -50,7 +50,7 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
   const from = dayOf(new Date(now.getTime() - (KEEP_DAYS - 1) * DAY));
   const [{results: days = []}, {results: fails = []}, {results: breaks = []}, {results: caught = []}, {results: latest = []}] = await Promise.all([
     db.prepare(`SELECT day, kind, SUM(conclusion IN ('success', 'failure')) AS runs, SUM(conclusion = 'cancelled') AS cancelled, SUM(conclusion = 'failure') AS reds, SUM(conclusion = 'success') AS greens,
-      SUM(CASE WHEN conclusion = 'failure' THEN minutes ELSE 0 END) AS redMin, SUM(queue_min) AS queueMin, SUM(run_min) AS runMin, COUNT(DISTINCT pr) AS prs FROM e2e_runs WHERE day >= ? GROUP BY day, kind ORDER BY day`).bind(from).all(),
+      SUM(CASE WHEN conclusion = 'failure' THEN minutes ELSE 0 END) AS redMin, SUM(CASE WHEN conclusion IN ('success', 'failure') THEN minutes ELSE 0 END) AS wallMin, SUM(queue_min) AS queueMin, SUM(run_min) AS runMin, COUNT(DISTINCT pr) AS prs FROM e2e_runs WHERE day >= ? GROUP BY day, kind ORDER BY day`).bind(from).all(),
     db.prepare('SELECT day, kind, suite, platform, cause, COUNT(*) AS n, SUM(minutes) AS min FROM e2e_fails WHERE day >= ? GROUP BY day, kind, suite, platform, cause').bind(from).all(),
     db.prepare('SELECT MIN(day) AS day, MIN(kind) AS kind, run_id AS runId, cause, line, COUNT(*) AS n FROM e2e_fails WHERE day >= ? GROUP BY run_id, cause, line ORDER BY n DESC, day DESC LIMIT 400').bind(from).all(),
     db.prepare('SELECT f.day, f.run_id AS runId, f.suite, f.line, r.pr FROM e2e_fails f LEFT JOIN e2e_runs r ON r.run_id = f.run_id WHERE f.day >= ? AND f.caught = 1 ORDER BY f.day DESC LIMIT 100').bind(from).all(),

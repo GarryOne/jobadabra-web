@@ -111,6 +111,30 @@ export const seeds = {
     await env.STATS.prepare('INSERT INTO pr_check_months (month, card, updated_at) VALUES (?, ?, ?) ON CONFLICT(month) DO UPDATE SET card = excluded.card').bind(day(0).slice(0, 7), JSON.stringify({days: 30, checks: [{name: 'CI · Integration tests', runs: 80, reds: 9, realCatches: 6, falseReds: 2, medianMin: 4, p90Min: 8, addedMin: 1, verdict: 'proven'},
       {name: 'CI · Smoke (the app starts)', runs: 80, reds: 3, realCatches: 2, falseReds: 0, medianMin: 3, p90Min: 4, addedMin: 0, verdict: 'proven'}]}), now.toISOString()).run();
   },
+  'nightly-trends': async ({env}) => {   // the nightly report-only numbers on Testing → Overview and Testing → Scheduled (1 Nov 2026): 14 made-up nights of Quality AI, prompt cases, interactions rates, wander, real Notion, agent coding and the wall clocks, over the overview and schedules seeds
+    const now = new Date(), day = back => new Date(now.getTime() - back * 86400000).toISOString().slice(0, 10), put = (table, body) => env.STATS.prepare(`INSERT INTO ${table} (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body`).bind(now.toISOString(), JSON.stringify(body)).run();
+    const read = async table => JSON.parse((await env.STATS.prepare(`SELECT body FROM ${table} WHERE id = 1`).first()).body);
+    await seeds.schedules({env});
+    const scheduled = (await read('schedules_snapshot')).jobs;
+    await seeds['testing-overview']({env});
+    const overview = await read('schedules_snapshot'), have = new Set(overview.jobs.map(job => job.file));
+    const run = (hours, conclusion) => ({at: new Date(now.getTime() - hours * 3600000).toISOString(), conclusion, mins: 6, url: 'https://github.com/GarryOne/jobadabra/actions/runs/7'});
+    const extra = (repo, file, name, about, crons, conclusions) => ({repo, file, name, about, crons, source: 'github', manual: true, disabled: false, ai: false, weeklyMin: 30, billedMin: 0, recent: conclusions.map((c, i) => run(i * 24 + 4, c))});
+    const ok = Array(10).fill('success');
+    await put('schedules_snapshot', {...overview, jobs: [...overview.jobs, ...scheduled.filter(job => !have.has(job.file)),
+      extra('GarryOne/jobadabra', 'prompt-cases-night.yml', 'CI · Prompt cases (nightly, report only)', 'Last night\'s right/wrong of the live prompt cases', ['30 21 * * *'], ok),
+      extra('GarryOne/jobadabra', 'agent-coding-stats.yml', 'CI · Agent coding stats', 'Fix PRs per area, CI minutes per push', ['41 4 * * *'], ok)]});
+    const snapshot = await read('e2e_snapshot');
+    const agree = [8, 9, 8, 8, 7, 9, 8, 6, 7, 8, 9, 8, 9, 8], replay = back => ({status: back % 5 === 3 ? 'carried' : 'asked', total: 63, right: back === 2 ? 58 : 60 + (back % 3 === 0 ? 1 : 0), flipped: back === 2 ? 2 : 0, noise: back % 4, newWrong: 0, unconfirmed: 0, calls: back % 5 === 3 ? 0 : 66});
+    const quality = Array.from({length: 14}, (_, back) => ({runId: 9500 - back, day: day(back), pairs: 9, within8: agree[back], over20: back === 7 ? 1 : 0, factsExact: 63, factsTotal: 63, judged: 18, invented: back % 6 === 0 ? 1 : 0, promptCases: replay(back)}));
+    const night = (suite, back, green, rates = {}) => ({runId: 9200 - back, day: day(back), kind: 'nightly', suite, platform: 'mac', green, ...(Object.keys(rates).length ? {rates} : {})});
+    const suiteNights = [...Array.from({length: 14}, (_, back) => night('wander', back, back !== 4 && back !== 9)), ...Array.from({length: 14}, (_, back) => night('notion-real', back, back !== 6)),
+      ...Array.from({length: 14}, (_, back) => night('quality', back, true)), ...Array.from({length: 14}, (_, back) => night('interactions', back, back !== 6, back > 8 ? {} : {recall: back === 3 ? 0.77 : 0.85 + (back % 3) * 0.05, clean: 0.93 - (back % 4) * 0.01, still: back === 5 ? 0.75 : 1}))];
+    const days = Array.from({length: 14}, (_, back) => [{day: day(back), kind: 'beta', runs: 1, greens: 1, reds: 0, wallMin: 28 + (back % 4) * 3}, {day: day(back), kind: 'nightly', runs: 5, greens: 4, reds: 1, wallMin: 5 * (22 + (back % 3) * 4)},
+      {day: day(back), kind: 'after-merge', runs: 3, greens: 3, reds: 0, wallMin: 3 * 12}]).flat();
+    await put('e2e_snapshot', {...snapshot, quality, suiteNights, days});
+    for (let back = 0; back < 14; back++) await env.STATS.prepare('INSERT INTO agent_coding_days (kind, day, card, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(kind, day) DO UPDATE SET card = excluded.card').bind('ci', day(back), JSON.stringify({prs: {merged: 6, ci: 2}, reds: {}, fixPrs: back < 3 ? {panel: 1, site: 1} : back < 6 ? {panel: 1} : {site: back % 2}, wall: [12], queue: [2], cancelledMin: 0}), now.toISOString()).run();
+  },
   email: async ({env}) => {   // made-up mail for /admin/growth/email (26 Oct 2026): 14 days of sends and refusals under made-up address hashes, a bounce, an unconfirmed stop, two held items
     const templates = ['digest', 'digest', 'digest', 'welcome', 'account-code', 'message'], why = ['rate', 'unsubscribed', 'not_opted_in', 'suppressed', 'failed'];
     const today = Date.now();

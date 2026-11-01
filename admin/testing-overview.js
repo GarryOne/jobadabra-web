@@ -7,6 +7,7 @@ import {chip, CHIP_STYLE} from './chip.js';
 import {load, resolve} from './testing-overview-data.js';
 import {daysTo} from './testing-overview-history.js';
 import {healthMap, MAP_STYLE, summaryBar} from './testing-overview-map.js';
+import {NIGHTLY_STYLE, trendsHtml} from './nightly-summary-html.js';
 
 const HOUR = 3600000, DAY = 86400000;
 /** "5 min ago" / "3 h ago" / "2 days ago" for a run's time; a date without a time counts whole days. */
@@ -36,7 +37,7 @@ function cardHtml(card, now, scheduled) {
   if (card.kind === 'planned') return `<article class="mcard planned" id="m-${esc(card.id)}"><h3>${card.icon} ${esc(card.title)} ${chip('◷ planned', 'off')}</h3><p class="muted">${esc(card.proves)}</p></article>`;
   const head = card.state === 'link' ? (card.pending ? chip('◷ being built', 'off') : '') : chip(...CARD_CHIP[card.state]);
   return `<article class="mcard" id="m-${esc(card.id)}"><h3>${card.icon} ${esc(card.title)} ${head}</h3><p class="muted">${esc(card.proves)}</p>
-<ul class="lines">${card.lines.filter(line => card.state !== 'link' || line.last.state !== 'none').map(line => lineHtml(line, now, scheduled)).join('')}</ul>${card.state === 'link' ? '' : bugsHtml(card.bugs)}
+<ul class="lines">${card.lines.filter(line => card.state !== 'link' || line.last.state !== 'none').map(line => lineHtml(line, now, scheduled)).join('')}</ul>${trendsHtml(card.trends)}${card.state === 'link' ? '' : bugsHtml(card.bugs)}
 ${card.href ? `<a class="open" href="${esc(card.href)}">Open the page →</a>` : ''}</article>`;
 }
 
@@ -55,7 +56,7 @@ export function page(model, {now = new Date()} = {}) {
     : `🟢 <b>${counts.green} of ${counts.live} methods ran green on the last run.</b>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}
-${MAP_STYLE}</style></head><body><main>
+${MAP_STYLE}${NIGHTLY_STYLE}</style></head><body><main>
 <header><h1>🧪 Testing overview</h1><span class="muted">${model.rings.length} rings · ${counts.live} methods running · ${counts.planned} planned · unit tests are not listed: they are for agent development</span></header>
 <section class="card band"><div class="big">${verdict}${counts.none ? ` ${counts.none} ${counts.none === 1 ? 'has' : 'have'} no stored run to judge.` : ''} ${counts.planned} more ${counts.planned === 1 ? 'is' : 'are'} planned.</div></section>
 ${summaryBar(counts)}
