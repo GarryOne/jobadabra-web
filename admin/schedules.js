@@ -1,4 +1,4 @@
-// /admin/operations/schedules: every scheduled CI job we run, in any repo, grouped by area, with its last run and health (owner, 20 Oct 2026). A collector (jobs/schedules-snapshot.mjs,
+// /admin/agents/schedules: every scheduled CI job we run, in any repo, grouped by area, with its last run and health (owner, 20 Oct 2026). A collector (jobs/schedules-snapshot.mjs,
 // schedules-snapshot.yml, hourly) reads each repo's workflow files and latest runs and sends ONE snapshot (PUT /ops/data?kind=schedules, Bearer SELFHEAL_PUBLISH_KEY); the site keeps it in one row
 // (schedules_snapshot) and this page reads that row: no GitHub call and no table scan per page load (D1 free plan). A job that moves to another repo just shows its new repo. No AI.
 // Pure parts: shared/schedules-model.js. Guard: test/schedules.test.js.
@@ -61,7 +61,7 @@ const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(17
 .chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}.chip.g{background:#3fb68b}.chip.r{background:#e5484d}.chip.o{background:#8d949c}.chip.w{background:#e0a43a}.small{font-size:12px}`;
 
 export function page(snapshot, {repo = 'all', state = 'all', now = new Date()} = {}) {
-  const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Schedules · Operations · Admin</title>
+  const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Schedules · Agents · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main><header><h1>⏰ Schedules</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
   if (!snapshot) return head('<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>schedules-snapshot.yml</code> publishes every scheduled job once an hour; the first run fills this page.</p></section>');
   const all = decorate(snapshot, now), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
@@ -82,7 +82,7 @@ export function page(snapshot, {repo = 'all', state = 'all', now = new Date()} =
 <details><summary>Run by hand only (${num(manual.length)})</summary><p class="muted small">Workflows with workflow_dispatch and no schedule.</p>${manual.length ? `<ul>${manual.map(job => `<li><a href="https://github.com/${esc(job.repo)}/actions/workflows/${esc(job.file)}">${esc(job.name || job.file)}</a> <span class="repo">${esc(job.repo.split('/').pop())}</span> ${chip(job)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</details>`);
 }
 
-// The Operations Overview tile: how many jobs, how many red or missed.
+// The Agents Overview tile: how many jobs, how many red or missed.
 export async function headline(env, now = new Date()) {
   const snapshot = await read(env);
   if (!snapshot) return [{label: 'Scheduled jobs', value: 'No data', sub: 'the snapshot job publishes hourly', status: 'none'}];

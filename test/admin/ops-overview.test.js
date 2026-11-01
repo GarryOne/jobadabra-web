@@ -1,4 +1,4 @@
-// /admin/operations/overview: the category map covers every tracked file, a PR's main category, the once-only ingest and its one-row snapshot, and the page in each state.
+// /admin/agents/overview: the category map covers every tracked file, a PR's main category, the once-only ingest and its one-row snapshot, and the page in each state.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -76,7 +76,7 @@ test('the ingest needs the key, stores each PR once, rebuilds one snapshot row, 
   const have = await (await call(e, '/ops/data', {headers: {Authorization: 'Bearer pub'}})).json();
   assert.deepEqual(have.have.sort(), [1, 2, 3]);
   e.STATS.reads.rows = 0; e.STATS.reads.queries = 0; e.STATS.reads.sqls = [];
-  const response = await call(e, '/admin/operations/overview', owner);
+  const response = await call(e, '/admin/agents/overview', owner);
   assert.equal(response.status, 200);
   const sql = e.STATS.reads.sqls.join('\n');
   assert.match(sql, /FROM ops_snapshot/);
@@ -87,12 +87,12 @@ test('the ingest needs the key, stores each PR once, rebuilds one snapshot row, 
   assert.match(html, /#1<\/a> PR 1/);
 });
 
-test('the page: first entry of Operations, owner only, and every state renders', async () => {
-  const operations = PAGES.filter(p => p.group === 'Operations');
-  assert.equal(operations[0].path, '/admin/operations/overview');
+test('the page: first entry of Agents, owner only, and every state renders', async () => {
+  const operations = PAGES.filter(p => p.group === 'Agents');
+  assert.equal(operations[0].path, '/admin/agents/overview');
   const e = env();
-  assert.equal((await call(e, '/admin/operations/overview')).status, 404);
-  assert.match(await (await call(e, '/admin/operations/overview', owner)).text(), /No data yet/);   // empty
+  assert.equal((await call(e, '/admin/agents/overview')).status, 404);
+  assert.match(await (await call(e, '/admin/agents/overview', owner)).text(), /No data yet/);   // empty
   const snapshot = {at: now.toISOString(), daily: [
     {day: '2026-10-15', category: 'forms', prs: 1, lines: 50, hours: 1, ci: 5}, {day: '2026-10-15', category: 'ci', prs: 3, lines: 300, hours: 6, ci: 30},
     {day: '2026-10-10', category: 'replay', prs: 4, lines: 400, hours: 8, ci: 40}, {day: '2026-09-10', category: 'site', prs: 9, lines: 1, hours: 1, ci: 1}], latest: [{number: 5, title: '<b>x</b>', category: 'ci', lines: 3, hours: 1.5}]};
@@ -126,7 +126,7 @@ test('each range returns its own window: 24 hours by hour, 7 and 30 days by day;
   assert.match(day, /<i[^>]*>1<\/i><i[^>]*>1<\/i>[\s\S]*2 PRs · top: /);   // counts inside the segments, total and top category on the right
   assert.match(day, /<div class="key"><span class="pill"/);   // legend as pills
   assert.match(barsThin(), /class="thin"/);
-  const html = async range => (await (await call(e, `/admin/operations/overview${range}`, owner)).text());
+  const html = async range => (await (await call(e, `/admin/agents/overview${range}`, owner)).text());
   assert.match(await html(''), /aria-current="true">Last 7 days/);   // default
   assert.match(await html('?range=24h'), /aria-current="true">Last 24 hours/);
   assert.match(await html('?range=30d'), /Merged PRs per day · last 30 days/);

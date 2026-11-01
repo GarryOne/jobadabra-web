@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Publishes every finished e2e run of the last 30 days (beta, nightly, main after a merge, scheduled, soak, canary, PR, the daily harness tests) and the cause of
-// each red suite to /admin/operations/e2e (e2e-intel.yml, hourly). The pure part (kinds, reds, causes) is jobs/e2e-intel-rows.mjs; this file reads GitHub, asks the AI
+// each red suite to /admin/testing/e2e (e2e-intel.yml, hourly). The pure part (kinds, reds, causes) is jobs/e2e-intel-rows.mjs; this file reads GitHub, asks the AI
 // and publishes. A run is read once; a red whose cause is "open" or "unknown" is read again until its fix lands. Log text is searched for the failure line only:
 // the line (a test step's own words, no personal data) is stored, the log never is. Guard: test/admin/e2e-intel-collector.test.js.
 //   node jobs/e2e-intel.mjs [--dry [--out rows.json]]    needs gh with GH_TOKEN; publishing needs SELFHEAL_PUBLISH_KEY (optional E2E_INTEL_URL)

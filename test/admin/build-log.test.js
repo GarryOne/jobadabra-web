@@ -47,25 +47,25 @@ test('a draft is rewritten (drafts and cost add up), the final one closes the da
 
 test('the page is the owner\'s: 404 without the key, days newest first with their groups, PR links, Draft/Final and an empty state', async () => {
   const e = env();
-  assert.equal((await call(e, '/admin/operations/build-log')).status, 404);
-  const empty = await (await call(e, '/admin/operations/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
+  assert.equal((await call(e, '/admin/agents/build-log')).status, 404);
+  const empty = await (await call(e, '/admin/agents/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
   assert.match(empty, /No digest yet/);
   await put(e, digest({day: '2026-10-15', numbers: [900, 901, 902, 905], final: true}));
   await put(e, digest());
-  const html = await (await call(e, '/admin/operations/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
+  const html = await (await call(e, '/admin/agents/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
   assert.ok(html.indexOf('16 Oct') < html.indexOf('15 Oct'));
   assert.match(html, /Draft 1/);
   assert.match(html, /Final/);
   assert.match(html, /🧭 Apply flow/);
   assert.match(html, /<a href="https:\/\/github.com\/GarryOne\/jobadabra\/pull\/957">#957<\/a>/);
   assert.match(html, /4 PRs, #900-#905/);
-  assert.match(await (await call(e, '/admin/operations/build-log?day=2026-10-15', {headers: {Cookie: 'jp_stats=k3y'}})).text(), /^(?![\s\S]*16 Oct<\/b>)/);
+  assert.match(await (await call(e, '/admin/agents/build-log?day=2026-10-15', {headers: {Cookie: 'jp_stats=k3y'}})).text(), /^(?![\s\S]*16 Oct<\/b>)/);
   assert.ok(!page([{day: '2026-10-16', groups: JSON.stringify([{emoji: '<b>', title: '<script>x</script>', bullets: []}]), open_line: '<i>', numbers: '[]', drafts: 1, usd: 0, updated_at: '2026-10-16T10:00:00Z', final_at: null}]).includes('<script>x'));
 });
 
-test('the menu lists the Build log under Operations', () => {
-  const entry = PAGES.find(item => item.path === '/admin/operations/build-log');
-  assert.equal(entry.group, 'Operations');
+test('the menu lists the Build log under Agents', () => {
+  const entry = PAGES.find(item => item.path === '/admin/agents/build-log');
+  assert.equal(entry.group, 'Agents');
 });
 
 test('each goal is a card with its PR count; a long line is cut at a word and folds its full text; a short one does not; the prompt asks for the short form', () => {
@@ -89,7 +89,7 @@ test('a closed day is replaced only by an explicit rewrite, and stays closed', a
   assert.equal((await (await put(e, digest({groups: short}))).json()).ignored, 'day is closed');
   const done = await (await put(e, text(short))).json();
   assert.deepEqual([done.final, done.rewritten], [true, true]);
-  const html = await (await call(e, '/admin/operations/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
+  const html = await (await call(e, '/admin/agents/build-log', {headers: {Cookie: 'jp_stats=k3y'}})).text();
   assert.match(html, /Radio groups read right/);
   assert.match(html, /Final/);
 });

@@ -10,7 +10,7 @@ test('the question sits under the page title, without the yellow label, and the 
   assert.match(html, /<\/header><p class="admin-question">Do the installed apps run well/);
   assert.doesNotMatch(html, /The question this page answers/);
   assert.match(html, /<script>document\.querySelectorAll\('main table'\)/);
-  const bare = withNav('<html><head></head><body><main><p>x</p></main></body></html>', '/admin/operations/sentry');
+  const bare = withNav('<html><head></head><body><main><p>x</p></main></body></html>', '/admin/testing/sentry');
   assert.match(bare, /<\/nav><p class="admin-question">/, 'a page without a header gets it under the menu');
 });
 
@@ -20,7 +20,7 @@ test('filter links: the current one is the amber pill', () => {
 });
 
 test('Overview: a series with no history is just its number; no series says where to look', () => {
-  const html = overview({cards: {'/admin/operations/self-healing': [{label: 'precision', values: [null, null, 0.38], format: v => `${Math.round(v * 100)}%`}]}, attention: [], recall: null, from: 'a', to: 'b'});
+  const html = overview({cards: {'/admin/testing/self-healing': [{label: 'precision', values: [null, null, 0.38], format: v => `${Math.round(v * 100)}%`}]}, attention: [], recall: null, from: 'a', to: 'b'});
   assert.match(html, /<span>38%<\/span>/);
   assert.doesNotMatch(html, /3800%/);
   assert.match(html, /Real Form Filling<\/h2><p class="muted">No weekly numbers here: open the page →/);

@@ -1,4 +1,4 @@
-// /admin/operations/overview: where our engineering time goes (owner, 15 Oct 2026). CI (ops-overview.yml, on every push to main and hourly) sends each NEW merged PR once
+// /admin/agents/overview: where our engineering time goes (owner, 15 Oct 2026). CI (ops-overview.yml, on every push to main and hourly) sends each NEW merged PR once
 // (PUT /ops/data, Bearer SELFHEAL_PUBLISH_KEY; GET lists the numbers already stored, so CI looks up a PR's runs only once); the site keeps one row per PR (ops_prs) and, after each
 // write, ONE snapshot row (ops_snapshot) with the last 30 days per day and category plus the latest 20 PRs. The page reads that one row: no table scan per load (D1 free plan).
 // Categories: admin/ops-categories.js. No AI. Guard: test/admin/ops-overview.test.js.
@@ -128,7 +128,7 @@ export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now =
 <section class="card"><h2>Latest ${LATEST} merged PRs</h2><table><tr><th>PR</th><th>Category</th><th class="num">Lines</th><th class="num">Open→merge h</th></tr>${(snapshot.latest || []).map(pr =>
   `<tr><td><a href="https://github.com/${esc(repo)}/pull/${Number(pr.number)}">#${Number(pr.number)}</a> ${esc(pr.title)}</td><td class="nowrap">${swatch(pr.category)}${esc(label(pr.category))}</td><td class="num">${num(pr.lines)}</td><td class="num">${one(pr.hours)}</td></tr>`).join('')
   || '<tr><td colspan="4" class="muted">No merged PRs yet.</td></tr>'}</table></section>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Agents · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}.small{font-size:12px;margin-left:18px}
 .filters{margin:8px 0 16px}tr.total td{font-weight:700}h2{margin:0}.hourly .night{grid-template-columns:112px minmax(0,1fr) 240px}.hourly .night b{white-space:nowrap}@media (max-width:640px){.hourly .night{grid-template-columns:112px minmax(0,1fr)}}${BARS_CSS}</style></head><body><main>
@@ -143,6 +143,7 @@ export async function view(request, env) {
   let snapshot = null;
   try { const row = env.STATS ? await env.STATS.prepare('SELECT body FROM ops_snapshot WHERE id = 1').first() : null; snapshot = row ? JSON.parse(row.body) : null; } catch { snapshot = null; }
   const range = rangeOf(url.searchParams.get('range'));
-  const lead = tilesHtml(await sectionTiles(env, groupOf('/admin/operations/overview')));
+  // Why (1 Nov 2026, owner: "2 groups"): Testing has no Overview of its own, so its pages' headline numbers stay here, after the Agents ones, each linking to its page.
+  const lead = tilesHtml([...await sectionTiles(env, groupOf('/admin/agents/overview')), ...await sectionTiles(env, 'Testing')]);
   return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined, lead}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

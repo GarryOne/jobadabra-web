@@ -1,3 +1,4 @@
+// Why (1 Nov 2026, owner: "2 groups"): the E2E page moved to /admin/testing/e2e; these two sub-routes stay under /admin/operations/e2e/ because the public workflows print them.
 // The e2e run's HTML report on this site, kept ONLY because the E2E workflows print "/admin/operations/e2e/run/<run>/report" on their GitHub run Summary page and in each suite's
 // table (.github/workflows/e2e*.yml, desktop.yml, desktop/e2e/lib/step-summary.mjs). The /admin/e2e runs page itself was dropped on 15 Oct 2026 (owner: "not useful").
 // /admin/operations/e2e/run/<run>/report sends an admin to the run's Playwright report; /admin/operations/e2e/report/<artifact>/<token>/<file> serves its files out of the e2e-report artifact
@@ -119,17 +120,17 @@ export async function runReport(request, env, fetcher = fetch) {
   const text = going ? 'The HTML report is built when the run ends. This page checks again every minute.' : 'This run has no HTML report: it predates the report, the report job failed, or GitHub has deleted it.';
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>E2E report · Admin</title><style>body{margin:0;background:#0b0d10;color:#f4efe3;font:15px/1.5 system-ui,-apple-system,sans-serif}main{max-width:640px;margin:15vh auto;padding:0 16px}a{color:#f5b54a}</style></head>
-<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/operations/self-healing">Admin</a></p></main>${going ? '<script>setInterval(function () { if (!document.hidden) location.reload(); }, 60000);</script>' : ''}</body></html>`,
+<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/testing/self-healing">Admin</a></p></main>${going ? '<script>setInterval(function () { if (!document.hidden) location.reload(); }, 60000);</script>' : ''}</body></html>`,
   {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
 }
 
 // GET /admin/e2e (the page), ?json=1 (the runs), ?steps=<artifact> (a suite's steps.json), /admin/e2e/trace/<artifact>/<trace-file>.zip (for the viewer).
 
-// /admin/operations/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to the E2E tab, /admin/operations/e2e.
+// /admin/operations/e2e/run/<run>/report needs an admin and the site's GitHub token; any other /admin/e2e address (the old runs page, ?json, ?steps, traces) goes to the E2E tab, /admin/testing/e2e.
 export async function view(request, env, fetcher = fetch) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const {pathname} = new URL(request.url);
-  if (!/^\/admin\/(?:operations\/)?e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/operations/e2e', 'Cache-Control': 'no-store'}});
+  if (!/^\/admin\/(?:operations\/)?e2e\/run\/\d+\/report$/.test(pathname)) return new Response(null, {status: 302, headers: {Location: '/admin/testing/e2e', 'Cache-Control': 'no-store'}});
   if (!env.GITHUB_TOKEN) return Response.json({error: 'GITHUB_TOKEN is not set on the site'}, {status: 503, headers: {'Cache-Control': 'no-store'}});
   try { return await runReport(request, env, fetcher); } catch (error) {
     console.log('e2e report', error.message);

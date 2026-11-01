@@ -15,7 +15,7 @@ const snapshot = {at: '2026-11-02T06:41:00Z',
   work: [{day: '2026-10-27', kind: 'product', commits: 30}, {day: '2026-10-28', kind: 'plumbing', commits: 10}, {day: '2026-11-02', kind: 'plumbing', commits: 2}],
   workFiles: [{week: '2026-10-26', file: '.github/workflows/e2e.yml', commits: 6}, {week: '2026-11-02', file: 'tools/ship.sh', commits: 1}]};
 
-test('the week reads the page\'s own 7-day window: the same runs, reds and groups as /admin/operations/e2e', () => {
+test('the week reads the page\'s own 7-day window: the same runs, reds and groups as /admin/testing/e2e', () => {
   const s = weekly(snapshot, monday), w = windowOf(snapshot, '7d', monday);
   assert.equal(s.runs, w.runs);
   assert.equal(s.redRuns, w.redRuns);
@@ -46,7 +46,7 @@ test('Telegram: the verdict first, the decision last, the page and the issue lin
   assert.equal(lines[0], '🧪 E2E week to 2 Nov: 4 of 10 runs red (40%)');
   assert.match(text, /Caught a bug: apply\nRed, caught nothing: applyflows \(2\), quality \(1\), strategy \(1\)/);
   assert.match(lines.at(-3), /^Your call: 3 suites red in 30 days/);
-  assert.deepEqual(lines.slice(-2), ['https://www.jobadabra.top/admin/operations/e2e', 'https://github.com/GarryOne/jobadabra-web/issues/9']);
+  assert.deepEqual(lines.slice(-2), ['https://www.jobadabra.top/admin/testing/e2e', 'https://github.com/GarryOne/jobadabra-web/issues/9']);
   assert.equal(issueTitle(s), 'E2E week · 2026-11-02');
   const body = issueBody(s);
   assert.match(body, /^\*\*4 of 10 e2e runs red \(40%\)\*\* in the 7 days to 2 Nov; 1 of 5 red suites caught a product bug\./);
@@ -97,7 +97,7 @@ test('300 detailed Grey suites fit one Telegram message without losing the decis
   assert.ok(shown > 0 && shown < 300);
   assert.ok(text.includes(`\n…and ${300 - shown} more\n`));
   assert.match(text, /\nYour call: Grey: suite-000 .*keep, fix or retire\?/);
-  assert.ok(text.endsWith(`https://www.jobadabra.top/admin/operations/e2e\n${url}`));
+  assert.ok(text.endsWith(`https://www.jobadabra.top/admin/testing/e2e\n${url}`));
   assert.doesNotMatch(text, /W{500}|R{500}|2026-10-26 red/);
   const body = issueBody(s);
   const fullRows = body.split('\n').filter(line => /^suite-\d+ ·/.test(line));

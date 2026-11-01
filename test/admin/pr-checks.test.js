@@ -40,18 +40,18 @@ test('a repeat run in the same month replaces the row', async () => {
 
 test('the page is the owner\'s: 404 without the key, an empty state, one row per check with its verdict and earlier months', async () => {
   const e = env();
-  assert.equal((await call(e, '/admin/operations/pr-checks')).status, 404);
-  assert.match(await (await call(e, '/admin/operations/pr-checks', owner)).text(), /No scorecard yet/);
+  assert.equal((await call(e, '/admin/testing/pr-checks')).status, 404);
+  assert.match(await (await call(e, '/admin/testing/pr-checks', owner)).text(), /No scorecard yet/);
   const db = e.STATS.db;
   db.prepare('INSERT INTO pr_check_months (month, card, updated_at) VALUES (?, ?, ?)').run('2026-10', JSON.stringify(card([check('Unit', {realCatches: 5}), check('Journeys', {realCatches: 1})])), 'x');
   db.prepare('INSERT INTO pr_check_months (month, card, updated_at) VALUES (?, ?, ?)').run('2026-11', JSON.stringify(card([check('Unit'), check('Journeys', {realCatches: 0, verdict: 'review'})])), 'x');
-  const html = await (await call(e, '/admin/operations/pr-checks', owner)).text();
+  const html = await (await call(e, '/admin/testing/pr-checks', owner)).text();
   assert.match(html, /Nov 2026/);
   assert.match(html, /<td>Journeys<\/td><td>40<\/td><td>0<\/td><td>1<\/td><td>9.5<\/td><td>1.2 min<\/td><td><span[^>]*>🟡 review<\/span><\/td><td class="muted">Oct 1<\/td>/);
   assert.match(html, /🟢 proven/);
   assert.ok(!page([{month: '2026-11', card: JSON.stringify(card([check('<script>x</script>')]))}]).includes('<script>x'));
 });
 
-test('the menu lists PR checks under Operations', () => {
-  assert.equal(PAGES.find(item => item.path === '/admin/operations/pr-checks').group, 'Operations');
+test('the menu lists PR checks under Testing', () => {
+  assert.equal(PAGES.find(item => item.path === '/admin/testing/pr-checks').group, 'Testing');
 });

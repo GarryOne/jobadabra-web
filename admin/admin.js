@@ -8,7 +8,7 @@ import {findButton, PALETTE_SCRIPT, PALETTE_STYLE} from './palette.js';
 
 // Every page lives at /admin/{group}/{page} (owner, 27 Oct 2026: "normalize all the page urls"): the group's slug, then the menu name's; /admin itself is the home.
 // slug (when set) = the page's part when its menu name would spell it differently (E-mail → email). old = the page's earlier addresses, redirected (test/admin/admin-urls.test.js fails a page off the pattern, or an old address that no longer answers).
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Testing', '🧪'], ['Agents', '🤖']];
 export const slugOf = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // overview: true = the section's Overview tab (admin/section-overview.js draws the headline numbers every other page of the group declares in admin/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
@@ -34,17 +34,17 @@ export const PAGES = [
   {path: '/admin/intelligence/overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', old: ['/admin/intelligence-overview'], name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/intelligence/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: ['/admin/insights', '/intel'], name: 'Insights', icon: '🧠'},
   {path: '/admin/intelligence/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', old: ['/admin/brain'], slug: 'brain', name: 'Product Brain', icon: '🧠'},
-  {path: '/admin/operations/overview', group: 'Operations', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', name: 'Overview', icon: '⏱️', overview: true},
-  {path: '/admin/operations/build-log', group: 'Operations', question: 'What did we build each day, in plain words?', name: 'Build log', icon: '🗓️'},
-  {path: '/admin/operations/pr-checks', group: 'Operations', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', name: 'PR checks', icon: '✅'},
-  {path: '/admin/operations/agent-coding', group: 'Operations', question: 'How does our agent code, ship and verify, and where does it go in circles?', name: 'Agent coding', icon: '🧭'},
-  {path: '/admin/operations/e2e', group: 'Operations', question: 'Where does our e2e fixing time go: which suites go red, and why?', name: 'E2E', icon: '🧪'},
-  {path: '/admin/operations/integrations', group: 'Operations', question: 'Are the integration tests green, quick and steady, and how much of e2e has moved to them?', name: 'Integrations', icon: '🧩'},
-  {path: '/admin/operations/schedules', group: 'Operations', question: 'Are all our scheduled jobs running on time and green?', name: 'Schedules', icon: '⏰'},
-  {path: '/admin/operations/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: ['/admin/self-healing', '/self-heal'], name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/operations/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', old: ['/admin/sentry'], name: 'Sentry', icon: '🐞'},
+  {path: '/admin/agents/overview', group: 'Agents', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', old: ['/admin/operations/overview', '/admin/operations'], name: 'Overview', icon: '⏱️', overview: true},
+  {path: '/admin/agents/agent-coding', group: 'Agents', question: 'How does our agent code, ship and verify, and where does it go in circles?', old: ['/admin/operations/agent-coding'], name: 'Agent coding', icon: '🧭'},
+  {path: '/admin/agents/build-log', group: 'Agents', question: 'What did we build each day, in plain words?', old: ['/admin/operations/build-log'], name: 'Build log', icon: '🗓️'},
+  {path: '/admin/agents/schedules', group: 'Agents', question: 'Are all our scheduled jobs running on time and green?', old: ['/admin/operations/schedules'], name: 'Schedules', icon: '⏰'},
+  {path: '/admin/testing/e2e', group: 'Testing', question: 'Where does our e2e fixing time go: which suites go red, and why?', old: ['/admin/operations/e2e'], name: 'E2E', icon: '🧪'},
+  {path: '/admin/testing/integrations', group: 'Testing', question: 'Are the integration tests green, quick and steady, and how much of e2e has moved to them?', old: ['/admin/operations/integrations'], name: 'Integrations', icon: '🧩'},
+  {path: '/admin/testing/pr-checks', group: 'Testing', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', old: ['/admin/operations/pr-checks'], name: 'PR checks', icon: '✅'},
+  {path: '/admin/testing/self-healing', group: 'Testing', question: 'Do the automatic loops find and fix problems on their own?', old: ['/admin/self-healing', '/self-heal', '/admin/operations/self-healing'], name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/testing/sentry', group: 'Testing', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', old: ['/admin/sentry', '/admin/operations/sentry'], name: 'Sentry', icon: '🐞'},
   {path: '/admin/intelligence/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: ['/admin/ai-cost', '/ai-cost'], name: 'AI cost', icon: '💸'},
-  {path: '/admin/operations/access', group: 'Operations', question: 'Who can open these admin pages?', old: ['/admin/access'], name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin/agents/access', group: 'Agents', question: 'Who can open these admin pages?', old: ['/admin/access', '/admin/operations/access'], name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), a group's own address (its first page), and the sub-routes that moved with their page (the digest downloads,
 // the Lab's videos): the ONLY place the old paths may still be written (test/web/form-pages.test.js).

@@ -1,5 +1,5 @@
 // How steady the AI is in the quality suite, as rates over the last 90 score pairs (owner, 27 Oct 2026: "Code gate + AI rate"; bars: "Below 80% of last 90",
-// "Above 2% of last 90"). The collector reads the night's live quality run's log (counts only), the site keeps one row per night, /admin/operations/e2e draws it.
+// "Above 2% of last 90"). The collector reads the night's live quality run's log (counts only), the site keeps one row per night, /admin/testing/e2e draws it.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';

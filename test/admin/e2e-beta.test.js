@@ -1,4 +1,4 @@
-// Suites green vs red in every beta run on /admin/operations/e2e (owner, 1 Nov 2026): the row is cleaned, merged and drawn from the snapshot only; counts, a released marker, words for an empty range.
+// Suites green vs red in every beta run on /admin/testing/e2e (owner, 1 Nov 2026): the row is cleaned, merged and drawn from the snapshot only; counts, a released marker, words for an empty range.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {betaCard, betaData, betaRuns, betaSummary, cleanBetaRun} from '../../admin/e2e-beta.js';
@@ -59,7 +59,7 @@ test('an empty range and a snapshot without beta rows each say so in words', () 
   assert.match(betaCard(null, {days: 7, now}), /Not collected yet/);
 });
 
-test('/admin/operations/e2e draws the card under "Green runs per day" for all runs and for betas, and leaves it out for another kind; the range follows the page', () => {
+test('/admin/testing/e2e draws the card under "Green runs per day" for all runs and for betas, and leaves it out for another kind; the range follows the page', () => {
   const all = page(snapshot, {range: '7d', now}), thirty = page(snapshot, {range: '30d', now});
   assert.match(all, /<h2>Suites per beta run · Last 7 days<\/h2>/);
   assert.ok(all.indexOf('Green runs per day') < all.indexOf('Suites per beta run'));

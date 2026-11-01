@@ -1,6 +1,6 @@
 # E2E green trend: the card, then fresh data (31 Oct 2026)
 
-> **Verdict:** two PRs. The owner asked for the e2e green/stability trend on `/admin/operations/e2e` ("Do we have such a graph that shows the trend of our e2e green/stability ... ?"), then chose to start the collector from the Worker.
+> **Verdict:** two PRs. The owner asked for the e2e green/stability trend on `/admin/testing/e2e` ("Do we have such a graph that shows the trend of our e2e green/stability ... ?"), then chose to start the collector from the Worker.
 
 | PR | What | Owner's answer |
 |---|---|---|

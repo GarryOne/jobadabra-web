@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Publishes the integration tests' snapshot to /admin/operations/integrations (integration-intel.yml, hourly). Reads the finished runs of the public repo's workflow
+// Publishes the integration tests' snapshot to /admin/testing/integrations (integration-intel.yml, hourly). Reads the finished runs of the public repo's workflow
 // "CI · Integration tests" (integration.yml) and each run's artifacts integration-results-<layer>[-<platform>] (jobs/integration-intel-rows.mjs says what a file holds),
 // finds flaky tests, the slowest ones, and the e2e -> integration move from the public repo's folders. A run is read once: its rows stay in the stored snapshot (GET /integration/data).
 //   node jobs/integration-intel.mjs [--dry [--out snapshot.json]]    needs gh with GH_TOKEN; publishing needs SELFHEAL_PUBLISH_KEY (optional INTEGRATION_INTEL_URL)

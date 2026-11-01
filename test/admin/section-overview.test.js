@@ -44,21 +44,21 @@ test('every loader returns well-formed tiles on an empty database, and a missing
   }
 });
 
-test('Operations loaders read the rows their pages keep', async () => {
+test('Agents and Testing loaders read the rows their pages keep', async () => {
   const e = env(), {db} = e.STATS;
   db.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?)').run('2026-10-15', '2026-10-15T09:00:00Z', JSON.stringify({totals: {real: 73, judged: 181, precision: 40}, fixer: {landed: 21, opened: 24, open: 0}, recall: {caught: 21, planted: 22, missed: ['dead-button']}}));
   db.prepare('INSERT INTO digest_days (day, groups, open_line, numbers, drafts, usd, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?)').run('2026-10-15', '[{"t":1},{"t":2}]', '', '[1,2,3]', '2026-10-15T10:00:00Z');
   db.prepare('INSERT INTO ai_cost_runs (job, run_id, day, at, usd, calls) VALUES (?, ?, ?, ?, ?, 1)').run('self-heal', 'r1', '2026-10-15', '2026-10-15T08:00:00Z', 8.15);
-  const [heal, fixer] = await HEADLINES['/admin/operations/self-healing'](e, now);
+  const [heal, fixer] = await HEADLINES['/admin/testing/self-healing'](e, now);
   assert.deepEqual([heal.value, heal.status, heal.sub.includes('dead-button'), fixer.value], ['40%', 'warn', true, '21']);
-  assert.deepEqual((await HEADLINES['/admin/operations/build-log'](e, now))[0].sub, '2 goals');
+  assert.deepEqual((await HEADLINES['/admin/agents/build-log'](e, now))[0].sub, '2 goals');
   assert.equal((await HEADLINES['/admin/intelligence/ai-cost'](e, now))[0].value, '$8.15');
 });
 
 test('the E2E tile counts reds and runs of the last 7 days and names the top cause', async () => {
   const e = env();
   e.STATS.db.prepare('INSERT INTO e2e_snapshot (id, at, body) VALUES (1, ?, ?)').run('2026-10-14T12:00:00Z', JSON.stringify({days: [{day: '2026-10-14', runs: 10, reds: 2}, {day: '2026-09-01', runs: 99, reds: 99}], fails: [{day: '2026-10-14', cause: 'timeout', n: 2}]}));
-  const [tile] = await HEADLINES['/admin/operations/e2e'](e, now);
+  const [tile] = await HEADLINES['/admin/testing/e2e'](e, now);
   assert.deepEqual([tile.value, tile.status, tile.sub], ['2 of 10', 'warn', 'top cause: timeout (2)']);
 });
 
@@ -67,10 +67,10 @@ test('a failing loader becomes a grey tile, not an error', async () => {
   assert.ok(tiles.length >= 1 && tiles.every(tile => tile.href && tile.page));
 });
 
-test('the Operations Overview draws the section tiles above the time page', async () => {
-  const response = await call(env(), '/admin/operations/overview', owner), html = await response.text();
+test('the Agents Overview draws the section tiles above the time page', async () => {
+  const response = await call(env(), '/admin/agents/overview', owner), html = await response.text();
   assert.equal(response.status, 200);
-  for (const page of headlinePages(PAGES.find(item => item.path === '/admin/operations/overview').group)) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
+  for (const page of headlinePages(PAGES.find(item => item.path === '/admin/agents/overview').group)) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
   assert.match(html, /class="tile/);
 });
 

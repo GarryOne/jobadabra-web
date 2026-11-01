@@ -69,20 +69,20 @@ test('weeks start on Monday (UTC), newest first, eight of them, and a day lands 
 
 test('the page is the owner\'s: 404 without the key, honest empty states, then the five cards with a circle flagged at 3 fix PRs in a week', async () => {
   const e = env();
-  assert.equal((await call(e, '/admin/operations/agent-coding')).status, 404);
-  const empty = await (await call(e, '/admin/operations/agent-coding', owner)).text();
+  assert.equal((await call(e, '/admin/agents/agent-coding')).status, 404);
+  const empty = await (await call(e, '/admin/agents/agent-coding', owner)).text();
   assert.match(empty, /No push-gate upload yet/);
   assert.match(empty, /No CI upload yet/);
   assert.ok(!/0% /.test(empty), 'no invented zeros');
   await put(e, {kind: 'gate', days: [gateDay(today)]});
   await put(e, {kind: 'ci', days: [ciDay(today)]});
-  const html = await (await call(e, '/admin/operations/agent-coding', owner)).text();
+  const html = await (await call(e, '/admin/agents/agent-coding', owner)).text();
   for (const id of ['gate', 'fixed', 'share', 'circles', 'minutes']) assert.match(html, new RegExp(`<section class="card" id="${id}"`));
   assert.match(html, /80% of stopped pushes were form/);
   assert.match(html, /<td>file size<\/td>.*<td>desktop \(clean checkout\)<\/td>/s, 'every push check is listed, the one that stopped most first');
   assert.match(html, /🌀 3/);
   assert.match(html, /1 area with 3\+ fixes/);
-  assert.match(html, /href="\/admin\/operations\/pr-checks"/);
+  assert.match(html, /href="\/admin\/testing\/pr-checks"/);
 });
 
 test('a name from an upload is escaped on the page', () => {
@@ -91,13 +91,13 @@ test('a name from an upload is escaped on the page', () => {
   assert.ok(!html.includes('<img src=x'));
 });
 
-test('the menu lists Agent coding under Operations and the overview headline counts the circling areas', async () => {
-  assert.equal(PAGES.find(item => item.path === '/admin/operations/agent-coding').group, 'Operations');
+test('the menu lists Agent coding under Agents and the overview headline counts the circling areas', async () => {
+  assert.equal(PAGES.find(item => item.path === '/admin/agents/agent-coding').group, 'Agents');
   const e = env();
-  const [empty] = await OPERATIONS['/admin/operations/agent-coding'](e, new Date());
+  const [empty] = await OPERATIONS['/admin/agents/agent-coding'](e, new Date());
   assert.equal(empty.value, 'No data');
   await put(e, {kind: 'ci', days: [ciDay(today)]});
-  const [circling] = await OPERATIONS['/admin/operations/agent-coding'](e, new Date());
+  const [circling] = await OPERATIONS['/admin/agents/agent-coding'](e, new Date());
   assert.equal(circling.value, '1');
   assert.equal(circling.status, 'bad');
 });

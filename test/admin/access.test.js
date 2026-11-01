@@ -1,4 +1,4 @@
-// Invite links (admin/access.js, shared/auth.js): the super admin invites someone on /admin/operations/access; the link gives that
+// Invite links (admin/access.js, shared/auth.js): the super admin invites someone on /admin/agents/access; the link gives that
 // person the admin role: every admin page, nothing to manage, no API. Expiry and removal take effect on the next request.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -17,7 +17,7 @@ const ORIGIN = 'https://www.jobpilotto.top';
 const env = () => ({STATS: d1(), STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', STATS_SALT: 's', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})},
   ASSETS: {fetch: () => new Response('asset')}});
 const get = (e, path, headers = {}) => worker.fetch(new Request(`${ORIGIN}${path}`, {headers: {'User-Agent': 'Mozilla/5.0 (Macintosh)', ...headers}}), e, {});
-const post = (e, fields, headers = {}) => worker.fetch(new Request(`${ORIGIN}/admin/operations/access`, {method: 'POST', body: new URLSearchParams(fields),
+const post = (e, fields, headers = {}) => worker.fetch(new Request(`${ORIGIN}/admin/agents/access`, {method: 'POST', body: new URLSearchParams(fields),
   headers: {Origin: ORIGIN, 'Content-Type': 'application/x-www-form-urlencoded', ...headers}}), e, {});
 const SUPER = {Authorization: 'Bearer script-key'};
 const cookie = response => (response.headers.get('Set-Cookie') || '').match(/jp_admin=[^;]+/)?.[0];
@@ -28,10 +28,10 @@ async function invited(e, name = 'Ana', days = '30') {
   return {page, path: link.slice(ORIGIN.length)};
 }
 
-test('only the super admin sees and uses /admin/operations/access', async () => {
+test('only the super admin sees and uses /admin/agents/access', async () => {
   const e = env();
-  assert.equal((await get(e, '/admin/operations/access')).status, 404);
-  const page = await get(e, '/admin/operations/access', SUPER);
+  assert.equal((await get(e, '/admin/agents/access')).status, 404);
+  const page = await get(e, '/admin/agents/access', SUPER);
   assert.equal(page.status, 200);
   assert.match(await page.text(), /Invite someone/);
   assert.equal((await post(e, {action: 'invite', name: 'X', days: '7'}, {...SUPER, Origin: 'https://evil.example'})).status, 404);   // another site's form
@@ -44,14 +44,14 @@ test('an invite link gives the admin role: every page, the menu without Access, 
   const opened = await get(e, path);
   assert.deepEqual([opened.status, opened.headers.get('Location')], [302, '/admin']);
   const session = cookie(opened);
-  for (const p of ['/admin', '/admin/growth/website', '/admin/growth/app', '/admin/intelligence/insights', '/admin/operations/self-healing', '/admin/intelligence/ai-cost', '/admin/form-filling/real-users', '/admin/growth/feedback']) {
+  for (const p of ['/admin', '/admin/growth/website', '/admin/growth/app', '/admin/intelligence/insights', '/admin/testing/self-healing', '/admin/intelligence/ai-cost', '/admin/form-filling/real-users', '/admin/growth/feedback']) {
     const response = await get(e, p, {Cookie: session});
     assert.equal(response.status, 200, p);
     const html = await response.text();
-    assert.ok(!html.includes('href="/admin/operations/access"'), `${p}: no Access in an admin's menu`);
+    assert.ok(!html.includes('href="/admin/agents/access"'), `${p}: no Access in an admin's menu`);
     assert.match(html, /Ana · admin/);
   }
-  assert.equal((await get(e, '/admin/operations/access', {Cookie: session})).status, 404);
+  assert.equal((await get(e, '/admin/agents/access', {Cookie: session})).status, 404);
   assert.equal((await post(e, {action: 'invite', name: 'Eve', days: '90'}, {Cookie: session})).status, 404);
   assert.equal((await get(e, '/api/recipes/targets', {Cookie: session})).status, 404);   // APIs stay the super admin's
   assert.equal((await get(e, path)).status, 302);   // reusable: a link preview must not spend it
@@ -73,7 +73,7 @@ test('removing someone or letting their access expire ends it at the next reques
   assert.equal((await get(e, '/admin', {Cookie: session})).status, 404);   // removed
   assert.equal((await post(e, {action: 'extend', id, days: '90'}, SUPER)).status, 303);
   assert.equal((await get(e, '/admin', {Cookie: session})).status, 404);   // a removed person is not brought back by an expiry
-  assert.match(await (await get(e, '/admin/operations/access', SUPER)).text(), /Bo<\/b><\/td><td><span class="chip off">Removed/);
+  assert.match(await (await get(e, '/admin/agents/access', SUPER)).text(), /Bo<\/b><\/td><td><span class="chip off">Removed/);
 });
 
 test('the link is kept only as a hash, and a forged admin session is refused', async () => {

@@ -93,7 +93,7 @@ function numbers(data) {
 }
 
 /** The "Green runs per day" card: the 2-days-vs-7-days tiles, one line per run kind, a legend and the numbers. `days` = the page's range in days.
- *  `lines` / `headline` (series: {id, label, kinds, color}) let /admin/operations/integrations draw one line per test layer with the same chart; `what` names the runs. */
+ *  `lines` / `headline` (series: {id, label, kinds, color}) let /admin/testing/integrations draw one line per test layer with the same chart; `what` names the runs. */
 export function greenCard(snapshot, {kind = 'all', days = 7, now = new Date(), kindName = id => id, scopeName = '', lines = null, headline = null, what = 'e2e'} = {}) {
   const data = greenPerDay(snapshot, {kind, days, now, kindName, lines}), trend = greenTrend(snapshot, {kind, now, kindName, headline});
   const any = data.series.some(series => series.points.some(point => point.share !== null));

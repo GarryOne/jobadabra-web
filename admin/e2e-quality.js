@@ -1,6 +1,6 @@
 // How steady and right the AI is in the quality suite, as rates over many nights (owner, 27 Oct 2026: "Code gate + AI rate"): the gate replays recorded answers,
 // and the night's live quality run scores the golden jobs twice. jobs/e2e-intel.mjs reads those runs' logs (counts only, never stored), the site keeps one row per
-// night (e2e_quality) and /admin/operations/e2e draws the rate over the last 90 score pairs against the owner's bars (admin/e2e-page.js qualityCard). Guard: test/admin/e2e-quality.test.js.
+// night (e2e_quality) and /admin/testing/e2e draws the rate over the last 90 score pairs against the owner's bars (admin/e2e-page.js qualityCard). Guard: test/admin/e2e-quality.test.js.
 
 // The owner's bars (27 Oct 2026): red below 80% of the last 90 pairs within 8 points ("raised after the wobble fix"); red above 2% of them more than 20 apart.
 export const BARS = {pairs: 90, agree: 0.8, jumps: 0.02, within: 8, jump: 20};

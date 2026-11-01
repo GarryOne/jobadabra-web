@@ -1,4 +1,4 @@
-// /admin/operations/integrations: the integration tests' own page (owner, 1 Nov 2026: "I'd like to keep the separate tbh"), built like /admin/operations/e2e but a page of its own.
+// /admin/testing/integrations: the integration tests' own page (owner, 1 Nov 2026: "I'd like to keep the separate tbh"), built like /admin/testing/e2e but a page of its own.
 // Draws the ONE snapshot row admin/integration-intel.js keeps: main's green share per layer, the tests per layer and how long they take, flaky tests (red then green on the same
 // commit or on unchanged files), the 10 slowest tests, and the move (e2e steps left against integration tests). No table scan. Guard: test/admin/integration-page.test.js.
 import {viewer, remember} from '../shared/auth.js';
@@ -112,7 +112,7 @@ export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now =
   const stats = layerStats(snapshot, range, now), {keys} = mainRuns(snapshot, range, now);
   const body = !snapshot ? '<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>integration-intel.yml</code> publishes the integration results hourly; the first run fills this page.</p></section>'
     : `${filters}${bandCard(stats)}\n${layersCard(stats, name)}\n${greenCard(greenRows(snapshot, now), {days: RANGES[range].days, now, lines: LINES, headline: ALL, what: 'integration', scopeName: name})}\n${flakyCard(snapshot, repo, name, keys)}\n${slowCard(snapshot)}\n${moveCard(snapshot)}`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Integration · Operations · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Integration · Testing · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main>
 <header><h1>🧩 Integration tests</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · extension, app and store layers, runs of “CI · Integration tests”` : ''}</span></header>
 ${startLine(problem)}${body}</main></body></html>`;

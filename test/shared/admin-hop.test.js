@@ -37,7 +37,7 @@ test('an expired, forged or re-aimed token is a 404', async () => {
   const t = u.searchParams.get('t'), to = u.searchParams.get('to');
   assert.equal((await ask(t, to, now + 61000)).status, 404);   // expired
   assert.equal((await ask(t.slice(0, -2) + (t.endsWith('xx') ? 'yy' : 'xx'), to)).status, 404);   // forged signature
-  assert.equal((await ask(t, '/admin/operations/access')).status, 404);   // signed for another path
+  assert.equal((await ask(t, '/admin/agents/access')).status, 404);   // signed for another path
   assert.equal((await hopIn(page('www.jobadabra.top', '/admin/hop'), e, now)).status, 404);
   const other = {...e, STATS_KEY: 'other'};
   assert.equal((await hopIn(page('www.jobadabra.top', `/admin/hop?t=${encodeURIComponent(t)}&to=${encodeURIComponent(to)}`), other, now + 1000)).status, 404);
@@ -46,7 +46,7 @@ test('an expired, forged or re-aimed token is a 404', async () => {
 
 test('to must be a same-origin /admin path', () => {
   for (const to of ['https://evil.example/admin', '//evil.example', '/admin//evil.example', '/admin/../x', '/other', '/admin\\x', 'admin', '', '/admin?next=https://x']) assert.equal(safeTo(to), false, to);
-  for (const to of ['/admin', '/admin/intelligence/ai-cost?days=7', '/admin/operations/e2e']) assert.equal(safeTo(to), true, to);
+  for (const to of ['/admin', '/admin/intelligence/ai-cost?days=7', '/admin/testing/e2e']) assert.equal(safeTo(to), true, to);
 });
 
 test('only an owner cookie on an old host, asking for a page, is hopped; no or a forged cookie is sent on without one', async () => {
