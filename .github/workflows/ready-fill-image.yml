@@ -1,0 +1,35 @@
+name: CI · Ready to send image
+# Builds the Ready to send container image and runs one night in it against a stand-in site (hosted/ready-fill/image-check.mjs, ~1-2 min):
+# a night that cannot start fails the PR instead of the first real night (18 Oct 2026: every night failed at setup, found 25 min after the deploy).
+# Fictional data only, no AI, no keys, nothing deployed. Moved here from the public repo on 1 Nov 2026 (owner: "jobadabra should have no web, no worker"; spec docs/superpowers/specs/2026-11-01-desktop-extension-only.md, 5b/6):
+# the image is built from this repo's hosted/ files laid over the public tree (tools/tree.sh), which holds extension/, app-core/src and the shared night files in desktop/ready-fill/.
+# Why (1 Nov 2026): a change to the PUBLIC files the image copies (extension/, app-core/src, desktop/ready-fill/) cannot start a workflow here; the same night runs before every runner deploy (release-ready-runner.yml),
+# which public-watch.yml starts when those files change, so a broken image never ships.
+on:
+  pull_request:
+    paths:
+      - 'hosted/**'
+      - '.github/workflows/ready-fill-image.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ready-fill-image-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push cancels its older run
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: .private
+      - name: Lay the public repo's tree under this one
+        run: .private/tools/tree.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Build the image
+        run: docker build -f hosted/ready-fill/Dockerfile -t ready-fill:check .
+      - name: One night against a stand-in site
+        run: node hosted/ready-fill/image-check.mjs ready-fill:check
