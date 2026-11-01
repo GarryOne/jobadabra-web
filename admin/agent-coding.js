@@ -5,6 +5,7 @@
 import {equal} from '../shared/guard.js';
 import {viewer, remember} from '../shared/auth.js';
 import {page} from './agent-coding-page.js';
+import {sdlcPage} from './agent-coding-sdlc.js';
 
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
 const json = (body, status = 200) => new Response(JSON.stringify(body), {status, headers: {'Content-Type': 'application/json'}});
@@ -12,6 +13,8 @@ const count = value => Math.min(1e7, Math.max(0, Math.round(Number(value) || 0))
 const minutes = value => Math.min(1e5, Math.max(0, Math.round((Number(value) || 0) * 10) / 10));
 const label = value => String(value ?? '').replace(/[^A-Za-z0-9 ()·./,+:_-]/g, '').trim().slice(0, 60);
 const CLASSES = ['form', 'real', 'other'], FIXES = ['product', 'test', 'ci', 'form', 'nofix'];
+const LAYERS = ['pr', 'main', 'night'], CATCHES = ['product', 'test', 'ci', 'form', 'flaky', 'rebase', 'nofix'];
+const PHASES = ['merged', 'nospec', 'unmerged', 'prCommits', 'fixAfter', 'reverts', 'redMain'];
 const tally = (source, keys) => Object.fromEntries(keys.map(key => [key, count(source?.[key])]));
 const list = (value, cap) => (Array.isArray(value) ? value.slice(0, cap).map(minutes) : []);
 
@@ -29,7 +32,18 @@ export function cleanCi(card) {
   return {prs: {merged: count(card.prs?.merged), ci: count(card.prs?.ci)}, reds: tally(card.reds, FIXES), fixPrs: Object.fromEntries(areas),
     wall: list(card.wall, 500), queue: list(card.queue, 500), cancelledMin: minutes(card.cancelledMin)};
 }
-const CLEAN = {gate: cleanGate, ci: cleanCi};
+// One day of the SDLC upload (v2, 1 Nov 2026): per layer (pr, main, night) and check the runs, reds, seconds and what followed each red (catches by class), the phases' proxy counts, bugs the owner saw.
+export function cleanSdlc(card) {
+  if (!card || typeof card !== 'object') return null;
+  const layers = {};
+  for (const layer of LAYERS) {
+    const checks = Object.entries(card.layers?.[layer] && typeof card.layers[layer] === 'object' ? card.layers[layer] : {}).slice(0, 80).map(([name, check]) => [label(name), {runs: count(check?.runs), fails: count(check?.fails),
+      secs: count(check?.secs), catches: tally(check?.catches, CATCHES)}]).filter(([name]) => name);
+    layers[layer] = Object.fromEntries(checks);
+  }
+  return {layers, phases: tally(card.phases, PHASES), bugs: count(card.bugs)};
+}
+const CLEAN = {gate: cleanGate, ci: cleanCi, sdlc: cleanSdlc};
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
 export async function ingest(request, env, now = new Date()) {
@@ -56,5 +70,5 @@ export async function view(request, env, now = new Date()) {
   const since = new Date(now.getTime() - 63 * 86400000).toISOString().slice(0, 10);
   let rows = [];
   try { rows = env.STATS ? (await env.STATS.prepare('SELECT kind, day, card, updated_at FROM agent_coding_days WHERE day >= ? ORDER BY day').bind(since).all()).results || [] : []; } catch { rows = []; }
-  return new Response(page(rows, now), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(url.searchParams.get('tab') === 'sdlc' ? sdlcPage(rows, now) : page(rows, now), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

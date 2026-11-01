@@ -3,32 +3,36 @@
 import {esc} from '../shared/html.js';
 
 const WEEKS = 8;
-const COLORS = {form: '#f2c14e', real: '#e5484d', other: '#8d949c', product: '#5ec47a', test: '#6aa8ff', ci: '#b48cff', nofix: '#5b6470', ok: '#5ec47a'};
-const WORDS = {form: 'form', real: 'real suite red', other: 'other', product: 'product code', test: 'test / harness drift', ci: 'CI config / tools', nofix: 'no fix seen'};
-const monday = day => { const date = new Date(`${day}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7)); return date.toISOString().slice(0, 10); };
+export const COLORS = {form: '#f2c14e', real: '#e5484d', other: '#8d949c', product: '#5ec47a', test: '#6aa8ff', ci: '#b48cff', nofix: '#5b6470', flaky: '#d98ad9', rebase: '#7fb8c9', ok: '#5ec47a'};
+export const WORDS = {form: 'form', real: 'real suite red', other: 'other', product: 'product code', test: 'test / harness drift', ci: 'CI config / tools', nofix: 'no fix seen', flaky: 'flaky (green on re-run)', rebase: 'after a rebase (cause unclear)'};
+export const monday = day => { const date = new Date(`${day}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7)); return date.toISOString().slice(0, 10); };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const weekWords = start => `${MONTHS[Number(start.slice(5, 7)) - 1]} ${Number(start.slice(8))}`;
-const sum = (list, pick) => list.reduce((total, item) => total + (pick(item) || 0), 0);
-const pct = (part, whole) => (whole ? Math.round(part / whole * 100) : 0);
-const pick = (sorted, q) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(q * sorted.length) - 1)] : 0);
-const round1 = value => Math.round(value * 10) / 10;
+export const weekWords = start => `${MONTHS[Number(start.slice(5, 7)) - 1]} ${Number(start.slice(8))}`;
+export const sum = (list, pick) => list.reduce((total, item) => total + (pick(item) || 0), 0);
+export const pct = (part, whole) => (whole ? Math.round(part / whole * 100) : 0);
+export const pick = (sorted, q) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(q * sorted.length) - 1)] : 0);
+export const round1 = value => Math.round(value * 10) / 10;
 
 // The weeks (newest first) with the days of each kind that fall in them.
+// The two tabs of the page (v2, 1 Nov 2026: "This should be probably a separate tab. SDLC"): the weekly view and the whole path.
+export const tabs = active => `<nav class="tabs" aria-label="Agent coding views"><a href="/admin/agents/agent-coding"${active === 'weekly' ? ' class="on" aria-current="page"' : ''}>Weekly</a><a href="/admin/agents/agent-coding?tab=sdlc"${active === 'sdlc' ? ' class="on" aria-current="page"' : ''}>SDLC · the whole path</a></nav>`;
+export const TABS_STYLE = `.tabs{display:flex;gap:6px;margin:6px 0 14px;border-bottom:1px solid #262c33}.tabs a{padding:8px 16px;border:1px solid #262c33;border-bottom:0;border-radius:10px 10px 0 0;color:#8d949c;text-decoration:none;font-size:14px;margin-bottom:-1px}.tabs a.on{background:#14181d;color:#e6e8ea;font-weight:600;box-shadow:inset 0 2px 0 #f2c14e}.tabs a:focus-visible{outline:2px solid #f2c14e;outline-offset:-2px}`;
+
 export function weeksOf(rows, now) {
   const first = monday(now.toISOString().slice(0, 10)), out = [];
-  for (let back = 0; back < WEEKS; back++) { const date = new Date(`${first}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 7 * back); out.push({start: date.toISOString().slice(0, 10), gate: [], ci: []}); }
+  for (let back = 0; back < WEEKS; back++) { const date = new Date(`${first}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 7 * back); out.push({start: date.toISOString().slice(0, 10), gate: [], ci: [], sdlc: []}); }
   for (const row of rows) { const week = out.find(item => item.start === monday(row.day)); if (week && week[row.kind]) week[row.kind].push(JSON.parse(row.card)); }
   return out;
 }
 
-const bar = parts => { const total = sum(parts, part => part[1]) || 1;
+export const bar = parts => { const total = sum(parts, part => part[1]) || 1;
   return `<div class="ac-bar" role="img" aria-label="${esc(parts.map(([key, n]) => `${WORDS[key]} ${n}`).join(', '))}">${parts.filter(part => part[1]).map(([key, n]) => `<i style="width:${n / total * 100}%;background:${COLORS[key]}" title="${esc(WORDS[key])}: ${n}"></i>`).join('')}</div>`; };
-const legend = keys => `<p class="ac-legend">${keys.map(key => `<span><b style="background:${COLORS[key]}"></b>${esc(WORDS[key])}</span>`).join('')}</p>`;
-const chip = (kind, text) => `<span class="ac-chip ${kind}">${{good: '✓', warn: '▲', circle: '🌀', wait: '…'}[kind]} ${esc(text)}</span>`;
-const empty = what => `<p class="muted">No ${esc(what)} upload yet.</p>`;
-const note = text => `<p class="muted ac-note">${text}</p>`;
-const card = (id, title, sub, body) => `<section class="card" id="${id}"><h2>${title} <span class="muted">· ${sub}</span></h2>${body}</section>`;
-const row = (week, body) => `<div class="ac-row"><span class="ac-week">${esc(weekWords(week.start))}</span>${body}</div>`;
+export const legend = keys => `<p class="ac-legend">${keys.map(key => `<span><b style="background:${COLORS[key]}"></b>${esc(WORDS[key])}</span>`).join('')}</p>`;
+export const chip = (kind, text) => `<span class="ac-chip ${kind}">${{good: '✓', warn: '▲', circle: '🌀', wait: '…'}[kind]} ${esc(text)}</span>`;
+export const empty = what => `<p class="muted">No ${esc(what)} upload yet.</p>`;
+export const note = text => `<p class="muted ac-note">${text}</p>`;
+export const card = (id, title, sub, body) => `<section class="card" id="${id}"><h2>${title} <span class="muted">· ${sub}</span></h2>${body}</section>`;
+export const row = (week, body) => `<div class="ac-row"><span class="ac-week">${esc(weekWords(week.start))}</span>${body}</div>`;
 
 function gateCard(weeks) {
   const data = weeks.filter(week => week.gate.length);
@@ -91,7 +95,7 @@ function verdict(weeks) {
   return `<section class="card ac-verdict"><h2>This week <span class="muted">· from ${esc(weekWords(now.start))}</span></h2><div class="ac-chips">${parts.join('')}</div></section>`;
 }
 
-const STYLE = `.ac-chips{display:flex;flex-wrap:wrap;gap:8px}.ac-chip{border:1px solid #262c33;border-radius:999px;padding:4px 12px;font-size:13px;white-space:nowrap}.ac-chip.good{color:#5ec47a;border-color:#2d5a3b}.ac-chip.warn{color:#f2c14e;border-color:#6b5a21}.ac-chip.circle{color:#ff8f84;border-color:#7a3430}.ac-chip.wait{color:#8d949c}
+export const STYLE = `.ac-chips{display:flex;flex-wrap:wrap;gap:8px}.ac-chip{border:1px solid #262c33;border-radius:999px;padding:4px 12px;font-size:13px;white-space:nowrap}.ac-chip.good{color:#5ec47a;border-color:#2d5a3b}.ac-chip.warn{color:#f2c14e;border-color:#6b5a21}.ac-chip.circle{color:#ff8f84;border-color:#7a3430}.ac-chip.wait{color:#8d949c}
 .ac-row{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;padding:5px 0;font-size:13.5px}.ac-week{color:#8d949c}.ac-num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .ac-bar{height:14px;border-radius:7px;background:#1b2027;display:flex;overflow:hidden;min-width:60px}.ac-bar i{display:block;height:100%}.ac-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;font-size:12px;color:#8d949c}.ac-legend b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
 .ac-tag{border:1px solid var(--c);color:var(--c);border-radius:999px;padding:1px 8px;font-size:12px;white-space:nowrap}.ac-note{font-size:12px;margin:10px 0 0}.ac-grid td.num{min-width:40px}.ac-circle{color:#ff8f84;font-weight:600}
@@ -101,8 +105,8 @@ details{margin-top:12px}summary{cursor:pointer;color:#8d949c;font-size:13px}.ac-
 export function page(rows, now = new Date()) {
   const weeks = weeksOf(rows, now), at = rows.map(item => item.updated_at).filter(Boolean).sort().at(-1);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Agent coding · Agents · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${STYLE}</style></head><body><main>
+<link rel="icon" href="/favicon-32.png"><style>${STYLE}${TABS_STYLE}</style></head><body><main>
 <header><h1>🧭 Agent coding</h1><span class="muted ac-top">weekly · last ${WEEKS} weeks${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/testing/pr-checks">per-check scorecard →</a></span></header>
-${verdict(weeks)}
+${tabs('weekly')}${verdict(weeks)}
 ${gateCard(weeks)}${fixedCard(weeks)}${shareCard(weeks)}${circlesCard(weeks)}${minutesCard(weeks)}</main></body></html>`;
 }

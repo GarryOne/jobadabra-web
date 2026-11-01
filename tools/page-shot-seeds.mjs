@@ -32,6 +32,17 @@ export const seeds = {
     }
     await put('gate', gate.slice(-30)); await put('gate', gate.slice(0, 26)); await put('ci', ci.slice(-30)); await put('ci', ci.slice(0, 26));
   },
+  'agent-coding-sdlc': async ({env}) => {   // the SDLC tab (1 Nov 2026): the real cards in $SDLC_REAL_DIR (gate-days.json, sdlc.json from tools/sdlc-stats.mjs) when set, else made-up days
+    const {ingest} = await import('../admin/agent-coding.js');
+    const {readFileSync, existsSync} = await import('node:fs');
+    const put = body => ingest(new Request('https://x/agent-coding/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify(body)}), {STATS: env.STATS, SELFHEAL_PUBLISH_KEY: 'k'});
+    const dir = process.env.SDLC_REAL_DIR;
+    if (dir && existsSync(`${dir}/sdlc.json`)) { for (const file of ['gate-days.json', 'sdlc.json']) if (existsSync(`${dir}/${file}`)) await put(JSON.parse(readFileSync(`${dir}/${file}`, 'utf8'))); return; }
+    const now = new Date(), days = Array.from({length: 14}, (_, i) => new Date(now.getTime() - (13 - i) * 86400000).toISOString().slice(0, 10));
+    const checks = [['CI · Tests · python', 3.7, 9], ['CI · Tests · desktop', 2.8, 12], ['CI · Harness tests', 2.1, 3], ['CI · Pull request', 0.6, 1], ['CI · Tests · worker', 1.4, 5]];
+    await put({kind: 'sdlc', days: days.map((day, i) => ({day, bugs: i % 4 === 0 ? 1 : 0, phases: {merged: 20 + i, nospec: 6 + i % 3, unmerged: 1 + i % 2, prCommits: 60 + i, fixAfter: 3 + i % 4, reverts: i % 5 === 0 ? 1 : 0, redMain: i % 3 === 0 ? 1 : 0},
+      layers: {pr: Object.fromEntries(checks.map(([name, mins, fails], c) => [name, {runs: 60 + i, fails: fails + i % 3, secs: (60 + i) * mins * 60, catches: {product: c < 2 ? 3 : 0, test: c === 1 ? 2 : 0, ci: 1, form: c === 3 ? 4 : 1, flaky: c === 2 ? 3 : 0, nofix: 1}}])), main: {}, night: {}}}))});
+  },
   'self-healing': async ({env}) => {   // made-up snapshots of the self-healing loop over 10 days, with long issue titles and detector names (26 Oct 2026, admin on a phone)
     const today = Date.now();
     for (let back = 9; back >= 0; back--) {
