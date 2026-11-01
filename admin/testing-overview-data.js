@@ -10,6 +10,7 @@ import {latestCard} from './pr-checks.js';
 import {issues} from './sentry.js';
 import {missed, words} from '../shared/schedules-model.js';
 import {METHODS, PLANNED, RINGS} from './testing-overview-methods.js';
+import {nightlySummary, summaryForCard} from './nightly-summary.js';
 import {historyOf} from './testing-overview-history.js';
 
 const DAY = 86400000, DEFAULT_REPO = 'GarryOne/jobadabra';
@@ -109,10 +110,11 @@ const cardState = lines => lines.map(line => line.last.state).reduce((worst, sta
 
 /** The page's model: the rings in order, each with its method cards (live ones resolved, planned ones grey) and a count of live cards by verdict. */
 export function resolve(data, {pages = []} = {}) {
+  const nightly = nightlySummary({snapshot: data.e2e}, data.now || new Date());   // the e2e snapshot this page already loaded: no second read (owner, 1 Nov 2026: the nightly numbers fold into the cards)
   const live = METHODS.map(method => {
     const lines = method.lines.map(line => lineOf(data, line));
     const linked = pages.includes(method.href);   // a card links only to a page in the menu: GTM readiness and Testing → Scheduled land in their own PRs (1 Nov 2026)
-    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), days: method.linkOnly ? [] : historyOf(data, method.lines), href: linked ? method.href : '', pending: !linked};
+    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), days: method.linkOnly ? [] : historyOf(data, method.lines), trends: summaryForCard(nightly, method.id), href: linked ? method.href : '', pending: !linked};
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
   const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here

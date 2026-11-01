@@ -124,6 +124,11 @@ export function nightlySummary({snapshot = null, agentRows = []} = {}, now = new
     wallClock(snapshot, 'beta-clock', 'Beta wall clock', ['beta'], ['desktop.yml'], days), wallClock(snapshot, 'night-clock', 'Night wall clock', ['nightly', 'scheduled'], ['e2e.yml'], days)]};
 }
 
+// The Testing Overview card (admin/testing-overview-methods.js id) each job is drawn on; agent coding is not a testing method, so it shows on the Scheduled row only.
+const CARD_JOBS = {e2e: ['beta-clock', 'night-clock', 'notion-real'], interactions: ['interactions'], wander: ['wander'], 'quality-ai': ['quality-ai', 'prompt-cases']};
+/** The jobs of a summary that sit on a Testing Overview card. */
+export const summaryForCard = (summary, cardId) => (summary?.jobs || []).filter(job => (CARD_JOBS[cardId] || []).includes(job.id));
+
 /** The jobs of a summary that belong to a workflow file (the Scheduled page's row for `file`). */
 export const summaryFor = (summary, file) => (summary?.jobs || []).filter(job => job.files.includes(file));
 
