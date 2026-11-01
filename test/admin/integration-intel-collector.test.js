@@ -1,6 +1,7 @@
 // The integration collector's pure part (jobs/integration-intel-rows.mjs): result files, run rows, flaky detection (same commit, unchanged files, a fix is not flaky), the slowest 10, the move's counts.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {readResults} from '../../jobs/integration-intel.mjs';
 import {advance, countsOf, grepCounts, moveRow, parseResult, pathMatches, runRow, slowestOf} from '../../jobs/integration-intel-rows.mjs';
 
 const file = (layer, tests, extra = {}) => ({v: 1, layer, platform: 'linux', tests, ...extra});
@@ -68,4 +69,13 @@ test('the move: git grep counts and the tree become a day\'s row', () => {
   const testCounts = grepCounts('desktop/integration/app/a.test.js:5\ndesktop/integration/store/s.test.mjs:7\ndesktop/integration/app/kit.js:0\n');
   const row = moveRow('2026-11-01', ['desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/jobs.mjs', 'desktop/e2e/suites/readme.md', 'desktop/integration/app/a.test.js'], stepCounts, testCounts);
   assert.deepEqual(row, {day: '2026-11-01', e2eSuites: 2, e2eSteps: 42, integration: {extension: 0, app: 5, store: 7}});
+});
+
+test('a run is read once, but only for a clear answer: files, or gh\'s "no artifact"; a timeout or rate limit leaves it to the next hour (Gitar #245)', async () => {
+  const fail = message => async () => { const error = new Error(message); error.stderr = message; throw error; };
+  assert.deepEqual(await readResults(1, async () => {}), {ok: true, results: []}, 'downloaded nothing: no result file');
+  assert.equal((await readResults(2, fail('no artifact matches any of the names or patterns provided'))).ok, true);
+  assert.equal((await readResults(3, fail('no valid artifacts found to download'))).ok, true);
+  assert.equal((await readResults(4, fail('Command failed: gh run download ETIMEDOUT'))).ok, false);
+  assert.equal((await readResults(5, fail('HTTP 403: API rate limit exceeded'))).ok, false);
 });

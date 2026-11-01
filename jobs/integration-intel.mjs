@@ -15,19 +15,20 @@ import {advance, countsOf, grepCounts, moveRow, parseResult, runRow, slowestOf} 
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.INTEGRATION_INTEL_URL || 'https://www.jobpilotto.top/integration/data';
-const WORKFLOW = 'integration.yml', KEEP_DAYS = 30, MAX_RUNS = 120;
+const WORKFLOW = 'integration.yml', MAIN_WORKFLOW = 'build.yml', KEEP_DAYS = 30, MAX_READ = 120;   // MAX_READ: runs read per pass (hourly); the newest first, the rest the next pass
 const execAsync = promisify(execFile);
 const gh = (...args) => JSON.parse(execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 1 << 28}) || 'null');
 const ghAsync = async (...args) => { try { return JSON.parse((await execAsync('gh', args, {maxBuffer: 1 << 28, timeout: 60000})).stdout || 'null'); } catch { return null; } };
 const memo = fn => { const seen = new Map(); return (...args) => { const key = JSON.stringify(args); if (!seen.has(key)) seen.set(key, fn(...args)); return seen.get(key); }; };
 
-/** The result files of one run: every integration-results-* artifact, parsed. A run whose artifacts expired or never uploaded returns []. */
-async function readResults(runId) {
+/** The result files of one run: every integration-results-* artifact, parsed. ok is false on any error that is not gh's clear "no artifact" answer (a timeout, a rate limit, an upload still running):
+ *  the run is then read again next hour. A run whose artifacts expired or never uploaded answers "no artifact matches": ok, no results, read once (Gitar, #245). */
+export async function readResults(runId, download = (id, dir) => execAsync('gh', ['run', 'download', String(id), '--repo', repo, '--pattern', 'integration-results-*', '--dir', dir], {timeout: 120000})) {
   const dir = mkdtempSync(path.join(tmpdir(), 'integration-intel-'));
   try {
-    await execAsync('gh', ['run', 'download', String(runId), '--repo', repo, '--pattern', 'integration-results-*', '--dir', dir], {timeout: 120000});
-    return readdirSync(dir, {recursive: true}).filter(file => file.endsWith('.json')).flatMap(file => { try { return [parseResult(JSON.parse(readFileSync(path.join(dir, file), 'utf8')))].filter(Boolean); } catch { return []; } });
-  } catch { return []; } finally { rmSync(dir, {recursive: true, force: true}); }
+    try { await download(runId, dir); } catch (error) { return {ok: /no (valid )?artifacts?\b/i.test(`${error?.stderr || ''} ${error?.message || ''}`), results: []}; }
+    return {ok: true, results: readdirSync(dir, {recursive: true}).filter(file => file.endsWith('.json')).flatMap(file => { try { return [parseResult(JSON.parse(readFileSync(path.join(dir, file), 'utf8')))].filter(Boolean); } catch { return []; } })};
+  } finally { rmSync(dir, {recursive: true, force: true}); }
 }
 
 /** The paths the workflow watches on a pull request, read from main (a change under none of them cannot change a test's result). Unreadable -> [] (then only same-commit flakes are found). */
@@ -67,21 +68,24 @@ async function main() {
   let stored = {};
   if (key) { try { const response = await fetch(base, {headers: {Authorization: `Bearer ${key}`}}); if (response.ok) stored = await response.json(); } catch { /* the first run has none */ } }
   const have = new Set([...(stored.runs || []).map(row => row.runId), ...(stored.read || [])]);   // a run with no readable artifact is read once too (Gitar, #245)
-  const listed = (gh('run', 'list', '--repo', repo, '--workflow', WORKFLOW, '--limit', '500', '--created', `>=${since}`, '--json', 'databaseId,conclusion,createdAt,headSha,headBranch,event') || [])
+  // Pull request runs are runs of integration.yml itself; main's are the jobs of CI · Tests (build.yml calls it on every push), whose artifacts hold the same result files.
+  const fields = 'databaseId,conclusion,createdAt,headSha,headBranch,event', since0 = `>=${since}`;
+  const listed = [...(gh('run', 'list', '--repo', repo, '--workflow', WORKFLOW, '--limit', '500', '--created', since0, '--json', fields) || []),
+    ...(gh('run', 'list', '--repo', repo, '--workflow', MAIN_WORKFLOW, '--branch', 'main', '--event', 'push', '--limit', '500', '--created', since0, '--json', fields) || [])]
     .filter(run => ['success', 'failure'].includes(run.conclusion)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const todo = listed.filter(run => !have.has(run.databaseId)).slice(-MAX_RUNS);
+  const todo = listed.filter(run => !have.has(run.databaseId)).slice(-MAX_READ);
   const read = [];
-  for (let at = 0; at < todo.length; at += 6) await Promise.all(todo.slice(at, at + 6).map(async run => { read.push({run, results: await readResults(run.databaseId)}); }));
-  read.sort((a, b) => a.run.createdAt.localeCompare(b.run.createdAt));
-  const rows = read.flatMap(({run, results}) => results.map(result => runRow(run, result)));
-  const observations = read.flatMap(({run, results}) => results.flatMap(result => result.tests.map(item => ({...runRow(run, result), createdAt: run.createdAt, name: item.name, file: item.file, ok: item.ok}))));
+  for (let at = 0; at < todo.length; at += 6) await Promise.all(todo.slice(at, at + 6).map(async run => { read.push({run, ...(await readResults(run.databaseId))}); }));
+  const sure = read.filter(item => item.ok).sort((a, b) => a.run.createdAt.localeCompare(b.run.createdAt));   // a run not read for certain leaves no row, no observation: next hour reads it again
+  const rows = sure.flatMap(({run, results}) => results.map(result => runRow(run, result)));
+  const observations = sure.flatMap(({run, results}) => results.flatMap(result => result.tests.map(item => ({...runRow(run, result), createdAt: run.createdAt, name: item.name, file: item.file, ok: item.ok}))));
   const changedBetween = memo(async (from, to) => (await ghAsync('api', `repos/${repo}/compare/${from}...${to}`, '--jq', '[.files[].filename]')));
   const {open, flaky} = await advance(stored.open || [], observations, {watched: await watchedPaths(), changedBetween});
-  const newest = read.filter(({run}) => run.event === 'push' && run.headBranch === 'main').at(-1);
-  const results = newest ? read.filter(({run}) => run.databaseId === newest.run.databaseId).flatMap(item => item.results) : [];
+  const newest = sure.filter(({run}) => run.event === 'push' && run.headBranch === 'main').at(-1);
+  const results = newest ? sure.filter(({run}) => run.databaseId === newest.run.databaseId).flatMap(item => item.results) : [];
   const move = readMove(new Set((stored.move?.days || []).map(row => row.day)), since);
   const snapshot = {
-    runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...todo.map(run => run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
+    runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...read.filter(item => item.ok).map(item => item.run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
     slowest: results.length ? slowestOf(results) : stored.slowest || [], counts: results.length ? {...(stored.counts || {}), ...Object.fromEntries(Object.entries(countsOf(results)).filter(([, value]) => value.tests))} : stored.counts || {},
     move: {days: [...(stored.move?.days || []).filter(row => !move.days.some(item => item.day === row.day)), ...move.days].sort((a, b) => a.day.localeCompare(b.day)), e2eSteps: move.days.at(-1)?.e2eSteps ?? stored.move?.e2eSteps ?? null, lanes: move.lanes ?? stored.move?.lanes ?? null},
   };
