@@ -22,8 +22,8 @@ export function ago(at, now = new Date()) {
 const STATE = {green: ['✓ green', 'good'], red: ['✕ red', 'bad'], none: ['◷ no run stored', 'off']};
 /** The last-run chip: icon + word + time, a link to the run when there is one; "late" when a scheduled run was missed. */
 export function lastChip(last, now) {
-  const [word, tone] = STATE[last.state] || STATE.none;
-  const text = last.state === 'none' ? word : `${word} · ${esc(ago(last.at, now))}`;
+  const [state, tone] = STATE[last.state] || STATE.none, word = last.word ? `✕ ${last.word}` : state;   // word: a red that is not "red on the last run" (synthetic: "no round")
+  const text = last.state === 'none' ? word : [word, esc(ago(last.at, now))].filter(Boolean).join(' · ');
   const body = last.url ? `<a href="${esc(last.url)}">${chip(text, tone)}</a>` : `<span title="${esc(last.why || '')}">${chip(text, tone)}</span>`;
   return `${body}${last.late ? ` ${chip('late', 'warn')}` : ''}${last.note ? ` <span class="muted small">${esc(last.note)}</span>` : ''}`;
 }

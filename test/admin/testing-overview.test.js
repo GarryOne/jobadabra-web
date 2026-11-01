@@ -89,7 +89,7 @@ test('the verdict counts live cards by their worst line; GTM readiness links onl
   const menu = resolve(data(), {pages: PAGES.map(item => item.path)});
   for (const card of menu.rings.flatMap(ring => ring.cards).filter(card => card.kind === 'live' && card.href)) assert.ok(PAGES.some(item => item.path === card.href), `${card.id} links to a menu page`);
   assert.equal(cardOf(menu, 'e2e').href, '/admin/testing/e2e');
-  assert.deepEqual(PLANNED.map(card => card.id).sort(), ['agents', 'faults', 'fresh-install', 'synthetic', 'upgrade']);
+  assert.deepEqual(PLANNED.map(card => card.id).sort(), ['agents', 'faults', 'fresh-install', 'upgrade']);
   const html = page(model, {now});
   assert.equal((html.match(/class="mcard planned"/g) || []).length, PLANNED.length);
   assert.doesNotMatch(html, /testing\/scheduled/);
@@ -149,4 +149,53 @@ test('the map: days after the snapshot was read are "not stored", never "no run"
   assert.deepEqual(fresh.slice(-3).map(cell => cell.state), ['green', 'none', 'none'], 'a read today covers today: no run is a real "no run"');
   const late = {...data(), schedules: {...data().schedules, at: '2026-10-31T10:00:00Z'}};
   assert.equal(historyOf(late, [{label: 'x', wf: 'smoke.yml'}]).at(-1).state, 'unknown');
+});
+
+// Synthetic monitoring is a live card (1 Nov 2026, to): shared/synthetic.js readCard / readDays give the rows, the card never reads D1 itself.
+const probe = (id, label, extra = {}) => ({probe: id, label, ok: true, at: '2026-11-01T11:50:00Z', ms: 200, reason: '', state: 'up', since: '2026-10-30T00:00:00Z', uptime24h: 100, ...extra});
+const probes = [probe('site', 'Website'), probe('index', 'Employer index pack'), probe('license', 'Licence and plan check'), probe('free-ai', 'Free AI key check'), probe('updates', 'Update feed'), probe('broker', 'Free AI broker')];
+const week = Array.from({length: 14}, (_, i) => ({day: daysTo(now)[i], state: i === 0 ? 'none' : i === 9 ? 'red' : 'green'}));
+const synthetic = (card, days = week) => data({synthetic: card, syntheticDays: days});
+
+test('synthetic card, live: cadence every 15 min, the last round, green with all probes up; bugs say a probe finds outages', () => {
+  const card = cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})), 'synthetic'), line = card.lines[0];
+  assert.equal(card.kind, 'live');
+  assert.deepEqual([card.state, line.when, line.last.state, line.last.at, line.last.note], ['green', 'every 15 min', 'green', '2026-11-01T11:50:00Z', 'all 6 probes up']);
+  assert.deepEqual(card.bugs, {why: 'a probe finds outages, not bugs'});
+  assert.equal(card.href, '', 'it links to the Overview itself only once that page is in the menu');
+  assert.equal(cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes}), {pages: ['/admin/testing/overview']}), 'synthetic').href, '/admin/testing/overview');
+  assert.ok(!resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})).rings.flatMap(ring => ring.cards).some(item => item.id === 'synthetic' && item.kind === 'planned'));
+  const down = cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes: probes.map(item => (item.probe === 'broker' ? {...item, ok: false, state: 'down', reason: 'HTTP 503'} : item.probe === 'site' ? {...item, ok: false} : item))})), 'synthetic');
+  assert.deepEqual([down.state, down.lines[0].last.note], ['red', 'Free AI broker down'], 'down = 2 reds in a row; one red alone is not yet a verdict');
+  assert.equal(cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes: probes.slice(0, 5)})), 'synthetic').lines[0].last.note, 'all 5 probes up', 'broker may be absent');
+  const html = page(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})), {now});
+  assert.match(html, /id="m-synthetic"[^]*every 15 min[^]*✓ green · 10 min ago[^]*all 6 probes up/);
+});
+
+test('synthetic card, stale: no round for 45 min is a red "no round", never a stale green', () => {
+  const card = cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T08:00:00Z', stale: true, probes})), 'synthetic');
+  assert.deepEqual([card.state, card.lines[0].last.state, card.lines[0].last.word], ['red', 'red', 'no round']);
+  assert.match(page(resolve(synthetic({lastRoundAt: '2026-11-01T08:00:00Z', stale: true, probes})), {now}), /✕ no round · 4 h ago/);
+  const never = cardOf(resolve(synthetic({lastRoundAt: '', stale: true, probes: []})), 'synthetic');
+  assert.equal(never.state, 'red');
+  assert.match(page(resolve(synthetic({lastRoundAt: '', stale: true, probes: []})), {now}), /✕ no round<\/span>|✕ no round<\/a>/);
+  assert.ok(resolve(synthetic({lastRoundAt: '2026-11-01T08:00:00Z', stale: true, probes})).red.includes('Synthetic monitoring'));
+});
+
+test('synthetic card, unreadable: null is "no run stored" with the reason, counted as no verdict, and the map says "not stored"', () => {
+  const model = resolve(synthetic(null, null)), card = cardOf(model, 'synthetic');
+  assert.deepEqual([card.state, card.lines[0].last.state], ['none', 'none']);
+  assert.match(card.lines[0].last.why, /not readable/);
+  assert.ok(card.days.every(cell => cell.state === 'unknown'));
+  assert.ok(!model.red.includes('Synthetic monitoring'));
+});
+
+test('synthetic card, the map: readDays maps 1:1 to the cells, a red day is red, a day before monitoring is "no run", the tooltip says what happened', () => {
+  const card = cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})), 'synthetic');
+  assert.equal(card.days.length, 14);
+  assert.deepEqual(card.days.map(cell => cell.state), week.map(item => ({none: 'none', green: 'green', red: 'red'}[item.state])));
+  assert.deepEqual(card.days.map(cell => cell.day), week.map(item => item.day));
+  const html = page(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})), {now});
+  assert.match(html, /title="Wed 28 Oct · a probe was down \(2 reds in a row\)"/);
+  assert.match(html, /title="Sun 1 Nov · every round ran, no probe down"/);
 });

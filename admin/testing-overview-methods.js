@@ -4,7 +4,7 @@
 // schedules snapshot has one; `when` is the trigger in words for the ones that are not crons (checked against the public workflows by test/admin/testing-overview.test.js).
 //
 // A line = one way the method runs:  {label, wf?: workflow file, when?: trigger words, last?: where the last run is read}
-//   last (omitted = the workflow's newest finished run): {e2e: [run kinds]} | {suite: name} (its newest night in the e2e snapshot) | {integration: true} | {none: why}
+//   last (omitted = the workflow's newest finished run): {e2e: [run kinds]} | {suite: name} (its newest night in the e2e snapshot) | {integration: true} | {synthetic: true} (the Worker's probe rounds, shared/synthetic.js) | {none: why}
 // bugs = how "bugs caught" is read: {checks: [workflow files]} (PR-check scorecard, 30 days) | {detector: name} (self-healing, 7 days) | {caught: true} (e2e reds that caught a bug)
 //   | {mutation: true} | {recall: true} | {sentry: true} | {none: why}
 
@@ -50,6 +50,8 @@ export const METHODS = [
     lines: [{label: 'Sentry fixer', wf: 'sentry-fix.yml'}], bugs: {sentry: true}},
   {id: 'canary', ring: 'real', icon: '🐤', title: 'Canary → stable', proves: 'A release reaches a few installs first; a failing canary stops the promotion.', href: '/admin/testing/scheduled',
     lines: [{label: 'Promote to stable', wf: 'canary-promote.yml'}, {label: 'Stable canary', wf: 'stable-canary.yml'}], bugs: {none: 'a stopped promotion is not counted as a bug yet'}},
+  {id: 'synthetic', ring: 'real', icon: '📡', title: 'Synthetic monitoring', proves: 'Probes the live site, index pack, licence, Free AI broker and update feed every 15 minutes.', href: '/admin/testing/overview',
+    lines: [{label: 'Probe round', when: 'every 15 min', last: {synthetic: true}}], bugs: {none: 'a probe finds outages, not bugs'}},
   {id: 'pool', ring: 'real', icon: '🏭', title: 'Real-site pool', proves: 'Recorded applying sites, replayed offline, so a change that breaks a real site shows.', href: '/admin/form-filling/lab',
     lines: [{label: 'Offline replays', wf: 'site-replays.yml', when: 'with the nightly run'}, {label: 'Recording', wf: 'record-sites.yml'}], bugs: {none: 'the Lab page counts regressions per site'}},
   {id: 'quality-ai', ring: 'real', icon: '🎯', title: 'Quality AI and prompt cases', proves: 'Are the AI\'s answers right and steady? The prompt cases are replayed each night.', href: '/admin/testing/e2e',
@@ -58,7 +60,6 @@ export const METHODS = [
 
 // Owner-approved methods that are not built yet (1 Nov 2026): grey cards, so the page grows when one lands. A landed one moves up into METHODS with a workflow.
 export const PLANNED = [
-  {id: 'synthetic', ring: 'real', icon: '📡', title: 'Synthetic monitoring', proves: 'Probes the live site, index pack, licence, Free AI broker and update feed every 15 minutes.'},
   {id: 'upgrade', ring: 'prove', icon: '⬆️', title: 'Upgrade and data test', proves: 'Installs an older release with a filled store, updates it, and checks nothing was lost.'},
   {id: 'faults', ring: 'find', icon: '⚡', title: 'Fault injection', proves: 'Notion errors, AI timeouts, offline, sleep and wake, full disk: every error screen is judged.'},
   {id: 'agents', ring: 'find', icon: '🤖', title: 'AI user agents', proves: 'A persona with a goal drives the app and reports where it got stuck or confused.'},
