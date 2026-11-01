@@ -1,0 +1,57 @@
+// The Claude Code CLI as an engine of the AI broker (docs/superpowers/specs/2026-11-01-ai-broker-design.md, section 3): argument, input and output handling, kept pure so a test can run it offline.
+// Measured 1 Nov 2026 with the real CLI 2.1.316 on the owner's subscription token (hello@jobadabra.top, Max):
+// - `--bare` is refused with an OAuth token ("Not logged in"): never use it.
+// - the default setup sends ~28-39k cached tokens per call; `--setting-sources "" --disable-slash-commands --strict-mcp-config` and an own system prompt cut a "pong" call to ~390 input tokens.
+// - images work as base64 content blocks over `--input-format stream-json`, so the CLI needs no file-reading tool (`--tools ""`).
+// - with `--json-schema` the final `result` is the JSON text (and `structured_output` the parsed object).
+// - the stream carries a `rate_limit_event` with the subscription windows: {status, unifiedWindows: {five_hour|seven_day: {utilization, resetsAt, status}}}.
+
+export const SYSTEM_PROMPT = "You are a helpful assistant. Follow the user's instructions exactly.";   // Why: an own, short prompt replaces Claude Code's default coding prompt; it must not shape answer length (the lean test used "Answer briefly." only to keep the reply short)
+const MEDIA = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif'};
+
+/** The CLI arguments of one call: no tools, no settings, no slash commands, no MCP, no saved session; the model is a full id (claude-haiku-5-5, ...). */
+export function claudeArgs({model, schema}) {
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--no-session-persistence',
+    '--setting-sources', '', '--disable-slash-commands', '--strict-mcp-config', '--system-prompt', SYSTEM_PROMPT, '--model', String(model)];
+  if (schema) args.push('--json-schema', JSON.stringify(schema));
+  return args;
+}
+
+/** The one stream-json line that is the whole prompt: text first, then each image as a base64 block. Throws 'unsupported image' for a name or data it cannot send. */
+export function claudeInput({prompt, images = []}) {
+  const content = [{type: 'text', text: String(prompt)}];
+  for (const image of images) {
+    const media = MEDIA[String(image.name || '').split('.').pop().toLowerCase()];
+    if (!media || typeof image.base64 !== 'string') throw new Error('unsupported image');
+    content.push({type: 'image', source: {type: 'base64', media_type: media, data: image.base64}});
+  }
+  return `${JSON.stringify({type: 'user', message: {role: 'user', content}})}\n`;
+}
+
+const AUTH = /not logged in|please run \/login|invalid (x-api-key|api key|token|bearer|authentication)|oauth token.*(expired|revoked|invalid)|authentication[_ ]error|\b401\b|unauthori[sz]ed/i;
+const LIMIT = /usage limit|limit reached|hit your .{0,30}limit|out of (extra )?usage|rate[ _-]?limit|too many requests|\b429\b/i;
+
+/**
+ * Reads the CLI's stream-json output. Returns {reply, tokens: {input, output}, limits} on success, or {error: 'claude-auth' | 'claude-limit' | 'claude-failed:<code> <tail>', resetsAt?}.
+ * "Ran out" is read from the stream's own rate_limit_event when it says the window is not allowed, else (only when no status was seen) from the error text; anything unknown is a plain failure (never guessed as "ran out").
+ */
+export function readClaude(stdout, stderr = '', code = 0) {
+  let result = null, info = null;
+  for (const line of String(stdout).split('\n')) {
+    let event; try { event = JSON.parse(line); } catch { continue; }
+    if (event.type === 'result') result = event;
+    else if (event.type === 'rate_limit_event' && event.rate_limit_info) info = event.rate_limit_info;
+  }
+  const windows = info?.unifiedWindows || {};
+  const limits = info ? {status: info.status, fiveHour: windows.five_hour ?? null, sevenDay: windows.seven_day ?? null} : null;
+  if (result && !result.is_error && typeof result.result === 'string' && result.result.trim()) {
+    const usage = result.usage || {};
+    return {reply: result.result, tokens: {input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0), output: usage.output_tokens || 0}, limits};
+  }
+  const text = String(result?.result || stderr || stdout).replace(/\s+/g, ' ');
+  if (info && info.status && !['allowed', 'allowed_warning'].includes(info.status)) return {error: 'claude-limit', resetsAt: info.resetsAt ?? null, limits};
+  if (AUTH.test(text)) return {error: 'claude-auth', limits};
+  // Why (Gitar on #291): when the stream said the window is allowed, a "429 / too many requests" text is a passing throttle, not an empty allowance: a plain failure, tried again next call. The message is trusted only when no status was seen, and then no reset time is borrowed.
+  if (!info && LIMIT.test(text)) return {error: 'claude-limit', resetsAt: null, limits};
+  return {error: `claude-failed:${code} ${text.slice(-200)}`, limits};
+}

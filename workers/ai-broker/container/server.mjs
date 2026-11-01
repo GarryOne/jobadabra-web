@@ -7,6 +7,7 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {weeklyWindow} from './weekly.mjs';
 import {buildArgs} from '../lib/args.mjs';
+import {claudeArgs, claudeInput, readClaude} from './claude.mjs';
 
 const HOME = process.env.CODEX_HOME, AUTH = path.join(HOME, 'auth.json');
 const CALL_TIMEOUT_MS = 100000;   // under the callers' own wait, so a hung codex comes back with its last output instead of a dropped request (28 Oct 2026)
@@ -91,6 +92,29 @@ async function call({prompt, schema, images = [], model, search, effort}) {
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 }
 
+// One Claude call on the owner's subscription (spec section 3): {prompt, schema?, images?, model} -> {reply, tokens, ms, limits}. The CLI reads CLAUDE_CODE_OAUTH_TOKEN from here only; its state lives in a temp folder, never in the Codex home.
+// Why (1 Nov 2026): an explicit environment, no tools, no settings, an empty working folder and a kill timer, the same shape as the Codex call; images travel as base64 blocks so the CLI needs no file tool.
+let claudeHome = null;   // created on the first Claude call
+const claudeHomeDir = () => (claudeHome ||= fs.mkdtempSync(path.join(os.tmpdir(), 'claude-home-')));
+async function callClaude({prompt, schema, images = [], model}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-call-'));
+  try {
+    const input = claudeInput({prompt, images}), started = Date.now();
+    const env = {PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_CONFIG_DIR: claudeHomeDir(), CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', ...trustEnv(), ...(fs.existsSync(CF_CA) ? {NODE_EXTRA_CA_CERTS: CF_CA} : {})};
+    const {code, out, err} = await new Promise(resolve => {
+      const child = spawn('claude', claudeArgs({model, schema}), {cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], env});
+      let out = '', err = '';
+      child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { err += d; });
+      const timer = setTimeout(() => child.kill('SIGKILL'), CALL_TIMEOUT_MS);
+      child.on('close', code => { clearTimeout(timer); resolve({code, out, err}); });
+      child.stdin.on('error', () => {}); child.stdin.end(input);
+    });
+    const result = readClaude(out, err, code);
+    if (result.error) { const failure = new Error(result.error); failure.detail = {resetsAt: result.resetsAt ?? null, limits: result.limits ?? null}; throw failure; }
+    return {reply: result.reply, tokens: result.tokens, ms: Date.now() - started, limits: result.limits};
+  } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+}
+
 http.createServer((req, res) => {
   const chunks = []; let size = 0;
   req.on('data', c => { size += c.length; if (size > 30e6) req.destroy(); else chunks.push(c); });
@@ -102,6 +126,10 @@ http.createServer((req, res) => {
         const result = await call(JSON.parse(Buffer.concat(chunks).toString('utf8')));
         const limits = await limitsNow();
         return reply(200, {...result, limits, authFile: readAuth()});   // authFile goes to the Durable Object only, never to the caller (worker.js strips it)
+      }
+      if (req.url === '/claude' && req.method === 'POST') {
+        try { return reply(200, await callClaude(JSON.parse(Buffer.concat(chunks).toString('utf8')))); }
+        catch (e) { return reply(500, {error: String(e.message || e).slice(0, 1000), ...(e.detail || {})}); }   // no authFile: the Codex login stays out of the Claude route
       }
       if (req.url === '/health') return reply(200, {hasLogin: !!readAuth(), limits: readAuth() ? await readLimits() : null});
       return reply(404, {error: 'not found'});

@@ -9,13 +9,15 @@ import {allow, newMeter, record, recordCall, callsToday} from './lib/budget.mjs'
 import {refuseReply} from './lib/guard.mjs';
 import {slots} from './lib/queue.mjs';
 import {modelOf, validEffort, weightOf, EFFORTS} from './lib/tiers.mjs';
-import {exhausted, fallbackToday, newNote, apiPrecheck, apiStep, apiFinish} from './lib/fallback.mjs';
-import {chainOf, configured, countAnswer, engineHealth} from './lib/engines.mjs';
+import {exhausted, fallbackToday, newNote, apiPrecheck, apiStep, apiFinish, noteOnce} from './lib/fallback.mjs';
+import {chainOf, configured, recordOutcome, engineHealth, CHOICES} from './lib/engines.mjs';
+import {CLAUDE_MODELS} from './lib/tiers.mjs';
 
 export {ContainerProxy} from '@cloudflare/containers';   // required by the outbound host list below: without it every start fails with "ctx.exports.ContainerProxy is undefined" (28 Oct 2026)
 
 const PARALLEL = 4;  // PR 0 (28 Oct 2026): 4 at once, 60 of 60 answered
-const OPENAI_HOSTS = ['chatgpt.com', 'auth.openai.com', 'api.openai.com'];   // the only hosts the container may reach (the reply is the only way out)
+const CLAUDE_PARALLEL = 3;
+const HOSTS = ['chatgpt.com', 'auth.openai.com', 'api.openai.com', 'api.anthropic.com'];   // the only hosts the container may reach (the reply is the only way out); api.anthropic.com is the Claude engine's (1 Nov 2026), measured: telemetry is off, so nothing else is needed
 const pass = req => fetch(req);
 const json = (status, body) => new Response(JSON.stringify(body), {status, headers: {'content-type': 'application/json'}});
 
@@ -23,15 +25,18 @@ export class CodexBroker extends Container {
   constructor(ctx, env) {
     super(ctx, env);
     this.brokerEnv = env;
+    // Why (1 Nov 2026): the Claude subscription's token reaches the container as an environment variable and only the Claude call reads it (container/server.mjs passes explicit environments to every child); it is never in the image, a reply or a log.
+    this.envVars = env.CLAUDE_CODE_OAUTH_TOKEN ? {CLAUDE_CODE_OAUTH_TOKEN: env.CLAUDE_CODE_OAUTH_TOKEN} : {};
   }
   defaultPort = 8080;
   sleepAfter = '10m';
   enableInternet = false;
   // Why (28 Oct 2026, Cloudflare docs): with the internet off, HTTPS fails unless it is intercepted; allowedHosts makes the list deny-by-default. The container trusts the platform CA (server.mjs builds the bundle).
   interceptHttps = true;
-  allowedHosts = OPENAI_HOSTS;
-  static outboundByHost = Object.fromEntries(OPENAI_HOSTS.map(h => [h, pass]));
+  allowedHosts = HOSTS;
+  static outboundByHost = Object.fromEntries(HOSTS.map(h => [h, pass]));
   gate = slots(PARALLEL);
+  claudeGate = slots(CLAUDE_PARALLEL);   // Why (1 Nov 2026): one Claude CLI call peaks near 210 MB (measured) and the container has 1 GiB, so at most 3 at once, and each also holds one of the 4 shared slots
   limits = null;   // the last whole-week reading from Codex: {usedPercent, resetsAt}
 
   // Start (and every restart after a sleep): put the stored login back into CODEX_HOME.
@@ -75,9 +80,10 @@ export class CodexBroker extends Container {
   async call(lane, body) {
     if (Object.hasOwn(body, 'search') && typeof body.search !== 'boolean') return json(400, {why: 'search must be a boolean'});
     if (Object.hasOwn(body, 'effort') && !validEffort(body.effort)) return json(400, {why: `effort must be ${EFFORTS.slice(0, -1).join(', ')} or ${EFFORTS.at(-1)}`});
+    if (Object.hasOwn(body, 'engine') && !CHOICES.includes(body.engine)) return json(400, {why: `engine must be ${CHOICES.slice(0, -1).join(', ')} or ${CHOICES.at(-1)}`});
     const model = modelOf(body.tier);
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
-    const env = this.brokerEnv, {chain} = chainOf(env);
+    const env = this.brokerEnv, {chain} = chainOf(env, body.engine);   // body.engine = this one call's own first choice (e.g. one workflow trying claude); admission and caps stay the same
     // Why (1 Nov 2026): with Codex first a refused login never counts toward the daily cap (as before the chain); with another engine first Codex's step checks it when reached.
     if (chain[0] === 'codex') { const refusal = await this.loginRefusal(); if (refusal) return refusal; }
     this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
@@ -100,16 +106,23 @@ export class CodexBroker extends Container {
       return check;
     });
     if (!verdict.ok && !verdict.ranOut) return json(429, {why: verdict.why});   // the daily cap, or an exhausted week with nobody else configured: a control no other engine bypasses
-    const note = newNote(), ctx = {storage: this.ctx.storage, env, body, lane, weekUsedPercent: this.limits?.usedPercent ?? null, note};
+    const note = newNote(), ctx = {storage: this.ctx.storage, env, body, lane, weekUsedPercent: this.limits?.usedPercent ?? null, note}, day = new Date(Date.now()).toISOString().slice(0, 10), skipped = [];
+    const skip = (engine, why, counted = true) => { skipped.push({engine, why}); return counted ? recordOutcome(this.ctx.storage, day, engine, why === 'ran-out' ? 'ranOut' : 'failed') : null; };
     for (const engine of chain) {
+      const started = Date.now();
       let reply = null;
-      if (engine === 'codex') reply = await this.codexStep(lane, body, model, verdict, later.length > 0, chain[0] === 'codex');
-      else if (engine === 'claude-api' || engine === 'free-ai') reply = (!body.search && apiPrecheck(body)) || await apiStep(engine === 'claude-api' ? 'claude' : 'free-ai', ctx);
-      // `claude` (the subscription engine) is built in PR 4/7: its step passes.
+      if (engine === 'codex') { reply = await this.codexStep(lane, body, model, verdict, later.length > 0, chain[0] === 'codex'); if (!reply) await skip(engine, 'ran-out'); }
+      else if (engine === 'claude') reply = await this.claudeStep(lane, body, skip);
+      else if (engine === 'claude-api' || engine === 'free-ai') {
+        reply = (!body.search && apiPrecheck(body)) || await apiStep(engine === 'claude-api' ? 'claude' : 'free-ai', ctx);
+        if (!reply && !body.search && configured(engine, env)) await skip(engine, 'unavailable');
+      }
       if (!reply) continue;
       // Why (1 Nov 2026, Gitar on #289): an engine that sits BEFORE Codex and answers badly (refused, truncated, invalid JSON) must not end the chain while Codex has not run; after Codex a refusal stays the last-resort answer it always was. A 400 (empty prompt) is nobody's answer to retry.
-      if (!reply.ok && reply.status !== 400 && chain.indexOf(engine) < chain.indexOf('codex')) continue;
-      if (reply.ok) await countAnswer(this.ctx.storage, new Date(Date.now()).toISOString().slice(0, 10), engine);
+      if (!reply.ok && reply.status !== 400 && chain.indexOf(engine) < chain.indexOf('codex')) { await skip(engine, 'bad-answer'); continue; }
+      await recordOutcome(this.ctx.storage, day, engine, reply.ok ? 'ok' : 'failed', Date.now() - started);
+      // Why (1 Nov 2026, owner: CI jobs "need to be aware" which model answers, models behave differently): a reply names its engine and model, and `fellBack` lists the engines that were tried first and did not answer, with the reason.
+      if (reply.ok && skipped.length) return json(200, {...(await reply.json()), fellBack: skipped});
       return reply;
     }
     return apiFinish(env, note);
@@ -121,7 +134,7 @@ export class CodexBroker extends Container {
     if (verdict.ranOut) return hasLater ? null : json(429, {why: verdict.why});
     const release = await this.gate.acquire(lane === 'drift' ? 'scheduled' : lane);   // nightly drift shares scheduled queue priority
     try {
-      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, model})});
+      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, engine: undefined, model})});
       const text = await reply.text();
       let answer;
       try { answer = JSON.parse(text); } catch { return json(502, {why: `container: ${text.slice(0, 300)}`}); }   // the platform's own error text (not our server's JSON): say it, never crash (a 1101 hid it, 28 Oct 2026)
@@ -139,6 +152,41 @@ export class CodexBroker extends Container {
       if (refused) return json(422, {why: refused});
       return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, tier: body.tier ?? 'mid', model, weekUsedPercent: this.limits?.usedPercent ?? null, engine: 'codex'});
     } finally { release(); }
+  }
+
+  // The Claude subscription's step: a Response when it answered (or refused a token-shaped reply), null when it is not configured, backing off, out of allowance (waits for the reset the CLI reports) or failed.
+  // Why (1 Nov 2026): only measured signals say "ran out" (the CLI's own rate_limit_event or a limit message); an unknown failure is a plain failure and the chain moves on. An invalid token is shown in /health and sent to Telegram once a day.
+  async claudeStep(lane, body, skip) {
+    const env = this.brokerEnv, storage = this.ctx.storage;
+    if (!env.CLAUDE_CODE_OAUTH_TOKEN || body.search) return null;   // search is Codex's; no token = not configured
+    const now = Date.now(), state = (await storage.get('claude:state')) || {};
+    if ((state.invalidUntil || 0) > now) { skip('claude', 'token-invalid', false); return null; }
+    if ((state.limitUntil || 0) > now) { skip('claude', 'ran-out', false); return null; }
+    const model = CLAUDE_MODELS[body.tier ?? 'mid'];
+    const priority = lane === 'drift' ? 'scheduled' : lane, releaseClaude = await this.claudeGate.acquire(priority), release = await this.gate.acquire(priority);
+    try {
+      const reply = await this.containerFetch('http://c/claude', {method: 'POST', body: JSON.stringify({prompt: body.prompt, schema: body.schema, images: body.images, model})});
+      let answer;
+      try { answer = JSON.parse(await reply.text()); } catch { await skip('claude', 'failed'); return null; }
+      if (answer.limits) await storage.put('claude:state', {...((await storage.get('claude:state')) || {}), limits: answer.limits});
+      if (!reply.ok) {
+        const error = String(answer.error || '');
+        if (error === 'claude-auth') {
+          await storage.put('claude:state', {...((await storage.get('claude:state')) || {}), invalidUntil: now + 3600_000});   // retried hourly: a new token needs no deploy of ours
+          await noteOnce(storage, env, new Date(now).toISOString().slice(0, 10), 'claude-token-invalid', 'AI broker: the Claude subscription token is invalid or expired. Claude is skipped, the next engine answers. Fix: claude setup-token, then update the Worker secret CLAUDE_CODE_OAUTH_TOKEN.');
+          await skip('claude', 'token-invalid');
+        } else if (error === 'claude-limit') {
+          const until = answer.resetsAt ? answer.resetsAt * 1000 : now + 600_000;   // the CLI's reset time, else ten minutes
+          await storage.put('claude:state', {...((await storage.get('claude:state')) || {}), limitUntil: Math.max(until, now + 60_000)});
+          await skip('claude', 'ran-out');
+        } else await skip('claude', 'failed');
+        return null;
+      }
+      const refused = refuseReply(answer.reply);
+      if (refused) return json(422, {why: refused});
+      return json(200, {reply: answer.reply, tokens: answer.tokens, ms: answer.ms, lane, tier: body.tier ?? 'mid', model, weekUsedPercent: this.limits?.usedPercent ?? null, engine: 'claude'});
+    } catch { await skip('claude', 'failed'); return null; }
+    finally { release(); releaseClaude(); }
   }
 }
 
