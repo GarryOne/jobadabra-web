@@ -2,7 +2,7 @@
 // slow and don't bring value / fast and brings no value"). Three cards: the path (hooks → push gate → PR checks → main → beta/nightly → bugs the owner saw), the four phases, and the Checks grid
 // (every check by cost and real catches). Pure: rows in, HTML out; report only, nothing here blocks. Data: kinds gate + ci + sdlc (admin/agent-coding.js). Test: test/admin/agent-coding-sdlc.test.js.
 import {esc} from '../shared/html.js';
-import {STYLE, TABS_STYLE, tabs, weeksOf, weekWords, sum, pct, round1, bar, legend, chip, note, card} from './agent-coding-page.js';
+import {HOOKS, STYLE, TABS_STYLE, tabs, weeksOf, weekWords, sum, pct, round1, bar, legend, chip, note, card} from './agent-coding-page.js';
 
 const WINDOW_WEEKS = 4;   // the grid pools the last 4 weeks: one week has too few runs for the slow checks
 const MIN_RUNS = 20;      // under this a check is "too few runs", never put in a corner
@@ -73,12 +73,19 @@ function gridCard(weeks) {
 ${note(`Slow = ${SLOW_SECS} s or more per run. A real catch = a red that a product or test fix followed (push gate: any stop that is not a form check). Form stops and flaky stops are shown, not counted as value. A guess from the fixing commit, about ±10 points. Checks under ${MIN_RUNS} runs are not placed. "Remove?" is a question, not a verdict: a safety net that never fires (a smoke run, a login-wall guard) looks the same here as a check that does nothing.`)}`);
 }
 
+// Why (1 Nov 2026, owner's yes on the layer-0 counter): the agent's hooks log a block per fixed label; the upload carries `hooks` only on a day with a block, so "not measured yet" holds until the first block is seen.
+function hooksRow(weeks, now) {
+  if (!weeks.some(week => week.gate.some(day => day.hooks))) return `<tr><td>Agent hooks</td><td colspan="5" class="muted">not measured yet: no hook has blocked anything since the counter was turned on</td></tr>`;
+  const per = HOOKS.map(key => [key, sum(now.gate, day => day.hooks?.[key] || 0)]), total = sum(per, item => item[1]);
+  return `<tr><td>Agent hooks</td><td class="num">·</td><td class="num">${total}</td><td colspan="3">${total ? per.filter(item => item[1]).map(([key, n]) => `${esc(key)} <b>${n}</b>`).join(' · ') : '<span class="muted">no blocks this week</span>'}</td></tr>`;
+}
+
 function pathCard(weeks) {
   const now = weeks.find(week => week.sdlc.length || week.gate.length) || weeks[0];   // the newest week with an upload: on a Monday before the first upload this week is empty
   const catches = layer => CATCH_KEYS.map(key => [key, sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), check => check.catches[key]))]);
   const layerRow = (name, runs, stops, parts, secs, extra = '') => `<tr><td>${name}</td><td class="num">${runs}</td><td class="num">${stops}</td><td class="ac-cell">${stops ? bar(parts) : '<span class="muted">no stops</span>'}</td><td class="num">${hours(secs)}</td><td>${extra}</td></tr>`;
   const gate = ['form', 'real', 'other'].map(key => [key, sum(now.gate, day => day.stopped[key])]);
-  const rows = [`<tr><td>Agent hooks</td><td colspan="5" class="muted">not measured yet: needs a counter in the agent's hooks (the owner's own yes)</td></tr>`,
+  const rows = [hooksRow(weeks, now),
     now.gate.length ? layerRow('Push gate', sum(now.gate, day => day.pushes), sum(gate, g => g[1]), gate, sum(now.gate, day => day.secs)) : '',
     ...['pr', 'main', 'night'].map(layer => { const runs = sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.runs)), stops = sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.fails));
       return runs ? layerRow(LAYERS[layer], runs, stops, catches(layer), sum(now.sdlc, day => sum(Object.values(day.layers[layer] || {}), c => c.secs))) : ''; }),

@@ -3,6 +3,8 @@
 import {esc} from '../shared/html.js';
 
 const WEEKS = 8;
+// Why (1 Nov 2026, the owner's yes on the layer-0 counter): the four hooks ~/.claude/hooks/count-blocks.sh counts; a block is a count per fixed label, never text.
+export const HOOKS = ['guard-primary-checkout', 'background-tee', 'foreground-long-run', 'session-cap'];
 export const COLORS = {form: '#f2c14e', real: '#e5484d', other: '#8d949c', product: '#5ec47a', test: '#6aa8ff', ci: '#b48cff', nofix: '#5b6470', flaky: '#d98ad9', rebase: '#7fb8c9', ok: '#5ec47a'};
 export const WORDS = {form: 'form', real: 'real suite red', other: 'other', product: 'product code', test: 'test / harness drift', ci: 'CI config / tools', nofix: 'no fix seen', flaky: 'flaky (green on re-run)', rebase: 'after a rebase (cause unclear)'};
 export const monday = day => { const date = new Date(`${day}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7)); return date.toISOString().slice(0, 10); };

@@ -4,7 +4,7 @@
 // Only counts, seconds and short fixed labels are stored: never a branch, a path, commit text or a log. Guard: test/admin/agent-coding.test.js. Page drawing: admin/agent-coding-page.js.
 import {equal} from '../shared/guard.js';
 import {viewer, remember} from '../shared/auth.js';
-import {page} from './agent-coding-page.js';
+import {HOOKS, page} from './agent-coding-page.js';
 import {sdlcPage} from './agent-coding-sdlc.js';
 
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
@@ -23,7 +23,8 @@ export function cleanGate(card) {
   if (!card || typeof card !== 'object') return null;
   const steps = Object.entries(card.steps && typeof card.steps === 'object' ? card.steps : {}).slice(0, 80).map(([name, step]) => [label(name), {runs: count(step?.runs), fails: count(step?.fails),
     secs: count(step?.secs), cls: CLASSES.includes(step?.cls) ? step.cls : 'other'}]).filter(([name]) => name);
-  return {pushes: count(card.pushes), secs: count(card.secs), stopped: tally(card.stopped, CLASSES), stoppedSecs: tally(card.stoppedSecs, CLASSES), steps: Object.fromEntries(steps)};
+  const clean = {pushes: count(card.pushes), secs: count(card.secs), stopped: tally(card.stopped, CLASSES), stoppedSecs: tally(card.stoppedSecs, CLASSES), steps: Object.fromEntries(steps)};
+  return card.hooks && typeof card.hooks === 'object' ? {...clean, hooks: tally(card.hooks, HOOKS)} : clean;
 }
 // One day from GitHub (reds by what fixed them, fix PRs per area, CI minutes per push) -> clamped, or null.
 export function cleanCi(card) {

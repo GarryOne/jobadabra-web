@@ -1,7 +1,7 @@
 // The SDLC tab of the agent coding page (admin/agent-coding-sdlc.js, the `sdlc` upload in admin/agent-coding.js): ingest clamps, the four corners of the Checks grid, checks with too few runs, the path and phases, the tab link.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {cleanSdlc} from '../../admin/agent-coding.js';
+import {cleanGate, cleanSdlc} from '../../admin/agent-coding.js';
 import {page} from '../../admin/agent-coding-page.js';
 import {checksOf, cornerOf, sdlcPage} from '../../admin/agent-coding-sdlc.js';
 
@@ -73,4 +73,19 @@ test('the phases compare the last two COMPLETE weeks, never a half-finished one:
   const html = sdlcPage(rows, now);
   assert.ok(!html.includes('better than the week before'), 'a half week with small counts must not read as an improvement');
   assert.ok(html.includes('same as the week before'));
+});
+
+// Owner's yes, 1 Nov 2026 (layer 0): the Agent hooks row shows blocks per hook once the upload carries them, and says "not measured yet" before.
+test('the gate upload keeps hook counts only for the four fixed labels; the Agent hooks row is "not measured yet" until a block is seen, then shows blocks per hook', () => {
+  const clean = cleanGate({pushes: 1, hooks: {'session-cap': 2, 'foreground-long-run': 1e12, 'rm -rf /': 5, secret: 'x'}});
+  assert.deepEqual(Object.keys(clean.hooks), ['guard-primary-checkout', 'background-tee', 'foreground-long-run', 'session-cap']);
+  assert.equal(clean.hooks['session-cap'], 2);
+  assert.ok(!JSON.stringify(clean).includes('rm -rf') && !JSON.stringify(clean).includes('secret'));
+  assert.equal('hooks' in cleanGate({pushes: 1}), false, 'a day without blocks carries no hooks field');
+  const without = [row('gate', '2026-10-30', gateDay({}))];
+  assert.ok(sdlcPage(without, now).includes('not measured yet: no hook has blocked anything'));
+  const withBlocks = [row('gate', '2026-10-30', {...gateDay({}), hooks: {'session-cap': 2, 'background-tee': 1}})];
+  const html = sdlcPage(withBlocks, now);
+  assert.ok(html.includes('session-cap <b>2</b>') && html.includes('background-tee <b>1</b>'));
+  assert.ok(!html.includes('not measured yet: no hook'));
 });

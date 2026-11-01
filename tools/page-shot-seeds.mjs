@@ -39,6 +39,8 @@ export const seeds = {
     const dir = process.env.SDLC_REAL_DIR;
     if (dir && existsSync(`${dir}/sdlc.json`)) { for (const file of ['gate-days.json', 'sdlc.json']) if (existsSync(`${dir}/${file}`)) await put(JSON.parse(readFileSync(`${dir}/${file}`, 'utf8'))); return; }
     const now = new Date(), days = Array.from({length: 14}, (_, i) => new Date(now.getTime() - (13 - i) * 86400000).toISOString().slice(0, 10));
+    // Made-up gate days with agent-hook blocks (1 Nov 2026), so the Agent hooks row shows its filled form.
+    await put({kind: 'gate', days: days.slice(-7).map((day, i) => ({day, pushes: 6, secs: 900, stopped: {form: 1, real: 0, other: 0}, stoppedSecs: {form: 20, real: 0, other: 0}, steps: {}, hooks: {'guard-primary-checkout': i % 3 === 0 ? 2 : 0, 'foreground-long-run': 1 + i % 2, 'session-cap': i === 6 ? 1 : 0}}))});
     const checks = [['CI · Tests · python', 3.7, 9], ['CI · Tests · desktop', 2.8, 12], ['CI · Harness tests', 2.1, 3], ['CI · Pull request', 0.6, 1], ['CI · Tests · worker', 1.4, 5]];
     await put({kind: 'sdlc', days: days.map((day, i) => ({day, bugs: i % 4 === 0 ? 1 : 0, phases: {merged: 20 + i, nospec: 6 + i % 3, unmerged: 1 + i % 2, prCommits: 60 + i, fixAfter: 3 + i % 4, reverts: i % 5 === 0 ? 1 : 0, redMain: i % 3 === 0 ? 1 : 0},
       layers: {pr: Object.fromEntries(checks.map(([name, mins, fails], c) => [name, {runs: 60 + i, fails: fails + i % 3, secs: (60 + i) * mins * 60, catches: {product: c < 2 ? 3 : 0, test: c === 1 ? 2 : 0, ci: 1, form: c === 3 ? 4 : 1, flaky: c === 2 ? 3 : 0, nofix: 1}}])), main: {}, night: {}}}))});
