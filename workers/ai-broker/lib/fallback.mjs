@@ -32,6 +32,20 @@ export async function fallbackToday(storage, env) {
     held: {claude: usd(state.held.claude), freeAi: usd(state.held['free-ai'])}};
 }
 
+/** One Telegram note per marker per UTC day (the owner's brain bot), never repeated; a failed send is dropped. */
+export async function noteOnce(storage, env, day, marker, text, fetcher = fetch) {
+  if (!env.BRAIN_BOT_TOKEN || !env.BRAIN_CHAT_ID) return;
+  const send = await storage.transaction(async tx => {
+    const key = `fallback:${day}`, state = await tx.get(key) || fresh();
+    if (state.notified[marker]) return false;
+    state.notified[marker] = true;
+    await tx.put(key, state);
+    return true;
+  });
+  if (send) await fetcher(`https://api.telegram.org/bot${env.BRAIN_BOT_TOKEN}/sendMessage`, {method: 'POST', signal: AbortSignal.timeout(5000),
+    headers: {'content-type': 'application/json'}, body: JSON.stringify({chat_id: env.BRAIN_CHAT_ID, text})}).catch(() => {});
+}
+
 async function notify(storage, env, day, engine, fetcher, refusal = null) {
   if (!env.BRAIN_BOT_TOKEN || !env.BRAIN_CHAT_ID) return;
   const send = await storage.transaction(async tx => {

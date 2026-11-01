@@ -2,39 +2,54 @@
 // Why (1 Nov 2026, owner: "support claude, codex, or Free AI with just a flag change"): one `ENGINE` var in wrangler.jsonc names the engine that answers first; the rest follow in the fixed ORDER.
 import {apiConfigured} from './fallback.mjs';
 
+/** The engines a caller or the ENGINE var may ask for first. `claude-api` (the paid Anthropic API) is only ever a fallback in the order, never a first choice. */
+export const CHOICES = ['codex', 'claude', 'free-ai'];
+
 /** Fixed order: subscriptions before paid engines, paid before capped-free. `claude` is the Claude subscription (4/7), `claude-api` the Anthropic API with its $5/day cap. */
 export const ORDER = ['codex', 'claude', 'claude-api', 'free-ai'];
 
 /**
  * Whether an engine can be tried at all in this environment (a step that is not configured is skipped, never failed). Codex's login state is checked by its own step.
- * TODO(AI): `claude` (the subscription engine, container + token) is built in PR 4/7; until then it is never configured. (1 Nov 2026)
+ * `claude` (the Claude subscription) needs its token as a Worker secret.
  */
-export const configured = (engine, env) => engine === 'codex' ? true : engine === 'claude' ? false : apiConfigured(engine === 'claude-api' ? 'claude' : 'free-ai', env);
+export const configured = (engine, env) => engine === 'codex' ? true : engine === 'claude' ? Boolean(env.CLAUDE_CODE_OAUTH_TOKEN) : apiConfigured(engine === 'claude-api' ? 'claude' : 'free-ai', env);
 
 /**
  * The chain for this environment: `ENGINE` first, the others in ORDER. Unset = codex (today's behaviour). An unknown value is never guessed:
- * the chain stays the default and `warning` says so (shown in /health).
+ * the chain stays the default and `warning` says so (shown in /health). `requested` is one call's own choice (body.engine, validated by the caller) and wins over ENGINE for that call.
  */
-export function chainOf(env) {
-  const wanted = String(env.ENGINE ?? '').trim();
+export function chainOf(env, requested) {
+  const wanted = String(requested ?? env.ENGINE ?? '').trim();
   if (!wanted) return {first: 'codex', chain: ORDER, warning: null};
-  if (!ORDER.includes(wanted)) return {first: 'codex', chain: ORDER, warning: `unknown ENGINE "${wanted.slice(0, 30)}" (codex, claude, free-ai); using codex`};
+  if (!CHOICES.includes(wanted)) return {first: 'codex', chain: ORDER, warning: `unknown ENGINE "${wanted.slice(0, 30)}" (codex, claude, free-ai); using codex`};
   return {first: wanted, chain: [wanted, ...ORDER.filter(engine => engine !== wanted)], warning: null};
 }
 
-const dayKey = day => `answered:${day}`;
+const dayKey = day => `answered:${day}`, statKey = day => `stats:${day}`;
 
-/** Counts one answered call for an engine in this UTC day (kept in storage so an eviction does not reset it). */
-export async function countAnswer(storage, day, engine) {
+/**
+ * Counts what happened to one engine in this UTC day (kept in storage so an eviction does not reset it): outcome `ok` (answered), `ranOut` (its allowance was used up) or `failed`; `ms` is the answering time.
+ * Why (1 Nov 2026, owner: "report if one is doing worse than the other"): /health and the admin AI cost page compare engines by these counts; quality itself is each job's own check, grouped by the `engine` in the reply.
+ */
+export async function recordOutcome(storage, day, engine, outcome, ms = 0) {
   await storage.transaction(async tx => {
-    const counts = await tx.get(dayKey(day)) || {};
-    counts[engine] = (counts[engine] || 0) + 1;
-    await tx.put(dayKey(day), counts);
+    const stats = await tx.get(statKey(day)) || {};
+    const row = stats[engine] ||= {ok: 0, ranOut: 0, failed: 0, ms: 0};
+    row[outcome] += 1;
+    if (outcome === 'ok') row.ms += Math.round(ms);
+    await tx.put(statKey(day), stats);
+    if (outcome === 'ok') { const counts = await tx.get(dayKey(day)) || {}; counts[engine] = (counts[engine] || 0) + 1; await tx.put(dayKey(day), counts); }
   });
 }
 
-/** For /health: the configured first engine, the chain with each engine's state, and today's answered calls per engine. No secret. */
-export async function engineHealth(storage, env, day) {
-  const {first, chain, warning} = chainOf(env), counts = await storage.get(dayKey(day)) || {};
-  return {engine: first, chain: chain.map(name => ({name, configured: configured(name, env), answeredToday: counts[name] || 0})), ...(warning ? {warning} : {})};
+/** For /health: the configured first engine, the chain with each engine's state, today's answered calls and average answer time per engine. No secret. */
+export async function engineHealth(storage, env, day, now = Date.now()) {
+  const {first, chain, warning} = chainOf(env), counts = await storage.get(dayKey(day)) || {}, stats = await storage.get(statKey(day)) || {};
+  const claude = await storage.get('claude:state') || {};
+  const state = name => name !== 'claude' ? undefined : !configured('claude', env) ? 'not-configured' : (claude.invalidUntil || 0) > now ? 'token-invalid' : (claude.limitUntil || 0) > now ? 'ran-out' : 'ready';
+  return {engine: first, chain: chain.map(name => {
+    const row = stats[name] || {ok: 0, ranOut: 0, failed: 0, ms: 0};
+    return {name, configured: configured(name, env), ...(state(name) ? {state: state(name)} : {}), answeredToday: counts[name] || 0, ranOutToday: row.ranOut, failedToday: row.failed, avgMs: row.ok ? Math.round(row.ms / row.ok) : null,
+      ...(name === 'claude' && claude.limits ? {limits: claude.limits} : {})};
+  }), ...(warning ? {warning} : {})};
 }

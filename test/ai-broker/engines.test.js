@@ -8,17 +8,24 @@ import {chainOf, ORDER} from '../../workers/ai-broker/lib/engines.mjs';
 const config = JSON.parse(readFileSync(new URL('../../workers/ai-broker/wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
 const freeAnswer = () => ({response: 'free answer', usage: {prompt_tokens: 100, completion_tokens: 20}});
 const claudeAnswer = () => Response.json({type: 'message', content: [{type: 'text', text: 'claude answer'}], stop_reason: 'end_turn', usage: {input_tokens: 100, output_tokens: 20}});
+const claudeOk = () => new Response(JSON.stringify({reply: 'claude ok', tokens: {input: 5, output: 3}, ms: 7, limits: {status: 'allowed', fiveHour: {utilization: 0.2}, sevenDay: {utilization: 0.05}}}));
+const claudeFails = (error, extra = {}, status = 500) => () => new Response(JSON.stringify({error, ...extra}), {status});
 // A fresh world per call: the env with a given ENGINE and fakes that count what each provider was asked.
-function world(t, engine, {free = freeAnswer, withKey = true, extra = {}} = {}) {
+function world(t, engine, {free = freeAnswer, withKey = true, extra = {}, claude = claudeOk, token = false} = {}) {
   t.mock.method(Date, 'now', () => day);
-  const calls = {free: 0, claudeApi: 0};
+  const calls = {free: 0, claudeApi: 0, telegram: 0, claudeCli: 0, claudeBodies: [], claudeNow: 0, claudeMax: 0};
   const env = {...config.vars, ...(engine === undefined ? {ENGINE: undefined} : {ENGINE: engine}), BRAIN_BOT_TOKEN: 'fixture-bot', BRAIN_CHAT_ID: 'fixture-chat',
-    ...(withKey ? {ANTHROPIC_API_KEY: 'fixture-not-a-key'} : {}), AI: {run: async () => { calls.free++; return free(); }}, ...extra};
-  t.mock.method(globalThis, 'fetch', async url => { if (String(url).includes('telegram')) return Response.json({ok: true}); calls.claudeApi++; return claudeAnswer(); });
+    ...(withKey ? {ANTHROPIC_API_KEY: 'fixture-not-a-key'} : {}), ...(token ? {CLAUDE_CODE_OAUTH_TOKEN: 'fixture-not-a-token'} : {}), AI: {run: async () => { calls.free++; return free(); }}, ...extra};
+  t.mock.method(globalThis, 'fetch', async url => { if (String(url).includes('telegram')) { calls.telegram++; return Response.json({ok: true}); } calls.claudeApi++; return claudeAnswer(); });
   const made = harness(undefined, env);
   const dispatched = [];
   const container = made.broker.containerFetch;
-  made.broker.containerFetch = async (...args) => { dispatched.push(args[0]); return container(...args); };
+  made.broker.containerFetch = async (...args) => {
+    dispatched.push(args[0]);
+    if (!args[0].endsWith('/claude')) return container(...args);
+    calls.claudeCli++; calls.claudeBodies.push(JSON.parse(args[1].body)); calls.claudeNow++; calls.claudeMax = Math.max(calls.claudeMax, calls.claudeNow);
+    try { return await claude(); } finally { calls.claudeNow--; }
+  };
   return {...made, calls, dispatched, env};
 }
 const answered = async response => (await response.json()).engine;
@@ -121,4 +128,81 @@ test('ENGINE=free-ai: a bad Free AI answer (invalid JSON for a schema, a cut-off
   t.mock.method(globalThis, 'fetch', async () => Response.json({type: 'message', content: [{type: 'text', text: 'not json'}], stop_reason: 'end_turn', usage: {input_tokens: 100, output_tokens: 20}}));
   const refused = await last.broker.call('pr', {...body, schema});
   assert.equal(refused.status, 503); assert.equal((await refused.json()).why, 'fallback:invalid-json');   // Claude after Codex: the same last-resort 503 as before the flag
+});
+
+const withToken = {token: true};
+
+test('ENGINE=claude with a token: the Claude subscription answers at the tier\'s model, the token reaches the container only as an environment variable, /health shows its state and no secret', async t => {
+  const {broker, calls, dispatched} = world(t, 'claude', withToken);
+  const images = [{name: 'a.png', base64: 'QQ=='}];
+  const response = await broker.call('pr', {...body, tier: 'large', schema: {type: 'object'}, images});
+  const answer = await response.json();
+  assert.equal(answer.engine, 'claude'); assert.equal(answer.model, 'claude-opus-5-5'); assert.equal(answer.reply, 'claude ok'); assert.deepEqual(answer.tokens, {input: 5, output: 3});
+  assert.equal(answer.fellBack, undefined);
+  assert.deepEqual(calls.claudeBodies[0], {prompt: body.prompt, schema: {type: 'object'}, images, model: 'claude-opus-5-5'});
+  assert.deepEqual(dispatched.filter(url => url.endsWith('/call')), []);   // Codex was not asked
+  assert.deepEqual(broker.envVars, {CLAUDE_CODE_OAUTH_TOKEN: 'fixture-not-a-token'});
+  for (const [tier, model] of [['small', 'claude-haiku-5-5'], ['mid', 'claude-sonnet-5-5']]) { await broker.call('pr', {...body, tier}); assert.equal(calls.claudeBodies.at(-1).model, model); }
+  const health = await (await broker.health()).json(), entry = health.chain[0];
+  assert.equal(entry.name, 'claude'); assert.equal(entry.state, 'ready'); assert.equal(entry.answeredToday, 3); assert.equal(entry.avgMs !== null, true); assert.equal(entry.limits.fiveHour.utilization, 0.2);
+  assert.equal(JSON.stringify(health).includes('fixture-not-a-token'), false);
+});
+
+test('one call can choose its engine (a workflow trying claude) while every other call stays on the configured one; an unknown choice is a 400', async t => {
+  const {broker, calls} = world(t, 'codex', withToken);
+  assert.equal(await answered(await broker.call('pr', {...body, engine: 'claude'})), 'claude');
+  assert.equal(await answered(await broker.call('pr', body)), 'codex');
+  assert.equal(calls.claudeCli, 1);
+  for (const engine of ['banana', 'claude-api', '', null, 1]) {
+    const response = await broker.call('pr', {...body, engine});
+    assert.equal(response.status, 400); assert.deepEqual(await response.json(), {why: 'engine must be codex, claude or free-ai'});
+  }
+});
+
+test('the chain with Codex first: Codex\'s week used up, the Claude subscription answers before the paid API, and the reply says what it fell back from', async t => {
+  const {broker, storage, calls} = world(t, 'codex', withToken);
+  await storage.put('limits', {usedPercent: 100, resetsAt: day / 1000 + 3600});
+  broker.limits = null;
+  const answer = await (await broker.call('pr', body)).json();
+  assert.equal(answer.engine, 'claude'); assert.deepEqual(answer.fellBack, [{engine: 'codex', why: 'ran-out'}]);
+  assert.equal(calls.claudeApi, 0);
+  const health = await (await broker.health()).json();
+  assert.equal(health.chain.find(e => e.name === 'codex').ranOutToday, 1);
+});
+
+test('an invalid token: the next engine answers, the owner is told once, /health says token-invalid, and Claude is not asked again until the hour is up', async t => {
+  const {broker, calls} = world(t, 'claude', {...withToken, claude: claudeFails('claude-auth')});
+  const first = await (await broker.call('pr', body)).json();
+  assert.equal(first.engine, 'codex'); assert.deepEqual(first.fellBack, [{engine: 'claude', why: 'token-invalid'}]);
+  const second = await (await broker.call('pr', body)).json();
+  assert.equal(second.engine, 'codex'); assert.deepEqual(second.fellBack, [{engine: 'claude', why: 'token-invalid'}]);
+  assert.equal(calls.claudeCli, 1); assert.equal(calls.telegram, 1);
+  assert.equal((await (await broker.health()).json()).chain[0].state, 'token-invalid');
+  Date.now.mock.mockImplementation(() => day + 3601_000);   // an hour later it is tried again
+  await broker.call('pr', body); assert.equal(calls.claudeCli, 2);
+});
+
+test('the subscription used up: it waits for the reset time the CLI reported, then is tried again; an unknown failure is only a failure and is tried at once next time', async t => {
+  const reset = day / 1000 + 7200;
+  const limit = world(t, 'claude', {...withToken, claude: claudeFails('claude-limit', {resetsAt: reset})});
+  assert.deepEqual((await (await limit.broker.call('pr', body)).json()).fellBack, [{engine: 'claude', why: 'ran-out'}]);
+  await limit.broker.call('pr', body); assert.equal(limit.calls.claudeCli, 1);   // still waiting for the reset
+  assert.equal((await (await limit.broker.health()).json()).chain[0].state, 'ran-out');
+  Date.now.mock.mockImplementation(() => reset * 1000 + 1000);
+  await limit.broker.call('pr', body); assert.equal(limit.calls.claudeCli, 2);
+  const flaky = world(t, 'claude', {...withToken, claude: claudeFails('claude-failed:1 boom')});
+  await flaky.broker.call('pr', body); await flaky.broker.call('pr', body);
+  assert.equal(flaky.calls.claudeCli, 2);
+  const health = await (await flaky.broker.health()).json();
+  assert.equal(health.chain[0].failedToday, 2); assert.equal(health.chain[0].ranOutToday, 0); assert.equal(health.chain[0].state, 'ready');
+});
+
+test('search is Codex\'s, a token-shaped Claude reply never reaches the caller, and six parallel Claude calls run at most three at a time', async t => {
+  const {broker, calls} = world(t, 'claude', withToken);
+  assert.equal(await answered(await broker.call('pr', {...body, search: true})), 'codex'); assert.equal(calls.claudeCli, 0);
+  const leaky = world(t, 'claude', {...withToken, claude: () => new Response(JSON.stringify({reply: 'sk-' + 'a'.repeat(30), tokens: {input: 1, output: 1}, ms: 1}))});
+  assert.equal(await answered(await leaky.broker.call('pr', body)), 'codex');   // the guard refuses it and Codex, not yet run, answers
+  const slow = world(t, 'claude', {...withToken, claude: async () => { await new Promise(resolve => setTimeout(resolve, 10)); return claudeOk(); }});
+  assert.equal((await Promise.all(Array.from({length: 6}, () => slow.broker.call('pr', body)))).filter(r => r.status === 200).length, 6);
+  assert.equal(slow.calls.claudeMax, 3);
 });
