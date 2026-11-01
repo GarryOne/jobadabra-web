@@ -65,6 +65,6 @@ export async function engineHealth(storage, env, day, now = Date.now()) {
   return {engine: first, chain: chain.map(name => {
     const row = stats[name] || {ok: 0, ranOut: 0, failed: 0, ms: 0};
     return {name, configured: configured(name, env), ...(state(name) ? {state: state(name)} : {}), answeredToday: counts[name] || 0, ranOutToday: row.ranOut, failedToday: row.failed, avgMs: row.ok ? Math.round(row.ms / row.ok) : null,
-      ...(name === 'claude' && claude.limits ? {limits: claude.limits} : {}), ...((adapt.demoted?.[name] || 0) > now ? {demotedUntil: new Date(adapt.demoted[name]).toISOString()} : {})};
+      ...(name === 'claude' && claude.limits ? {limits: claude.limits} : {}), ...(name === 'claude' && claude.lastError ? {lastError: {at: new Date(claude.lastError.at).toISOString(), text: claude.lastError.text}} : {}), ...((adapt.demoted?.[name] || 0) > now ? {demotedUntil: new Date(adapt.demoted[name]).toISOString()} : {})};
   }), ...(warning ? {warning} : {})};
 }

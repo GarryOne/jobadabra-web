@@ -107,6 +107,7 @@ async function callClaude({prompt, schema, images = [], model}) {
       child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { err += d; });
       const timer = setTimeout(() => child.kill('SIGKILL'), CALL_TIMEOUT_MS);
       child.on('close', code => { clearTimeout(timer); resolve({code, out, err}); });
+      child.on('error', e => { clearTimeout(timer); resolve({code: -1, out, err: `spawn: ${e.message}`}); });   // Why (1 Nov 2026): an unhandled spawn 'error' would take the whole container server down (Codex calls too); now it is a plain failure with its text
       child.stdin.on('error', () => {}); child.stdin.end(input);
     });
     const result = readClaude(out, err, code);

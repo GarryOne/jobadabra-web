@@ -251,3 +251,17 @@ test('Claude failing half its last calls moves behind Codex and is not called fo
   for (let i = 0; i < 7; i++) assert.equal((await alone.broker.call('pr', body)).status, 502);   // nowhere to move: still Codex
   assert.ok((await (await alone.broker.health()).json()).chain[0].demotedUntil);   // but the failure is reported
 });
+
+test('a failed Claude step says why, scrubbed: the reason is in fellBack and /health, never a token-shaped text, at most 200 characters', async t => {
+  const failing = world(t, 'claude', {...withToken, claude: claudeFails('claude-failed:1 fetch failed: ECONNREFUSED api.anthropic.com')});
+  const answer = await (await failing.broker.call('pr', body)).json();
+  assert.deepEqual(answer.fellBack, [{engine: 'claude', why: 'failed', detail: 'claude-failed:1 fetch failed: ECONNREFUSED api.anthropic.com'}]);
+  const entry = (await (await failing.broker.health()).json()).chain[0];
+  assert.equal(entry.lastError.text, 'claude-failed:1 fetch failed: ECONNREFUSED api.anthropic.com'); assert.ok(entry.lastError.at);
+  const platform = world(t, 'claude', {...withToken, claude: () => new Response('Container crashed while proxying request', {status: 500})});
+  assert.equal((await (await platform.broker.call('pr', body)).json()).fellBack[0].detail, 'platform: Container crashed while proxying request');
+  const leaky = world(t, 'claude', {...withToken, claude: claudeFails('claude-failed:1 sk-' + 'a'.repeat(40))});
+  assert.equal((await (await leaky.broker.call('pr', body)).json()).fellBack[0].detail, '(detail withheld: token-shaped)');
+  const long = world(t, 'claude', {...withToken, claude: claudeFails('x '.repeat(400))});
+  assert.ok((await (await long.broker.call('pr', body)).json()).fellBack[0].detail.length <= 200);
+});
