@@ -6,7 +6,6 @@
 // A failed start fails the trigger after every job had its try; no Telegram any more (the bot is retired): the failure goes to the watchdog's GitHub issue and Cloudflare's cron history.
 import {CRONS, runScheduled} from '../app-core/src/scheduler.js';
 import {LABEL, TITLE, fires} from '../app-core/src/watchdog.js';
-import {githubFetch} from '../app-core/src/github-fetch.js';
 
 export const TICK = '*/5 * * * *';
 export const OWN_CRON = '47 21,23,1 * * *';
@@ -19,7 +18,7 @@ export function cronsAt(event) {
 }
 
 /** A refused start as a comment on the watchdog's open issue, or that issue opened (as the bot Worker did, app-core/src/index.js reportStart). Best effort, the caller ignores a failure. */
-export async function reportStart(env, text, fetcher = githubFetch) {
+export async function reportStart(env, text, fetcher = fetch) {
   const call = (path, init = {}) => fetcher(`https://api.github.com/repos/${env.GITHUB_REPO}/${path}`, {...init, headers: {Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'jobadabra-web', 'X-GitHub-Api-Version': '2022-11-28', ...(init.body ? {'Content-Type': 'application/json'} : {})}});
   const open = await call(`issues?labels=${LABEL}&state=open&per_page=1`);
   const [issue] = open.ok ? await open.json() : [];

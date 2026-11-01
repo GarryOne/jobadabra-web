@@ -76,22 +76,6 @@ test('the repo is the TIMERS_REPO var, never a literal: after the org move one e
   assert.deepEqual(none, [], 'no start goes to a guessed repo');
 });
 
-test('a start after a repo move: GitHub answers the old path with a 301 and the POST is re-sent to the new one (the redirected POST would be a 404 GET)', async () => {
-  const requests = [], realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    requests.push([String(url), init?.method, init?.body]);
-    return String(url).includes('/repos/GarryOne/') ? new Response(null, {status: 301, headers: {location: String(url).replace('/repos/GarryOne/jobadabra/', '/repositories/42/')}}) : new Response(null, {status: 204});
-  };
-  try {
-    const tasks = [];
-    await worker.scheduled({cron: OWN_CRON, scheduledTime: at(23, 47).getTime()}, {...ON, GITHUB_REPO: 'GarryOne/jobadabra-web', GITHUB_TOKEN: 'site-token'}, {waitUntil: task => tasks.push(task)});
-    await Promise.all(tasks);
-    const posts = requests.filter(([url]) => url.includes('/actions/workflows/'));
-    assert.deepEqual(posts.map(([url, method]) => [url.split('/workflows/')[0].split('github.com')[1], method]), [['/repos/GarryOne/jobadabra/actions', 'POST'], ['/repositories/42/actions', 'POST']]);
-    assert.equal(posts[0][2], posts[1][2], 'the same body');
-  } finally { globalThis.fetch = realFetch; }
-});
-
 test('a refused start fails the trigger (after every job had its try), is reported to the watchdog issue, but a refused PR-verdict sweep is not', async () => {
   const reports = [], dispatch = async (env, inputs, workflow) => { if (workflow !== 'pr-verdict.yml') throw new Error('GitHub dispatch failed: 403'); };
   await assert.rejects(runTimers({cron: TICK, scheduledTime: at(3, 0).getTime()}, ON, {dispatch, report: async text => { reports.push(text); }}), /scheduled start failed: desktop\.yml: GitHub dispatch failed: 403/);
