@@ -111,4 +111,6 @@ test('owner only, in the Testing menu; the PUT needs the publish key and a snaps
   assert.equal(saved.length, 1);
   assert.equal((await ingest(new Request('https://x/gtm/data', {headers: {Authorization: 'Bearer pub'}}), env(snapshot), now)).status, 200);
   assert.equal((await ingest(new Request('https://x/gtm/data', {headers: {Authorization: 'Bearer pub'}}), env(null), now)).status, 404, 'no snapshot yet');
+  const broken = {SELFHEAL_PUBLISH_KEY: 'pub', STATS: {prepare: () => ({first: async () => { throw new Error('D1 down'); }})}};
+  assert.equal((await ingest(new Request('https://x/gtm/data', {headers: {Authorization: 'Bearer pub'}}), broken, now)).status, 503, 'a D1 error is not "no snapshot yet": the collector must not start from nothing');
 });
