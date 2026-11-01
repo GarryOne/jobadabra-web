@@ -13,7 +13,7 @@ import path from 'node:path';
 import {nightOf, promptCasesOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
-import {answerText, betaRunRow, betaRunsToRead, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
+import {answerText, betaRunRow, betaRunsToRead, kindOf, rateJobs, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
 import {WORK_IDS, parseLog, workRows, weekOf} from '../admin/e2e-work.js';
 import {cleanLanes} from '../admin/e2e-grey.js';
 
@@ -29,8 +29,8 @@ async function eight(items, work) { for (let at = 0; at < items.length; at += 8)
 const memo = fn => { const seen = new Map(); return (...args) => { const key = JSON.stringify(args); if (!seen.has(key)) seen.set(key, fn(...args)); return seen.get(key); }; };
 
 // The failing jobs' logs, searched in memory (never stored or sent).
-async function readLogs(runs) {
-  const ids = runs.flatMap(run => redJobs(run).map(red => red.jobId)).slice(0, MAX_LOGS), logs = new Map();
+async function readLogs(runs, jobsOf = redJobs) {
+  const ids = runs.flatMap(run => jobsOf(run).map(job => job.jobId)).slice(0, MAX_LOGS), logs = new Map();
   await eight(ids, async id => {
     try { logs.set(id, (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${id}/logs`], {maxBuffer: 1 << 28, timeout: 90000})).stdout.replace(/\x1b\[[0-9;]*m/g, '')); } catch { logs.set(id, null); }
   });
@@ -174,7 +174,8 @@ async function main() {
   const readJobs = async run => { const read = await ghAsync('api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`); run.jobs = read ? read.jobs || [] : undefined; };
   await eight([...new Map([...needed, ...betas].map(run => [run.databaseId, run])).values()], readJobs);
   const wanted = new Set(todo.map(run => run.databaseId));
-  const logs = await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse());
+  // Why (1 Nov 2026, mac-07 for the owner): the nights not stored yet also give their interactions job's log, green or red, for its rates (admin/e2e-rates.js); a stored night is not read again.
+  const logs = new Map([...await readLogs(needed.filter(run => wanted.has(run.databaseId)).reverse()), ...await readLogs(history, rateJobs)]);
   const rows = await rowsOf(needed, {logOf: id => (logs.has(id) ? logs.get(id) : null), ...deps});
   const send = {runs: rows.runs.filter(row => wanted.has(row.runId)), fails: rows.fails.filter(row => wanted.has(row.runId)), quality: nights, work: work.work, workFiles: work.files, escapes: work.escapes, lanes, suiteNights: rows.suiteNights, betaRuns: betas.map(run => betaRunRow(run)).filter(Boolean)};
   console.log(JSON.stringify(Object.fromEntries(CAUSES.map(cause => [cause.id, send.fails.filter(fail => fail.cause === cause.id).length]))));
