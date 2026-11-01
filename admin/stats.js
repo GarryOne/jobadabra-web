@@ -4,6 +4,8 @@ import {viewer, remember} from '../shared/auth.js';   // admins (invited) read t
 import {esc} from '../shared/html.js';
 import {filterLinks} from './admin.js';
 import {report, signups} from '../shared/traffic.js';
+import {TOOLTIP} from '../shared/scoutingcharts.js';
+import {perDayChart, fillDays, PERDAY_STYLE} from './stats-chart.js';
 
 const today = (now = new Date()) => now.toISOString().slice(0, 10);
 
@@ -18,10 +20,6 @@ function bars(title, rows, unit) {
 
 export function page(data, list) {
   const {visits, downloads} = data;
-  const max = Math.max(1, ...data.perDay.map(day => day.visitors));
-  const chart = data.perDay.map(day => `<div class="col" title="${day.day}: ${day.visitors} visitors, ${day.downloads} downloads">
-    <i style="--h:${Math.round(day.visitors / max * 100)}%"></i><em style="--h:${Math.round(day.downloads / max * 100)}%"></em>
-    <small>${day.day.slice(8)}</small></div>`).join('');
   const range = filterLinks([7, 30, 90].map(n => [n, `${n} days`, `?days=${n}`]), data.days);
   const tiles = [
     ['👀 Visitors', visits.visitors || 0, `${visits.views || 0} page views`],
@@ -38,9 +36,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
 .tile b{display:block;font-size:32px;margin:4px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
-.chart{display:flex;align-items:flex-end;gap:3px;height:160px;margin-top:12px}.col{flex:1;height:100%;position:relative;display:flex;align-items:flex-end;gap:1px}
-.col i,.col em{flex:1;height:var(--h);min-height:1px;background:var(--amber);border-radius:3px 3px 0 0}.col em{background:var(--teal)}
-.col small{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:10px;color:var(--muted)}
+${PERDAY_STYLE}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px;background:var(--amber)}.legend i.t{background:var(--teal)}
 .bar{display:grid;grid-template-columns:minmax(0,9em) 1fr 3em;gap:8px;align-items:center;margin-top:8px}
 .bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar i{height:10px;width:var(--w);background:var(--amber);border-radius:5px}.bar b{text-align:right}
@@ -49,7 +45,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:6px 4px;bord
 <header><h1>🌐 Website</h1><span class="muted">${range}</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>Per day</h2><small class="legend muted"><i></i>visitors<i class="t"></i>downloaders</small>
-<div class="chart">${chart || '<p class="muted">Nothing yet</p>'}</div><div style="height:18px"></div></section>
+${perDayChart(fillDays(data.perDay, data.from, today())) || '<p class="muted">Nothing yet</p>'}</section>
 <div class="grid">
 ${bars('🔘 Download button', data.buttons, 'people who clicked it')}
 ${bars('💻 Platform', data.platforms, 'downloaders')}
@@ -62,7 +58,7 @@ ${bars('🖥️ Device', data.devices, 'visitors')}
 ${list.map(row => `<tr><td>${esc(row.email)}</td><td class="muted">${esc(row.role)}</td><td class="muted">${esc(row.at.slice(0, 10))}</td></tr>`).join('') || '<tr><td class="muted">No sign-ups yet</td></tr>'}
 </table></section></div>
 <p class="muted">Since ${esc(data.from)} (UTC). People = unique per day, no cookies. More (referrers, speed): Cloudflare → Web Analytics.</p>
-</main></body></html>`;
+</main>${TOOLTIP}</body></html>`;
 }
 
 

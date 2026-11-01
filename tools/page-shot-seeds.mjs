@@ -3,6 +3,18 @@ import {ACTIONS} from '../shared/aicost.js';
 const form = fields => ({method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(fields)});
 
 export const seeds = {
+  website: async ({env}) => {   // made-up visitors and downloaders for /admin/growth/website (1 Nov 2026): 30 days, busiest 5 days ago, a quiet day after it; person ids are made up
+    const week = [[8, 6], [6, 9], [8, 6], [17, 1], [5, 2], [7, 4], [8, 3]], rows = [];
+    for (let back = 29; back >= 0; back--) {
+      const day = new Date(Date.now() - back * 86400000).toISOString().slice(0, 10), [visitors, downloads] = week[(6 - back % 7 + 7) % 7].map(value => value + (back % 4 === 0 ? 2 : 0));
+      for (let i = 0; i < visitors; i++) rows.push(['visits', day, `demo${day}-${i}`, 'direct', ['DE', 'FR', 'IT', 'ES'][i % 4], ['Mac', 'Windows', 'iPhone'][i % 3], '/']);
+      for (let i = 0; i < downloads; i++) rows.push(['downloads', day, `demo${day}-${i}`, 'direct', ['DE', 'FR', 'IT', 'ES'][i % 4], ['Mac', 'Windows', 'iPhone'][i % 3], '/']);
+    }
+    for (const [table, day, visitor, source, country, device, page] of rows) {
+      const extra = table === 'downloads' ? ", 'mac', 'hero'" : '', cols = table === 'downloads' ? ', platform, button' : '';
+      await env.STATS.prepare(`INSERT INTO ${table} (day, at, visitor, page, source, country, device${cols}) VALUES (?, ?, ?, ?, ?, ?, ?${extra})`).bind(day, `${day}T12:00:00Z`, visitor, page, source, country, device).run();
+    }
+  },
   'lab-form-filling': async ({env}) => {   // made-up recorded sites on the usual form platforms, a week of smoke runs: fills, a left field, a bot check, a regression (26 Oct 2026, admin on a phone)
     const {ingest} = await import('../admin/applying.js');
     const hosts = ['job-boards.greenhouse.io', 'jobs.lever.co', 'demo.wd5.myworkdayjobs.com', 'jobs.ashbyhq.com', 'apply.workable.com', 'career5.successfactors.eu', 'jobs.smartrecruiters.com', 'careers.demo-company.example'];
