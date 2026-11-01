@@ -123,7 +123,7 @@ const STYLE2 = `.ac-scatter{width:100%;height:auto;display:block}.ac-wide{overfl
 /** The SDLC tab: rows [{kind, day, card: JSON string, updated_at}] + a clock in, HTML out. */
 export function sdlcPage(rows, now = new Date()) {
   const weeks = weeksOf(rows, now), at = rows.map(item => item.updated_at).filter(Boolean).sort().at(-1);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>SDLC · Agent coding · Agents · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>SDLC · Agent coding · Agent Coding · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}${TABS_STYLE}${STYLE2}</style></head><body><main>
 <header><h1>🧭 Agent coding</h1><span class="muted ac-top">the whole path${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/testing/pr-checks">per-check scorecard →</a></span></header>
 ${tabs('sdlc')}${verdict(weeks)}${gridCard(weeks)}${pathCard(weeks)}${phasesCard(weeks)}</main></body></html>`;

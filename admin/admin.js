@@ -8,7 +8,9 @@ import {findButton, PALETTE_SCRIPT, PALETTE_STYLE} from './palette.js';
 
 // Every page lives at /admin/{group}/{page} (owner, 27 Oct 2026: "normalize all the page urls"): the group's slug, then the menu name's; /admin itself is the home.
 // slug (when set) = the page's part when its menu name would spell it differently (E-mail → email). old = the page's earlier addresses, redirected (test/admin/admin-urls.test.js fails a page off the pattern, or an old address that no longer answers).
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Testing', '🧪'], ['Agents', '🤖']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Testing', '🧪'], ['Agent Coding', '🤖', 'agents'], ['Schedules', '⏰']];
+// A group's URL part: its name's, unless the entry says otherwise (owner, 1 Nov 2026: Agents became "Agent Coding" but its addresses stay /admin/agents/…, so no link breaks).
+export const groupSlug = ([name, , slug]) => slug || slugOf(name);
 export const slugOf = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // overview: true = the section's Overview tab (admin/section-overview.js draws the headline numbers every other page of the group declares in admin/headlines.js).
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
@@ -34,23 +36,24 @@ export const PAGES = [
   {path: '/admin/intelligence/overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', old: ['/admin/intelligence-overview'], name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/intelligence/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: ['/admin/insights', '/intel'], name: 'Insights', icon: '🧠'},
   {path: '/admin/intelligence/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', old: ['/admin/brain'], slug: 'brain', name: 'Product Brain', icon: '🧠'},
-  {path: '/admin/agents/overview', group: 'Agents', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', old: ['/admin/operations/overview', '/admin/operations'], name: 'Overview', icon: '⏱️', overview: true},
-  {path: '/admin/agents/agent-coding', group: 'Agents', question: 'How does our agent code, ship and verify, and where does it go in circles?', old: ['/admin/operations/agent-coding'], name: 'Agent coding', icon: '🧭'},
-  {path: '/admin/agents/build-log', group: 'Agents', question: 'What did we build each day, in plain words?', old: ['/admin/operations/build-log'], name: 'Build log', icon: '🗓️'},
-  {path: '/admin/agents/schedules', group: 'Agents', question: 'Are all our scheduled jobs running on time and green?', old: ['/admin/operations/schedules'], name: 'Schedules', icon: '⏰'},
+  {path: '/admin/agents/overview', group: 'Agent Coding', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', old: ['/admin/operations/overview', '/admin/operations'], name: 'Overview', icon: '⏱️', overview: true},
+  {path: '/admin/agents/agent-coding', group: 'Agent Coding', question: 'How does our agent code, ship and verify, and where does it go in circles?', old: ['/admin/operations/agent-coding'], name: 'Agent coding', icon: '🧭'},
+  {path: '/admin/agents/build-log', group: 'Agent Coding', question: 'What did we build each day, in plain words?', old: ['/admin/operations/build-log'], name: 'Build log', icon: '🗓️'},
   {path: '/admin/testing/e2e', group: 'Testing', question: 'Where does our e2e fixing time go: which suites go red, and why?', old: ['/admin/operations/e2e'], name: 'E2E', icon: '🧪'},
   {path: '/admin/testing/gtm-readiness', group: 'Testing', question: 'How ready is the app for go-to-market: how stable is each critical journey?', old: [], name: 'GTM readiness', icon: '🚦'},
   {path: '/admin/testing/integrations', group: 'Testing', question: 'Are the integration tests green, quick and steady, and how much of e2e has moved to them?', old: ['/admin/operations/integrations'], name: 'Integrations', icon: '🧩'},
   {path: '/admin/testing/pr-checks', group: 'Testing', question: 'Do our PR checks catch real bugs, and how long do they make us wait?', old: ['/admin/operations/pr-checks'], name: 'PR checks', icon: '✅'},
   {path: '/admin/testing/self-healing', group: 'Testing', question: 'Do the automatic loops find and fix problems on their own?', old: ['/admin/self-healing', '/self-heal', '/admin/operations/self-healing'], name: 'Self-healing', icon: '🔁'},
   {path: '/admin/testing/sentry', group: 'Testing', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', old: ['/admin/sentry', '/admin/operations/sentry'], name: 'Sentry', icon: '🐞'},
+  {path: '/admin/testing/scheduled', group: 'Testing', question: 'Are the scheduled jobs that test and heal our code running on time and green?', name: 'Scheduled', icon: '⏰'},
   {path: '/admin/intelligence/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: ['/admin/ai-cost', '/ai-cost'], name: 'AI cost', icon: '💸'},
-  {path: '/admin/agents/access', group: 'Agents', question: 'Who can open these admin pages?', old: ['/admin/access', '/admin/operations/access'], name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin/schedules/all-jobs', group: 'Schedules', question: 'Are all our scheduled jobs running on time and green, in every area?', old: ['/admin/agents/schedules', '/admin/operations/schedules'], name: 'All jobs', icon: '⏰'},
+  {path: '/admin/agents/access', group: 'Agent Coding', question: 'Who can open these admin pages?', old: ['/admin/access', '/admin/operations/access'], name: 'Access', icon: '🔐', superadmin: true},
 ];
 // Old addresses of a page (one or more), a group's own address (its first page), and the sub-routes that moved with their page (the digest downloads,
 // the Lab's videos): the ONLY place the old paths may still be written (test/web/form-pages.test.js).
 const OLD = {...Object.fromEntries(PAGES.flatMap(page => [page.old].flat().filter(Boolean).map(old => [old, page.path]))),
-  ...Object.fromEntries(GROUPS.slice(1).map(([name]) => [`/admin/${slugOf(name)}`, PAGES.find(page => page.group === name).path])),
+  ...Object.fromEntries(GROUPS.slice(1).map(group => [`/admin/${groupSlug(group)}`, PAGES.find(page => page.group === group[0]).path])),
   ...Object.fromEntries(['/admin/form-filling', '/admin/real-form-filling'].flatMap(old => ['json', 'md'].map(kind => [`${old}/digest.${kind}`, `/admin/form-filling/real-users/digest.${kind}`]))),
   '/admin/lab-form-filling/video': '/admin/form-filling/lab/video'};
 export const movedTo = pathname => OLD[pathname];
@@ -82,7 +85,7 @@ a{color:#f5b54a}.muted{color:#8d949c}.card{background:#14181d;border:1px solid #
 table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#8d949c;font-size:12px}td{border-top:1px solid #262c33}
 .card{padding:16px}h2{font-size:15px}main>.card,main>section.card{margin-bottom:16px}
 th,td{padding:10px 8px;vertical-align:top}td.num,td.n,th.num,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}td.nowrap,.pill,.badge{white-space:nowrap}
-.filters{display:flex;gap:6px;flex-wrap:wrap}.filter{color:#8d949c;text-decoration:none;padding:5px 10px;border:1px solid #262c33;border-radius:999px;font-size:13px;background:transparent;font-weight:400}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.filter-label{color:#8d949c;font-size:13px;margin-right:2px}.filter-rows{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}.filter{color:#8d949c;text-decoration:none;padding:5px 10px;border:1px solid #262c33;border-radius:999px;font-size:13px;background:transparent;font-weight:400}
 .filter:hover{color:#f4efe3}.filter.on{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight:600}
 .seg button{border-radius:999px;border-color:#262c33;color:#8d949c}.seg button[aria-pressed=true]{background:#f5b54a;border-color:#f5b54a;color:#0b0d10;font-weight:600}
 .table-scroll{overflow-x:auto}
@@ -99,13 +102,14 @@ if(head&&head.cells.length>=4){t.classList.add('wide');if(!t.closest('.card,.tab
 if(head&&body.length===1&&body[0].cells.length===1&&body[0].cells[0].colSpan>1)head.hidden=true;
 if(head)[...head.cells].forEach((th,i)=>{const cells=body.map(r=>r.cells[i]).filter(Boolean);if(cells.length&&cells.every(c=>c.classList.contains('num')||c.classList.contains('n')||!c.textContent.trim()))th.classList.add('num')});
 body.forEach(r=>[...r.cells].forEach(c=>{if(/^\\d{4}-\\d\\d-\\d\\d( \\d\\d:\\d\\d)?( UTC)?$/.test(c.textContent.trim()))c.classList.add('nowrap')}))});`;
-// A row of filter links (a period, a status): the current one amber, as on every admin page.
-export const filterLinks = (options, current) => `<nav class="filters" aria-label="Filter">${options.map(([value, label, href]) =>
-  `<a class="filter${value === current ? ' on' : ''}" href="${esc(href)}"${value === current ? ' aria-current="true"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
+// A row of filter links (a period, a status): the current one amber, as on every admin page. `label` = a word before the chips ("Repo"), kept in the same row and centred on the chips
+// (owner, 1 Nov 2026: "let's improve text alignment here": the labels sat higher than their chips, top-aligned in a stretched flex row).
+export const filterLinks = (options, current, label = '') => `<nav class="filters" aria-label="${esc(label || 'Filter')}">${label ? `<span class="filter-label">${esc(label)}</span>` : ''}${options.map(([value, text, href]) =>
+  `<a class="filter${value === current ? ' on' : ''}" href="${esc(href)}"${value === current ? ' aria-current="true"' : ''}>${esc(text)}</a>`).join('')}</nav>`;
 export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:#0b0d10ee;backdrop-filter:blur(6px);border-bottom:1px solid #262c33;margin:0 0 18px}
-.admin-nav>div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
-.admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
-.admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
+.admin-nav>div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:2px;flex-wrap:wrap;align-items:center;font:13.5px/1.3 system-ui,-apple-system,sans-serif}
+.admin-nav b{color:#f4efe3;margin-right:6px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 6px;border-radius:999px;white-space:nowrap}
+.admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px;white-space:nowrap}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
 .trend .up{color:#3fb68b}.trend .down{color:#e5484d}
 .admin-nav .admin-sub{padding-top:0;font-size:13px}.admin-nav .admin-sub a[aria-current]{background:#1b2027;color:#f5b54a}

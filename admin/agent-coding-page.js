@@ -106,7 +106,7 @@ details{margin-top:12px}summary{cursor:pointer;color:#8d949c;font-size:13px}.ac-
 
 export function page(rows, now = new Date()) {
   const weeks = weeksOf(rows, now), at = rows.map(item => item.updated_at).filter(Boolean).sort().at(-1);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Agent coding · Agents · Admin</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Agent coding · Agent Coding · Admin</title>
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}${TABS_STYLE}</style></head><body><main>
 <header><h1>🧭 Agent coding</h1><span class="muted ac-top">weekly · last ${WEEKS} weeks${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/testing/pr-checks">per-check scorecard →</a></span></header>
 ${tabs('weekly')}${verdict(weeks)}

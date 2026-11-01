@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
 import {INTELLIGENCE} from '../../admin/headlines-growth.js';
 import {JOB_SEARCH} from '../../admin/headlines-search.js';
-import {GROUPS, PAGES, byWeek, nav, spark, weekOf} from '../../admin/admin.js';
+import {GROUPS, NAV_STYLE, PAGES, byWeek, filterLinks, nav, spark, weekOf} from '../../admin/admin.js';
 import {report} from '../../admin/overview.js';
 import {appTrends, insightTrends} from '../../admin/trends.js';
 
@@ -133,4 +133,14 @@ test('every admin page has its question, shown under the menu', async () => {
   for (const page of PAGES) assert.ok(page.question && page.question.endsWith('?'), `${page.path} has no question`);
   const html = withNav('<html><head></head><body><main>x</main></body></html>', '/admin/intelligence/insights');
   assert.match(html, /class="admin-question">Does the app make good decisions for users\?</);
+});
+
+// Owner, 1 Nov 2026: "let's improve text alignment here": a label before filter chips ("Repo") sat higher than the chips.
+test('a filter row can carry its label inside the same flex row, and every filter row centres its items', async () => {
+  const html = filterLinks([['all', 'All', '?a=1'], ['x', 'X', '?a=2']], 'x', 'Repo');
+  assert.ok(html.includes('<nav class="filters" aria-label="Repo"><span class="filter-label">Repo</span><a class="filter"'), 'the label is in the nav, before the chips');
+  assert.ok(!filterLinks([['a', 'A', '?']], 'a').includes('filter-label'), 'no label, no label element');
+  const {withNav} = await import('../../admin/admin.js');
+  assert.match(withNav('<html><head></head><body></body></html>', '/admin'), /\.filters\{display:flex;gap:6px;flex-wrap:wrap;align-items:center\}/, 'the shared rule centres label and chips');
+  assert.ok(NAV_STYLE.includes('padding:5px 6px'), 'the 9-tab header stays on one line');
 });

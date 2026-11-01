@@ -92,7 +92,7 @@ test('a name from an upload is escaped on the page', () => {
 });
 
 test('the menu lists Agent coding under Agents and the overview headline counts the circling areas', async () => {
-  assert.equal(PAGES.find(item => item.path === '/admin/agents/agent-coding').group, 'Agents');
+  assert.equal(PAGES.find(item => item.path === '/admin/agents/agent-coding').group, 'Agent Coding');
   const e = env();
   const [empty] = await OPERATIONS['/admin/agents/agent-coding'](e, new Date());
   assert.equal(empty.value, 'No data');

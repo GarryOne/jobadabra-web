@@ -1,4 +1,5 @@
-// /admin/agents/schedules: every scheduled CI job we run, in any repo, grouped by area, with its last run and health (owner, 20 Oct 2026). A collector (jobs/schedules-snapshot.mjs,
+// /admin/schedules/all-jobs: every scheduled CI job we run, in any repo, grouped by area, with its last run and health (owner, 20 Oct 2026). The same page filtered to one area is /admin/testing/scheduled
+// (owner, 1 Nov 2026: "a tab called Scheduled in Testing ... and a separate top level tab Schedules that will aggregate all the schedules from all the areas"): one reader of the snapshot, one view, filtered by area. A collector (jobs/schedules-snapshot.mjs,
 // schedules-snapshot.yml, hourly) reads each repo's workflow files and latest runs and sends ONE snapshot (PUT /ops/data?kind=schedules, Bearer SELFHEAL_PUBLISH_KEY); the site keeps it in one row
 // (schedules_snapshot) and this page reads that row: no GitHub call and no table scan per page load (D1 free plan). A job that moves to another repo just shows its new repo. No AI.
 // Pure parts: shared/schedules-model.js. Guard: test/schedules.test.js.
@@ -56,45 +57,52 @@ function row(job, now) {
 }
 const STATES = [['all', 'All'], ['red', 'Red'], ['green', 'Green'], ['off', 'Disabled']];
 const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0;font-variant-numeric:tabular-nums}.tile.bad b{color:#e5484d}.tile.warn b{color:#e0a43a}
-.filters{margin:6px 0}.wrap{overflow-x:auto}table{min-width:900px}tr.area td{padding-top:16px}tr.red td:first-child{box-shadow:inset 3px 0 0 #e5484d}.repo{font-size:11px;border:1px solid #262c33;border-radius:6px;padding:0 6px;white-space:nowrap}
+.filter-rows{margin:6px 0}.wrap{overflow-x:auto}table{min-width:900px}tr.area td{padding-top:16px}tr.red td:first-child{box-shadow:inset 3px 0 0 #e5484d}.repo{font-size:11px;border:1px solid #262c33;border-radius:6px;padding:0 6px;white-space:nowrap}
 .dots{display:flex;gap:3px;margin-top:3px}.dots i{width:8px;height:8px;border-radius:50%;background:#3fb68b}.dots i.r{background:#e5484d}.dots i.x{background:#5b626a}.dots i.c{background:none;border:1px solid #5b626a}
 .chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}.chip.g{background:#3fb68b}.chip.r{background:#e5484d}.chip.o{background:#8d949c}.chip.w{background:#e0a43a}.small{font-size:12px}`;
 
-export function page(snapshot, {repo = 'all', state = 'all', now = new Date()} = {}) {
-  const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Schedules · Agents · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main><header><h1>⏰ Schedules</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
+// `only` = an area id: the page lists that area alone (the Testing tab); '' = every area, with an Area filter.
+export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date()} = {}) {
+  const scope = AREAS.find(item => item.id === only);
+  const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${scope ? `Scheduled · ${esc(scope.label)}` : 'Schedules'} · Admin</title>
+<link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
   if (!snapshot) return head('<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>schedules-snapshot.yml</code> publishes every scheduled job once an hour; the first run fills this page.</p></section>');
-  const all = decorate(snapshot, now), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
+  const all = decorate(snapshot, now).filter(job => !scope || job.area === scope.id), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
   const repos = ['all', ...new Set(all.map(job => job.repo.split('/').pop()))];
-  const shown = scheduled.filter(job => (repo === 'all' || job.repo.split('/').pop() === repo) && (state === 'all' || job.state === state));
-  const link = (r, s) => `?repo=${encodeURIComponent(r)}&state=${s}`;
+  const shown = scheduled.filter(job => (repo === 'all' || job.repo.split('/').pop() === repo) && (state === 'all' || job.state === state) && (area === 'all' || job.area === area));
+  const link = (r, s, a = area) => `?repo=${encodeURIComponent(r)}&state=${s}${scope ? '' : `&area=${a}`}`;
   const tile = (label, value, sub, cls = '') => `<section class="card tile ${cls}"><span class="muted">${esc(label)}</span><b>${esc(value)}</b><span class="muted">${esc(sub)}</span></section>`;
-  const areaTiles = AREAS.map(area => { const mine = scheduled.filter(job => job.area === area.id), red = mine.filter(job => job.state === 'red').length;
+  const areaTiles = scope ? '' : AREAS.map(area => { const mine = scheduled.filter(job => job.area === area.id), red = mine.filter(job => job.state === 'red').length;
     return tile(area.label, `${mine.length - red}/${mine.length}`, `green · ${red} red`, red ? 'bad' : ''); }).join('');
   const sections = AREAS.map(area => { const mine = shown.filter(job => job.area === area.id); if (!mine.length) return '';
     const red = scheduled.filter(job => job.area === area.id && job.state === 'red').length;
-    return `<tr class="area"><td colspan="7"><b>${esc(area.label)}</b> <span class="muted small">${esc(area.hint)}</span> <span class="chip ${red ? 'r' : 'g'}">${scheduled.filter(job => job.area === area.id).length} jobs · ${red} red</span>${area.link ? ` <a class="small" href="${area.link}">${area.link} →</a>` : ''}</td></tr>${mine.map(job => row(job, now)).join('')}`; }).join('');
+    return `<tr class="area"><td colspan="7"><b>${esc(area.label)}</b> <span class="muted small">${esc(area.hint)}</span> <span class="chip ${red ? 'r' : 'g'}">${scheduled.filter(job => job.area === area.id).length} jobs · ${red} red</span>${area.link && !scope ? ` <a class="small" href="${area.link}">${area.link} →</a>` : ''}</td></tr>${mine.map(job => row(job, now)).join('')}`; }).join('');
   const failed = (snapshot.repos || []).filter(r => r.ok === false).map(r => r.name);
   return head(`<div class="tiles">${tile('Scheduled jobs', num(c.all), `plus ${num(manual.length)} by hand only`)}${tile('Red now', num(c.red), 'last finished run failed', c.red ? 'bad' : '')}${tile('Missed a run', num(c.missed), 'a due start never began', c.missed ? 'warn' : '')}${tile('Billed min / week', num(c.billed), 'Mac ×10, Windows ×2; public repos are free')}</div>
-<div class="tiles">${areaTiles}</div>${failed.length ? `<p class="muted">Could not read: ${esc(failed.join(', '))}. Their jobs show the last known data or are missing.</p>` : ''}
-<div class="filters"><span class="muted">Repo</span> ${filterLinks(repos.map(r => [r, r === 'all' ? 'All' : r, link(r, state)]), repo)} <span class="muted">State</span> ${filterLinks(STATES.map(([value, name]) => [value, name, link(repo, value)]), state)}</div>
+${scope ? '' : `<div class="tiles">${areaTiles}</div>`}${failed.length ? `<p class="muted">Could not read: ${esc(failed.join(', '))}. Their jobs show the last known data or are missing.</p>` : ''}
+<div class="filter-rows">${scope ? '' : filterLinks([['all', 'All', link(repo, state, 'all')], ...AREAS.map(item => [item.id, item.label, link(repo, state, item.id)])], area, 'Area')}${filterLinks(repos.map(r => [r, r === 'all' ? 'All' : r, link(r, state)]), repo, 'Repo')}${filterLinks(STATES.map(([value, name]) => [value, name, link(repo, value)]), state, 'State')}</div>
 <section class="card wrap"><table><tr><th>Job</th><th>Repo</th><th>Schedule · next start (Europe/Zurich)</th><th>Last run</th><th>Last 14</th><th class="num">Min/wk</th><th>AI cost</th></tr>${sections || '<tr><td colspan="7" class="muted">No job matches.</td></tr>'}</table></section>
 <details><summary>Run by hand only (${num(manual.length)})</summary><p class="muted small">Workflows with workflow_dispatch and no schedule.</p>${manual.length ? `<ul>${manual.map(job => `<li><a href="https://github.com/${esc(job.repo)}/actions/workflows/${esc(job.file)}">${esc(job.name || job.file)}</a> <span class="repo">${esc(job.repo.split('/').pop())}</span> ${chip(job)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</details>`);
 }
 
-// The Agents Overview tile: how many jobs, how many red or missed.
-export async function headline(env, now = new Date()) {
+// The Testing Overview tile (and the aggregate's own): how many jobs, how many red or missed; `only` = an area id for the Testing tab.
+const headlineOf = only => async (env, now = new Date()) => {
   const snapshot = await read(env);
   if (!snapshot) return [{label: 'Scheduled jobs', value: 'No data', sub: 'the snapshot job publishes hourly', status: 'none'}];
-  const c = counts(decorate(snapshot, now).filter(job => job.crons.length));
+  const c = counts(decorate(snapshot, now).filter(job => job.crons.length && (!only || job.area === only)));
   return [{label: 'Scheduled jobs', value: `${num(c.all - c.red)} of ${num(c.all)} green`, sub: `${num(c.red)} red · ${num(c.missed)} missed a run`, status: c.red ? 'bad' : c.missed ? 'warn' : 'good'}];
-}
+};
+export const headline = headlineOf(''), headlineTesting = headlineOf('testing');
 
-export async function view(request, env) {
+// `only` = an area id for the Testing tab (/admin/testing/scheduled), '' for the aggregate (/admin/schedules/all-jobs).
+const viewOf = only => async (request, env) => {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   const state = STATE_IDS.includes(url.searchParams.get('state')) ? url.searchParams.get('state') : 'all', snapshot = await read(env);
   const known = new Set((snapshot?.jobs || []).map(job => job.repo.split('/').pop())), repo = known.has(url.searchParams.get('repo')) ? url.searchParams.get('repo') : 'all';
-  return new Response(page(snapshot, {repo, state}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
-}
+  const area = AREAS.some(item => item.id === url.searchParams.get('area')) ? url.searchParams.get('area') : 'all';
+  return new Response(page(snapshot, {repo, state, area, only}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+};
+export const view = viewOf('');
+export const viewTesting = viewOf('testing');

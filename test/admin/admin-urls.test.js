@@ -5,7 +5,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
-import {GROUPS, PAGES, movedTo, oldPaths, slugOf} from '../../admin/admin.js';
+import {GROUPS, PAGES, groupSlug, movedTo, oldPaths, slugOf} from '../../admin/admin.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -24,7 +24,7 @@ test('every page is at /admin/{its group}/{its name}, and no two share an addres
   const groups = GROUPS.map(([name]) => name);
   for (const page of PAGES.filter(item => item.path !== '/admin')) {
     assert.ok(groups.includes(page.group), page.path);
-    assert.equal(page.path, `/admin/${slugOf(page.group)}/${page.slug || slugOf(page.name)}`, `${page.group} › ${page.name}`);
+    assert.equal(page.path, `/admin/${groupSlug(GROUPS.find(group => group[0] === page.group))}/${page.slug || slugOf(page.name)}`, `${page.group} › ${page.name}`);
   }
   assert.equal(new Set(PAGES.map(page => page.path)).size, PAGES.length);
   assert.ok(PAGES.some(page => page.path === '/admin' && page.group === 'Overview'), 'the home stays /admin');
@@ -46,7 +46,7 @@ test('every old address sends the owner to its page (query kept), and nobody els
   for (const page of PAGES) for (const old of [page.old || []].flat()) assert.equal(movedTo(old), page.path, old);
   assert.equal(movedTo('/admin/signups'), '/admin/growth/email', 'Signups is merged into E-mail');
   assert.ok(!PAGES.some(page => page.path === '/admin/signups'));
-  for (const [name] of GROUPS.slice(1)) assert.equal(movedTo(`/admin/${slugOf(name)}`), PAGES.find(page => page.group === name).path, `${name}'s own address opens its first page`);
+  for (const group of GROUPS.slice(1)) assert.equal(movedTo(`/admin/${groupSlug(group)}`), PAGES.find(page => page.group === group[0]).path, `${group[0]}'s own address opens its first page`);
 });
 
 test('a script calling an old address with its key gets the same answer as at the new one, never a 301 (curl -s and POST uploads do not follow it)', async () => {
