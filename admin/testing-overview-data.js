@@ -87,7 +87,8 @@ function bugsOf(data, bugs) {
   if (bugs.caught) {
     if (!data.e2e) return {why: 'the e2e snapshot has not arrived yet'};
     const from = new Date(data.now.getTime() - 29 * DAY).toISOString().slice(0, 10);
-    return {text: plural((data.e2e.caught || []).filter(row => row.day >= from).length, 'red that caught a bug', 'reds that caught a bug'), window: '30 days'};
+    // One run per red: the stored rows are one per failing suite, platform and line (admin/e2e-intel.js caught), so a run red on Mac and Linux would count twice (Gitar, #255).
+    return {text: plural(new Set((data.e2e.caught || []).filter(row => row.day >= from).map(row => row.runId)).size, 'red that caught a bug', 'reds that caught a bug'), window: '30 days'};
   }
   if (bugs.mutation) return data.healing?.quality?.mutation?.note ? {text: data.healing.quality.mutation.note} : {why: 'no planted-bug run is stored yet'};
   if (bugs.recall) {
