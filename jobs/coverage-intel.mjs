@@ -7,7 +7,7 @@ import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {promisify} from 'node:util';
-import {COVERAGE_LAYERS, KEEP_HISTORY} from '../admin/coverage-intel.js';
+import {cleanCoverage, COVERAGE_LAYERS, KEEP_HISTORY} from '../admin/coverage-intel.js';
 
 const execAsync = promisify(execFile);
 export const ARTIFACT = 'coverage-report';
@@ -44,7 +44,10 @@ export async function coverageFor(stored, {repo, json = ghJson, read = readRepor
   try {
     const newest = await newestReport(repo, json);
     if (!newest || newest.runId === stored?.runId) return stored || null;
-    return mergeCoverage(stored, await read(repo, newest.runId), newest);
+    const merged = mergeCoverage(stored, await read(repo, newest.runId), newest);
+    // Why (PR #267, Gitar): a report that parses but has a shape the site rejects must not replace the stored part (the site would store null and the 30 nights of trend are gone).
+    if (!cleanCoverage(merged)) throw new Error(`report of run ${newest.runId} has a shape the site does not accept`);
+    return merged;
   } catch (error) {
     console.log(`::warning::the coverage report was not read this hour: ${String(error?.message || error).slice(0, 200)}`);
     return stored || null;

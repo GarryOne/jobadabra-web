@@ -79,6 +79,14 @@ test('the collector reads the newest report once, keeps one total per night, and
   console.log = line => log.push(line);
   try { assert.equal((await coverageFor(first, {repo: 'o/r', json: json(artifact(102), []), read: async () => { throw new Error('gh: rate limit'); }})).runId, 100, 'an unreadable report keeps the stored one'); } finally { console.log = realLog; }
   assert.match(log.join('\n'), /::warning::the coverage report was not read this hour: gh: rate limit/, 'and says so');
+  // A report that parses but has a shape the site rejects (a full timestamp as `at`, no layers) keeps the stored part and its history.
+  console.log = line => log.push(line);
+  try {
+    for (const bad of [{...report(), at: '2026-11-03T03:00:00Z'}, {sha: 'abc', at: '2026-11-03'}]) {
+      assert.equal(await coverageFor(first, {repo: 'o/r', json: json(artifact(103), []), read: async () => bad}), first, 'a report the site would reject keeps the stored one');
+    }
+  } finally { console.log = realLog; }
+  assert.match(log.join('\n'), /run 103 has a shape the site does not accept/);
 });
 
 test('the nights kept for the trend are the last 30, one per day', () => {
