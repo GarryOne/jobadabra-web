@@ -110,6 +110,7 @@ test('the workflow runs when main or a PR moves, never runs a PR\'s code, and on
   assert.ok(flow.includes('ref: ${{ github.event.repository.default_branch }}'), "main's copy of the script, never the PR's");
   assert.ok(flow.includes('PR: ${{ github.event.pull_request.number }}'), "a PR's run labels that PR alone");
   assert.ok(flow.includes("group: conflict-label-${{ github.event_name == 'push' && 'main' || github.run_id }}"), 'main pushes share a group; a PR push is its own group, never cancelled (a cancelled run is a failed check on the PR)');
+  assert.ok(flow.includes('sparse-checkout: |\n            tools/conflict-label.mjs\n          sparse-checkout-cone-mode: false'), 'the script is a file pattern: cone mode reads every entry as a folder');
   assert.ok(flow.includes('pull-requests: write') && flow.includes('issues: write') && !flow.includes('contents: write'), 'its only writes are labels');
   assert.ok(!/\n  conflict:\n(?:.*\n)*?\s+needs:/.test(flow), 'a label job waits for nothing and nothing waits for it');
 });
