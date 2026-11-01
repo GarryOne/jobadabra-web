@@ -163,7 +163,7 @@ test('synthetic card, live: cadence every 15 min, the last round, green with all
   assert.deepEqual([card.state, line.when, line.last.state, line.last.at, line.last.note], ['green', 'every 15 min', 'green', '2026-11-01T11:50:00Z', 'all 6 probes up']);
   assert.deepEqual(card.bugs, {why: 'a probe finds outages, not bugs'});
   assert.equal(card.href, '', 'it links to the Overview itself only once that page is in the menu');
-  assert.equal(cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes}), {pages: ['/admin/testing/overview']}), 'synthetic').href, '/admin/testing/overview');
+  assert.equal(cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes}), {pages: ['/admin/testing/synthetic-monitoring']}), 'synthetic').href, '/admin/testing/synthetic-monitoring');   // its own tab (owner, 1 Nov 2026)
   assert.ok(!resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})).rings.flatMap(ring => ring.cards).some(item => item.id === 'synthetic' && item.kind === 'planned'));
   const down = cardOf(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes: probes.map(item => (item.probe === 'broker' ? {...item, ok: false, state: 'down', reason: 'HTTP 503'} : item.probe === 'site' ? {...item, ok: false} : item))})), 'synthetic');
   assert.deepEqual([down.state, down.lines[0].last.note], ['red', 'Free AI broker down'], 'down = 2 reds in a row; one red alone is not yet a verdict');
