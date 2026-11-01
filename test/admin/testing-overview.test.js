@@ -7,6 +7,7 @@ import {PAGES} from '../../admin/admin.js';
 import {METHODS, PLANNED, RINGS} from '../../admin/testing-overview-methods.js';
 import {resolve} from '../../admin/testing-overview-data.js';
 import {ago, lastChip, page} from '../../admin/testing-overview.js';
+import {daysTo, historyOf} from '../../admin/testing-overview-history.js';
 
 const now = new Date('2026-11-01T12:00:00Z'), repo = 'GarryOne/jobadabra';
 const run = (conclusion, at, n = 1) => ({at, conclusion, mins: 3, url: `https://github.com/${repo}/actions/runs/${n}`});
@@ -121,4 +122,21 @@ test('the route: owner only, Overview is the first page of Testing, every other 
   const html = await owner.text();
   assert.match(html, /Testing overview/);
   assert.match(html, /<a href="\/admin\/testing\/overview" aria-current="page">🧭 Overview<\/a>/);
+});
+
+test('the map: one cell per day, red beats green on a day, a day before the stored runs is "not stored", never "no run"', () => {
+  const d = data({e2e: {...data().e2e, days: [{day: '2026-10-31', kind: 'nightly', runs: 2, greens: 1, reds: 1}, {day: '2026-10-30', kind: 'nightly', runs: 1, greens: 1, reds: 0}]}});
+  assert.deepEqual(daysTo(now).slice(-2), ['2026-10-31', '2026-11-01']);
+  const night = historyOf(d, [{label: 'Night', last: {e2e: ['nightly']}}]);
+  assert.equal(night.length, 14);
+  assert.deepEqual(night.slice(-3).map(cell => cell.state), ['green', 'red', 'none']);
+  const full = {...d, schedules: {jobs: [job('mutation.yml', 'x', Array.from({length: 14}, (_, i) => run('success', `2026-11-0${i < 1 ? 1 : 1}T0${i % 9}:00:00Z`, i)))]}};
+  const cells = historyOf(full, [{label: 'x', wf: 'mutation.yml'}]);
+  assert.equal(cells.at(-1).state, 'green');
+  assert.equal(cells[0].state, 'unknown', 'a full window of 14 newest runs says nothing about the days before it');
+  assert.ok(historyOf(d, [{label: 'Gitar', last: {none: 'x'}}]).every(cell => cell.state === 'unknown'));
+  const html = page(resolve(d), {now});
+  assert.match(html, /Every method, day by day/);
+  assert.match(html, /title="Sat 31 Oct · 1 green run, 1 red run"/);
+  assert.match(html, /methods · by their last run/);
 });

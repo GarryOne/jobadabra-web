@@ -10,6 +10,7 @@ import {latestCard} from './pr-checks.js';
 import {issues} from './sentry.js';
 import {missed, words} from '../shared/schedules-model.js';
 import {METHODS, PLANNED, RINGS} from './testing-overview-methods.js';
+import {historyOf} from './testing-overview-history.js';
 
 const DAY = 86400000, DEFAULT_REPO = 'GarryOne/jobadabra';
 const SCHEDULED_PAGE = '/admin/testing/scheduled';   // the Testing → Scheduled tab (session ac): each cadence links to it once it is in the menu
@@ -111,7 +112,7 @@ export function resolve(data, {pages = []} = {}) {
   const live = METHODS.map(method => {
     const lines = method.lines.map(line => lineOf(data, line));
     const linked = pages.includes(method.href);   // a card links only to a page in the menu: GTM readiness and Testing → Scheduled land in their own PRs (1 Nov 2026)
-    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), href: linked ? method.href : '', pending: !linked};
+    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), days: method.linkOnly ? [] : historyOf(data, method.lines), href: linked ? method.href : '', pending: !linked};
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
   const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here
