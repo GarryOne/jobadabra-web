@@ -11,7 +11,7 @@ const claudeAnswer = () => Response.json({type: 'message', content: [{type: 'tex
 const claudeOk = () => new Response(JSON.stringify({reply: 'claude ok', tokens: {input: 5, output: 3}, ms: 7, limits: {status: 'allowed', fiveHour: {utilization: 0.2}, sevenDay: {utilization: 0.05}}}));
 const claudeFails = (error, extra = {}, status = 500) => () => new Response(JSON.stringify({error, ...extra}), {status});
 // A fresh world per call: the env with a given ENGINE and fakes that count what each provider was asked.
-function world(t, engine, {free = freeAnswer, withKey = true, extra = {}, claude = claudeOk, token = false} = {}) {
+function world(t, engine, {free = freeAnswer, withKey = true, extra = {}, claude = claudeOk, token = false, codex = null} = {}) {
   t.mock.method(Date, 'now', () => day);
   const calls = {free: 0, claudeApi: 0, telegram: 0, claudeCli: 0, claudeBodies: [], claudeNow: 0, claudeMax: 0};
   const env = {...config.vars, ...(engine === undefined ? {ENGINE: undefined} : {ENGINE: engine}), BRAIN_BOT_TOKEN: 'fixture-bot', BRAIN_CHAT_ID: 'fixture-chat',
@@ -22,7 +22,7 @@ function world(t, engine, {free = freeAnswer, withKey = true, extra = {}, claude
   const container = made.broker.containerFetch;
   made.broker.containerFetch = async (...args) => {
     dispatched.push(args[0]);
-    if (!args[0].endsWith('/claude')) return container(...args);
+    if (!args[0].endsWith('/claude')) return codex ? codex(...args) : container(...args);
     calls.claudeCli++; calls.claudeBodies.push(JSON.parse(args[1].body)); calls.claudeNow++; calls.claudeMax = Math.max(calls.claudeMax, calls.claudeNow);
     try { return await claude(); } finally { calls.claudeNow--; }
   };
@@ -205,4 +205,49 @@ test('search is Codex\'s, a token-shaped Claude reply never reaches the caller, 
   const slow = world(t, 'claude', {...withToken, claude: async () => { await new Promise(resolve => setTimeout(resolve, 10)); return claudeOk(); }});
   assert.equal((await Promise.all(Array.from({length: 6}, () => slow.broker.call('pr', body)))).filter(r => r.status === 200).length, 6);
   assert.equal(slow.calls.claudeMax, 3);
+});
+
+// JOB-202 (owner, 1 Nov 2026: "adapt or report if one is doing worse than the other"): an engine that fails half of its last calls goes behind the other subscription for 30 minutes.
+const codexBroken = () => new Response(JSON.stringify({error: 'codex-failed:1 boom'}), {status: 500});
+
+test('Codex failing half its last calls moves behind Claude for 30 minutes, the owner is told once, a call that names its engine is never moved, then Codex is first again', async t => {
+  const {broker, calls} = world(t, 'codex', {...withToken, codex: codexBroken});
+  for (let i = 0; i < 6; i++) assert.equal((await broker.call('pr', body)).status, 502);   // Codex first, each of these callers saw the failure
+  assert.equal(calls.telegram, 1);
+  const health = await (await broker.health()).json();
+  assert.ok(health.chain.find(e => e.name === 'codex').demotedUntil);
+  const next = await (await broker.call('pr', body)).json();
+  assert.equal(next.engine, 'claude'); assert.equal(next.fellBack, undefined);   // Claude answers first now
+  assert.equal((await broker.call('pr', {...body, engine: 'codex'})).status, 502);   // an explicit choice is honoured
+  Date.now.mock.mockImplementation(() => day + 31 * 60_000);
+  assert.equal((await broker.call('pr', body)).status, 502);   // Codex is first again, with a fresh window
+  assert.equal(calls.telegram, 1);
+});
+
+test('only real failures count: a few failures, a used-up week, or ENGINE_ADAPT=off never move an engine', async t => {
+  const few = world(t, 'codex', {...withToken, codex: codexBroken});
+  for (let i = 0; i < 3; i++) await few.broker.call('pr', body);
+  const ok = world(t, 'codex', withToken);
+  for (let i = 0; i < 4; i++) await ok.broker.call('pr', body);
+  assert.equal((await (await few.broker.health()).json()).chain[0].demotedUntil, undefined);   // 3 failures are below the 6 recorded
+  const used = world(t, 'codex', withToken);
+  await used.storage.put('limits', {usedPercent: 100, resetsAt: day / 1000 + 3600}); used.broker.limits = null;
+  for (let i = 0; i < 12; i++) await used.broker.call('pr', body);   // Claude answers each; Codex "ran out" is not "worse"
+  assert.equal((await (await used.broker.health()).json()).chain[0].demotedUntil, undefined);
+  const off = world(t, 'codex', {...withToken, codex: codexBroken, extra: {ENGINE_ADAPT: 'off'}});
+  for (let i = 0; i < 8; i++) await off.broker.call('pr', body);
+  assert.equal(await answered(await off.broker.call('pr', body)), undefined);   // still Codex, still failing, never moved
+  assert.equal(off.calls.claudeCli, 0);
+  assert.equal(config.vars.ENGINE_ADAPT, 'on');
+});
+
+test('Claude failing half its last calls moves behind Codex and is not called for 30 minutes; with no other subscription configured nothing moves', async t => {
+  const {broker, calls} = world(t, 'claude', {...withToken, claude: claudeFails('claude-failed:1 boom')});
+  for (let i = 0; i < 6; i++) assert.equal(await answered(await broker.call('pr', body)), 'codex');   // each fell through to Codex
+  assert.equal(calls.claudeCli, 6);
+  assert.equal(await answered(await broker.call('pr', body)), 'codex');
+  assert.equal(calls.claudeCli, 6);   // demoted: Codex first, Claude not asked
+  const alone = world(t, 'codex', {codex: codexBroken});   // no Claude token
+  for (let i = 0; i < 7; i++) assert.equal((await alone.broker.call('pr', body)).status, 502);   // nowhere to move: still Codex
+  assert.ok((await (await alone.broker.health()).json()).chain[0].demotedUntil);   // but the failure is reported
 });
