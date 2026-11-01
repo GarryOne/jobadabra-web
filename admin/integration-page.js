@@ -19,7 +19,7 @@ const num = value => (Number(value) || 0).toLocaleString('en-US', {maximumFracti
 const pct = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : '–');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
-export const seconds = value => (value < 1000 ? `${num(value)} ms` : value < 60000 ? `${(value / 1000).toLocaleString('en-US', {maximumFractionDigits: 1})} s` : `${Math.floor(value / 60000)} min ${Math.round((value % 60000) / 1000)} s`);
+export const seconds = value => { if (value < 1000) return `${num(value)} ms`; if (value < 59950) return `${(value / 1000).toLocaleString('en-US', {maximumFractionDigits: 1})} s`; const total = Math.round(value / 1000); return `${Math.floor(total / 60)} min ${total % 60} s`; };   // one rounding, then split: never "60 s" or "1 min 60 s"
 const median = list => { const sorted = list.slice().sort((a, b) => a - b); return sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : null; };
 const runLink = (repo, runId) => `<a href="https://github.com/${esc(repo)}/actions/runs/${Number(runId)}">#${Number(runId)}</a>`;
 const tone = (green, runs) => (!runs ? 'off' : green === runs ? 'good' : green / runs >= 0.9 ? 'warn' : 'bad');

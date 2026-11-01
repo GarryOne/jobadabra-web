@@ -10,7 +10,7 @@ import {mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'nod
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LAYERS} from '../admin/integration-intel.js';
+import {LAYERS, MAX_RUNS} from '../admin/integration-intel.js';
 import {advance, countsOf, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
@@ -66,7 +66,7 @@ async function main() {
   const since = new Date(Date.now() - KEEP_DAYS * 86400000).toISOString().slice(0, 10);
   let stored = {};
   if (key) { try { const response = await fetch(base, {headers: {Authorization: `Bearer ${key}`}}); if (response.ok) stored = await response.json(); } catch { /* the first run has none */ } }
-  const have = new Set((stored.runs || []).map(row => row.runId));
+  const have = new Set([...(stored.runs || []).map(row => row.runId), ...(stored.read || [])]);   // a run with no readable artifact is read once too (Gitar, #245)
   const listed = (gh('run', 'list', '--repo', repo, '--workflow', WORKFLOW, '--limit', '500', '--created', `>=${since}`, '--json', 'databaseId,conclusion,createdAt,headSha,headBranch,event') || [])
     .filter(run => ['success', 'failure'].includes(run.conclusion)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const todo = listed.filter(run => !have.has(run.databaseId)).slice(-MAX_RUNS);
@@ -81,7 +81,7 @@ async function main() {
   const results = newest ? read.filter(({run}) => run.databaseId === newest.run.databaseId).flatMap(item => item.results) : [];
   const move = readMove(new Set((stored.move?.days || []).map(row => row.day)), since);
   const snapshot = {
-    runs: [...(stored.runs || []), ...rows], open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
+    runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...todo.map(run => run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
     slowest: results.length ? slowestOf(results) : stored.slowest || [], counts: results.length ? {...(stored.counts || {}), ...Object.fromEntries(Object.entries(countsOf(results)).filter(([, value]) => value.tests))} : stored.counts || {},
     move: {days: [...(stored.move?.days || []).filter(row => !move.days.some(item => item.day === row.day)), ...move.days].sort((a, b) => a.day.localeCompare(b.day)), e2eSteps: move.days.at(-1)?.e2eSteps ?? stored.move?.e2eSteps ?? null, lanes: move.lanes ?? stored.move?.lanes ?? null},
   };

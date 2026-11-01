@@ -40,6 +40,7 @@ test('the page: green share per layer, the shared green chart, the flaky test wi
 test('move and time words', () => {
   assert.equal(moveStats(null), null);
   assert.deepEqual([seconds(900), seconds(9400), seconds(87000)], ['900 ms', '9.4 s', '1 min 27 s']);
+  assert.deepEqual([seconds(59960), seconds(119600), seconds(60000)], ['1 min 0 s', '2 min 0 s', '1 min 0 s'], 'Gitar #245: rounding never shows 60 s or 1 min 60 s');
 });
 
 test('the collector body is validated: unknown layers, bad days and long texts are dropped', () => {
@@ -51,6 +52,12 @@ test('the collector body is validated: unknown layers, bad days and long texts a
 
 const env = (stored = null) => ({STATS_KEY: 'k3y', STATS_SALT: 's', SELFHEAL_PUBLISH_KEY: 'pub', STATS: {prepare: () => ({first: async () => (stored ? {body: JSON.stringify(stored)} : null), bind() { return this; }, run: async () => ({}), all: async () => ({results: []})})}, WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}});
 const get = (path, headers = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, {headers, redirect: 'manual'}), env(snapshot), {});
+
+test('a long list is cut to its newest rows, never refused; the ids of runs read are kept (Gitar #245)', () => {
+  const runs = Array.from({length: 3500}, (_, i) => run(1000 + i, 'app', '2026-11-01'));
+  const clean = cleanSnapshot({runs, read: [5, 'x', 7]}, now);
+  assert.deepEqual([clean.runs.length, clean.runs[0].runId, clean.runs.at(-1).runId, clean.read], [3000, 1500, 4499, [5, 7]]);
+});
 
 test('owner only, in the Operations menu; the PUT needs the publish key and a snapshot-shaped body', async () => {
   assert.equal((await get('/admin/operations/integrations')).status, 404);

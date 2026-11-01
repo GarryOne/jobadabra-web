@@ -6,6 +6,7 @@ import {equal} from '../shared/guard.js';
 
 export const LAYERS = ['extension', 'app', 'store'];
 export const KEEP_DAYS = 30;
+export const MAX_RUNS = 3000;   // the newest rows are kept: a longer list is cut here, never refused (Gitar, #245: a refused PUT froze the page for good)
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
 const json = (body, status = 200) => new Response(JSON.stringify(body), {status, headers: {'Content-Type': 'application/json'}});
 const isDay = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '');
@@ -27,14 +28,14 @@ const cleanOpen = row => (layerOf(row?.layer) && text(row.test) && Number.isInte
 const cleanSlow = row => (layerOf(row?.layer) && text(row.test) ? {layer: row.layer, test: text(row.test), file: text(row.file, 160), ms: ms(row.ms), runs: count(row.runs) ? row.runs : 1} : null);
 const cleanDay = row => (isDay(row?.day) && count(row.e2eSteps) && count(row.e2eSuites) && LAYERS.every(layer => count(row.integration?.[layer])) ? {day: row.day, e2eSteps: row.e2eSteps, e2eSuites: row.e2eSuites, integration: Object.fromEntries(LAYERS.map(layer => [layer, row.integration[layer]]))} : null);
 
-/** Validate a collector body into the stored snapshot; null when it is not one. Unknown fields are dropped, every text is cut. */
+/** Validate a collector body into the stored snapshot; null when it is not one. Unknown fields are dropped, every text is cut, the lists keep their newest rows. `read` = every run id the collector has read, even one with no result file. */
 export function cleanSnapshot(data, now = new Date()) {
-  if (!Array.isArray(data?.runs) || data.runs.length > 3000) return null;
+  if (!Array.isArray(data?.runs)) return null;
   const from = new Date(now.getTime() - KEEP_DAYS * 86400000).toISOString().slice(0, 10);
   const list = (rows, clean, max) => (Array.isArray(rows) ? rows.slice(0, max).map(clean).filter(Boolean) : []);
   const counts = Object.fromEntries(LAYERS.map(layer => [layer, {tests: count(data.counts?.[layer]?.tests) ? data.counts[layer].tests : 0, files: count(data.counts?.[layer]?.files) ? data.counts[layer].files : 0}]));
   const move = list(data.move?.days, cleanDay, 60).filter(row => row.day >= from);
-  return {schema: 1, at: now.toISOString(), runs: list(data.runs, cleanRun, 3000).filter(run => run.day >= from), counts, flaky: list(data.flaky, cleanFlaky, 100), open: list(data.open, cleanOpen, 300), slowest: list(data.slowest, cleanSlow, 50),
+  return {schema: 1, at: now.toISOString(), runs: list(data.runs.slice(-MAX_RUNS), cleanRun, MAX_RUNS).filter(run => run.day >= from), read: (Array.isArray(data.read) ? data.read.slice(-MAX_RUNS) : []).filter(id => Number.isInteger(id) && id > 0), counts, flaky: list(data.flaky, cleanFlaky, 100), open: list(data.open, cleanOpen, 300), slowest: list(data.slowest, cleanSlow, 50),
     move: {days: move, e2eSteps: count(data.move?.e2eSteps) ? data.move.e2eSteps : null, lanes: count(data.move?.lanes) ? data.move.lanes : null}};
 }
 
