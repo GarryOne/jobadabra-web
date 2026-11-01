@@ -80,3 +80,13 @@ export function snapshotOf({journeys, stored = {}, tier1 = [], tier2 = stored.ti
   return {journeys, tier1: [...(stored.tier1 || []), ...tier1].filter(row => row[1] >= from).sort((a, b) => a[0] - b[0]).slice(-max), tier2: tier2.filter(row => row.day >= from),
     read: {e2e: ids(stored.read?.e2e, read.e2e), integration: ids(stored.read?.integration, read.integration)}};
 }
+
+/**
+ * What the stored-snapshot GET answered -> {stored} to go on from, or {stop: reason} to publish nothing this hour.
+ * Only a confirmed empty store (404 "no snapshot yet") is a first run; any other failure (network, 5xx, a body that is not a snapshot) would make the PUT replace 28 days with one pass (Gitar, #257).
+ */
+export function storedFrom(status, body) {
+  if (status === 200 && body && Array.isArray(body.tier1)) return {stored: body};
+  if (status === 404 && body?.error === 'no snapshot yet') return {stored: {}};
+  return {stop: `GTM snapshot unreadable (HTTP ${status ?? 'none'})`};
+}

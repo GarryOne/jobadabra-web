@@ -34,7 +34,9 @@ export async function readSnapshot(db) {
 // PUT the collector's snapshot. GET: the stored snapshot, so the collector reads only the runs it has not read (`read`) and sends the whole list again.
 export async function ingest(request, env, now = new Date()) {
   if (!authorized(request, env)) return new Response('Not found', {status: 404});
-  if (request.method === 'GET') { const snapshot = await readSnapshot(env.STATS); return snapshot ? json(snapshot) : json({error: 'no snapshot yet'}, 404); }
+  if (request.method === 'GET') {   // Why (Gitar, #257): a D1 error must not read as "no snapshot yet" (404): the collector would start from nothing and overwrite 28 days with one pass
+    try { const row = await env.STATS.prepare('SELECT body FROM gtm_snapshot WHERE id = 1').first(); return row ? json(JSON.parse(row.body)) : json({error: 'no snapshot yet'}, 404); } catch { return json({error: 'snapshot unreadable'}, 503); }
+  }
   if (request.method !== 'PUT') return new Response('Not found', {status: 404});
   const body = await request.text();
   if (body.length > 900000) return new Response('Too large', {status: 413});

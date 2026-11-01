@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {loadJourneys} from '../../desktop/e2e/lib/critical-journeys.mjs';
 import {cleanSnapshot} from '../../admin/gtm-intel.js';
-import {expectedSeen, registryParts, runRows, runTests, sameStep, snapshotOf, tally} from '../../jobs/gtm-readiness-rows.mjs';
+import {expectedSeen, registryParts, runRows, runTests, sameStep, snapshotOf, storedFrom, tally} from '../../jobs/gtm-readiness-rows.mjs';
 
 const LONG = 'Profile Experience: an edited summary is saved with the Profile save bar, and is still there after a restart of the app, with the other cards untouched';
 const registry = {journeys: [{id: 'J1', name: 'Setup', tier: 1, steps: [{suite: 'wizard', step: 'a key is saved'}, {suite: 'wizard', step: 'a CV is read'}, {suite: 'wizard', step: LONG}]},
@@ -75,4 +75,10 @@ test('the real registry: every journey and the kept row are listed, each Tier 1 
   assert.ok(real.journeys.some(item => item.id === 'K') && real.journeys.some(item => item.id === 'J5' && item.tier === 1) && real.journeys.some(item => item.id === 'J8' && item.tier === 2));
   for (const item of real.journeys.filter(entry => entry.tier === 1)) assert.ok(real.steps.some(step => step.journey === item.id), `${item.id} has e2e steps`);
   for (const item of real.journeys.filter(entry => entry.tier === 2)) assert.ok(real.tests.some(test => test.journey === item.id), `${item.id} has integration tests`);
+});
+
+test('the stored snapshot: only a confirmed empty store starts from nothing; any other failed read stops the pass (Gitar #257: it would overwrite 28 days)', () => {
+  assert.deepEqual(storedFrom(200, {tier1: [], tier2: []}), {stored: {tier1: [], tier2: []}});
+  assert.deepEqual(storedFrom(404, {error: 'no snapshot yet'}), {stored: {}});
+  for (const [status, body] of [[undefined, null], [503, {error: 'snapshot unreadable'}], [500, null], [404, null], [404, {error: 'other'}], [200, null], [200, {nope: 1}]]) assert.ok(storedFrom(status, body).stop, `${status} ${JSON.stringify(body)} stops`);
 });

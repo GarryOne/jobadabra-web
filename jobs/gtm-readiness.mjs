@@ -14,7 +14,7 @@ import {pathToFileURL} from 'node:url';
 import {loadJourneys} from '../desktop/e2e/lib/critical-journeys.mjs';
 import {kindOf, redJobs} from './e2e-intel-rows.mjs';
 import {readResults} from './integration-intel.mjs';
-import {BIG, expectedSeen, kindsRead, registryParts, runRows, runTests, snapshotOf, tally} from './gtm-readiness-rows.mjs';
+import {BIG, expectedSeen, kindsRead, registryParts, runRows, runTests, snapshotOf, storedFrom, tally} from './gtm-readiness-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.GTM_INTEL_URL || 'https://www.jobpilotto.top/gtm/data';
@@ -51,7 +51,12 @@ async function main() {
   const parts = registryParts(loadJourneys()), suites = new Set(parts.steps.map(step => step.suite));
   const since = new Date(Date.now() - KEEP_DAYS * 86400000).toISOString().slice(0, 10), fields = 'databaseId,conclusion,createdAt,displayTitle,headSha,headBranch,event';
   let stored = {};
-  if (key) { try { const response = await fetch(base, {headers: {Authorization: `Bearer ${key}`}}); if (response.ok) stored = await response.json(); } catch { /* the first run has none */ } }
+  if (key) {
+    const response = await fetch(base, {headers: {Authorization: `Bearer ${key}`}}).catch(() => null);
+    const decided = storedFrom(response?.status, response ? await response.json().catch(() => null) : null);
+    if (decided.stop) { console.log(`::warning::${decided.stop}: nothing published, read again next hour.`); return; }
+    stored = decided.stored;
+  }
   const haveE2e = new Set(stored.read?.e2e || []), haveIntegration = new Set(stored.read?.integration || []);
 
   // Tier 1: oldest first among the runs to read, so "what a journey normally shows" grows in order; the newest runs come first into the pass.
