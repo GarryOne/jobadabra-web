@@ -33,7 +33,7 @@ const LIMIT = /usage limit|limit reached|hit your .{0,30}limit|out of (extra )?u
 
 /**
  * Reads the CLI's stream-json output. Returns {reply, tokens: {input, output}, limits} on success, or {error: 'claude-auth' | 'claude-limit' | 'claude-failed:<code> <tail>', resetsAt?}.
- * "Ran out" is read from the stream's own rate_limit_event when it says the window is not allowed, else from the error text; anything unknown is a plain failure (never guessed as "ran out").
+ * "Ran out" is read from the stream's own rate_limit_event when it says the window is not allowed, else (only when no status was seen) from the error text; anything unknown is a plain failure (never guessed as "ran out").
  */
 export function readClaude(stdout, stderr = '', code = 0) {
   let result = null, info = null;
@@ -51,6 +51,7 @@ export function readClaude(stdout, stderr = '', code = 0) {
   const text = String(result?.result || stderr || stdout).replace(/\s+/g, ' ');
   if (info && info.status && !['allowed', 'allowed_warning'].includes(info.status)) return {error: 'claude-limit', resetsAt: info.resetsAt ?? null, limits};
   if (AUTH.test(text)) return {error: 'claude-auth', limits};
-  if (LIMIT.test(text)) return {error: 'claude-limit', resetsAt: info?.resetsAt ?? null, limits};
+  // Why (Gitar on #291): when the stream said the window is allowed, a "429 / too many requests" text is a passing throttle, not an empty allowance: a plain failure, tried again next call. The message is trusted only when no status was seen, and then no reset time is borrowed.
+  if (!info && LIMIT.test(text)) return {error: 'claude-limit', resetsAt: null, limits};
   return {error: `claude-failed:${code} ${text.slice(-200)}`, limits};
 }

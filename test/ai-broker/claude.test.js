@@ -36,6 +36,10 @@ test('"ran out" is read from the stream\'s own window status first, then from th
   assert.deepEqual(readClaude(line(rejected) + line({type: 'result', is_error: true, result: 'Something went wrong'}), '', 1).error, 'claude-limit');
   assert.equal(readClaude(line(rejected) + line({type: 'result', is_error: true, result: 'x'})).resetsAt, 1793600000);
   assert.equal(readClaude(line({type: 'result', is_error: true, result: "You've hit your usage limit"})).error, 'claude-limit');
+  assert.equal(readClaude(line({type: 'result', is_error: true, result: "You've hit your usage limit"})).resetsAt, null);   // text only: no reset time is borrowed
+  // Gitar on #291: the stream says the window is allowed, then a passing 429: a plain failure, never "ran out until the five-hour reset"
+  const throttled = readClaude(line(allowed) + line({type: 'result', is_error: true, result: 'API Error: 429 Too Many Requests'}), '', 1);
+  assert.match(throttled.error, /^claude-failed:1 API Error: 429/); assert.equal(throttled.resetsAt, undefined);
   assert.equal(readClaude(line({type: 'result', is_error: true, result: 'Not logged in · Please run /login'})).error, 'claude-auth');
   assert.equal(readClaude('', 'Error: 401 Unauthorized').error, 'claude-auth');
   assert.match(readClaude(line(allowed) + line({type: 'result', is_error: true, result: 'Overloaded, try again'}), '', 1).error, /^claude-failed:1 Overloaded/);
