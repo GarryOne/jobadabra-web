@@ -10,34 +10,36 @@ const DONE = {success: 'green', failure: 'red', timed_out: 'red'};
 /** The last `n` UTC days, oldest first. */
 export const daysTo = (now, n = MAP_DAYS) => Array.from({length: n}, (_, i) => new Date(now.getTime() - (n - 1 - i) * 86400000).toISOString().slice(0, 10));
 
-// One line's runs as [{day, state, url}] and the first day its source covers ('' = the whole window).
+const dayOf = at => String(at || '').slice(0, 10);   // a snapshot's read day: later days are not stored yet ('' = unknown, treated as covered)
+
+// One line's runs as [{day, state, url}], the first day its source covers ('' = the whole window) and the last (`to`: the day its snapshot was read; '' = unknown).
 function runsOf(data, line) {
   const last = line.last || {};
   if (last.none) return null;
   if (last.e2e) {
     if (!data.e2e) return null;
     const rows = (data.e2e.days || []).filter(row => last.e2e.includes(row.kind));
-    return {from: '', runs: rows.flatMap(row => [...(row.reds ? [{day: row.day, state: 'red', n: row.reds}] : []), ...(row.greens ? [{day: row.day, state: 'green', n: row.greens}] : [])])};
+    return {from: '', to: dayOf(data.e2e.at), runs: rows.flatMap(row => [...(row.reds ? [{day: row.day, state: 'red', n: row.reds}] : []), ...(row.greens ? [{day: row.day, state: 'green', n: row.greens}] : [])])};
   }
   if (last.suite) {
     if (!data.e2e) return null;
-    return {from: '', runs: (data.e2e.suiteNights || []).filter(row => row.suite === last.suite).map(row => ({day: row.day, state: row.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${row.runId}`}))};
+    return {from: '', to: dayOf(data.e2e.at), runs: (data.e2e.suiteNights || []).filter(row => row.suite === last.suite).map(row => ({day: row.day, state: row.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${row.runId}`}))};
   }
   if (last.integration) {
     if (!data.integration) return null;
-    return {from: '', runs: mainRuns(data.integration, '30d', data.now).runs.map(run => ({day: run.day, state: run.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${run.runId}`}))};
+    return {from: '', to: dayOf(data.integration.at), runs: mainRuns(data.integration, '30d', data.now).runs.map(run => ({day: run.day, state: run.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${run.runId}`}))};
   }
   const job = line.wf && (data.schedules?.jobs || []).find(item => item.file === line.wf && item.repo === data.repo);
   if (!job) return null;
   const recent = job.recent || [], oldest = recent.at(-1)?.at?.slice(0, 10) || '';
-  return {from: recent.length >= RUN_DOTS ? oldest : '', runs: recent.filter(run => DONE[run.conclusion]).map(run => ({day: String(run.at).slice(0, 10), state: DONE[run.conclusion], url: run.url || ''}))};
+  return {from: recent.length >= RUN_DOTS ? oldest : '', to: dayOf(data.schedules.at), runs: recent.filter(run => DONE[run.conclusion]).map(run => ({day: String(run.at).slice(0, 10), state: DONE[run.conclusion], url: run.url || ''}))};
 }
 
-/** A card's days: [{day, state: green|red|none|unknown, greens, reds, url}] oldest first. A day is red when any run of any of its lines was red that day; unknown when no line's data reaches it. */
+/** A card's days: [{day, state: green|red|none|unknown, greens, reds, url}] oldest first. A day is red when any run of any of its lines was red that day; unknown when no line's data reaches it (before its oldest stored run, or after its snapshot was read: PR #260, Gitar). */
 export function historyOf(data, lines, now = data.now) {
   const sources = lines.map(line => runsOf(data, line)).filter(Boolean);
   return daysTo(now).map(day => {
-    const covered = sources.filter(source => !source.from || day >= source.from);
+    const covered = sources.filter(source => (!source.from || day >= source.from) && (!source.to || day <= source.to));
     const runs = covered.flatMap(source => source.runs.filter(run => run.day === day));
     const reds = runs.filter(run => run.state === 'red').reduce((sum, run) => sum + (run.n || 1), 0), greens = runs.filter(run => run.state === 'green').reduce((sum, run) => sum + (run.n || 1), 0);
     const state = !covered.length ? 'unknown' : reds ? 'red' : greens ? 'green' : 'none';

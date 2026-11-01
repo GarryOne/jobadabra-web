@@ -140,3 +140,13 @@ test('the map: one cell per day, red beats green on a day, a day before the stor
   assert.match(html, /title="Sat 31 Oct · 1 green run, 1 red run"/);
   assert.match(html, /methods · by their last run/);
 });
+
+test('the map: days after the snapshot was read are "not stored", never "no run" (a late collector upload; PR #260)', () => {
+  const stale = data({e2e: {...data().e2e, at: '2026-10-30T23:00:00Z', days: [{day: '2026-10-30', kind: 'nightly', runs: 1, greens: 1, reds: 0}]}});
+  const cells = historyOf(stale, [{label: 'Night', last: {e2e: ['nightly']}}]);
+  assert.deepEqual(cells.slice(-3).map(cell => cell.state), ['green', 'unknown', 'unknown']);
+  const fresh = historyOf(data({e2e: {...stale.e2e, at: '2026-11-01T08:00:00Z'}}), [{label: 'Night', last: {e2e: ['nightly']}}]);
+  assert.deepEqual(fresh.slice(-3).map(cell => cell.state), ['green', 'none', 'none'], 'a read today covers today: no run is a real "no run"');
+  const late = {...data(), schedules: {...data().schedules, at: '2026-10-31T10:00:00Z'}};
+  assert.equal(historyOf(late, [{label: 'x', wf: 'smoke.yml'}]).at(-1).state, 'unknown');
+});
