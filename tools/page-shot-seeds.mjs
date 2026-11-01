@@ -123,6 +123,16 @@ export const seeds = {
       .bind(probe, probe === 'broker' ? 'down' : 'up', probe === 'broker' ? at(1) : at(95), probe === 'broker' ? at(1) : '', probe === 'broker' ? 2 : 0, probe === 'broker' ? 'HTTP 503' : ''));
     await env.STATS.batch(statements);
   },
+  'synthetic-monitoring': async ({env}) => {   // Testing -> Synthetic Monitoring (1 Nov 2026): the synthetic-card probe rounds (broker down) plus the four live-looking workflows in the schedules snapshot, the daily watch list red on its last run
+    await seeds['synthetic-card']({env});
+    const snapshot = JSON.parse((await env.STATS.prepare('SELECT body FROM schedules_snapshot WHERE id = 1').first()).body), now = Date.now();
+    const {prevOf} = await import('../shared/schedules-model.js');   // runs sit on the job's own schedule (newest = its last due time), so no row reads "late"
+    const runs = (cron, every, bad = []) => Array.from({length: 14}, (_, i) => ({at: new Date(prevOf([cron], new Date(now)).getTime() + 120000 - i * every * 3600000).toISOString(), conclusion: bad.includes(i) ? 'failure' : 'success', mins: 2, url: `https://github.com/GarryOne/jobadabra/actions/runs/${7000 + i}`}));
+    const job = (file, name, crons, recent) => ({repo: 'GarryOne/jobadabra', file, name, about: '', crons, source: 'github', manual: false, disabled: false, ai: false, weeklyMin: 0, billedMin: 0, recent});
+    snapshot.jobs.push(job('release-guard.yml', 'Release · Guard Latest', ['23 * * * *'], runs('23 * * * *', 1)), job('schedule-watchdog.yml', 'CI · Schedule watchdog', ['23 * * * *'], runs('23 * * * *', 1)),
+      job('stable-canary.yml', 'CI · Stable canary', ['23 6 * * *'], runs('23 6 * * *', 24, [5])), job('watch-live.yml', 'CI · Daily watch list', ['0 5 * * *'], runs('0 5 * * *', 24, [0, 1])));
+    await env.STATS.prepare('INSERT INTO schedules_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(new Date(now).toISOString(), JSON.stringify(snapshot)).run();
+  },
   'synthetic-card-stale': async ({env}) => {   // the same card when no probe round has run for 3 hours: red "no round", never a stale green (1 Nov 2026)
     await seeds['synthetic-card']({env});
     await env.STATS.prepare('DELETE FROM synthetic_probes WHERE at > ?').bind(new Date(Date.now() - 3 * 3600000).toISOString()).run();

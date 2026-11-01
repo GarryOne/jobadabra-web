@@ -158,18 +158,30 @@ export async function readCard(env, now = new Date()) {
  * through LAG), not every row. null when D1 or the tables are unreadable. Why (1 Nov 2026, to): one reader, so the page never writes a second per-day query.
  */
 export async function readDays(env, days = 14, now = new Date()) {
+  const by = await readDaysByProbe(env, days, now);
+  if (!by) return null;
+  const lists = Object.values(by);
+  return (lists[0] || []).map((cell, i) => ({day: cell.day, state: lists.some(list => list[i].state === 'red') ? 'red' : lists.some(list => list[i].state === 'green') ? 'green' : 'none'}));
+}
+
+/**
+ * The same map per probe: {probeId: [{day, state}]} for every probe in PROBES, oldest first, ending today; each probe's own red days (its own 2 reds in a row) and its own ran days. readDays() is the
+ * union of these, so the Overview's row and the Synthetic Monitoring tab's rows never disagree. null when D1 or the tables are unreadable.
+ * Why (1 Nov 2026, Gitar on #273): one all-probes history on every probe row showed a broker outage as a red Website day.
+ */
+export async function readDaysByProbe(env, days = 14, now = new Date()) {
   try {
     const today = now.toISOString().slice(0, 10), start = Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000;
     const first = `${new Date(start).toISOString().slice(0, 10)}T00:00:00Z`, lookback = new Date(start - 86400000).toISOString();   // a streak may begin the evening before the first day
     const [ran, reds] = await Promise.all([
-      env.STATS.prepare('SELECT substr(at, 1, 10) AS day, COUNT(*) AS n FROM synthetic_probes WHERE at >= ? GROUP BY day').bind(first).all(),
-      env.STATS.prepare('SELECT substr(at, 1, 10) AS day FROM (SELECT at, ok, LAG(ok) OVER (PARTITION BY probe ORDER BY at) AS prev FROM synthetic_probes WHERE at >= ?) WHERE ok = 0 AND prev = 0 AND at >= ? GROUP BY day')
+      env.STATS.prepare('SELECT probe, substr(at, 1, 10) AS day, COUNT(*) AS n FROM synthetic_probes WHERE at >= ? GROUP BY probe, day').bind(first).all(),
+      env.STATS.prepare('SELECT probe, substr(at, 1, 10) AS day FROM (SELECT probe, at, ok, LAG(ok) OVER (PARTITION BY probe ORDER BY at) AS prev FROM synthetic_probes WHERE at >= ?) WHERE ok = 0 AND prev = 0 AND at >= ? GROUP BY probe, day')
         .bind(lookback, first).all()]);
-    const redDays = new Set((reds.results || []).map(row => row.day)), seen = new Set((ran.results || []).filter(row => row.n > 0).map(row => row.day));
-    return Array.from({length: days}, (_, i) => {
-      const day = new Date(start + i * 86400000).toISOString().slice(0, 10);
-      return {day, state: redDays.has(day) ? 'red' : seen.has(day) ? 'green' : 'none'};
-    });
+    const redDays = new Set((reds.results || []).map(row => `${row.probe}|${row.day}`)), seen = new Set((ran.results || []).filter(row => row.n > 0).map(row => `${row.probe}|${row.day}`));
+    return Object.fromEntries(PROBES.map(probe => [probe.id, Array.from({length: days}, (_, i) => {
+      const day = new Date(start + i * 86400000).toISOString().slice(0, 10), key = `${probe.id}|${day}`;
+      return {day, state: redDays.has(key) ? 'red' : seen.has(key) ? 'green' : 'none'};
+    })]));
   } catch { return null; }
 }
 

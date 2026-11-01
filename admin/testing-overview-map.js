@@ -23,7 +23,7 @@ export function summaryBar(counts, text = {}) {
 const cellTitle = cell => `${dayName(cell.day)} · ${cell.state === 'unknown' ? 'not stored (the snapshot keeps the newest runs only)' : cell.state === 'none' ? 'no run'
   : cell.note || [cell.greens ? plural(cell.greens, 'green run') : '', cell.reds ? plural(cell.reds, 'red run') : ''].filter(Boolean).join(', ')}`;
 const GLYPH = {green: '✓', red: '✕', none: '', unknown: ''};
-const cellHtml = cell => {
+export const cellHtml = cell => {
   const inner = `<span class="c c-${cell.state}" title="${esc(cellTitle(cell))}" aria-label="${esc(cellTitle(cell))}">${GLYPH[cell.state]}</span>`;
   return `<td class="d">${cell.url ? `<a href="${esc(cell.url)}">${inner}</a>` : inner}</td>`;
 };
@@ -37,9 +37,11 @@ function rowHtml(card) {
   return `<tr class="${card.state === 'red' ? 'is-red' : ''}"><th scope="row">${label}</th>${card.days.map(cellHtml).join('')}<td>${chip(...LAST[card.state])}</td><td class="bugs-cell">${bugs}</td></tr>`;
 }
 
+/** The header cells of a 14-day map (weekday over date, "now" on today). */
+export const dayHeads = days => days.map((day, i) => { const d = new Date(`${day}T12:00:00Z`); return `<th class="d${i === days.length - 1 ? ' today' : ''}" title="${esc(dayName(day))}"><span>${WEEKDAY[d.getUTCDay()]}</span>${i === days.length - 1 ? 'now' : d.getUTCDate()}</th>`; }).join('');
 /** The health map: rings as row groups, methods as rows, the last 14 days as cells (oldest left, today right). */
 export function healthMap(model, days) {
-  const head = days.map((day, i) => { const d = new Date(`${day}T12:00:00Z`); return `<th class="d${i === days.length - 1 ? ' today' : ''}" title="${esc(dayName(day))}"><span>${WEEKDAY[d.getUTCDay()]}</span>${i === days.length - 1 ? 'now' : d.getUTCDate()}</th>`; }).join('');
+  const head = dayHeads(days);
   return `<section class="card hmap"><h2>Every method, day by day · last ${MAP_DAYS} days</h2>
 <div class="keys"><span><i class="c c-green">✓</i>green run</span><span><i class="c c-red">✕</i>red run</span><span><i class="c c-none"></i>no run that day</span><span><i class="c c-unknown"></i>not stored</span><span class="muted">a day with green and red runs counts red · click a cell for its run, a name for its card</span></div>
 <div class="scroll"><table><thead><tr><th class="m">Method</th>${head}<th>Last run</th><th>Bugs caught</th></tr></thead>

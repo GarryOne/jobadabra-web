@@ -50,7 +50,7 @@ export const METHODS = [
     lines: [{label: 'Sentry fixer', wf: 'sentry-fix.yml'}], bugs: {sentry: true}},
   {id: 'canary', ring: 'real', icon: '🐤', title: 'Canary → stable', proves: 'A release reaches a few installs first; a failing canary stops the promotion.', href: '/admin/testing/scheduled',
     lines: [{label: 'Promote to stable', wf: 'canary-promote.yml'}, {label: 'Stable canary', wf: 'stable-canary.yml'}], bugs: {none: 'a stopped promotion is not counted as a bug yet'}},
-  {id: 'synthetic', ring: 'real', icon: '📡', title: 'Synthetic monitoring', proves: 'Probes the live site, index pack, licence, Free AI broker and update feed every 15 minutes.', href: '/admin/testing/overview',
+  {id: 'synthetic', ring: 'real', icon: '📡', title: 'Synthetic monitoring', proves: 'Probes the live site, index pack, licence, Free AI broker and update feed every 15 minutes.', href: '/admin/testing/synthetic-monitoring',
     lines: [{label: 'Probe round', when: 'every 15 min', last: {synthetic: true}}], bugs: {none: 'a probe finds outages, not bugs'}},
   {id: 'pool', ring: 'real', icon: '🏭', title: 'Real-site pool', proves: 'Recorded applying sites, replayed offline, so a change that breaks a real site shows.', href: '/admin/form-filling/lab',
     lines: [{label: 'Offline replays', wf: 'site-replays.yml', when: 'with the nightly run'}, {label: 'Recording', wf: 'record-sites.yml'}], bugs: {none: 'the Lab page counts regressions per site'}},

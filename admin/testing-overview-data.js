@@ -62,7 +62,8 @@ function syntheticLast(data) {
   if (card.stale) return {state: 'red', word: 'no round', at: card.lastRoundAt, note: card.lastRoundAt ? 'no probe round for over 45 min' : 'no probe round is stored'};
   return {state: down.length ? 'red' : 'green', at: card.lastRoundAt, note: down.length ? `${down.join(', ')} down` : `all ${plural(card.probes.length, 'probe', 'probes')} up`};
 }
-function lastOf(data, line) {
+/** One line's last run: {state: green|red|none, at, url, note}; exported for the Synthetic Monitoring tab (one reader of the same rows). */
+export function lastOf(data, line) {
   const last = line.last || {};
   if (last.none) return none(last.none, true);
   if (last.e2e) return e2eLast(data, last.e2e);
