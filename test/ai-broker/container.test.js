@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import {EventEmitter} from 'node:events';
-import {buildArgs} from '../../workers/codex-broker/lib/args.mjs';
-import {weeklyWindow} from '../../workers/codex-broker/container/weekly.mjs';
+import {buildArgs} from '../../workers/ai-broker/lib/args.mjs';
+import {weeklyWindow} from '../../workers/ai-broker/container/weekly.mjs';
 
 test('the container passes search through to Codex and preserves ordinary replies and files', async t => {
   const tmp = new URL('../../.tmp/', import.meta.url);
@@ -32,7 +32,7 @@ test('the container passes search through to Codex and preserves ordinary replie
     }
     return child;
   };
-  const source = fs.readFileSync(new URL('../../workers/codex-broker/container/server.mjs', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../../workers/ai-broker/container/server.mjs', import.meta.url), 'utf8');
   vm.runInNewContext(source.replace(/^import .*;\n/gm, ''), {
     http: {createServer(fn) { handler = fn; return {listen() {}}; }},
     fs, os: {tmpdir: () => dir}, path, spawn, buildArgs, weeklyWindow, Buffer, setTimeout, clearTimeout,
@@ -55,7 +55,7 @@ test('the container passes search through to Codex and preserves ordinary replie
 });
 
 test('the image copies the server and all its local imports from its build context', () => {
-  const broker = new URL('../../workers/codex-broker/', import.meta.url);
+  const broker = new URL('../../workers/ai-broker/', import.meta.url);
   const config = fs.readFileSync(new URL('wrangler.jsonc', broker), 'utf8');
   const context = new URL(config.match(/"image_build_context": "([^"]+)"/)[1] + '/', broker);
   const dockerfile = fs.readFileSync(new URL('container/Dockerfile', broker), 'utf8');

@@ -9,7 +9,7 @@ import {ask, zurichHour} from '../admin/build-digest.js';
 import {AiRefused, describe, isRefusal, reportRefusal, staysDown} from '../admin/ai-refusal.js';
 import {plainEntry} from '../admin/changelog-plain.js';
 import {MERGE_PROMPT, MODEL_PROMPT, cleanGroups, problems, versionOf} from '../admin/changelog.js';
-import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/codex-broker (GitHub OIDC token; needs `permissions: id-token: write`)
+import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/ai-broker (GitHub OIDC token; needs `permissions: id-token: write`)
 import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';

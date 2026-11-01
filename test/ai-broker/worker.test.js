@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 
 // Node cannot load Cloudflare's Container runtime. Keep the actual Worker and its libraries;
 // substitute the runtime constructor, then provide isolated storage and transport per test.
-const workerUrl = new URL('../../workers/codex-broker/worker.js', import.meta.url);
+const workerUrl = new URL('../../workers/ai-broker/worker.js', import.meta.url);
 const runtime = 'data:text/javascript;base64,' + Buffer.from(`
   export class Container { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }
   export class ContainerProxy {}
@@ -148,7 +148,7 @@ test('search keeps every tier, lane, queue priority and meter identical to ordin
   }
 });
 
-const brokerConfig = JSON.parse(readFileSync(new URL('../../workers/codex-broker/wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
+const brokerConfig = JSON.parse(readFileSync(new URL('../../workers/ai-broker/wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
 const fallbackEnv = () => ({...brokerConfig.vars, ANTHROPIC_API_KEY: 'fixture-not-a-key',
   AI: {run: async () => ({response: 'free answer', usage: {prompt_tokens: 100, completion_tokens: 20}})},
   BRAIN_BOT_TOKEN: 'fixture-bot', BRAIN_CHAT_ID: 'fixture-chat'});

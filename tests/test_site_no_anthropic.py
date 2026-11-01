@@ -1,6 +1,6 @@
 """No scheduled job here calls the Anthropic API (owner, 31 Oct 2026, after four "AI credit is 0 anthropic" alerts: "Why Anthropic is reached? We should use fully the Codex").
 
-Writing or judging done for the owner (the changelog, the daily digest) runs on the Codex broker (workers/codex-broker, desktop/e2e/lib/broker-client.mjs). The only workflow lines that may still name an Anthropic
+Writing or judging done for the owner (the changelog, the daily digest) runs on the Codex broker (workers/ai-broker, desktop/e2e/lib/broker-client.mjs). The only workflow lines that may still name an Anthropic
 key are the ENGINE UNDER TEST, listed below with a reason each. The list may only shrink: every entry must still be used (a stale entry fails), and MAX_ENTRIES is lowered when one goes. A new job that needs
 Anthropic is a new decision for the owner, not a new line here.
 """

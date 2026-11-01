@@ -1,4 +1,5 @@
-// The Codex broker (spec docs/superpowers/specs/2026-10-28-ci-on-codex-subscription-design.md in the public repo): every CI, scheduled and benchmark AI call runs here on the owner's one ChatGPT/Codex login.
+// The AI broker (specs docs/superpowers/specs/2026-11-01-ai-broker-design.md here and 2026-10-28-ci-on-codex-subscription-design.md in the public repo): every CI, scheduled and benchmark AI call runs here, today on the owner's one ChatGPT/Codex login.
+// Why (1 Nov 2026, owner): renamed from codex-broker. The Durable Object class is still `CodexBroker`: the namespace transfer from the old Worker needs the same class name on both sides (proven on a throwaway pair); the class is renamed in the cleanup PR.
 // A job proves itself with GitHub's per-run OIDC token (lib/oidc.mjs); the login lives only in this Durable Object's storage and is written through after every call, before the reply is sent.
 // At Codex exhaustion only, a day-capped Claude/Free AI fallback answers; other refusals retain their existing controls.
 import {Container, getContainer} from '@cloudflare/containers';
@@ -124,13 +125,16 @@ export default {
     }
     if (url.pathname === '/call' && request.method === 'POST') {
       let claims;
-      try { claims = await verifyRunToken((request.headers.get('authorization') || '').replace(/^Bearer /, ''), {jwks: jwks(env), audience: env.AUDIENCE || 'jobadabra-codex-broker', repository: repositories(env)}); }
+      try { claims = await verifyRunToken((request.headers.get('authorization') || '').replace(/^Bearer /, ''), {jwks: jwks(env), audience: audiences(env), repository: repositories(env)}); }
       catch (e) { return json(401, {why: String(e.message)}); }
       return broker.fetch(new Request('http://c/call', {method: 'POST', body: await request.text(), headers: {'x-lane': laneOf(claims)}}));
     }
     return json(404, {error: 'not found'});
   },
 };
+
+// Why (1 Nov 2026, owner: rename to ai-broker): run tokens carry the audience the caller asked for; both names are accepted until the public client has moved (a list, comma-separated), then the old one is removed.
+const audiences = env => String(env.AUDIENCE || 'jobadabra-ai-broker,jobadabra-codex-broker').split(',').map(name => name.trim()).filter(Boolean);
 
 // Why (31 Oct 2026, owner: "Move all 11 now"): the private site repo's changelog and digest jobs run on the Codex plan too, so the broker accepts run tokens of both repos (REPOSITORY is a comma list).
 const repositories = env => String(env.REPOSITORY || 'GarryOne/jobadabra,GarryOne/jobadabra-web').split(',').map(name => name.trim()).filter(Boolean);

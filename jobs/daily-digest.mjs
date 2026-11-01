@@ -8,7 +8,7 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from '../admin/build-digest.js';
 import {post} from '../admin/build-digest-telegram.js';
 import {isRefusal, reportRefusal} from '../admin/ai-refusal.js';
-import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/codex-broker
+import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/ai-broker
 import {pathToFileURL} from 'node:url';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';

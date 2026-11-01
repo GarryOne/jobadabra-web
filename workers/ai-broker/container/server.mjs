@@ -55,7 +55,7 @@ function readLimits() {
         if (m.id === 2) done(weeklyWindow(m.result?.rateLimits));
       }
     });
-    send({id: 1, method: 'initialize', params: {clientInfo: {name: 'codex-broker', title: 'codex-broker', version: '1'}}});
+    send({id: 1, method: 'initialize', params: {clientInfo: {name: 'ai-broker', title: 'ai-broker', version: '1'}}});
   });
 }
 
