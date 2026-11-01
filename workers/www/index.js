@@ -5,6 +5,7 @@
 import {mediaRange} from './range.js';
 import {videoIngest, videoView} from '../../admin/lab-video.js';
 import * as sentryAlert from '../../admin/sentry-alert.js';
+import * as synthetic from '../../shared/synthetic.js';
 import {recordStarts, startIntelCollectors} from '../../shared/intel-start.js';
 import {replaysIngest} from '../../admin/applying-replays.js';
 import {fidelityIngest} from '../../admin/applying-fidelity.js';
@@ -240,6 +241,7 @@ async function route(request, env, ctx) {
   if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
   if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
   if (pathname === '/api/index') return employerIndex(request, env);
+  if (pathname === '/api/synthetic/last') return synthetic.lastRoute(request, env);   // when the newest probe round ran, only that (shared/synthetic.js; the bot Worker's heartbeat)
   if (pathname === '/api/coverage' && request.method === 'GET') return coverage(env);   // the website's public numbers (counts only, api/coverage.js)
   if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
   if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
@@ -307,11 +309,13 @@ export default {
       ctx.waitUntil(readyTick(env).then(done => { if (done.started || done.finished) console.log(`ready tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`ready tick: ${error.message}`)));   // Ready to send: due nights to the Queue, over-time nights finished (api/ready-tick.js; nothing while READY_TO_SEND is off)
       ctx.waitUntil(readySweep(env).catch(error => console.error(`ready sweep: ${error.message}`)));   // Ready to send: a batch older than a day loses its data (api/ready.js)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
+      ctx.waitUntil(synthetic.tick(env, new Date(event.scheduledTime || Date.now())).then(done => { if (done.ran) console.log(`synthetic round: ${JSON.stringify(done)}`); }).catch(error => console.error(`synthetic round: ${error.message}`)));   // every 15 min (shared/synthetic.js; report only)
       // Why (31 Oct 2026, owner "Start it from the Worker"; the integrations collector joined 1 Nov 2026): GitHub's hourly schedules ran every ~4.5 h or not at all; this trigger fires on time, one tick an hour per collector (INTEL_COLLECTORS, shared/intel-start.js). All 5 account cron triggers are used.
       ctx.waitUntil(startIntelCollectors(env, new Date(event.scheduledTime || Date.now()), dispatch).then(async results => { await recordStarts(env.STATS, results, new Date(event.scheduledTime || Date.now())); for (const {workflow, error} of results) { if (error) console.error(`${workflow.replace('.yml', '')} start failed: ${error}; GitHub's own schedule is the backup`); else console.log(`scheduled ${workflow} cron=*/5`); } }));
       return;
     }
     ctx.waitUntil(sentryAlert.purge(env).catch(error => console.error(`sentry alert purge: ${error.message}`)));
+    ctx.waitUntil(synthetic.purge(env).catch(error => console.error(`synthetic purge: ${error.message}`)));
     // The day's totals first (kept for good), then the 90-day purge of raw rows.
     ctx.waitUntil(pool.rollup(env).catch(error => console.error(`pool rollup: ${error.message}`)).then(() => pool.purge(env)).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })
