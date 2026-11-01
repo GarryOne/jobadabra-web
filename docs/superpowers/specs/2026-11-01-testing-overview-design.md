@@ -21,7 +21,7 @@ Owner, 1 Nov 2026: "show us all different methods of testing and finding bugs we
 
 Verdicts: a card line is `green`, `red`, `running`, `none` (never ran / no stored run). The top band counts lines by verdict and names the red ones. A cron job that missed a run (`schedules-model.missed`) shows a "late" chip.
 
-Planned methods (owner approved 1 Nov 2026, not built): synthetic monitoring, upgrade + data test, fault injection, AI user agents, daily fresh-install smoke → grey "planned" cards; the day one lands its card gets a `workflow` and moves out of `PLANNED`.
+Planned methods (owner approved 1 Nov 2026, not built): upgrade + data test, fault injection, AI user agents, daily fresh-install smoke → grey "planned" cards; the day one lands its card gets a `workflow` and moves out of `PLANNED`. Synthetic monitoring landed 1 Nov 2026: a live card in the "real" ring, read through `readCard` and `readDays` (`shared/synthetic.js`); red "no round" when no probe round ran for 45 min.
 
 ## Not on the page
 Unit tests (owner). No new table, no new collector, no AI call, no CI check. GTM readiness is a link card (session gr's page); it links only once `/admin/testing/gtm-readiness` is in the menu.

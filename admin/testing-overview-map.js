@@ -21,7 +21,7 @@ export function summaryBar(counts, text = {}) {
 }
 
 const cellTitle = cell => `${dayName(cell.day)} · ${cell.state === 'unknown' ? 'not stored (the snapshot keeps the newest runs only)' : cell.state === 'none' ? 'no run'
-  : [cell.greens ? plural(cell.greens, 'green run') : '', cell.reds ? plural(cell.reds, 'red run') : ''].filter(Boolean).join(', ')}`;
+  : cell.note || [cell.greens ? plural(cell.greens, 'green run') : '', cell.reds ? plural(cell.reds, 'red run') : ''].filter(Boolean).join(', ')}`;
 const GLYPH = {green: '✓', red: '✕', none: '', unknown: ''};
 const cellHtml = cell => {
   const inner = `<span class="c c-${cell.state}" title="${esc(cellTitle(cell))}" aria-label="${esc(cellTitle(cell))}">${GLYPH[cell.state]}</span>`;

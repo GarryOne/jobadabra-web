@@ -25,6 +25,11 @@ function runsOf(data, line) {
     if (!data.e2e) return null;
     return {from: '', to: dayOf(data.e2e.at), runs: (data.e2e.suiteNights || []).filter(row => row.suite === last.suite).map(row => ({day: row.day, state: row.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${row.runId}`}))};
   }
+  if (last.synthetic) {   // readDays: one state per UTC day, already ending today (shared/synthetic.js); red = a probe had 2 reds in a row, none = no round stored that day
+    if (!data.syntheticDays) return null;
+    const note = {green: 'rounds ran, no probe down', red: 'a probe was down (2 reds in a row)'};
+    return {from: '', to: '', runs: data.syntheticDays.filter(item => note[item.state]).map(item => ({day: item.day, state: item.state, note: note[item.state]}))};
+  }
   if (last.integration) {
     if (!data.integration) return null;
     return {from: '', to: dayOf(data.integration.at), runs: mainRuns(data.integration, '30d', data.now).runs.map(run => ({day: run.day, state: run.green ? 'green' : 'red', url: `https://github.com/${data.repo}/actions/runs/${run.runId}`}))};
@@ -44,6 +49,6 @@ export function historyOf(data, lines, now = data.now) {
     const reds = runs.filter(run => run.state === 'red').reduce((sum, run) => sum + (run.n || 1), 0), greens = runs.filter(run => run.state === 'green').reduce((sum, run) => sum + (run.n || 1), 0);
     const state = !covered.length ? 'unknown' : reds ? 'red' : greens ? 'green' : 'none';
     const pick = runs.find(run => run.state === state && run.url);
-    return {day, state, greens, reds, url: pick?.url || ''};
+    return {day, state, greens, reds, url: pick?.url || '', note: runs.find(run => run.state === state && run.note)?.note || ''};
   });
 }

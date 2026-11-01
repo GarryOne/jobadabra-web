@@ -11,7 +11,8 @@ import {issues} from './sentry.js';
 import {missed, words} from '../shared/schedules-model.js';
 import {METHODS, PLANNED, RINGS} from './testing-overview-methods.js';
 import {nightlySummary, summaryForCard} from './nightly-summary.js';
-import {historyOf} from './testing-overview-history.js';
+import {historyOf, MAP_DAYS} from './testing-overview-history.js';
+import {readCard as readProbes, readDays as readProbeDays} from '../shared/synthetic.js';
 
 const DAY = 86400000, DEFAULT_REPO = 'GarryOne/jobadabra';
 const SCHEDULED_PAGE = '/admin/testing/scheduled';   // the Testing → Scheduled tab (session ac): each cadence links to it once it is in the menu
@@ -19,9 +20,9 @@ const DONE = {success: 'green', failure: 'red', timed_out: 'red'};
 
 /** Every stored row the cards read; a reader that fails gives null, and the cards that need it say so. */
 export async function load(env, now = new Date(), {sentry = issues} = {}) {
-  const [schedules, e2e, integration, healing, card, sentryList] = await Promise.all([readSchedules(env), readE2e(env.STATS), readIntegration(env.STATS), snapshots(env).catch(() => []),
-    latestCard(env.STATS), env.SENTRY_AUTH_TOKEN ? sentry(env, 'users').catch(() => null) : null]);
-  return {repo: env.GITHUB_REPO || DEFAULT_REPO, schedules, e2e, integration, healing: healing?.[0] || null, card, sentry: sentryList, now};
+  const [schedules, e2e, integration, healing, card, sentryList, synthetic, syntheticDays] = await Promise.all([readSchedules(env), readE2e(env.STATS), readIntegration(env.STATS), snapshots(env).catch(() => []),
+    latestCard(env.STATS), env.SENTRY_AUTH_TOKEN ? sentry(env, 'users').catch(() => null) : null, readProbes(env, now), readProbeDays(env, MAP_DAYS, now)]);   // the two readers of shared/synthetic.js: no query of our own (1 Nov 2026, to)
+  return {repo: env.GITHUB_REPO || DEFAULT_REPO, schedules, e2e, integration, healing: healing?.[0] || null, card, sentry: sentryList, synthetic, syntheticDays, now};
 }
 
 const runUrl = (repo, id) => `https://github.com/${repo}/actions/runs/${Number(id)}`;
@@ -53,12 +54,21 @@ function integrationLast(data) {
   const run = runs.reduce((best, item) => (!best || item.runId > best.runId ? item : best), null);
   return run ? {state: run.green ? 'green' : 'red', at: run.day, url: runUrl(data.repo, run.runId), note: `${run.layer} layer on main`} : none('no main run in 30 days');
 }
+/** The probe rounds: red "no round" when none ran for 45 min (never a stale green), red when a probe is down (2 reds in a row, the rule that alerts), else green; the note names what is down. */
+function syntheticLast(data) {
+  const card = data.synthetic;
+  if (!card) return none('the probe tables are not readable from the Worker right now');
+  const down = (card.probes || []).filter(probe => probe.state === 'down').map(probe => probe.label);
+  if (card.stale) return {state: 'red', word: 'no round', at: card.lastRoundAt, note: card.lastRoundAt ? 'no probe round for over 45 min' : 'no probe round is stored'};
+  return {state: down.length ? 'red' : 'green', at: card.lastRoundAt, note: down.length ? `${down.join(', ')} down` : `all ${plural(card.probes.length, 'probe', 'probes')} up`};
+}
 function lastOf(data, line) {
   const last = line.last || {};
   if (last.none) return none(last.none, true);
   if (last.e2e) return e2eLast(data, last.e2e);
   if (last.suite) return suiteLast(data, last.suite);
   if (last.integration) return integrationLast(data);
+  if (last.synthetic) return syntheticLast(data);
   return line.wf ? workflowLast(data, line.wf) : none('no run to read');
 }
 

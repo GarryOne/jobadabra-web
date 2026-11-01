@@ -111,6 +111,22 @@ export const seeds = {
     await env.STATS.prepare('INSERT INTO pr_check_months (month, card, updated_at) VALUES (?, ?, ?) ON CONFLICT(month) DO UPDATE SET card = excluded.card').bind(day(0).slice(0, 7), JSON.stringify({days: 30, checks: [{name: 'CI · Integration tests', runs: 80, reds: 9, realCatches: 6, falseReds: 2, medianMin: 4, p90Min: 8, addedMin: 1, verdict: 'proven'},
       {name: 'CI · Smoke (the app starts)', runs: 80, reds: 3, realCatches: 2, falseReds: 0, medianMin: 3, p90Min: 4, addedMin: 0, verdict: 'proven'}]}), now.toISOString()).run();
   },
+  'synthetic-card': async ({env}) => {   // Overview's synthetic-monitoring card (1 Nov 2026; re-runnable: the phone check seeds every seed into one database, and the stale seed runs this one again): the testing-overview seed plus 14 days of made-up probe rounds (every 3 h, the newest 4 min ago); monitoring began 12 days ago, the broker was red twice in a row 5 days ago and is down now
+    await seeds['testing-overview']({env});
+    const now = Date.now(), probes = ['broker', 'free-ai', 'index', 'license', 'site', 'updates'], statements = [];
+    const at = back => new Date(now - back * 3 * 3600000 - 4 * 60000).toISOString().slice(0, 16) + ':00Z';
+    for (let back = 0; back < 12 * 8; back++) for (const probe of probes) {
+      const red = probe === 'broker' && (back < 2 || back === 40 || back === 41);
+      statements.push(env.STATS.prepare('INSERT OR REPLACE INTO synthetic_probes (probe, at, ok, ms, reason) VALUES (?, ?, ?, ?, ?)').bind(probe, at(back), red ? 0 : 1, 180 + back % 7 * 40, red ? 'HTTP 503' : ''));
+    }
+    for (const probe of probes) statements.push(env.STATS.prepare('INSERT OR REPLACE INTO synthetic_state (probe, state, since, red_since, streak, reason, told) VALUES (?, ?, ?, ?, ?, ?, 1)')
+      .bind(probe, probe === 'broker' ? 'down' : 'up', probe === 'broker' ? at(1) : at(95), probe === 'broker' ? at(1) : '', probe === 'broker' ? 2 : 0, probe === 'broker' ? 'HTTP 503' : ''));
+    await env.STATS.batch(statements);
+  },
+  'synthetic-card-stale': async ({env}) => {   // the same card when no probe round has run for 3 hours: red "no round", never a stale green (1 Nov 2026)
+    await seeds['synthetic-card']({env});
+    await env.STATS.prepare('DELETE FROM synthetic_probes WHERE at > ?').bind(new Date(Date.now() - 3 * 3600000).toISOString()).run();
+  },
   'nightly-trends': async ({env}) => {   // the nightly report-only numbers on Testing → Overview and Testing → Scheduled (1 Nov 2026): 14 made-up nights of Quality AI, prompt cases, interactions rates, wander, real Notion, agent coding and the wall clocks, over the overview and schedules seeds
     const now = new Date(), day = back => new Date(now.getTime() - back * 86400000).toISOString().slice(0, 10), put = (table, body) => env.STATS.prepare(`INSERT INTO ${table} (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body`).bind(now.toISOString(), JSON.stringify(body)).run();
     const read = async table => JSON.parse((await env.STATS.prepare(`SELECT body FROM ${table} WHERE id = 1`).first()).body);
