@@ -151,3 +151,17 @@ test('a new rules version re-reads stored PRs and replaces their category; the s
   assert.equal(categoryOfFile('.dependency-cruiser.cjs'), 'ci');
   assert.ok(RULES_VERSION >= 4, 'a rule change re-reads the stored PRs: the root file moved from mixed to ci, so #2444\'s row must be rebuilt');
 });
+
+test('the Overview shows the small Checks chart above "Where our time goes", reads the same agent_coding_days rows as the SDLC tab, and has the shared tooltip; without uploads there is no card', async () => {
+  const e = env(), day = new Date().toISOString().slice(0, 10);
+  const none = await (await call(e, '/admin/agents/overview', owner)).text();
+  assert.ok(!none.includes('Checks: value and cost'));
+  const card = {layers: {pr: {'CI · Tests · python': {runs: 40, fails: 9, secs: 8000, catches: {product: 3, test: 1, ci: 0, form: 0, flaky: 0, rebase: 0, nofix: 0}}}, main: {}, night: {}}, phases: {merged: 1, nospec: 0, unmerged: 0, prCommits: 1, fixAfter: 0, reverts: 0, redMain: 0}, bugs: 0};
+  e.STATS.db.prepare('INSERT INTO agent_coding_days (kind, day, card, updated_at) VALUES (?, ?, ?, ?)').run('sdlc', day, JSON.stringify(card), `${day}T05:00:00Z`);
+  const html = await (await call(e, '/admin/agents/overview', owner)).text();
+  assert.ok(html.includes('Checks: value and cost'));
+  const snapshot = {at: now.toISOString(), daily: [], latest: []}, ordered = page(snapshot, {now, checks: '<section>CHECKS-CARD</section>'});
+  assert.ok(ordered.indexOf('CHECKS-CARD') > 0 && ordered.indexOf('CHECKS-CARD') < ordered.indexOf('Where our time goes'), 'the card sits above "Where our time goes"');
+  assert.match(html, /<a class="ac-dot" href="\/admin\/agents\/agent-coding\?tab=sdlc#check-pr-ci-tests-python"/);
+  assert.ok(html.includes('<div id="tip" role="tooltip" hidden></div>'));
+});
