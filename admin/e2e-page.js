@@ -11,6 +11,8 @@ import {filterLinks} from './admin.js';
 import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {CHIP_STYLE, chip} from './chip.js';
 import {BARS, rateOf} from './e2e-quality.js';
+import {readStartProblem} from '../shared/intel-start.js';
+import {startLine} from './intel-start-line.js';
 import {SCORECARD_CSS, scorecardCard, workCard} from './e2e-scorecard.js';
 import {greySummary, greyNightText, GREY_NOTE} from './e2e-grey.js';
 import {weekOf} from './e2e-work.js';
@@ -120,7 +122,7 @@ ${speed.slowPr.length ? `<ul>${speed.slowPr.map(row => `<li><code>${esc(row.suit
     : `<p class="muted">${speed.prRead ? `PR suites over ${PR_SPLIT_SECONDS / 60} min: none.` : 'Not enough PR runs for a median yet.'}</p>`}</section>`;
 }
 
-export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/jobadabra', now = new Date()} = {}) {
+export function page(snapshot, {range = '7d', kind = 'all', repo = 'GarryOne/jobadabra', now = new Date(), problem = null} = {}) {
   range = rangeOf(range); kind = kindFilter(kind);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}${kind === 'all' ? '' : `&kind=${kind}`}`]), range)
     + filterLinks(Object.entries(KIND_NAMES).map(([value, text]) => [value, text, `?range=${range}${value === 'all' ? '' : `&kind=${value}`}`]), kind);
@@ -143,7 +145,7 @@ ${workCard(snapshot, now)}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}${CHIP_STYLE}
 .filters{margin:8px 0 10px}${TOP_CSS}h2{margin:0 0 8px}.scroll{overflow-x:auto}.nights .night span.muted{white-space:nowrap}${BARS_CSS}${SCORECARD_CSS}${GREEN_CSS}${BETA_CSS}</style></head><body><main>
 <header><h1>🧪 Why e2e goes red</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · every e2e run: beta, nightly, main after merge, scheduled, soak, PR, harness` : ''}</span></header>
-${body}</main></body></html>`;
+${startLine(problem)}${body}</main></body></html>`;
 }
 
 export async function view(request, env) {
@@ -152,5 +154,6 @@ export async function view(request, env) {
   if (url.searchParams.has('key')) return remember(url, env, request);
   let snapshot = null;
   try { const row = env.STATS ? await env.STATS.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').first() : null; snapshot = row ? JSON.parse(row.body) : null; } catch { snapshot = null; }
-  return new Response(page(snapshot, {range: rangeOf(url.searchParams.get('range')), kind: kindFilter(url.searchParams.get('kind')), repo: env.GITHUB_REPO || undefined}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const problem = await readStartProblem(env.STATS, 'e2e-intel.yml');
+  return new Response(page(snapshot, {range: rangeOf(url.searchParams.get('range')), kind: kindFilter(url.searchParams.get('kind')), repo: env.GITHUB_REPO || undefined, problem}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

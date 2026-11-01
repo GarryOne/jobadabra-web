@@ -99,13 +99,13 @@ test('Grey shows tolerant and suspended rows, seven observed nights, rates only 
   assert.doesNotMatch(page({...snapshot, lanes, suiteNights}, {now: at}).split('<h2>Grey</h2>')[1].split('</section>')[0], /60%/);
 });
 
-test('Grey does not add a page query: the view still reads exactly one snapshot row', async () => {
+test('Grey does not add a page scan: the view reads one snapshot row and one collector-start row (both single-row lookups, no table scan)', async () => {
   const {view} = await import('../../admin/e2e-page.js');
   const e = env(), reads = [];
-  e.STATS.prepare = sql => { reads.push(sql); return {first: async () => ({body: JSON.stringify(snapshot)})}; };
+  e.STATS.prepare = sql => { reads.push(sql); return {bind: () => ({first: async () => null}), first: async () => ({body: JSON.stringify(snapshot)})}; };
   const response = await view(new Request('https://test/admin/operations/e2e', {headers: {Cookie: 'jp_stats=k3y'}}), e);
   assert.equal(response.status, 200);
-  assert.deepEqual(reads, ['SELECT body FROM e2e_snapshot WHERE id = 1']);
+  assert.deepEqual(reads, ['SELECT body FROM e2e_snapshot WHERE id = 1', 'SELECT at, ok, reason FROM intel_start WHERE workflow = ?'], 'the second is the red line\'s (1 Nov 2026, admin/intel-start-line.js): one row by its key');
 });
 
 test('Speed follows Grey, shows main medians and counts independently of filters, and warns about PR jobs without red', () => {

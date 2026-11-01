@@ -31,3 +31,23 @@ export async function startIntelCollectors(env, now, dispatch) {
     } catch (error) { return {workflow, error: error.message}; }
   }));
 }
+
+/**
+ * Keeps each due collector's last start outcome (table intel_start, db/migrations/0119): a good start clears the row's problem, a refused one stores why. Why (1 Nov 2026, owner: "Red line on the
+ * page"): the Worker had no E2E_INTEL_GITHUB_TOKEN, so neither collector was ever started and only a console line said so; the pages now show it. Never throws (a page line is not worth a failed tick).
+ */
+export async function recordStarts(db, results, now = new Date()) {
+  if (!db || !results.length) return;
+  try {
+    await db.batch(results.map(({workflow, error}) => db.prepare('INSERT INTO intel_start (workflow, at, ok, reason) VALUES (?, ?, ?, ?) ON CONFLICT(workflow) DO UPDATE SET at = excluded.at, ok = excluded.ok, reason = excluded.reason')
+      .bind(workflow, now.toISOString(), error ? 0 : 1, error ? String(error).replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 200) : '')));
+  } catch (error) { console.error(`intel start record: ${error.message}`); }
+}
+
+/** Why the Worker's last start of `workflow` failed, {reason, at}; null when it succeeded, was never tried, or the table is unreadable. */
+export async function readStartProblem(db, workflow) {
+  try {
+    const row = db ? await db.prepare('SELECT at, ok, reason FROM intel_start WHERE workflow = ?').bind(workflow).first() : null;
+    return row && !row.ok ? {reason: row.reason || 'the start was refused', at: row.at} : null;
+  } catch { return null; }
+}

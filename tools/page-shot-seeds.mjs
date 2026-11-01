@@ -209,6 +209,11 @@ export const seeds = {
     const body = {runs, flaky, slowest, counts: {extension: {tests: 64, files: 9}, app: {tests: 118, files: 16}, store: {tests: 41, files: 6}}, move: {days, e2eSteps: days[13].e2eSteps, lanes: 28}};
     await ingest(new Request('https://demo/integration/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify(body)}), env);
   },
+  'integration-not-starting': async ({env}) => {   // /admin/operations/integrations when the Worker's last start of its collector was refused (1 Nov 2026): the integration data plus the red line
+    await seeds.integration({env});
+    const {recordStarts} = await import('../shared/intel-start.js');
+    await recordStarts(env.STATS, [{workflow: 'integration-intel.yml', error: 'E2E_INTEL_GITHUB_TOKEN is not set (the site GITHUB_TOKEN covers the public repo, not this one)'}]);
+  },
   'e2e-grey': async ({env}) => {   // fixture-only Grey lifecycle: four lanes, seven quality nights (two red), and the stored grey ledger (suite × reason); direct snapshot works for before shots too
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
     const suiteNights = Array.from({length: 7}, (_, back) => ({runId: 9100 + 6 - back, day: dayAt(back), kind: 'nightly', suite: 'quality', platform: 'mac',
