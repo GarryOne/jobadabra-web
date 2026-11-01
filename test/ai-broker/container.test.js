@@ -103,6 +103,10 @@ test('the Codex week figure is read once, then served from memory and refreshed 
   const answers = [await call(), await call(), await call()];
   assert.equal(lookups, 1, 'three calls, one lookup');
   for (const answer of answers) assert.deepEqual(answer.limits, {usedPercent: 40, resetsAt: 7});
+  // Gitar on #290: four calls that overlap a container start share one lookup.
+  lookups = 0; load(60000);
+  assert.equal((await Promise.all([call(), call(), call(), call()])).length, 4);
+  assert.equal(lookups, 1, 'four overlapping first calls, one lookup');
   load(0);   // a stale reading: the call is answered at once with the old figure, the next one sees the refreshed figure
   assert.equal((await call()).limits.usedPercent, 40);
   used = 55;

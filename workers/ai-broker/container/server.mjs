@@ -64,11 +64,11 @@ function readLimits() {
 const LIMITS_TTL_MS = Number(process.env.LIMITS_TTL_MS ?? 60000);
 let limitsCache = null, limitsRefresh = null;   // {at, value}, and the refresh in flight
 async function limitsNow() {
-  if (!limitsCache?.value) { limitsCache = {at: Date.now(), value: await readLimits()}; return limitsCache.value; }
-  if (Date.now() - limitsCache.at >= LIMITS_TTL_MS && !limitsRefresh) {
-    limitsRefresh = readLimits().then(value => { if (value) limitsCache = {at: Date.now(), value}; }).catch(() => {}).finally(() => { limitsRefresh = null; });
-  }
-  return limitsCache.value;
+  const stale = !limitsCache?.value || Date.now() - limitsCache.at >= LIMITS_TTL_MS;
+  // Why (Gitar on #290): calls that overlap a start share ONE in-flight read, and a failed read never replaces a good figure.
+  if (stale && !limitsRefresh) limitsRefresh = readLimits().then(value => { if (value) limitsCache = {at: Date.now(), value}; }).catch(() => {}).finally(() => { limitsRefresh = null; });
+  if (!limitsCache?.value) await limitsRefresh;
+  return limitsCache?.value ?? null;
 }
 
 // One call: {prompt, schema?, images?: [{name, base64}], search?: boolean, effort?: low|medium|high|xhigh} -> {reply, tokens: {input, output}, ms}. Throws Error with a reason word on a failed codex run.
