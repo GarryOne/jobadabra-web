@@ -151,6 +151,28 @@ export async function readCard(env, now = new Date()) {
   } catch { return null; }
 }
 
+/**
+ * One state per UTC day for the Overview's 14-day health map, oldest first, ending today: [{day: 'YYYY-MM-DD', state: 'green' | 'red' | 'none'}].
+ * red = some probe was red in two STORED rounds in a row that day, whatever the time between them: exactly settle()'s rule, so the map and the alert never disagree (a skipped tick must not make a told "Down"
+ * a green day; Gitar, #264). green = rounds ran and none did; none = no rows that day (before monitoring began, or the Worker was dead all day). Two small D1 reads (day counts, and the few red days
+ * through LAG), not every row. null when D1 or the tables are unreadable. Why (1 Nov 2026, to): one reader, so the page never writes a second per-day query.
+ */
+export async function readDays(env, days = 14, now = new Date()) {
+  try {
+    const today = now.toISOString().slice(0, 10), start = Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000;
+    const first = `${new Date(start).toISOString().slice(0, 10)}T00:00:00Z`, lookback = new Date(start - 86400000).toISOString();   // a streak may begin the evening before the first day
+    const [ran, reds] = await Promise.all([
+      env.STATS.prepare('SELECT substr(at, 1, 10) AS day, COUNT(*) AS n FROM synthetic_probes WHERE at >= ? GROUP BY day').bind(first).all(),
+      env.STATS.prepare('SELECT substr(at, 1, 10) AS day FROM (SELECT at, ok, LAG(ok) OVER (PARTITION BY probe ORDER BY at) AS prev FROM synthetic_probes WHERE at >= ?) WHERE ok = 0 AND prev = 0 AND at >= ? GROUP BY day')
+        .bind(lookback, first).all()]);
+    const redDays = new Set((reds.results || []).map(row => row.day)), seen = new Set((ran.results || []).filter(row => row.n > 0).map(row => row.day));
+    return Array.from({length: days}, (_, i) => {
+      const day = new Date(start + i * 86400000).toISOString().slice(0, 10);
+      return {day, state: redDays.has(day) ? 'red' : seen.has(day) ? 'green' : 'none'};
+    });
+  } catch { return null; }
+}
+
 /** GET /api/synthetic/last: when the newest probe round ran, nothing else (the bot Worker's heartbeat reads it from outside). */
 export async function lastRoute(request, env) {
   if (request.method !== 'GET') return new Response('GET only', {status: 405});
