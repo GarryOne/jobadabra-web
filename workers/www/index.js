@@ -8,6 +8,7 @@ import * as sentryAlert from '../../admin/sentry-alert.js';
 import * as synthetic from '../../shared/synthetic.js';
 import {recordStarts, startIntelCollectors} from '../../shared/intel-start.js';
 import {OWN_CRON as TIMERS_OWN_CRON, runTimers} from '../../shared/timers.js';
+import {githubFetch} from '../../app-core/src/github-fetch.js';
 import {replaysIngest} from '../../admin/applying-replays.js';
 import {fidelityIngest} from '../../admin/applying-fidelity.js';
 import {verifyIngest} from '../../admin/applying-verify.js';
@@ -143,7 +144,7 @@ export async function waitlist(request, env) {
 // Form-structure reports from every Jobadabra app (desktop/lib/reports.js; app-core/src/report.js checks them): a failure that
 // recurs is queued for the private repo's triage (api/triage.js). Secrets GITHUB_TOKEN (the product brain's dispatch) and
 // REPORT_TOKEN (the owner's app, trusted); GITHUB_REPO in wrangler.toml.
-export async function dispatch(env, inputs, workflow, fetcher = fetch) {
+export async function dispatch(env, inputs, workflow, fetcher = githubFetch) {
   // Recurring failures and problems are queued for the private repo's triage to pull (api/triage.js); other workflows (the
   // product brain's) are still started on GitHub.
   if (triageQueue.queued(workflow)) return triageQueue.queue(env, inputs, workflow);
