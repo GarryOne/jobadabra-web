@@ -166,3 +166,17 @@ test('Testing → Scheduled lists only the testing jobs and the aggregate filter
   assert.ok(html.includes('CI · E2E') && !html.includes('Product brain'));
   assert.equal((await call(e, '/admin/testing/scheduled')).status, 404, 'no login, no page');
 });
+
+test('Billed min / week is a lower bound, with the repo named, when a private repo was not read (1 Nov 2026: a confident 0 while jobadabra-lab was unreadable)', () => {
+  const job = {repo: 'GarryOne/jobadabra-web', file: 'search-lab.yml', name: 'Search lab', about: '', crons: ['15 */6 * * *'], billedMin: 90, recent: []};
+  const tileOf = html => html.match(/<section class="card tile ([^"]*)"><span class="muted">Billed min \/ week<\/span><b>([^<]*)<\/b><span class="muted">([^<]*)<\/span>/).slice(1);
+  const read = [{name: 'GarryOne/jobadabra', private: false, ok: true}, {name: 'GarryOne/jobadabra-lab', private: true, ok: true}];
+  assert.deepEqual(tileOf(page({at: '2026-10-20T17:00:00Z', repos: read, jobs: [job]}, {now})), ['', '90', 'Mac ×10, Windows ×2; public repos are free'], 'every repo read: the plain number');
+  // Through clean(), as the ingest stores it: the collector sends an unread repo as {private: true, ok: false}.
+  const unread = clean({at: '2026-10-20T17:00:00Z', repos: [read[0], {name: 'GarryOne/jobadabra-lab', private: true, ok: false}], jobs: [job]});
+  assert.deepEqual(tileOf(page(unread, {now})), ['warn', '≥ 90', 'jobadabra-lab not read: its minutes are missing']);
+  const two = clean({at: '2026-10-20T17:00:00Z', repos: [{name: 'GarryOne/a', private: true, ok: false}, {name: 'GarryOne/b', private: true, ok: false}], jobs: [job]});
+  assert.equal(tileOf(page(two, {now}))[2], 'a, b not read: their minutes are missing');
+  const publicUnread = {at: '2026-10-20T17:00:00Z', repos: [{name: 'GarryOne/jobadabra', private: false, ok: false}], jobs: [job]};
+  assert.equal(tileOf(page(publicUnread, {now}))[1], '90', 'an unread public repo bills 0 anyway: the number stays');
+});
