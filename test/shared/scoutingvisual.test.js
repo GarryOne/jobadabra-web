@@ -8,7 +8,7 @@ import {cleanStats, load, RUNS, store} from '../../shared/scouting.js';
 import {page} from '../../admin/scoutingadmin.js';
 import {snapshot, storeSnapshot} from '../../shared/scouting-snapshot.js';
 import {bars, columns, shade, sparkline} from '../../shared/scoutingcharts.js';
-import {AIMED, BIG, FLOOR, SMALL, atFloor, floorFor, KINDS, cellsOf, demandOf, heatmap, history, tiles} from '../../shared/scoutingvisual.js';
+import {AIMED, BIG, FLOOR, SMALL, atFloor, floorFor, KINDS, cellsOf, demandOf, gaps, heatmap, history, tiles} from '../../shared/scoutingvisual.js';
 
 function d1(...migrations) {
   const db = new DatabaseSync(':memory:');
@@ -95,4 +95,14 @@ test('the open-jobs tile counts each employer\'s jobs once, also one hiring in s
   const feeds = [care(1), {...care(2), countries: ['pl', 'de', 'fr']}, care(3, 'us')];   // 4 + 4 in Europe; the US-only one is not
   const html = tiles({feeds, sharing7: 0, central: null}, cellsOf(feeds), history([]));
   assert.match(html, /<span class="tile-label">Open jobs in Europe<\/span><b>8<\/b>/);
+});
+
+test('the gaps card and the countries-at-the-floor card each take a full row: they are not two columns of one grid (owner, 2 Nov 2026: 2 rows beside 25 left an empty area)', () => {
+  const html = gaps({'healthcare|ro': [2, 8], 'trades|pt': [3, 9]}, {'healthcare|ro': 4, 'trades|pt': 3});
+  assert.equal(html.match(/<section class="card">/g).length, 2);
+  assert.ok(html.includes('Gaps people search in') && html.includes('Countries at the floor, per kind'));
+  assert.doesNotMatch(html, /grid2/);
+  // the page puts them between the heatmap and the trends, as plain full-width cards
+  const page = readFileSync(new URL('../../shared/scoutingvisual.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(page.slice(page.indexOf('export function gaps'), page.indexOf('export function trends')), /grid2/);
 });

@@ -124,10 +124,11 @@ export function gaps(cells, demand) {
     return {label: kindName(kind), parts: [[done, AIMED.includes(kind) ? C.accent : C.gray, 'countries at their floor']], after: `${done}/${EUROPE.length}`,
       tip: `${kindName(kind)}: ${done} of ${EUROPE.length} countries are at their floor; ${n(kindTotal(cells, kind))} in Europe`};
   });
-  return `<div class="grid2"><section class="card"><h2>🎯 Gaps people search in</h2><small class="muted">Kind × country cells under their floor where 3+ installs searched in the last 30 days, most searched first; right: employers / floor.</small>
+  // Why (2 Nov 2026, owner: "make these 2 widgets/cards one per row to avoid this empty space"): the two cards differ a lot in height (2 rows beside 25), so side by side the short one left a big empty area; each is full width.
+  return `<section class="card"><h2>🎯 Gaps people search in</h2><small class="muted">Kind × country cells under their floor where 3+ installs searched in the last 30 days, most searched first; right: employers / floor.</small>
 ${bars(wanted, {empty: `No cell with 3+ installs searching is under its floor yet.`})}</section>
 <section class="card"><h2>🏁 Countries at the floor, per kind</h2><small class="muted">Out of ${EUROPE.length} European countries, how many have reached their floor of employers of this kind. Gray: software, already strong.</small>
-${bars(reach, {max: EUROPE.length})}</section></div>`;
+${bars(reach, {max: EUROPE.length})}</section>`;
 }
 
 // One small chart per kind: its employers in Europe over the days, now and the week's change.
