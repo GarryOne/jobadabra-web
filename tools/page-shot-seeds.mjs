@@ -196,6 +196,10 @@ export const seeds = {
       const feed = {company: `Demo employer ${n}`, ats: 'greenhouse', slug: `demo-${n}`, quality: 70, checked: '2026-10-25', kinds: {[kind]: 0.8}, countries: [country], fresh: {jobs: 10 + n % 40}};
       await env.STATS.prepare('INSERT INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)').bind('greenhouse', `demo-${n}`, ',europe,', JSON.stringify(feed), '2026-10-25T00:00:00Z').run();
     }
+    // Searches (a few installs each) so "Gaps people search in" shows two rows, like the real page (ab, 2 Nov 2026: the card beside "Countries at the floor" left an empty area).
+    const day = new Date(Date.now() - 2 * 86400_000).toISOString().slice(0, 10);
+    for (const [install, roles, country] of [['i1', 'healthcare', 'ro'], ['i2', 'healthcare', 'ro'], ['i3', 'healthcare', 'ro'], ['i4', 'healthcare', 'ro'], ['i5', 'trades', 'pt'], ['i6', 'trades', 'pt'], ['i7', 'trades', 'pt']])
+      await env.STATS.prepare('INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, countries) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)').bind(install, day, 'greenhouse', `demo-search-${install}`, 'Demo', roles, '', country).run();
   },
   coverage: async ({env}) => {   // made-up daily snapshots for /coverage's kind × country table (27 Oct 2026): big markets and IT strong, small ones thin, many not sorted yet; a week apart
     const {EUROPE} = await import('../shared/pool-tags.js'), {KINDS} = await import('../shared/pool-labels.js');
