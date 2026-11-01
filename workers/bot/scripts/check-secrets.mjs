@@ -2,11 +2,12 @@
 // commit) left it with none: every scheduled start was refused for a day, and the Telegram warning about it could not be sent either. Exit 1 names what is missing.
 //   node scripts/check-secrets.mjs        (wrangler's own login, or CLOUDFLARE_API_TOKEN)
 import {execFileSync} from 'node:child_process';
+import {pathToFileURL} from 'node:url';   // Why (1 Nov 2026): this repo's test/jobs/main-guard.test.js bans the hand-made `file://${argv[1]}` comparison (never true on Windows)
 
 export const REQUIRED = {GITHUB_TOKEN: 'starts the scheduled workflows (actions: write on the repo)', TELEGRAM_BOT_TOKEN: 'sends the warning when a start fails', OWNER_CHAT_ID: 'where that warning goes'};
 export const missing = names => Object.keys(REQUIRED).filter(name => !names.includes(name));
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   let names;
   try { names = JSON.parse(execFileSync('npx', ['wrangler@4', 'secret', 'list', '--format', 'json'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit']})).map(item => item.name); }
   catch (error) { console.error(`Could not list the Worker's secrets (${error.message.split('\n')[0]}): check them with npx wrangler secret list.`); process.exit(1); }
