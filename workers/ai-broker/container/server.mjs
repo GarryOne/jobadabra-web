@@ -59,6 +59,18 @@ function readLimits() {
   });
 }
 
+// Why (1 Nov 2026, pg via mac-07: "about 5 s of the 13-17 s per call"; 0.9-1.6 s on tiny calls): every call spawned a `codex app-server` after its reply just to read the week figure, which moves by fractions of a percent a minute.
+// The last reading is served, and one background refresh starts when it is older than LIMITS_TTL_MS. Only the first reading after a start (or after a failed one) is waited for, so the week brake never runs without a figure.
+const LIMITS_TTL_MS = Number(process.env.LIMITS_TTL_MS ?? 60000);
+let limitsCache = null, limitsRefresh = null;   // {at, value}, and the refresh in flight
+async function limitsNow() {
+  if (!limitsCache?.value) { limitsCache = {at: Date.now(), value: await readLimits()}; return limitsCache.value; }
+  if (Date.now() - limitsCache.at >= LIMITS_TTL_MS && !limitsRefresh) {
+    limitsRefresh = readLimits().then(value => { if (value) limitsCache = {at: Date.now(), value}; }).catch(() => {}).finally(() => { limitsRefresh = null; });
+  }
+  return limitsCache.value;
+}
+
 // One call: {prompt, schema?, images?: [{name, base64}], search?: boolean, effort?: low|medium|high|xhigh} -> {reply, tokens: {input, output}, ms}. Throws Error with a reason word on a failed codex run.
 async function call({prompt, schema, images = [], model, search, effort}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'call-'));
@@ -88,7 +100,7 @@ http.createServer((req, res) => {
       if (req.url === '/auth' && req.method === 'POST') { fs.mkdirSync(HOME, {recursive: true}); fs.writeFileSync(AUTH, Buffer.concat(chunks), {mode: 0o600}); return reply(200, {ok: true}); }
       if (req.url === '/call' && req.method === 'POST') {
         const result = await call(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-        const limits = await readLimits();
+        const limits = await limitsNow();
         return reply(200, {...result, limits, authFile: readAuth()});   // authFile goes to the Durable Object only, never to the caller (worker.js strips it)
       }
       if (req.url === '/health') return reply(200, {hasLogin: !!readAuth(), limits: readAuth() ? await readLimits() : null});
