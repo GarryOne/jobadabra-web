@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {nightOf} from '../admin/e2e-quality.js';
+import {nightOf, promptCasesOf} from '../admin/e2e-quality.js';
 import {pathToFileURL} from 'node:url';
 import {CAUSES, DIFF_MAX, RULES_VERSION} from '../admin/e2e-causes.js';
 import {answerText, betaRunRow, betaRunsToRead, kindOf, redJobs, rowsOf, runsToRead, nightRunsToRead} from './e2e-intel-rows.mjs';
@@ -37,21 +37,38 @@ async function readLogs(runs) {
   return logs;
 }
 
-// The night's live quality run (e2e.yml "Fresh AI answers for quality once a day": a scheduled "E2E check" started 21-22 UTC) -> its counts (admin/e2e-quality.js).
-// The other runs replay recorded answers and score nothing twice. listed: gh run list rows; stored: run ids the site has.
-export const liveNights = (listed, stored) => listed.filter(run => /^E2E check/.test(run.displayTitle || '') && ['success', 'failure'].includes(run.conclusion)
-  && [21, 22].includes(new Date(run.createdAt).getUTCHours()) && !stored.has(run.databaseId));
+// The night's live quality run -> its counts (admin/e2e-quality.js) and the same run's prompt-case replay. A night is a scheduled run that holds a live quality job, found by that job and not by
+// its title's pass number or its hour, so a re-plan of the night cannot silently empty the card (a8, 1 Nov 2026: "pick the night by its job"). Only runs of the last two days are looked at (a run
+// without a live quality job is never stored, so it is read again each hour until it ages out): the other titles of e2e.yml (after merge, beta, bisect, PR) never hold one.
+// Why (1 Nov 2026, found by reading git history, not yet by the D1 row): the filter was "E2E check" runs started 21-22 UTC, and the live run now rides "Night burn-in 1/5" (afe3595, 21:00 UTC);
+// before that, 341cf97 (29 Oct) split quality into an exact `quality` job and the live `qualityai` job, which `/^quality\b/` does not match. listed: gh run list rows; stored: run ids the site has.
+const NIGHT_DAYS = 2;
+export const liveNights = (listed, stored, now = new Date()) => listed.filter(run => /^(E2E check|Night burn-in \d\/\d)/.test(run.displayTitle || '') && ['success', 'failure'].includes(run.conclusion)
+  && new Date(run.createdAt).getTime() >= now.getTime() - NIGHT_DAYS * 86400000 && !stored.has(run.databaseId));
+
+/**
+ * One run's jobs -> its night: the counts of the first quality job whose log scored the jobs twice (the live `qualityai`; the exact `quality` job logs no second scoring), plus the counts the
+ * run's "Prompt cases" job printed (none while that job is absent or printed nothing: promptCases null). null when no job of the run scored twice.
+ * @param {{id: number, name: string}[]} jobs the run's jobs
+ * @param {(id: number) => Promise<string>} logOf a job's log text
+ */
+export async function nightFromJobs(jobs, logOf) {
+  const candidates = jobs.filter(job => /^quality/.test(job.name)).sort((a, b) => /^qualityai/.test(b.name) - /^qualityai/.test(a.name));
+  let night = null;
+  for (const job of candidates) { night = nightOf(await logOf(job.id)); if (night) break; }
+  if (!night) return null;
+  const prompt = jobs.find(job => /prompt cases/i.test(job.name));
+  return {...night, promptCases: prompt ? promptCasesOf(await logOf(prompt.id)) : null};
+}
 
 async function readNights(runs) {
   const nights = [];
+  const logOf = async id => (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${id}/logs`], {maxBuffer: 1 << 28})).stdout;
   for (let at = 0; at < runs.length; at += 8) {
     await Promise.all(runs.slice(at, at + 8).map(async run => {
       try {
         const jobs = JSON.parse((await execAsync('gh', ['api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`], {maxBuffer: 1 << 28})).stdout).jobs || [];
-        const job = jobs.find(item => item.name === 'quality' || /^quality\b/.test(item.name));
-        if (!job) return;
-        const log = (await execAsync('gh', ['api', '--allow-escape-sequences', `repos/${repo}/actions/jobs/${job.id}/logs`], {maxBuffer: 1 << 28})).stdout;
-        const night = nightOf(log);
+        const night = await nightFromJobs(jobs, logOf);
         if (night) nights.push({runId: run.databaseId, day: run.createdAt.slice(0, 10), ...night});
       } catch { /* a run whose log cannot be read is read again next hour */ }
     }));

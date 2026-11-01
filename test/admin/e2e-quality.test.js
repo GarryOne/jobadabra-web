@@ -5,9 +5,9 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
-import {BARS, cleanNight, nightOf, rateOf} from '../../admin/e2e-quality.js';
+import {BARS, cleanNight, cleanPrompt, nightOf, promptCasesOf, rateOf} from '../../admin/e2e-quality.js';
 import {qualityCard} from '../../admin/e2e-page.js';
-import {liveNights} from '../../jobs/e2e-intel.mjs';
+import {liveNights, nightFromJobs} from '../../jobs/e2e-intel.mjs';
 
 // Lines as a GitHub job log prints them (a timestamp first). Main 27 Oct 2026, run 40433806296: 3002 85 -> 75, 3005 65 -> 56.
 const LOG = ['2026-10-27T01:56:14.1Z   scores: 3001=95 3002=85 3003=75 3004=35 3005=65 3006=35 3007=dropped 3008=85 3009=58 3010=85 3011=dropped',
@@ -76,9 +76,60 @@ test('the page shows the rate against each bar, red when a bar fails, and each n
   assert.match(qualityCard([]), /No live quality night yet/);
 });
 
-test('the collector reads only the night\'s live quality run, once', () => {
-  const run = (databaseId, createdAt, displayTitle = 'E2E check · on time (Worker cron)', conclusion = 'success') => ({databaseId, createdAt, displayTitle, conclusion});
-  const listed = [run(1, '2026-10-27T21:47:00Z'), run(2, '2026-10-27T23:47:00Z'), run(3, '2026-10-26T22:05:00Z', 'E2E check · GitHub schedule (backup)', 'failure'),
-    run(4, '2026-10-27T21:50:00Z', 'E2E for PR · quality · x'), run(5, '2026-10-27T21:49:00Z', undefined, 'cancelled'), run(6, '2026-10-25T21:47:00Z')];
-  assert.deepEqual(liveNights(listed, new Set([6])).map(item => item.databaseId), [1, 3]);
+test('the collector picks the night by what ran, not by its title\'s pass number or its hour: Night burn-in 1/5 at 21:00 UTC counts', () => {
+  const now = new Date('2026-11-02T10:00:00Z');
+  const run = (databaseId, createdAt, displayTitle, conclusion = 'success') => ({databaseId, createdAt, displayTitle, conclusion});
+  const listed = [run(1, '2026-11-01T21:00:40Z', 'Night burn-in 1/5 · main'), run(2, '2026-11-01T23:30:40Z', 'Night burn-in 2/5 · main', 'failure'), run(3, '2026-11-01T21:47:00Z', 'E2E check · on time (Worker cron)'),
+    run(4, '2026-11-01T09:10:00Z', 'E2E check · GitHub schedule (backup)'), run(5, '2026-11-01T21:50:00Z', 'E2E after merge · abc · settings'), run(6, '2026-11-01T21:49:00Z', 'Night burn-in 3/5 · main', 'cancelled'),
+    run(7, '2026-11-01T21:20:00Z', 'Night burn-in 4/5 · main'), run(8, '2026-10-28T21:00:00Z', 'Night burn-in 1/5 · main'), run(9, '2026-11-01T05:30:00Z', 'Beta E2E tests desktop-v0.8.60')];
+  assert.deepEqual(liveNights(listed, new Set([7]), now).map(item => item.databaseId), [1, 2, 3, 4], 'stored (7), cancelled (6), other kinds (5, 9) and runs older than two days (8) are not read again');
+});
+
+const JOBS = [{id: 11, name: 'quality'}, {id: 12, name: 'qualityai'}, {id: 13, name: 'prompt-cases-night / Prompt cases, nightly (report only)'}, {id: 14, name: 'settings'}];
+const PROMPT_LINE = '2026-11-01T21:40:00.1Z PROMPT_CASES_NIGHT {"set":"form","status":"asked","sha":"abc1234","total":63,"right":60,"flipped":1,"noise":2,"newWrong":0,"unconfirmed":0,"calls":66}';
+const logs = {11: LOG.split('\n').filter(line => !line.includes('second scores')).join('\n'), 12: LOG, 13: `some line\n${PROMPT_LINE}\n::notice title=Prompt cases::x`, 14: ''};
+const logOf = async id => logs[id];
+
+test('the night is the first quality job that scored twice (the live qualityai, not the exact quality job), with the same run\'s prompt cases', async () => {
+  const night = await nightFromJobs(JOBS, logOf);
+  assert.deepEqual([night.pairs, night.within8, night.over20], [9, 6, 1]);
+  assert.deepEqual(night.promptCases, {status: 'asked', total: 63, right: 60, flipped: 1, noise: 2, newWrong: 0, unconfirmed: 0, calls: 66});
+  assert.equal(await nightFromJobs(JOBS.filter(job => job.id !== 12), logOf), null, 'the exact quality job scores nothing twice: no night, nothing stored');
+  assert.equal((await nightFromJobs(JOBS.filter(job => job.id !== 13), logOf)).promptCases, null, 'a run without the replay job still gives the quality night');
+  assert.equal((await nightFromJobs(JOBS, async id => (id === 13 ? 'no counts printed' : logs[id]))).promptCases, null);
+});
+
+test('the prompt-case counts are read from one log line and dropped, not repaired, when they do not add up', () => {
+  assert.equal(promptCasesOf(PROMPT_LINE).right, 60);
+  assert.equal(promptCasesOf('PROMPT_CASES_NIGHT {not json'), null);
+  const line = {status: 'asked', total: 63, right: 60, flipped: 1, noise: 2, newWrong: 0, unconfirmed: 0, calls: 66};
+  assert.ok(cleanPrompt(line));
+  for (const bad of [{...line, status: 'maybe'}, {...line, right: 64}, {...line, flipped: 64}, {...line, calls: -1}, {...line, calls: 1.5}, {...line, total: '63'}, null, 'x']) assert.equal(cleanPrompt(bad), null, JSON.stringify(bad));
+  assert.equal(cleanNight({...night(5, 9, 9), promptCases: {...line, right: 99}}).promptCases, null, 'a bad replay leaves off the replay, the quality night stays');
+  assert.equal(cleanNight(night(5, 9, 9)).promptCases, null);
+});
+
+test('the site keeps the replay with its night, hands it back in the snapshot, and reads old rows as none', async () => {
+  const e = {STATS: d1(), SELFHEAL_PUBLISH_KEY: 'pub'};
+  const put = body => worker.fetch(new Request('https://www.jobpilotto.top/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer pub'}, body: JSON.stringify(body)}), e, {});
+  const today = new Date().toISOString().slice(0, 10), promptCases = {status: 'asked', total: 63, right: 60, flipped: 1, noise: 2, newWrong: 0, unconfirmed: 0, calls: 66};
+  assert.equal((await put({rules: 1, runs: [], fails: [], quality: [{...night(21, 9, 8, 0, today), promptCases}, night(20, 9, 8, 0, today)]})).status, 200);
+  e.STATS.db.prepare("UPDATE e2e_quality SET prompt_cases = '{broken' WHERE run_id = 20").run();
+  await put({rules: 1, runs: [], fails: [], quality: []});
+  const snapshot = JSON.parse(e.STATS.db.prepare('SELECT body FROM e2e_snapshot WHERE id = 1').get().body);
+  assert.deepEqual(snapshot.quality.map(row => [row.runId, row.promptCases]), [[21, promptCases], [20, null]]);
+});
+
+test('the page shows the newest replay beside the score numbers: green when nothing got worse, red when a prompt did, grey when nothing changed, amber when not asked', () => {
+  const prompt = (over = {}) => ({status: 'asked', total: 63, right: 60, flipped: 0, noise: 2, newWrong: 0, unconfirmed: 0, calls: 66, ...over});
+  const nights = promptCases => [{...night(51, 90, 85), promptCases}];
+  const ok = qualityCard(nights(prompt()));
+  assert.match(ok, /Prompt cases \(newest night\)/);
+  assert.match(ok, /<b>60\/63<\/b><div><span class="chip good">none got worse<\/span><\/div><span class="muted">2 model noise · 0 new wrong · 0 unconfirmed · 66 calls<\/span>/);
+  assert.match(ok, /<th class="num">Prompt cases<\/th>/);
+  assert.match(qualityCard(nights(prompt({flipped: 3}))), /<span class="chip bad">3 got worse<\/span>/);
+  assert.match(qualityCard(nights(prompt({status: 'carried', calls: 0, noise: 0}))), /nothing asked, 60 of 63 right as last asked/);
+  assert.match(qualityCard(nights(prompt({status: 'not-asked'}))), /<span class="chip warn">not asked<\/span>/);
+  assert.match(qualityCard(nights(null)), /no night reported yet/, 'a night from before the replay: the tile says there is none, the score tiles stay');
+  assert.match(qualityCard([{...night(52, 90, 85), promptCases: null}, {...night(51, 90, 85), promptCases: prompt()}]), /<b>60\/63<\/b>/, 'the tile shows the newest night that has a replay');
 });

@@ -82,6 +82,19 @@ export function bars(w) {
 
 // How steady the AI is in the quality suite (admin/e2e-quality.js): two tiles against the owner's bars, facts and judge flags, then each night.
 const rate1 = value => (value == null ? '–' : `${Math.round(value * 1000) / 10}%`);
+// One night's prompt-case replay (the public repo's nightly, report only; admin/e2e-quality.js cleanPrompt) in words and a chip: it has no bar, so nothing here goes red but "got worse".
+function promptWords(prompt) {
+  if (!prompt) return {text: '–', tone: 'off'};
+  if (prompt.status === 'not-asked') return {text: 'not asked', tone: 'warn'};
+  if (prompt.status === 'carried') return {text: 'no prompt changed', tone: 'off'};
+  return {text: `${prompt.right}/${prompt.total}`, tone: prompt.flipped ? 'bad' : 'good'};
+}
+const promptTile = prompt => {
+  const words = promptWords(prompt);
+  const detail = !prompt ? 'no night reported yet' : prompt.status === 'not-asked' ? 'the broker said no; last baseline kept'
+    : prompt.status === 'carried' ? `nothing asked, ${prompt.right} of ${prompt.total} right as last asked` : `${prompt.noise} model noise · ${prompt.newWrong} new wrong · ${prompt.unconfirmed} unconfirmed · ${prompt.calls} calls`;
+  return `<section class="card tile"><span class="muted">Prompt cases (newest night)</span><b>${esc(words.text)}</b>${prompt && ['asked', 'first'].includes(prompt.status) ? `<div>${chip(prompt.flipped ? `${prompt.flipped} got worse` : 'none got worse', prompt.flipped ? 'bad' : 'good')}</div>` : ''}<span class="muted">${esc(detail)}</span></section>`;
+};
 export function qualityCard(nights = [], repo = 'GarryOne/jobadabra') {
   if (!nights.length) return '<section class="card"><h2>How steady the AI is · quality suite</h2><p class="muted">No live quality night yet: the night\'s fresh quality run scores the golden jobs twice.</p></section>';
   const rate = rateOf(nights), tone = ok => (ok ? 'good' : 'bad');
@@ -89,9 +102,10 @@ export function qualityCard(nights = [], repo = 'GarryOne/jobadabra') {
 <div class="tiles"><section class="card tile"><span class="muted">Same score twice (within ${BARS.within})</span><b>${rate1(rate.agree)}</b>${chip(`bar ≥ ${BARS.agree * 100}%`, tone(rate.agreeOk))}</section>
 <section class="card tile"><span class="muted">Big jumps (over ${BARS.jump} apart)</span><b>${rate1(rate.jumps)}</b>${chip(`bar ≤ ${BARS.jumps * 100}%`, tone(rate.jumpsOk))}</section>
 <section class="card tile"><span class="muted">Facts exact</span><b>${rate1(rate.factsTotal ? rate.factsExact / rate.factsTotal : null)}</b><span class="muted">${rate.factsExact} of ${rate.factsTotal}</span></section>
-<section class="card tile"><span class="muted">Score texts with invented facts</span><b>${rate1(rate.judged ? rate.invented / rate.judged : null)}</b><span class="muted">${rate.invented} of ${rate.judged} judged</span></section></div>
-<div class="scroll"><table><tr><th>Night</th><th>Run</th><th class="num">Pairs</th><th class="num">Within ${BARS.within}</th><th class="num">Over ${BARS.jump}</th><th class="num">Facts exact</th><th class="num">Invented</th></tr>${nights.slice(0, 14).map(night =>
-  `<tr><td>${esc(night.day)}</td><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(night.runId)}">#${Number(night.runId)}</a></td><td class="num">${night.pairs}</td><td class="num">${chip(`${night.within8}`, night.within8 / night.pairs >= BARS.agree ? 'good' : 'warn')}</td><td class="num">${night.over20 ? chip(`${night.over20}`, 'bad') : chip('0', 'good')}</td><td class="num">${night.factsExact}/${night.factsTotal}</td><td class="num">${night.invented}/${night.judged}</td></tr>`).join('')}</table></div></section>`;
+<section class="card tile"><span class="muted">Score texts with invented facts</span><b>${rate1(rate.judged ? rate.invented / rate.judged : null)}</b><span class="muted">${rate.invented} of ${rate.judged} judged</span></section>
+${promptTile(nights.find(night => night.promptCases)?.promptCases)}</div>
+<div class="scroll"><table><tr><th>Night</th><th>Run</th><th class="num">Pairs</th><th class="num">Within ${BARS.within}</th><th class="num">Over ${BARS.jump}</th><th class="num">Facts exact</th><th class="num">Invented</th><th class="num">Prompt cases</th></tr>${nights.slice(0, 14).map(night =>
+  `<tr><td>${esc(night.day)}</td><td><a href="https://github.com/${esc(repo)}/actions/runs/${Number(night.runId)}">#${Number(night.runId)}</a></td><td class="num">${night.pairs}</td><td class="num">${chip(`${night.within8}`, night.within8 / night.pairs >= BARS.agree ? 'good' : 'warn')}</td><td class="num">${night.over20 ? chip(`${night.over20}`, 'bad') : chip('0', 'good')}</td><td class="num">${night.factsExact}/${night.factsTotal}</td><td class="num">${night.invented}/${night.judged}</td><td class="num">${chip(esc(promptWords(night.promptCases).text), promptWords(night.promptCases).tone)}</td></tr>`).join('')}</table></div></section>`;
 }
 
 function greyCard(snapshot, now, repo) {

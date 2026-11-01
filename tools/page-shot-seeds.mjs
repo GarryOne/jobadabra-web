@@ -162,11 +162,15 @@ export const seeds = {
     }
     const {weekOf} = await import('../admin/e2e-work.js'), weeks = [...new Set(work.map(row => weekOf(row.day)))];
     const workFiles = weeks.flatMap((week, w) => weekFiles.map((file, i) => ({week, file, commits: 18 - i * 3 - w})));
+    // Four made-up live quality nights (admin/e2e-quality.js); the newest two carry the nightly prompt-case replay (one got worse, one with nothing changed).
+    const replay = {status: 'asked', total: 63, right: 60, flipped: 1, noise: 2, newWrong: 0, unconfirmed: 0, calls: 66};
+    const quality = [0, 1, 2, 3].map(back => ({runId: 41010 - back, day: dayAt(back + 1).slice(0, 10), pairs: 24, within8: [22, 20, 23, 21][back], over20: back === 2 ? 1 : 0, factsExact: 63, factsTotal: 63, judged: 18, invented: 1,
+      promptCases: back === 0 ? replay : back === 1 ? {...replay, status: 'carried', flipped: 0, noise: 0, calls: 0} : undefined}));
     const week = weekOf(dayAt(0).slice(0, 10)), escapes = [
       {week, sha: 'a'.repeat(40), suites: ['apply'], none: false, journey: 'Applying with a silent Chrome extension'},
       {week, sha: 'b'.repeat(40), suites: [], none: true, journey: 'a card stuck on Checking'},
     ];
-    await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles, escapes})}), env);
+    await ingest(new Request('https://demo/e2e/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify({rules: 3, runs, fails, work, workFiles, escapes, quality})}), env);
   },
   'e2e-green': async ({env}) => {   // fixture-only 30 days of runs per kind for the "Green runs per day" card (31 Oct 2026): main after merge climbs from ~5% (days 7-13 ago) to ~80% (today); not live measurements
     const {ingest} = await import('../admin/e2e-intel.js');

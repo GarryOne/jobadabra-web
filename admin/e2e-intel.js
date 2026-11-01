@@ -4,7 +4,7 @@
 // (D1 free plan). Stored per red: the failing step's own line (test words, no personal data), never a log. Guard: test/admin/e2e-intel.test.js.
 import {equal} from '../shared/guard.js';
 import {CAUSE_IDS, RULES_VERSION} from './e2e-causes.js';
-import {cleanNight} from './e2e-quality.js';
+import {cleanNight, cleanPrompt} from './e2e-quality.js';
 import {WORK_IDS, weekOf} from './e2e-work.js';
 import {greyData} from './e2e-grey.js';
 import {speedData} from './e2e-speed.js';
@@ -40,6 +40,9 @@ function escapeData(previous, data, now, from) {
   return [...seen.values()];
 }
 
+// A stored prompt-case JSON back to counts; a row from before the column, or a damaged one, reads as none.
+const promptCasesOfRow = text => { try { return text ? cleanPrompt(JSON.parse(text)) : null; } catch { return null; } };
+
 // The last 30 days: per day and run kind the runs, reds, greens and minutes (red runs, waiting for a runner, running); per day, kind, suite, platform and cause the red suites;
 // Registry and suite observations are merged from the previous snapshot; no extra tables.
 // the breaks (one run's reds with the same cause and failure line: one CI break copied onto 32 suites is one break); the PR reds that caught a bug. Read once per write.
@@ -53,7 +56,7 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
     db.prepare('SELECT f.day, f.run_id AS runId, f.suite, f.line, r.pr FROM e2e_fails f LEFT JOIN e2e_runs r ON r.run_id = f.run_id WHERE f.day >= ? AND f.caught = 1 ORDER BY f.day DESC LIMIT 100').bind(from).all(),
     db.prepare('SELECT run_id AS runId, day, kind, conclusion, minutes FROM e2e_runs ORDER BY run_id DESC LIMIT ?').bind(LATEST).all()]);
   // The live quality nights (admin/e2e-quality.js), newest first: the page's rate needs the last 90 pairs, about 10 nights; 30 days keep enough.
-  const {results: quality = []} = await db.prepare(`SELECT run_id AS runId, day, pairs, within8, over20, facts_exact AS factsExact, facts_total AS factsTotal, judged, invented
+  const {results: quality = []} = await db.prepare(`SELECT run_id AS runId, day, pairs, within8, over20, facts_exact AS factsExact, facts_total AS factsTotal, judged, invented, prompt_cases AS promptCases
     FROM e2e_quality WHERE day >= ? ORDER BY run_id DESC`).bind(from).all();
   // Where e2e work goes (admin/e2e-work.js): commits per day and kind, and each week's most-changed e2e and CI files (a week that began before the window still shows).
   const [{results: work = []}, {results: workFiles = []}] = await Promise.all([
@@ -63,7 +66,7 @@ export async function buildSnapshot(db, now = new Date(), data = {}) {
   const prior = previous ? JSON.parse(previous.body) : {};
   const grey = greyData(prior, data, now), speed = speedData(prior, data, now), beta = betaData(prior, data, now);
   return {...grey, ...speed, ...beta, escapes: escapeData(prior, data, now, from), schema: 2, rules: RULES_VERSION, at: now.toISOString(), days: days.map(row => ({...row})), fails: fails.map(row => ({...row})), breaks: breaks.map(row => ({...row})),
-    caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
+    caught: caught.map(row => ({...row})), latest: latest.map(row => ({...row})), quality: quality.map(row => ({...row, promptCases: promptCasesOfRow(row.promptCases)})), work: work.map(row => ({...row})), workFiles: workFiles.map(row => ({...row}))};
 }
 
 // PUT {rules, runs: [{runId, createdAt, kind, conclusion, minutes, queueMin, runMin, pr, suiteJobs?: [{suite, seconds}]}], fails: [{runId, suite, platform, day, kind, cause, line, fix, minutes, caught}], quality?: [{runId, day, pairs, ...}],
@@ -106,8 +109,8 @@ export async function ingest(request, env, now = new Date()) {
     WHERE e2e_fails.cause IN ('open', 'unknown') OR excluded.rules > e2e_fails.rules`);
   const batch = [...runs.map(run => writeRun.bind(run.runId, run.createdAt.slice(0, 10), kindOf(run.kind), run.conclusion, num(run.minutes), rules, num(run.queueMin), num(run.runMin), prOf(run.pr))),
     ...fails.map(fail => writeFail.bind(fail.runId, word(fail.suite), fail.platform, fail.day, fail.cause, num(fail.minutes), rules, kindOf(fail.kind), text(fail.line), word(fail.fix, 40), fail.caught ? 1 : 0)),
-    ...nights.map(night => env.STATS.prepare(`INSERT INTO e2e_quality (run_id, day, pairs, within8, over20, facts_exact, facts_total, judged, invented) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(run_id) DO NOTHING`).bind(night.runId, night.day, night.pairs, night.within8, night.over20, night.factsExact, night.factsTotal, night.judged, night.invented)),
+    ...nights.map(night => env.STATS.prepare(`INSERT INTO e2e_quality (run_id, day, pairs, within8, over20, facts_exact, facts_total, judged, invented, prompt_cases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(run_id) DO NOTHING`).bind(night.runId, night.day, night.pairs, night.within8, night.over20, night.factsExact, night.factsTotal, night.judged, night.invented, night.promptCases ? JSON.stringify(night.promptCases) : null)),
     // A day's counts and a week's top files are replaced as sent: the collector re-reads 35 days each hour, so a rewritten main lowers a count.
     ...work.map(row => env.STATS.prepare('INSERT INTO e2e_work (day, kind, commits) VALUES (?, ?, ?) ON CONFLICT(day, kind) DO UPDATE SET commits = excluded.commits').bind(row.day, row.kind, row.commits)),
     ...weeks.map(week => env.STATS.prepare('DELETE FROM e2e_work_files WHERE week = ?').bind(week)),

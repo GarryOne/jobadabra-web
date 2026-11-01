@@ -24,13 +24,34 @@ export function nightOf(text) {
 }
 
 const count = value => (Number.isInteger(value) && value >= 0 && value <= 1000 ? value : null);
-// A night as the collector sends it: {runId, day, pairs, within8, over20, factsExact, factsTotal, judged, invented}; anything else is dropped.
+
+// The nightly prompt-case replay of the public repo (tools/prompt-cases-night.mjs, report only) as counts: how many of the live prompt cases are right, how many got worse than last night
+// (flipped: wrong twice), how many were model noise (wrong once, right on the re-ask), how many it could not confirm, and the Codex calls it spent. status: asked / first (baseline stored) /
+// carried (no live prompt changed: nothing asked, the numbers are the baseline's) / not-asked (the broker said no). Anything that does not add up is dropped, never repaired.
+export const PROMPT_STATUS = ['asked', 'first', 'carried', 'not-asked'];
+export function cleanPrompt(value) {
+  if (!value || typeof value !== 'object' || !PROMPT_STATUS.includes(value.status)) return null;
+  const fields = ['total', 'right', 'flipped', 'noise', 'newWrong', 'unconfirmed', 'calls'].map(key => count(value[key]));
+  if (fields.includes(null) || fields[1] > fields[0] || fields[2] > fields[0] || fields[3] > fields[0]) return null;
+  const [total, right, flipped, noise, newWrong, unconfirmed, calls] = fields;
+  return {status: value.status, total, right, flipped, noise, newWrong, unconfirmed, calls};
+}
+
+// One job log's text -> the night's prompt-case counts from its `PROMPT_CASES_NIGHT {json}` line (counts only, never case texts), or null when the job printed none.
+export function promptCasesOf(text) {
+  const match = /^\S*\s*PROMPT_CASES_NIGHT (\{.*\})\s*$/m.exec(String(text || ''));
+  if (!match) return null;
+  try { return cleanPrompt(JSON.parse(match[1])); } catch { return null; }
+}
+
+// A night as the collector sends it: {runId, day, pairs, within8, over20, factsExact, factsTotal, judged, invented, promptCases?}; anything else is dropped.
+// promptCases is the replay of the same night's run: one that does not add up is left off, the night stays.
 export function cleanNight(night) {
   if (!Number.isInteger(night?.runId) || night.runId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(night.day || '')) return null;
   const fields = ['pairs', 'within8', 'over20', 'factsExact', 'factsTotal', 'judged', 'invented'].map(key => count(night[key]));
   if (fields.includes(null) || !fields[0] || fields[1] > fields[0] || fields[2] > fields[0] || fields[3] > fields[4] || fields[6] > fields[5]) return null;
   const [pairs, within8, over20, factsExact, factsTotal, judged, invented] = fields;
-  return {runId: night.runId, day: night.day, pairs, within8, over20, factsExact, factsTotal, judged, invented};
+  return {runId: night.runId, day: night.day, pairs, within8, over20, factsExact, factsTotal, judged, invented, promptCases: cleanPrompt(night.promptCases)};
 }
 
 // Nights newest first -> the rate over the newest nights that hold the last 90 pairs (fewer while history is short), and whether each bar holds.
