@@ -26,6 +26,7 @@ export const OWN_WHAT = {
 export const WORKFLOWS = [
   {wf: 'release-guard.yml', label: 'Release · Guard Latest', what: 'Only a desktop release holds "Latest", the one the Download link and the updater follow'},
   {wf: 'schedule-watchdog.yml', label: 'Schedule watchdog', what: "The Worker's timers started the scheduled runs on time"},
+  {wf: 'fresh-install-smoke.yml', label: 'Fresh-install smoke', what: 'The newest stable installer still installs on a clean Mac and Windows runner and opens the Jobs list'},
   {wf: 'stable-canary.yml', label: 'Stable canary', what: "The stable build still works against the live world: Notion's API, the job sites' forms, certificates"},
   {wf: 'watch-live.yml', label: 'Daily watch list', what: 'Watched employer forms still fill, recorded live (held, never Submit)'},
 ];

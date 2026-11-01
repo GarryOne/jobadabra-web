@@ -28,6 +28,8 @@ export const METHODS = [
     bugs: {checks: ['smoke.yml']}},
   {id: 'upgrade', ring: 'prove', icon: '⬆️', title: 'Upgrade and data test', proves: 'Installs an older release with a filled store, updates it, and checks nothing was lost.', href: '/admin/testing/scheduled',
     lines: [{label: 'Newest stable release weekly, three newest monthly, report only', wf: 'upgrade-data.yml'}], bugs: {none: 'a red run is a finding to read, not yet counted as a bug'}},
+  {id: 'fresh-install', ring: 'prove', icon: '📦', title: 'Daily fresh-install smoke', proves: 'The installer a person downloads today is installed on a clean Mac and Windows runner and opens the Jobs list.', href: '/admin/testing/synthetic-monitoring',
+    lines: [{label: 'Newest stable release, daily, report only', wf: 'fresh-install-smoke.yml'}], bugs: {none: 'a red run means the download no longer installs: a finding, not yet counted as a bug'}},
   {id: 'gtm', ring: 'prove', icon: '🗺️', title: 'GTM readiness', proves: 'How stable each user journey is: pass rates of Tier 1 and Tier 2.', href: '/admin/testing/gtm-readiness', linkOnly: true,
     lines: [{label: 'Own page', last: {none: 'this page only links to it'}}], bugs: {none: 'the page measures readiness, not bugs'}},
 
@@ -64,5 +66,4 @@ export const METHODS = [
 export const PLANNED = [
   {id: 'faults', ring: 'find', icon: '⚡', title: 'Fault injection', proves: 'Notion errors, AI timeouts, offline, sleep and wake, full disk: every error screen is judged.'},
   {id: 'agents', ring: 'find', icon: '🤖', title: 'AI user agents', proves: 'A persona with a goal drives the app and reports where it got stuck or confused.'},
-  {id: 'fresh-install', ring: 'prove', icon: '📦', title: 'Daily fresh-install smoke', proves: 'The packaged Mac and Windows builds install without warnings and open, every day.'},
 ];

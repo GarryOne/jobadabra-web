@@ -15,7 +15,7 @@ const probes = PROBES.map(probe => ({probe: probe.id, label: probe.label, ok: tr
 const week = Array.from({length: 14}, (_, i) => ({day: new Date(now.getTime() - (13 - i) * 86400000).toISOString().slice(0, 10), state: 'green'}));
 const data = (extra = {}) => ({repo, now, syntheticDaysByProbe: Object.fromEntries(PROBES.map(probe => [probe.id, week])), synthetic: {lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes},
   schedules: {at: '2026-11-01T11:00:00Z', jobs: [job('release-guard.yml', [run('success', '2026-11-01T11:23:00Z', 1)], ['23 * * * *']), job('schedule-watchdog.yml', [run('success', '2026-11-01T11:23:00Z', 2)], ['23 * * * *']),
-    job('stable-canary.yml', [run('success', '2026-11-01T06:23:00Z', 3)], ['23 6 * * *']), job('watch-live.yml', [run('failure', '2026-11-01T05:00:00Z', 4)], ['0 5 * * *'])]}, ...extra});
+    job('stable-canary.yml', [run('success', '2026-11-01T06:23:00Z', 3)], ['23 6 * * *']), job('fresh-install-smoke.yml', [run('success', '2026-11-01T03:25:00Z', 5)], ['23 3 * * *']), job('watch-live.yml', [run('failure', '2026-11-01T05:00:00Z', 4)], ['0 5 * * *'])]}, ...extra});
 
 test('every Worker probe has its words, and every workflow row is a public workflow of the repo', () => {
   for (const probe of PROBES) assert.ok(OWN_WHAT[probe.id], `${probe.id} says what it checks`);
@@ -23,14 +23,14 @@ test('every Worker probe has its words, and every workflow row is a public workf
   for (const item of WORKFLOWS) assert.ok(item.what && item.label, item.wf);
 });
 
-test('ten rows, each with 14 day cells; the green Worker probes, the red workflow and its name in the verdict', () => {
+test('eleven rows, each with 14 day cells; the green Worker probes, the red workflow and its name in the verdict', () => {
   const result = model(data());
   assert.equal(result.rows.length, PROBES.length + WORKFLOWS.length);
   for (const row of result.rows) assert.equal(row.days.length, 14, row.label);
-  assert.deepEqual([result.counts.green, result.counts.red, result.red], [9, 1, ['Daily watch list']]);
+  assert.deepEqual([result.counts.green, result.counts.red, result.red], [10, 1, ['Daily watch list']]);
   const html = page(data());
-  assert.match(html, /<b>1 of 10 live checks is red<\/b>: Daily watch list/);
-  assert.equal((html.match(/class="c c-/g) || []).length - 4, 10 * 14, 'the key has 4 cells; each of the 10 rows has 14');
+  assert.match(html, /<b>1 of 11 live checks is red<\/b>: Daily watch list/);
+  assert.equal((html.match(/class="c c-/g) || []).length - 4, 11 * 14, 'the key has 4 cells; each of the 11 rows has 14');
   assert.match(html, /every 15 min/);
   assert.match(html, /<a href="https:\/\/github.com\/GarryOne\/jobadabra\/actions\/workflows\/stable-canary.yml">Stable canary<\/a>/);
   assert.doesNotMatch(html, /undefined|NaN|null/);
