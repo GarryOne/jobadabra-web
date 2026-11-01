@@ -27,7 +27,7 @@ function runsOf(data, line) {
   }
   if (last.synthetic) {   // readDays: one state per UTC day, already ending today (shared/synthetic.js); red = a probe had 2 reds in a row, none = no round stored that day
     if (!data.syntheticDays) return null;
-    const note = {green: 'every round ran, no probe down', red: 'a probe was down (2 reds in a row)'};
+    const note = {green: 'rounds ran, no probe down', red: 'a probe was down (2 reds in a row)'};
     return {from: '', to: '', runs: data.syntheticDays.filter(item => note[item.state]).map(item => ({day: item.day, state: item.state, note: note[item.state]}))};
   }
   if (last.integration) {

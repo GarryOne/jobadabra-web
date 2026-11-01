@@ -197,5 +197,11 @@ test('synthetic card, the map: readDays maps 1:1 to the cells, a red day is red,
   assert.deepEqual(card.days.map(cell => cell.day), week.map(item => item.day));
   const html = page(resolve(synthetic({lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes})), {now});
   assert.match(html, /title="Wed 28 Oct · a probe was down \(2 reds in a row\)"/);
-  assert.match(html, /title="Sun 1 Nov · every round ran, no probe down"/);
+  assert.match(html, /title="Sun 1 Nov · rounds ran, no probe down"/);
+});
+
+test('the synthetic demo seeds run together in one database, as the phone check seeds them (a plain INSERT hit the primary key in CI, PR #270)', async () => {
+  const {workerServer} = await import('../../tools/worker-server.mjs');
+  const site = await workerServer(process.cwd(), ['synthetic-card', 'synthetic-card-stale']);
+  site.close();
 });
