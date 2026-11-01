@@ -34,7 +34,7 @@ A broken service (index pack empty, update feed 502, Free AI key check refused, 
 
 **Storage:** migration `db/migrations/0123_synthetic.sql`: `synthetic_probes(probe, at, ok, ms, reason, PRIMARY KEY (probe, at))` and `synthetic_state(probe PRIMARY KEY, state, since, red_since, streak, reason, told)`; `told = 0` marks a change Telegram has not carried yet, so a failed send is retried next round. Daily purge of rows older than 30 days (the daily cron already purges other tables). One round writes 6 rows (about 17k a month).
 
-**Data shape for the Overview card (to read):** `readCard(env, now)` → `{lastRoundAt, stale, probes: [{probe, ok, at, ms, reason, state, since, uptime24h}]}`; `stale` when no round for 45 min; `uptime24h` = ok rows / rows in the last 24 h.
+**Data shape for the Overview card (to read):** `readCard(env, now)` → `{lastRoundAt, stale, probes: [{probe, ok, at, ms, reason, state, since, uptime24h}]}`; `stale` when no round for 45 min; `uptime24h` = ok rows / rows in the last 24 h. For the 14-day health map: `readDays(env, 14, now)` → `[{day, state: 'green' | 'red' | 'none'}]`, oldest first, ending today (UTC); red = a probe red in two rounds in a row that day (the alert's rule), none = no rows that day (rows are kept 30 days).
 
 **Risk, decided by the first real round (acceptance 5):** a Worker fetching its own public URL can be refused by Cloudflare (error 1042, same-zone Worker-to-Worker). If the first round is red on `unreachable` for every probe, the fix is a self service binding in `wrangler.toml` and the fetcher through it; the heartbeat below keeps the outside view either way.
 

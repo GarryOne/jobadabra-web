@@ -151,6 +151,29 @@ export async function readCard(env, now = new Date()) {
   } catch { return null; }
 }
 
+const ROUND_MS = 15 * 60000;
+
+/**
+ * One state per UTC day for the Overview's 14-day health map, oldest first, ending today: [{day: 'YYYY-MM-DD', state: 'green' | 'red' | 'none'}].
+ * red = some probe was red in two rounds in a row that day (the alert's own rule, so one blip stays green); green = rounds ran and none did; none = no rows that day (before monitoring began, or
+ * the Worker was dead all day). Reads the day counts and the red rows only (a few), not every row. null when D1 or the tables are unreadable. Why (1 Nov 2026, to): one reader, so the page never writes a second per-day query.
+ */
+export async function readDays(env, days = 14, now = new Date()) {
+  try {
+    const today = now.toISOString().slice(0, 10), first = new Date(Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const [ran, reds] = await Promise.all([
+      env.STATS.prepare("SELECT substr(at, 1, 10) AS day, COUNT(*) AS n FROM synthetic_probes WHERE at >= ? GROUP BY day").bind(`${first}T00:00:00Z`).all(),
+      env.STATS.prepare('SELECT probe, at FROM synthetic_probes WHERE ok = 0 AND at >= ?').bind(new Date(Date.parse(`${first}T00:00:00Z`) - ROUND_MS).toISOString()).all()]);
+    const redAt = new Set((reds.results || []).map(row => `${row.probe}@${row.at}`));
+    const redDays = new Set((reds.results || []).filter(row => redAt.has(`${row.probe}@${new Date(Date.parse(row.at) - ROUND_MS).toISOString().slice(0, 19)}Z`)).map(row => row.at.slice(0, 10)));
+    const seen = new Set((ran.results || []).filter(row => row.n > 0).map(row => row.day));
+    return Array.from({length: days}, (_, i) => {
+      const day = new Date(Date.parse(`${first}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10);
+      return {day, state: redDays.has(day) ? 'red' : seen.has(day) ? 'green' : 'none'};
+    });
+  } catch { return null; }
+}
+
 /** GET /api/synthetic/last: when the newest probe round ran, nothing else (the bot Worker's heartbeat reads it from outside). */
 export async function lastRoute(request, env) {
   if (request.method !== 'GET') return new Response('GET only', {status: 405});

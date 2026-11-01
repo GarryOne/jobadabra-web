@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
-import {PROBES, ROUND_MINUTES, dueRound, lastRoute, purge, readCard, runRound, settle, tell, tick} from '../../shared/synthetic.js';
+import {PROBES, ROUND_MINUTES, dueRound, lastRoute, purge, readCard, readDays, runRound, settle, tell, tick} from '../../shared/synthetic.js';
 
 const good = {
   'https://www.jobadabra.top/': '<html><title>Jobadabra: your job search on autopilot</title></html>',
@@ -162,4 +162,17 @@ test('rows older than 30 days are purged', async () => {
   await purge(w.env, Date.parse('2026-11-01T13:00:00Z'));
   assert.equal(w.db.prepare("SELECT COUNT(*) AS n FROM synthetic_probes WHERE at < '2026-10-01'").get().n, 0);
   assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM synthetic_probes').get().n, 6);
+});
+
+test('the 14-day map: one state per UTC day, oldest first; two reds in a row make a day red, one blip does not, a day without rows is none', async () => {
+  const w = world({'https://www.jobadabra.top/': '<title>Oops</title>'}), good = world();
+  const round = async (who, iso) => settle(w.env.STATS, await runRound(who.env, {fetcher: who.fetcher}), iso);
+  await round(good, '2026-10-30T12:05:00Z');                                                       // 30 Oct: green
+  await round(w, '2026-10-31T12:05:00Z'); await round(good, '2026-10-31T12:20:00Z');               // 31 Oct: one blip -> green
+  await round(w, '2026-11-01T11:05:00Z'); await round(w, '2026-11-01T11:20:00Z');                  // 1 Nov: site red twice in a row -> red
+  const days = await readDays(w.env, 14, new Date('2026-11-01T13:00:00Z'));
+  assert.equal(days.length, 14);
+  assert.deepEqual([days[0], days.at(-1)], [{day: '2026-10-19', state: 'none'}, {day: '2026-11-01', state: 'red'}]);
+  assert.deepEqual(days.filter(item => item.state !== 'none'), [{day: '2026-10-30', state: 'green'}, {day: '2026-10-31', state: 'green'}, {day: '2026-11-01', state: 'red'}]);
+  assert.equal(await readDays({STATS: {prepare: () => { throw new Error('no table'); }}}), null);
 });
