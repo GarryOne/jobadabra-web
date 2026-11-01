@@ -60,7 +60,7 @@ ${BAR_STYLE}
 .hmap tbody th{text-align:left;font-weight:500;white-space:nowrap;padding-right:10px}.hmap tbody th a{color:#f4efe3;text-decoration:none}.hmap tbody th a:hover{color:#f5b54a}
 .hmap .ring-row th{padding:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8d949c}
 .hmap td.d{width:24px;text-align:center}.hmap td.d a{text-decoration:none}.c{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:4px;font-size:12px;font-weight:700;font-style:normal;line-height:1;box-sizing:border-box}
-.c-green{background:#3fb68b;color:#0b0d10}.c-red{background:#e5484d;color:#fff}.c-none{border:1px solid #3a4048}.c-unknown{background:repeating-linear-gradient(135deg,#1b2027 0 3px,#2a3038 3px 6px)}
+.c-green{background:#3fb68b;color:#0b0d10}.c-red{background:#e5484d;color:#fff}.c-none{border:1px solid #232930;opacity:.6}.c-unknown{background:repeating-linear-gradient(135deg,#171b21 0 3px,#1f242b 3px 6px);opacity:.7}
 .hmap td.d a:hover .c,.hmap td.d .c:hover{outline:2px solid #f4efe3;outline-offset:1px}
 .hmap tr.is-red th a{color:#ff8f84}.hmap td.planned-span span{display:block;border:1px dashed #3a4048;border-radius:4px;padding:2px 8px;color:#8d949c;font-size:12px;text-align:left}
 .hmap tr.planned th a{color:#8d949c}.hmap td.bugs-cell{white-space:nowrap;padding-left:10px}.hmap td{padding-left:4px}`;

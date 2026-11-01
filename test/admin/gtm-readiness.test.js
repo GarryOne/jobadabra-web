@@ -50,7 +50,8 @@ test('the last 20 runs are oldest to newest; the kept row is last and is not in 
   assert.equal(list.find(row => row.id === 'J0').strip.length, 20);
   const say = verdict(list);
   assert.deepEqual([say.stable, say.total], [2, 4], 'J0 and J2 stable; J1 and J3 (few runs) not; K and J4 (no runs) left out');
-  assert.match(say.text, /^2 of 4 Tier 1 journeys stable; J1 Set up <the> app red 31 Oct; J3 Few runs only 4 runs$/);
+  assert.equal(say.text, '2 of 4 Tier 1 journeys stable', 'a short line: the names are chips, never a sentence (owner, 1 Nov 2026: "here again too much text")');
+  assert.deepEqual(say.chips, [{label: 'J1', tone: 'bad', title: 'J1 Set up <the> app: red 31 Oct'}, {label: 'J3', tone: 'warn', title: 'J3 Few runs: only 4 runs'}]);
 });
 
 test('the trend compares two 14-day windows, and needs 5 runs in each', () => {
@@ -70,7 +71,10 @@ test('Tier 2: runs, reds and the last red per journey from the daily tallies', (
 test('the page: gauge, verdict, states with words, run links, the Trello card, no unescaped name; no data and an empty snapshot say so', () => {
   const html = page(snapshot, {now});
   assert.match(html, /2\/4<\/text>/);
-  assert.match(html, /<b>2 of 4 Tier 1 journeys stable; J1 Set up &lt;the&gt; app red 31 Oct; J3 Few runs only 4 runs<\/b>/);
+  assert.match(html, /<b>2 of 4 Tier 1 journeys stable<\/b>/);
+  assert.match(html, /<span title="J1 Set up &lt;the&gt; app: red 31 Oct"><span class="chip bad">J1<\/span><\/span>/, 'a red journey is a chip, its name and date on hover');
+  assert.match(html, /<span class="chip warn">J3<\/span>/);
+  assert.doesNotMatch(html, /stable; J1/, 'no sentence of names');
   assert.doesNotMatch(html, /Set up <the>/);
   assert.match(html, /Not stable<\/span>/);
   assert.match(html, /Under 10 runs/);

@@ -47,6 +47,8 @@ export function tier2Rows(snapshot, now = new Date()) {
 export function verdict(rows) {
   const journeys = rows.filter(row => row.id !== 'K' && row.state !== 'none'), stable = journeys.filter(row => row.state === 'stable'), unstable = journeys.filter(row => row.state === 'unstable');
   const short = row => row.name.replace(/[:(].*$/, '').trim();
-  const words = [...unstable.map(row => `${row.id} ${short(row)} red ${dayWords(row.lastBad.day)}`), ...journeys.filter(row => row.state === 'few').map(row => `${row.id} ${short(row)} only ${row.runs} ${row.runs === 1 ? 'run' : 'runs'}`)];
-  return {stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable${words.length ? `; ${words.join('; ')}` : ''}`};
+  // Why (1 Nov 2026, owner: "here again too much text"): the verdict is a short line; the journeys that are not stable are chips (id only, name and date on hover), never a sentence.
+  const chips = [...unstable.map(row => ({label: row.id, tone: 'bad', title: `${row.id} ${short(row)}: red ${dayWords(row.lastBad.day)}`})),
+    ...journeys.filter(row => row.state === 'few').map(row => ({label: row.id, tone: 'warn', title: `${row.id} ${short(row)}: only ${row.runs} ${row.runs === 1 ? 'run' : 'runs'}`}))];
+  return {stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable`, chips};
 }

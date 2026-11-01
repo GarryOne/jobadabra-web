@@ -129,5 +129,5 @@ export function resolve(data, {pages = []} = {}) {
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
   const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here
-  return {rings, scheduled: pages.includes(SCHEDULED_PAGE) ? SCHEDULED_PAGE : '', red: counted.filter(card => card.state === 'red').map(card => card.title), counts: {green: count('green'), red: count('red'), none: count('none'), live: counted.length, planned: PLANNED.length}};
+  return {rings, scheduled: pages.includes(SCHEDULED_PAGE) ? SCHEDULED_PAGE : '', red: counted.filter(card => card.state === 'red').map(card => card.title), redCards: counted.filter(card => card.state === 'red').map(card => ({id: card.id, icon: card.icon, title: card.title})), counts: {green: count('green'), red: count('red'), none: count('none'), live: counted.length, planned: PLANNED.length}};
 }

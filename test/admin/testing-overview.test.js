@@ -72,7 +72,7 @@ test('bugs caught come from stored rows, with their window, or say why not', () 
   assert.equal(cardOf(model, 'mutation').bugs.text, '12 of 12 planted code bugs caught');
   assert.equal(cardOf(model, 'recall').bugs.text, '11 of 13 planted UI bugs caught');
   assert.deepEqual(cardOf(model, 'sentry').bugs, {text: '2 unresolved issues · 5 users hit', window: '14 days'});
-  assert.match(cardOf(model, 'wander').bugs.why, /Wander/);
+  assert.match(cardOf(model, 'wander').bugs.why, /own name/, 'a short reason beside the number (the card is Wander\'s)');
   const empty = resolve(data({card: null, healing: null, e2e: null, sentry: null, integration: null, schedules: null}));
   for (const id of ['integration', 'review', 'e2e', 'mutation', 'recall', 'sentry']) assert.ok(cardOf(empty, id).bugs.why, `${id} says why it has no number`);
   assert.equal(cardOf(empty, 'e2e').state, 'none');
@@ -204,4 +204,13 @@ test('the synthetic demo seeds run together in one database, as the phone check 
   const {workerServer} = await import('../../tools/worker-server.mjs');
   const site = await workerServer(process.cwd(), ['synthetic-card', 'synthetic-card-stale']);
   site.close();
+});
+
+test('readable (owner, 1 Nov 2026: "one per row rather than 3, being so crowded"; "too much text"): a short verdict with red chips that jump to their card, one card per row with short words', () => {
+  const html = page(resolve(data()), {now});
+  assert.match(html, /<p class="vb-line">.*<b>\d+ of \d+ methods (red|green) on the last run<\/b><\/p>/);
+  assert.doesNotMatch(html, /class="big"/, 'the old sentence band is gone');
+  assert.match(html, /\.grid\{display:grid;grid-template-columns:1fr/, 'one card per row, not auto-fill columns');
+  for (const method of METHODS) assert.ok(method.proves.split(' ').length <= 9, `${method.id}: the purpose is a short line`);
+  assert.equal((html.match(/class="mc-head"/g) || []).length, (html.match(/class="mcard/g) || []).length, 'every card has the same three-part build');
 });

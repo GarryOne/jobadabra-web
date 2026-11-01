@@ -29,7 +29,8 @@ test('eleven rows, each with 14 day cells; the green Worker probes, the red work
   for (const row of result.rows) assert.equal(row.days.length, 14, row.label);
   assert.deepEqual([result.counts.green, result.counts.red, result.red], [10, 1, ['Daily watch list']]);
   const html = page(data());
-  assert.match(html, /<b>1 of 11 live checks is red<\/b>: Daily watch list/);
+  assert.match(html, /<b>1 of 11 live checks red<\/b>/);
+  assert.match(html, /<span class="chip bad">Daily watch list<\/span>/, 'the red check is a chip, not a sentence of names');
   assert.equal((html.match(/class="c c-/g) || []).length - 4, 11 * 14, 'the key has 4 cells; each of the 11 rows has 14');
   assert.match(html, /every 15 min/);
   assert.match(html, /<a href="https:\/\/github.com\/GarryOne\/jobadabra\/actions\/workflows\/stable-canary.yml">Stable canary<\/a>/);
@@ -40,7 +41,8 @@ test('a probe is red only when down (2 misses in a row); a single miss is a note
   const miss = probes.map(item => (item.probe === 'index' ? {...item, ok: false, reason: 'HTTP 500'} : item));
   const one = model(data({synthetic: {lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes: miss}}));
   assert.equal(one.rows.find(row => row.id === 'index').last.state, 'green');
-  assert.match(one.rows.find(row => row.id === 'index').last.note, /one miss: HTTP 500/);
+  assert.match(one.rows.find(row => row.id === 'index').last.why, /one miss: HTTP 500/);
+  assert.equal(one.rows.find(row => row.id === 'index').last.note, '', 'a single miss lives in the chip tooltip, not as loose text');
   const down = model(data({synthetic: {lastRoundAt: '2026-11-01T11:50:00Z', stale: false, probes: probes.map(item => (item.probe === 'index' ? {...item, ok: false, state: 'down', reason: 'HTTP 500'} : item))}}));
   assert.deepEqual([down.rows.find(row => row.id === 'index').last.state, down.rows.find(row => row.id === 'index').last.note], ['red', 'HTTP 500']);
   const stale = model(data({synthetic: {lastRoundAt: '2026-11-01T10:00:00Z', stale: true, probes}}));
@@ -67,4 +69,15 @@ test('the tab is in the Testing menu, the route is owner-only, and the Overview 
   const response = await worker.fetch(new Request('https://www.jobadabra.top/admin/testing/synthetic-monitoring'), {});
   assert.equal(response.status, 404, 'a visitor who is not the owner gets the usual 404');
   assert.equal(METHODS.find(method => method.id === 'synthetic').href, '/admin/testing/synthetic-monitoring');
+});
+
+test('easy to read in 5 s (owner, 1 Nov 2026: "too much text, the same font size"): a bold name, a few muted words, one status per row with its uptime in the tooltip', () => {
+  const html = page(data());
+  for (const probe of PROBES) assert.ok(OWN_WHAT[probe.id].split(' ').length <= 7, `${probe.id}: at most 7 words`);
+  for (const item of WORKFLOWS) assert.ok(item.what.split(' ').length <= 8 && item.detail.length > item.what.length, `${item.wf}: short words, the full sentence kept for the tooltip`);
+  assert.match(html, /<b class="nm">/);
+  assert.match(html, /<th scope="row" title="The public website answers with the Jobadabra page">/);
+  assert.doesNotMatch(html, /% up in 24 h<\/span>/, 'uptime is never loose text beside the chip');
+  assert.match(html, /title="[0-9.]+% up in 24 h"/, 'it is the chip tooltip');
+  assert.equal((html.match(/class="legend"/g) || []).length, 1, 'the legend and the red-after-2-misses rule are one line');
 });
