@@ -55,7 +55,7 @@ export function parseCron(cron) {
     return {minute, hour, dom, month, dow, domAny: parts[2] === '*', dowAny: parts[4] === '*'};
   } catch { return null; }
 }
-const matches = (c, date) => c.minute.has(date.getUTCMinutes()) && c.hour.has(date.getUTCHours()) && c.month.has(date.getUTCMonth() + 1)
+export const matches = (c, date) => c.minute.has(date.getUTCMinutes()) && c.hour.has(date.getUTCHours()) && c.month.has(date.getUTCMonth() + 1)
   && (c.domAny && c.dowAny ? true : c.domAny ? c.dow.has(date.getUTCDay()) : c.dowAny ? c.dom.has(date.getUTCDate()) : c.dom.has(date.getUTCDate()) || c.dow.has(date.getUTCDay()));
 // The next (direction 1) or previous (-1) start of a cron after/before `from`, looking up to 32 days (a monthly cron); null for a cron it cannot read.
 export function step(cron, from, direction = 1) {

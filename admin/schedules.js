@@ -7,6 +7,7 @@ import {viewer, remember} from '../shared/auth.js';
 import {equal} from '../shared/guard.js';
 import {esc} from '../shared/html.js';
 import {filterLinks} from './admin.js';
+import {graph, GRAPH_STYLE} from './schedules-graph.js';
 import {AREAS, areaOf, missed, nextOf, stateOf, whenWords, words, RUN_DOTS} from '../shared/schedules-model.js';
 
 const authorized = (request, env) => Boolean(env.SELFHEAL_PUBLISH_KEY && equal((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.SELFHEAL_PUBLISH_KEY));
@@ -65,7 +66,7 @@ const CSS = `.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(17
 export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only = '', now = new Date()} = {}) {
   const scope = AREAS.find(item => item.id === only);
   const head = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${scope ? `Scheduled · ${esc(scope.label)}` : 'Schedules'} · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${CSS}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
+<link rel="icon" href="/favicon-32.png"><style>${CSS}${scope ? GRAPH_STYLE : ''}</style></head><body><main><header><h1>⏰ ${scope ? 'Scheduled' : 'Schedules'}</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · refreshed hourly` : ''}</span></header>${body}</main></body></html>`;
   if (!snapshot) return head('<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>schedules-snapshot.yml</code> publishes every scheduled job once an hour; the first run fills this page.</p></section>');
   const all = decorate(snapshot, now).filter(job => !scope || job.area === scope.id), scheduled = all.filter(job => job.crons.length), manual = all.filter(job => !job.crons.length && job.manual), c = counts(scheduled);
   const repos = ['all', ...new Set(all.map(job => job.repo.split('/').pop()))];
@@ -79,7 +80,7 @@ export function page(snapshot, {repo = 'all', state = 'all', area = 'all', only 
     return `<tr class="area"><td colspan="7"><b>${esc(area.label)}</b> <span class="muted small">${esc(area.hint)}</span> <span class="chip ${red ? 'r' : 'g'}">${scheduled.filter(job => job.area === area.id).length} jobs · ${red} red</span>${area.link && !scope ? ` <a class="small" href="${area.link}">${area.link} →</a>` : ''}</td></tr>${mine.map(job => row(job, now)).join('')}`; }).join('');
   const failed = (snapshot.repos || []).filter(r => r.ok === false).map(r => r.name);
   return head(`<div class="tiles">${tile('Scheduled jobs', num(c.all), `plus ${num(manual.length)} by hand only`)}${tile('Red now', num(c.red), 'last finished run failed', c.red ? 'bad' : '')}${tile('Missed a run', num(c.missed), 'a due start never began', c.missed ? 'warn' : '')}${tile('Billed min / week', num(c.billed), 'Mac ×10, Windows ×2; public repos are free')}</div>
-${scope ? '' : `<div class="tiles">${areaTiles}</div>`}${failed.length ? `<p class="muted">Could not read: ${esc(failed.join(', '))}. Their jobs show the last known data or are missing.</p>` : ''}
+${scope ? graph(scheduled, now) : `<div class="tiles">${areaTiles}</div>`}${failed.length ? `<p class="muted">Could not read: ${esc(failed.join(', '))}. Their jobs show the last known data or are missing.</p>` : ''}
 <div class="filter-rows">${scope ? '' : filterLinks([['all', 'All', link(repo, state, 'all')], ...AREAS.map(item => [item.id, item.label, link(repo, state, item.id)])], area, 'Area')}${filterLinks(repos.map(r => [r, r === 'all' ? 'All' : r, link(r, state)]), repo, 'Repo')}${filterLinks(STATES.map(([value, name]) => [value, name, link(repo, value)]), state, 'State')}</div>
 <section class="card wrap"><table><tr><th>Job</th><th>Repo</th><th>Schedule · next start (Europe/Zurich)</th><th>Last run</th><th>Last 14</th><th class="num">Min/wk</th><th>AI cost</th></tr>${sections || '<tr><td colspan="7" class="muted">No job matches.</td></tr>'}</table></section>
 <details><summary>Run by hand only (${num(manual.length)})</summary><p class="muted small">Workflows with workflow_dispatch and no schedule.</p>${manual.length ? `<ul>${manual.map(job => `<li><a href="https://github.com/${esc(job.repo)}/actions/workflows/${esc(job.file)}">${esc(job.name || job.file)}</a> <span class="repo">${esc(job.repo.split('/').pop())}</span> ${chip(job)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</details>`);
