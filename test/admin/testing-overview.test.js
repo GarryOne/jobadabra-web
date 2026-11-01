@@ -112,7 +112,7 @@ test('the chip names the result in words, with the time and the run link', () =>
 test('the route: owner only, Overview is the first page of Testing, every other visitor gets a 404', async () => {
   const testing = PAGES.filter(item => item.group === 'Testing');
   assert.equal(testing[0].path, '/admin/testing/overview');
-  assert.equal(testing[0].overview, true);
+  assert.ok(!testing[0].overview, 'its own page, not section-overview tiles');
   const env = {STATS_KEY: 'k3y', STATS_SALT: 's', STATS: {prepare: () => ({first: async () => null, bind() { return this; }, all: async () => ({results: []})})}, WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}, ASSETS: {fetch: () => new Response('asset')}};
   const get = (path, headers = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, {headers, redirect: 'manual'}), env, {});
   assert.equal((await get('/admin/testing/overview')).status, 404);
