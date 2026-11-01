@@ -241,7 +241,6 @@ ${BARS_CSS}
 <p class="muted">What is broken, what we fixed, and does it hold? A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
-const __name = target => target;   // the bundler wraps inner functions in __name(...) (esbuild keepNames); a pasted function source calls it, so the page defines it (test/needs-fix-order.test.js)
 const needsFixOrder = ${ORDER_SOURCE};
 const needsFixGroups = ${GROUPS_SOURCE};
 const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids.filter(kid => kid != null)); return node; };
