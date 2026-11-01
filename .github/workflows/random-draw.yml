@@ -140,7 +140,7 @@ jobs:
         with:
           client-id: ${{ vars.CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
-          owner: GarryOne
+          owner: ${{ vars.OWNER_OF_JOBADABRA || github.repository_owner }}
           repositories: jobadabra
           permission-issues: write
       - name: Alarm when the search came back thin
