@@ -318,6 +318,9 @@ export const seeds = {
       ['extension', 'recorded page: cookie banner is left alone', 'integration/extension/banner.test.mjs', 1500], ['store', 'store: round trip of 200 rows', 'integration/store/roundtrip.test.mjs', 900]].map(([layer, test, file, ms]) => ({layer, test, file, ms, runs: 5}));
     const days = Array.from({length: 14}, (_, i) => { const back = 13 - i; return {day: dayAt(back), e2eSuites: 29 - Math.floor(i / 5), e2eSteps: 296 - i * 5, integration: {extension: i > 8 ? 8 + (i - 8) * 8 : 0, app: 40 + i * 6, store: i > 10 ? (i - 10) * 14 : 0}}; });
     const body = {runs, flaky, slowest, counts: {extension: {tests: 64, files: 9}, app: {tests: 118, files: 16}, store: {tests: 41, files: 6}}, move: {days, e2eSteps: days[13].e2eSteps, lanes: 28}};
+    // The coverage card (a8, 1 Nov 2026): the REAL nightly report.json from $COVERAGE_REAL_DIR (the artifact `coverage-report`) when set, else no card data, so the page shows its empty state.
+    const real = process.env.COVERAGE_REAL_DIR && `${process.env.COVERAGE_REAL_DIR}/report.json`;
+    if (real && (await import('node:fs')).existsSync(real)) body.coverage = (await import('../jobs/coverage-intel.mjs')).mergeCoverage(null, JSON.parse((await import('node:fs')).readFileSync(real, 'utf8')), {runId: 41337418754, sha: ''});
     await ingest(new Request('https://demo/integration/data', {method: 'PUT', headers: {Authorization: 'Bearer demo-publish'}, body: JSON.stringify(body)}), env);
   },
   'integration-not-starting': async ({env}) => {   // /admin/testing/integrations when the Worker's last start of its collector was refused (1 Nov 2026): the integration data plus the red line

@@ -3,6 +3,7 @@
 // sends it (PUT /integration/data, Bearer SELFHEAL_PUBLISH_KEY). The site validates it and keeps ONE row (integration_snapshot); the page (admin/integration-page.js) reads that
 // row only. A test's name and file are test words, never a log or personal data. Guard: test/admin/integration-intel.test.js.
 import {equal} from '../shared/guard.js';
+import {cleanCoverage} from './coverage-intel.js';
 
 export const LAYERS = ['extension', 'app', 'store'];
 export const KEEP_DAYS = 30;
@@ -36,7 +37,8 @@ export function cleanSnapshot(data, now = new Date()) {
   const counts = Object.fromEntries(LAYERS.map(layer => [layer, {tests: count(data.counts?.[layer]?.tests) ? data.counts[layer].tests : 0, files: count(data.counts?.[layer]?.files) ? data.counts[layer].files : 0}]));
   const move = list(data.move?.days, cleanDay, 60).filter(row => row.day >= from);
   return {schema: 1, at: now.toISOString(), runs: list(data.runs.slice(-MAX_RUNS), cleanRun, MAX_RUNS).filter(run => run.day >= from), read: (Array.isArray(data.read) ? data.read.slice(-MAX_RUNS) : []).filter(id => Number.isInteger(id) && id > 0), counts, flaky: list(data.flaky, cleanFlaky, 100), open: list(data.open, cleanOpen, 300), slowest: list(data.slowest, cleanSlow, 50),
-    move: {days: move, e2eSteps: count(data.move?.e2eSteps) ? data.move.e2eSteps : null, lanes: count(data.move?.lanes) ? data.move.lanes : null}};
+    move: {days: move, e2eSteps: count(data.move?.e2eSteps) ? data.move.e2eSteps : null, lanes: count(data.move?.lanes) ? data.move.lanes : null},
+    coverage: cleanCoverage(data.coverage)};   // the nightly coverage report (jobs/coverage-intel.mjs); null until one was read
 }
 
 export async function readSnapshot(db) {

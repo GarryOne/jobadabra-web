@@ -11,6 +11,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {LAYERS, MAX_RUNS} from '../admin/integration-intel.js';
+import {coverageFor} from './coverage-intel.mjs';
 import {advance, beforePending, countsOf, inOrder, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
@@ -89,6 +90,7 @@ async function main() {
     runs: [...(stored.runs || []), ...rows].filter(row => row.day >= since).slice(-MAX_RUNS), read: [...new Set([...(stored.read || []), ...sure.map(item => item.run.databaseId)])].slice(-MAX_RUNS), open: open.slice(-300), flaky: [...(stored.flaky || []), ...flaky].slice(-100),
     slowest: results.length ? slowestOf(results) : stored.slowest || [], counts: results.length ? {...(stored.counts || {}), ...Object.fromEntries(Object.entries(countsOf(results)).filter(([, value]) => value.tests))} : stored.counts || {},
     move: {days: [...(stored.move?.days || []).filter(row => !move.days.some(item => item.day === row.day)), ...move.days].sort((a, b) => a.day.localeCompare(b.day)), e2eSteps: move.days.at(-1)?.e2eSteps ?? stored.move?.e2eSteps ?? null, lanes: move.lanes ?? stored.move?.lanes ?? null},
+    coverage: await coverageFor(stored.coverage, {repo}),   // the nightly coverage report: newest artifact, read once (jobs/coverage-intel.mjs)
   };
   console.log(`${finished.length} finished integration runs in ${KEEP_DAYS} days, ${todo.length} read (${rows.length} layer results), ${flaky.length} new flaky, ${snapshot.move.days.length} move days; layers ${LAYERS.join('/')}`);
   const out = process.argv.indexOf('--out');
