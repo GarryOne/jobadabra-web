@@ -1,0 +1,118 @@
+// Testing → Overview: reads the rows the other Testing pages already keep (one reader per table, each exported by its page's own module) and resolves every card of the
+// catalogue (admin/testing-overview-methods.js) to its lines (cadence, last run) and its "bugs caught". Nothing is typed by hand and nothing is computed here that a page
+// does not already show; a method with no stored data says why. No new table, no AI. Guard: test/admin/testing-overview.test.js.
+import {read as readSchedules} from './schedules.js';
+import {readSnapshot as readE2e} from './e2e-intel.js';
+import {readSnapshot as readIntegration} from './integration-intel.js';
+import {mainRuns} from './integration-page.js';
+import {snapshots} from './selfheal.js';
+import {latestCard} from './pr-checks.js';
+import {issues} from './sentry.js';
+import {missed, words} from '../shared/schedules-model.js';
+import {METHODS, PLANNED, RINGS} from './testing-overview-methods.js';
+
+const DAY = 86400000, DEFAULT_REPO = 'GarryOne/jobadabra';
+const SCHEDULED_PAGE = '/admin/testing/scheduled';   // the Testing → Scheduled tab (session ac): each cadence links to it once it is in the menu
+const DONE = {success: 'green', failure: 'red', timed_out: 'red'};
+
+/** Every stored row the cards read; a reader that fails gives null, and the cards that need it say so. */
+export async function load(env, now = new Date(), {sentry = issues} = {}) {
+  const [schedules, e2e, integration, healing, card, sentryList] = await Promise.all([readSchedules(env), readE2e(env.STATS), readIntegration(env.STATS), snapshots(env).catch(() => []),
+    latestCard(env.STATS), env.SENTRY_AUTH_TOKEN ? sentry(env, 'users').catch(() => null) : null]);
+  return {repo: env.GITHUB_REPO || DEFAULT_REPO, schedules, e2e, integration, healing: healing?.[0] || null, card, sentry: sentryList, now};
+}
+
+const runUrl = (repo, id) => `https://github.com/${repo}/actions/runs/${Number(id)}`;
+const jobOf = (data, file) => (data.schedules?.jobs || []).find(job => job.file === file && job.repo === data.repo) || null;
+const none = (why, explicit = false) => ({state: 'none', why, explicit});   // explicit: the catalogue itself says there is nothing to read (shown on the card); otherwise the reason is the chip's tooltip
+
+function workflowLast(data, file) {
+  const job = jobOf(data, file);
+  if (!data.schedules) return none('the schedules snapshot has not arrived yet');
+  if (!job) return none('the schedules snapshot does not list this workflow');
+  const run = (job.recent || []).find(item => DONE[item.conclusion]);
+  return run ? {state: DONE[run.conclusion], at: run.at, url: run.url || '', late: missed(job, data.now)} : none('no finished run stored');
+}
+function e2eLast(data, kinds) {
+  if (!data.e2e) return none('the e2e snapshot has not arrived yet');
+  const run = (data.e2e.latest || []).find(item => kinds.includes(item.kind) && ['success', 'failure'].includes(item.conclusion));
+  return run ? {state: run.conclusion === 'success' ? 'green' : 'red', at: run.day, url: runUrl(data.repo, run.runId)} : none('none of the newest stored e2e runs is of this kind');
+}
+function suiteLast(data, suite) {
+  if (!data.e2e) return none('the e2e snapshot has not arrived yet');
+  const rows = (data.e2e.suiteNights || []).filter(row => row.suite === suite);
+  if (!rows.length) return none('no night result of this suite is stored yet');
+  const newest = rows.reduce((best, row) => (row.runId > best.runId ? row : best));
+  return {state: rows.filter(row => row.runId === newest.runId).every(row => row.green) ? 'green' : 'red', at: newest.day, url: runUrl(data.repo, newest.runId)};
+}
+function integrationLast(data) {
+  if (!data.integration) return none('the integration snapshot has not arrived yet');
+  const runs = mainRuns(data.integration, '30d', data.now).runs;
+  const run = runs.reduce((best, item) => (!best || item.runId > best.runId ? item : best), null);
+  return run ? {state: run.green ? 'green' : 'red', at: run.day, url: runUrl(data.repo, run.runId), note: `${run.layer} layer on main`} : none('no main run in 30 days');
+}
+function lastOf(data, line) {
+  const last = line.last || {};
+  if (last.none) return none(last.none, true);
+  if (last.e2e) return e2eLast(data, last.e2e);
+  if (last.suite) return suiteLast(data, last.suite);
+  if (last.integration) return integrationLast(data);
+  return line.wf ? workflowLast(data, line.wf) : none('no run to read');
+}
+
+/** One line: its label, the cadence (the cron in words when the workflow has one, else the catalogue's trigger), and the last run. */
+function lineOf(data, line) {
+  const job = line.wf ? jobOf(data, line.wf) : null;
+  const when = job?.crons?.length ? job.crons.map(cron => words(cron, data.now)).join(' · ') : line.when || (line.wf ? 'by hand' : '');
+  return {label: line.label, when, last: lastOf(data, line)};
+}
+
+const num = value => (Number(value) || 0).toLocaleString('en-US');
+const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many}`;
+
+/** "Bugs caught" for a card: {text, window} from stored data, or {why} when no data holds it. */
+function bugsOf(data, bugs) {
+  if (bugs.none) return {why: bugs.none};
+  if (bugs.checks) {
+    if (!data.card) return {why: 'no PR-check scorecard stored yet'};
+    const found = bugs.checks.map(file => jobOf(data, file)).filter(Boolean).map(job => data.card.checks.find(check => check.name === job.name)).filter(Boolean);
+    return found.length ? {text: plural(found.reduce((sum, check) => sum + check.realCatches, 0), 'real catch', 'real catches'), window: `${data.card.days} days`} : {why: 'not in the latest PR-check scorecard (no pull-request runs)'};
+  }
+  if (bugs.detector) {
+    const last7 = data.healing?.periods?.last7;
+    if (!last7) return {why: 'the self-healing snapshot has no 7-day view yet'};
+    const row = (last7.byDetector || []).find(item => item.detector === bugs.detector);
+    return {text: plural((row?.fixed || 0) + (row?.queued || 0), 'real bug', 'real bugs'), window: '7 days'};
+  }
+  if (bugs.caught) {
+    if (!data.e2e) return {why: 'the e2e snapshot has not arrived yet'};
+    const from = new Date(data.now.getTime() - 29 * DAY).toISOString().slice(0, 10);
+    return {text: plural((data.e2e.caught || []).filter(row => row.day >= from).length, 'red that caught a bug', 'reds that caught a bug'), window: '30 days'};
+  }
+  if (bugs.mutation) return data.healing?.quality?.mutation?.note ? {text: data.healing.quality.mutation.note} : {why: 'no planted-bug run is stored yet'};
+  if (bugs.recall) {
+    const recall = data.healing?.recall;
+    return recall ? {text: `${recall.caught} of ${recall.planted} planted UI bugs caught`, detail: recall.missed?.length ? `missed: ${recall.missed.join(', ')}` : ''} : {why: 'no interactions night has measured it yet'};
+  }
+  if (bugs.sentry) {
+    if (!data.sentry) return {why: 'Sentry is not reachable from the Worker right now'};
+    const users = data.sentry.reduce((sum, item) => sum + (Number(item.userCount) || 0), 0);
+    return {text: `${plural(data.sentry.length, 'unresolved issue', 'unresolved issues')} · ${plural(users, 'user', 'users')} hit`, window: '14 days'};
+  }
+  return {why: 'no data'};
+}
+
+const rank = {red: 3, green: 2, none: 1};
+const cardState = lines => lines.map(line => line.last.state).reduce((worst, state) => (rank[state] > rank[worst] ? state : worst), 'none');
+
+/** The page's model: the rings in order, each with its method cards (live ones resolved, planned ones grey) and a count of live cards by verdict. */
+export function resolve(data, {pages = []} = {}) {
+  const live = METHODS.map(method => {
+    const lines = method.lines.map(line => lineOf(data, line));
+    const linked = !method.linkOnly || pages.includes(method.href);
+    return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), href: linked ? method.href : '', pending: !linked};
+  });
+  const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
+  const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here
+  return {rings, scheduled: pages.includes(SCHEDULED_PAGE) ? SCHEDULED_PAGE : '', red: counted.filter(card => card.state === 'red').map(card => card.title), counts: {green: count('green'), red: count('red'), none: count('none'), live: counted.length, planned: PLANNED.length}};
+}
