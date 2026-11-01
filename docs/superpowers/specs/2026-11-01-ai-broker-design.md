@@ -70,4 +70,4 @@ Owner (1 Nov 2026): "Let's change the codex-broker to ai-broker, and support cla
 7. **7/7 Cleanup:** remove the old audience and the forwarder once no caller uses them; give `release-ai-broker.yml` its push trigger. Then the `ENGINE` switch (hour named by a8, not 21:00–05:30 UTC). The per-`ENGINE` unit tests (fakes only) run inside the existing broker test step: no new matrix or schedule. The live proof is three one-off manual runs of one existing small CI job, one per `ENGINE` value (a few minutes each, ~15 Actions minutes once, nothing recurring), reported to mac-07.
 
 ## Progress
-- [x] 1/7 spec (#278) · [ ] 2/7 · [ ] 3/7 · [ ] 4/7 · [ ] 5/7 · [ ] 6/7 · [ ] 7/7
+- [x] 1/7 spec (#278) · [x] 2/7 rename + transfer (#282, #286, #288) · [x] 3/7 engine chain · [ ] 4/7 · [ ] 5/7 · [ ] 6/7 · [ ] 7/7

@@ -2,44 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-
-// Node cannot load Cloudflare's Container runtime. Keep the actual Worker and its libraries;
-// substitute the runtime constructor, then provide isolated storage and transport per test.
-const workerUrl = new URL('../../workers/ai-broker/worker.js', import.meta.url);
-const runtime = 'data:text/javascript;base64,' + Buffer.from(`
-  export class Container { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }
-  export class ContainerProxy {}
-  export const getContainer = broker => broker;
-`).toString('base64');
-const source = readFileSync(workerUrl, 'utf8')
-  .replaceAll("'@cloudflare/containers'", JSON.stringify(runtime))
-  .replace(/from '(\.{1,2}\/[^']+)'/g, (_, ref) => `from '${new URL(ref, workerUrl).href}'`);
-const {CodexBroker} = await import('data:text/javascript;base64,' + Buffer.from(source + `\n//# sourceURL=${workerUrl.href}`).toString('base64'));
-const day = Date.parse('2026-10-30T23:59:59Z');
-const body = {prompt: 'offline test', tier: 'small'};
-const success = () => new Response(JSON.stringify({reply: 'ok', tokens: {input: 2, output: 3}, ms: 1}));
-
-function harness(meter, env = {}) {
-  const values = new Map([['login', 'test login']]);
-  if (meter) values.set('meter', structuredClone(meter));
-  let pending = Promise.resolve();
-  const storage = {
-    get: async key => structuredClone(values.get(key)),
-    put: async (key, value) => { values.set(key, structuredClone(value)); },
-    // Serialize admission and completion transactions; snapshots are independent, as in DO storage.
-    transaction(fn) {
-      const next = pending.then(() => fn(storage));
-      pending = next.catch(() => {});
-      return next;
-    },
-  };
-  const restart = () => {
-    const broker = new CodexBroker({storage}, env);
-    broker.containerFetch = async () => success();
-    return broker;
-  };
-  return {broker: restart(), restart, storage};
-}
+import {day, body, success, harness} from './harness.mjs';
 
 test('concurrent calls across the cap dispatch only 24 and preserve token completions', async t => {
   t.mock.method(Date, 'now', () => day);
@@ -136,7 +99,7 @@ test('search keeps every tier, lane, queue priority and meter identical to ordin
       };
       const response = await broker.call(lane, {...body, tier, ...option, lane: 'forged'});
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {reply: 'ok', tokens: {input: 2, output: 3}, ms: 1, lane, tier: expectedTier, model, weekUsedPercent: null});
+      assert.deepEqual(await response.json(), {reply: 'ok', tokens: {input: 2, output: 3}, ms: 1, lane, tier: expectedTier, model, weekUsedPercent: null, engine: 'codex'});
       const meter = await storage.get('meter');
       assert.equal(meter.tokens[lane], 5);
       if (ordinaryMeter) assert.deepEqual(meter, ordinaryMeter);
@@ -167,7 +130,7 @@ test('weekly refusal answers via Claude at each requested tier, preserving schem
     const response = await broker.call('scheduled', {...body, tier, schema: {type: 'object'}, images: [{name: 'img.png', base64: 'ZmFrZQ=='}]});
     assert.equal(response.status, 200);
     const answer = await response.json();
-    assert.equal(answer.engine, 'claude'); assert.equal(answer.model, model); assert.equal(answer.reply, '{"answer":true}');
+    assert.equal(answer.engine, 'claude-api'); assert.equal(answer.model, model); assert.equal(answer.reply, '{"answer":true}');
     assert.deepEqual(answer.tokens, {input: 100, output: 20});
     const sent = requests.at(-1);
     assert.equal(sent.url, 'https://api.anthropic.com/v1/messages'); assert.equal(sent.body.model, model);
@@ -185,7 +148,7 @@ test('Codex usage-limit error falls back, unrelated or credential-shaped failure
     broker.containerFetch = async () => Response.json({error}, {status: 500});
     const reply = await broker.call('pr', body);
     assert.equal(reply.status, expected);
-    if (expected === 200) assert.equal((await reply.json()).engine, 'claude');
+    if (expected === 200) assert.equal((await reply.json()).engine, 'claude-api');
   }
 });
 
@@ -208,7 +171,7 @@ test('Claude at $5 uses Free AI, both caps refuse, eviction and UTC rollover pre
   assert.equal(notes.length, 2);
   now += 1000;
   assert.equal((await (await restart().health()).json()).fallback.claude, 0);
-  assert.equal((await (await restart().call('pr', body)).json()).engine, 'claude');
+  assert.equal((await (await restart().call('pr', body)).json()).engine, 'claude-api');
   await storage.put('fallback:2026-10-31', spentDay(5_000_000, 2_000_000));
   await restart().call('pr', body);
   assert.equal(notes.length, 4, 'both caps can alert on a new UTC day');
