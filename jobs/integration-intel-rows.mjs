@@ -93,3 +93,9 @@ export function inOrder(read, now = Date.now(), giveUpHours = 48) {
   }
   return out;
 }
+
+/** Keep only the folded runs created before the oldest run still in progress (and younger than `giveUpHours`), so that run is not replayed after newer ones (Gitar, #245). */
+export function beforePending(items, listed, now = Date.now(), giveUpHours = 48) {
+  const open = listed.filter(run => !['success', 'failure', 'cancelled', 'skipped', 'timed_out', 'neutral', 'startup_failure', 'action_required', 'stale'].includes(run.conclusion) && now - Date.parse(run.createdAt) < giveUpHours * 3600000).map(run => run.createdAt).sort()[0];
+  return open ? items.filter(({run}) => run.createdAt < open) : items;
+}

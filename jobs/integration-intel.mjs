@@ -11,7 +11,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {LAYERS, MAX_RUNS} from '../admin/integration-intel.js';
-import {advance, countsOf, inOrder, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
+import {advance, beforePending, countsOf, inOrder, grepCounts, moveRow, parseResult, runRow, slowestOf} from './integration-intel-rows.mjs';
 
 const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 const base = process.env.INTEGRATION_INTEL_URL || 'https://www.jobpilotto.top/integration/data';
@@ -72,11 +72,12 @@ async function main() {
   const fields = 'databaseId,conclusion,createdAt,headSha,headBranch,event', since0 = `>=${since}`;
   const listed = [...(gh('run', 'list', '--repo', repo, '--workflow', WORKFLOW, '--limit', '500', '--created', since0, '--json', fields) || []),
     ...(gh('run', 'list', '--repo', repo, '--workflow', MAIN_WORKFLOW, '--branch', 'main', '--event', 'push', '--limit', '500', '--created', since0, '--json', fields) || [])]
-    .filter(run => ['success', 'failure'].includes(run.conclusion)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const todo = listed.filter(run => !have.has(run.databaseId)).slice(-MAX_READ);
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));   // unfinished runs stay listed: they hold back the newer ones (beforePending)
+  const finished = listed.filter(run => ['success', 'failure'].includes(run.conclusion));
+  const todo = finished.filter(run => !have.has(run.databaseId)).slice(-MAX_READ);
   const read = [];
   for (let at = 0; at < todo.length; at += 6) await Promise.all(todo.slice(at, at + 6).map(async run => { read.push({run, ...(await readResults(run.databaseId))}); }));
-  const sure = inOrder(read);   // oldest first, up to the first run not read for certain: it and the newer ones are read again next hour, in order (Gitar, #245)
+  const sure = beforePending(inOrder(read), listed);   // oldest first, up to the first run not read for certain: it and the newer ones are read again next hour, in order (Gitar, #245)
   const rows = sure.flatMap(({run, results}) => results.map(result => runRow(run, result)));
   const observations = sure.flatMap(({run, results}) => results.flatMap(result => result.tests.map(item => ({...runRow(run, result), createdAt: run.createdAt, name: item.name, file: item.file, ok: item.ok}))));
   const changedBetween = memo(async (from, to) => (await ghAsync('api', `repos/${repo}/compare/${from}...${to}`, '--jq', '[.files[].filename]')));
@@ -89,7 +90,7 @@ async function main() {
     slowest: results.length ? slowestOf(results) : stored.slowest || [], counts: results.length ? {...(stored.counts || {}), ...Object.fromEntries(Object.entries(countsOf(results)).filter(([, value]) => value.tests))} : stored.counts || {},
     move: {days: [...(stored.move?.days || []).filter(row => !move.days.some(item => item.day === row.day)), ...move.days].sort((a, b) => a.day.localeCompare(b.day)), e2eSteps: move.days.at(-1)?.e2eSteps ?? stored.move?.e2eSteps ?? null, lanes: move.lanes ?? stored.move?.lanes ?? null},
   };
-  console.log(`${listed.length} finished integration runs in ${KEEP_DAYS} days, ${todo.length} read (${rows.length} layer results), ${flaky.length} new flaky, ${snapshot.move.days.length} move days; layers ${LAYERS.join('/')}`);
+  console.log(`${finished.length} finished integration runs in ${KEEP_DAYS} days, ${todo.length} read (${rows.length} layer results), ${flaky.length} new flaky, ${snapshot.move.days.length} move days; layers ${LAYERS.join('/')}`);
   const out = process.argv.indexOf('--out');
   if (out > 0) writeFileSync(process.argv[out + 1], JSON.stringify(snapshot));
   if (dry) return;

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readResults} from '../../jobs/integration-intel.mjs';
-import {inOrder, advance, countsOf, grepCounts, moveRow, parseResult, pathMatches, runRow, slowestOf} from '../../jobs/integration-intel-rows.mjs';
+import {beforePending, inOrder, advance, countsOf, grepCounts, moveRow, parseResult, pathMatches, runRow, slowestOf} from '../../jobs/integration-intel-rows.mjs';
 
 const file = (layer, tests, extra = {}) => ({v: 1, layer, platform: 'linux', tests, ...extra});
 const obs = (runId, sha, createdAt, ok, extra = {}) => ({runId, sha, day: createdAt.slice(0, 10), createdAt, on: 'main', layer: 'app', platform: 'linux', name: 'focus keeps state', file: 'desktop/integration/app/f.test.js', ok, ...extra});
@@ -86,4 +86,12 @@ test('a run not read for certain holds back the newer ones, so a retry never rea
   assert.deepEqual(inOrder([item(3, '2026-11-01T11:00:00Z', true), item(1, '2026-11-01T09:00:00Z', true), item(2, '2026-11-01T10:00:00Z', false)], now).map(entry => entry.run.databaseId), [1], 'run 2 failed: 3 waits for it');
   const old = inOrder([item(1, '2026-10-29T09:00:00Z', false), item(2, '2026-11-01T10:00:00Z', true)], now);
   assert.deepEqual(old.map(entry => [entry.run.databaseId, entry.ok, entry.results.length]), [[1, true, 0], [2, true, 1]]);
+});
+
+test('a run still in progress holds back the newer finished ones, until it is two days old', () => {
+  const items = [{run: {createdAt: '2026-11-01T10:45:00Z'}}, {run: {createdAt: '2026-11-01T10:00:00Z'}}];
+  const now = Date.parse('2026-11-01T12:00:00Z');
+  assert.deepEqual(beforePending(items, [{createdAt: '2026-11-01T10:30:00Z', conclusion: null}], now).map(item => item.run.createdAt), ['2026-11-01T10:00:00Z']);
+  assert.equal(beforePending(items, [{createdAt: '2026-10-29T10:30:00Z', conclusion: null}], now).length, 2, 'a run stuck for days lets go');
+  assert.equal(beforePending(items, [{createdAt: '2026-11-01T10:30:00Z', conclusion: 'cancelled'}], now).length, 2);
 });
