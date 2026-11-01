@@ -110,7 +110,7 @@ const cardState = lines => lines.map(line => line.last.state).reduce((worst, sta
 export function resolve(data, {pages = []} = {}) {
   const live = METHODS.map(method => {
     const lines = method.lines.map(line => lineOf(data, line));
-    const linked = !method.linkOnly || pages.includes(method.href);
+    const linked = pages.includes(method.href);   // a card links only to a page in the menu: GTM readiness and Testing → Scheduled land in their own PRs (1 Nov 2026)
     return {...method, kind: 'live', lines, state: method.linkOnly ? 'link' : cardState(lines), bugs: bugsOf(data, method.bugs), href: linked ? method.href : '', pending: !linked};
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));

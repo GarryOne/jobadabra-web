@@ -48,7 +48,7 @@ export const METHODS = [
 
   {id: 'sentry', ring: 'real', icon: '🐞', title: 'Sentry', proves: 'Crashes and errors from real installs; the fixer reads them each morning.', href: '/admin/testing/sentry',
     lines: [{label: 'Sentry fixer', wf: 'sentry-fix.yml'}], bugs: {sentry: true}},
-  {id: 'canary', ring: 'real', icon: '🐤', title: 'Canary → stable', proves: 'A release reaches a few installs first; a failing canary stops the promotion.', href: '/admin/agents/schedules',
+  {id: 'canary', ring: 'real', icon: '🐤', title: 'Canary → stable', proves: 'A release reaches a few installs first; a failing canary stops the promotion.', href: '/admin/testing/scheduled',
     lines: [{label: 'Promote to stable', wf: 'canary-promote.yml'}, {label: 'Stable canary', wf: 'stable-canary.yml'}], bugs: {none: 'a stopped promotion is not counted as a bug yet'}},
   {id: 'pool', ring: 'real', icon: '🏭', title: 'Real-site pool', proves: 'Recorded applying sites, replayed offline, so a change that breaks a real site shows.', href: '/admin/form-filling/lab',
     lines: [{label: 'Offline replays', wf: 'site-replays.yml', when: 'with the nightly run'}, {label: 'Recording', wf: 'record-sites.yml'}], bugs: {none: 'the Lab page counts regressions per site'}},
