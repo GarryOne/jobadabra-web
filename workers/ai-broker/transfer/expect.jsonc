@@ -5,7 +5,7 @@
   "main": "../worker.js",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  "vars": {"AUDIENCE": "jobadabra-ai-broker,jobadabra-codex-broker", "REPOSITORY": "GarryOne/jobadabra,GarryOne/jobadabra-web,jobadabra/jobadabra,jobadabra/jobadabra-web", "FALLBACK_FREE_AI_DAY_USD": "2"},
+  "vars": {"AUDIENCE": "jobadabra-ai-broker,jobadabra-codex-broker", "REPOSITORY": "GarryOne/jobadabra,GarryOne/jobadabra-web,GarryOne/jobadabra-lab,jobadabra/jobadabra,jobadabra/jobadabra-web,jobadabra/jobadabra-lab", "FALLBACK_FREE_AI_DAY_USD": "2"},
   "containers": [
     {"name": "ai-broker", "image": "../container/Dockerfile", "image_build_context": "..", "instance_type": "basic", "max_instances": 1}
   ],

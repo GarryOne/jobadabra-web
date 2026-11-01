@@ -137,7 +137,8 @@ export default {
 const audiences = env => String(env.AUDIENCE || 'jobadabra-ai-broker,jobadabra-codex-broker').split(',').map(name => name.trim()).filter(Boolean);
 
 // Why (1 Nov 2026, go-org-move): the repos are moving to the GitHub org `jobadabra` (created 21:34 UTC, owned by the owner), where the OIDC `repository` claim becomes `jobadabra/<repo>`; both owners are accepted until 7 days after the last repo has moved, then the two GarryOne names go.
+// Why (1 Nov 2026, owner's pick via mac-07): central-scout.yml and product-brain.yml move to jobadabra-lab; without its name every scout AI call gets "oidc: wrong repository" and skips silently. Lanes read the workflow file, not the repo, so the two keep today's lane, tiers and caps.
 // Why (31 Oct 2026, owner: "Move all 11 now"): the private site repo's changelog and digest jobs run on the Codex plan too, so the broker accepts run tokens of both repos (REPOSITORY is a comma list).
-const repositories = env => String(env.REPOSITORY || 'GarryOne/jobadabra,GarryOne/jobadabra-web,jobadabra/jobadabra,jobadabra/jobadabra-web').split(',').map(name => name.trim()).filter(Boolean);
+const repositories = env => String(env.REPOSITORY || 'GarryOne/jobadabra,GarryOne/jobadabra-web,GarryOne/jobadabra-lab,jobadabra/jobadabra,jobadabra/jobadabra-web,jobadabra/jobadabra-lab').split(',').map(name => name.trim()).filter(Boolean);
 let jwksReader;
 const jwks = () => (jwksReader ||= githubJwks());

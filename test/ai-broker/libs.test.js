@@ -8,6 +8,7 @@ import {weeklyWindow} from '../../workers/ai-broker/container/weekly.mjs';
 import {refuseReply} from '../../workers/ai-broker/lib/guard.mjs';
 import {modelOf, tierOfClaude} from '../../workers/ai-broker/lib/tiers.mjs';
 import {slots} from '../../workers/ai-broker/lib/queue.mjs';
+import {readFileSync} from 'node:fs';
 
 const enc = o => Buffer.from(JSON.stringify(o)).toString('base64url');
 async function signer() {
@@ -30,7 +31,7 @@ test('a live run of the owner\'s repo is accepted', async () => {
 test('the broker takes run tokens of the public repo and the private site repo, and no third (31 Oct 2026: the site\'s changelog and digest jobs run on Codex)', async () => {
   const {sign, jwks} = await signer(), both = {...opts(jwks), repository: ['GarryOne/jobadabra', 'GarryOne/jobadabra-web']};
   for (const repository of ['GarryOne/jobadabra', 'GarryOne/jobadabra-web']) assert.equal((await verifyRunToken(await sign({...good, repository}), both)).repository, repository);
-  const third = await sign({...good, repository: 'GarryOne/jobadabra-lab'});
+  const third = await sign({...good, repository: 'GarryOne/jobadabra-other'});
   await assert.rejects(() => verifyRunToken(third, both), /wrong repository/);
 });
 
@@ -189,3 +190,17 @@ test('both audiences are accepted while the callers move (1 Nov 2026, ai-broker 
   for (const aud of ['jobadabra-ai-broker', 'jobadabra-codex-broker']) assert.equal((await verifyRunToken(await sign({...good, aud}), both)).aud, aud);
   await assert.rejects(async () => verifyRunToken(await sign({...good, aud: 'jobadabra-other'}), both), /wrong audience/);
 });
+
+// Why (1 Nov 2026, owner's pick via mac-07): central-scout.yml and product-brain.yml move to jobadabra-lab. Each must verify under both owners and keep the lane (so tiers and caps) it has today in jobadabra; a missing repo name makes every scout AI call skip silently with "oidc: wrong repository".
+const allowed = JSON.parse(readFileSync(new URL('../../workers/ai-broker/wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '')).vars.REPOSITORY.split(',');
+for (const name of ['central-scout', 'product-brain']) {
+  test(`${name}.yml run in jobadabra-lab is accepted under both owners and keeps the scheduled lane`, async () => {
+    const {sign, jwks} = await signer();
+    for (const repository of ['GarryOne/jobadabra-lab', 'jobadabra/jobadabra-lab']) {
+      const claims = {...good, repository, event_name: 'schedule', job_workflow_ref: `${repository}/.github/workflows/${name}.yml@refs/heads/main`};
+      const verified = await verifyRunToken(await sign(claims), {...opts(jwks), repository: allowed});
+      assert.equal(laneOf(verified), 'scheduled');
+      assert.equal(laneOf({...verified, job_workflow_ref: verified.job_workflow_ref.replace('-lab/', '/')}), laneOf(verified));   // the same workflow in jobadabra: same lane
+    }
+  });
+}
