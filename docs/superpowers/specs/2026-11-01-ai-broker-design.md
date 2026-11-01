@@ -36,7 +36,7 @@ Owner (1 Nov 2026): "Let's change the codex-broker to ai-broker, and support cla
 
 ## 3. Claude engine on the subscription
 - Container gets the Claude Code CLI next to Codex. Per call: `claude -p --output-format json --model <haiku|sonnet|opus> --tools "" --no-session-persistence`, empty temp dir, stdin closed, same unprivileged user, 100 s kill timer. Tiers map small/mid/large → `claude-haiku-5-5` / `claude-sonnet-5-5` / `claude-opus-5-5` (`shared/pro-claude.js`).
-- Auth: the owner runs `claude setup-token` once; the value is the Worker secret `CLAUDE_CODE_OAUTH_TOKEN` (Keychain `jobadabra.broker.claude_oauth_token`), passed to the container as an env var by the Container class. It never goes to the image, a reply or a log.
+- Auth: the owner runs `claude setup-token` once; the value is the Worker secret `CLAUDE_CODE_OAUTH_TOKEN` (Keychain `job-pilotto.ai-broker.claude_oauth_token`, the repo's `job-pilotto.*` namespace), passed to the container as an env var by the Container class. It never goes to the image, a reply or a log.
 - Deny-by-default hosts: add `api.anthropic.com` (measured in the first container run; telemetry off with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, so nothing else is allowed unless a measured failure names it).
 - Schema: `--json-schema`; images: base64 content blocks over `--input-format stream-json` so the CLI needs **no file-reading tool** (a Read tool could read the Codex login file in the same container; the Codex path has the same exposure and is covered by the reply guard, `lib/guard.mjs`).
 - Limits: a subscription has no dollars, but it is **shared with the owner's own Claude Code use**. The broker counts calls per UTC day per engine (`/health`) and refuses past `CLAUDE_SUB_DAY_CALLS` if set; default unset (= "CI can use up to 100%", as for Codex). Decision below.
@@ -62,7 +62,7 @@ Owner (1 Nov 2026): "Let's change the codex-broker to ai-broker, and support cla
 4. **4/7 Claude subscription engine:** container, hosts, tier map, token secret, throwaway-call measurements recorded in the spec.
 5. **5/7 Admin cost page, Telegram notes and the Synthetic Monitoring probe** name the engine.
 6. **6/7 Public repo:** `broker-client.mjs` audience and URL, labels in `ai-cap.mjs` and workflows (lands after 2/7 is deployed).
-7. **7/7 Cleanup:** remove the old audience and the forwarder once no caller uses them; give `release-ai-broker.yml` its push trigger. Then the `ENGINE` switch (hour named by a8, not 21:00–05:30 UTC) and one CI job per `ENGINE` setting.
+7. **7/7 Cleanup:** remove the old audience and the forwarder once no caller uses them; give `release-ai-broker.yml` its push trigger. Then the `ENGINE` switch (hour named by a8, not 21:00–05:30 UTC). The per-`ENGINE` unit tests (fakes only) run inside the existing broker test step: no new matrix or schedule. The live proof is three one-off manual runs of one existing small CI job, one per `ENGINE` value (a few minutes each, ~15 Actions minutes once, nothing recurring), reported to mac-07.
 
 ## Progress
 - [ ] 1/7 spec · [ ] 2/7 · [ ] 3/7 · [ ] 4/7 · [ ] 5/7 · [ ] 6/7 · [ ] 7/7
