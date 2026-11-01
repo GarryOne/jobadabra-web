@@ -9,7 +9,7 @@ import {dueStarts, fires} from '../../app-core/src/watchdog.js';
 import {OWN_CRON, TICK, cronsAt, runTimers} from '../../shared/timers.js';
 
 const at = (hour, minute, day = 2) => new Date(Date.UTC(2026, 10, day, hour, minute));   // 2 Nov 2026: Zurich is UTC+1, so 03:00 UTC is 04:00 there
-const ON = {TIMERS: 'on', TIMERS_GITHUB_TOKEN: 'timers-token'};
+const ON = {TIMERS: 'on', TIMERS_GITHUB_TOKEN: 'timers-token', TIMERS_REPO: 'GarryOne/jobadabra'};
 const started = async (event, env = ON, dispatchError) => {
   const calls = [];
   const dispatch = async (scoped, inputs, workflow) => { calls.push({repo: scoped.GITHUB_REPO, token: scoped.GITHUB_TOKEN, inputs, workflow}); if (dispatchError) throw dispatchError; };
@@ -66,6 +66,14 @@ test('without the timers token the start is refused out loud, and the site token
   await assert.rejects(runTimers({cron: TICK, scheduledTime: at(3, 0).getTime()}, {TIMERS: 'on', GITHUB_TOKEN: 'site-token'}, {dispatch: async (...args) => { calls.push(args); }, report: async () => {}}), /TIMERS_GITHUB_TOKEN is not set/);
   assert.deepEqual(calls, []);
   assert.deepEqual(await runTimers({cron: TICK, scheduledTime: at(3, 5).getTime()}, {TIMERS: 'on'}, {dispatch: async () => { calls.push(1); }, report: async () => {}}), [], 'off a due tick a missing token is no error');
+});
+
+test('the repo is the TIMERS_REPO var, never a literal: after the org move one edit points the starts at jobadabra/jobadabra', async () => {
+  const {calls} = await started({cron: OWN_CRON, scheduledTime: at(23, 47).getTime()}, {...ON, TIMERS_REPO: 'jobadabra/jobadabra'});
+  assert.deepEqual(calls.map(call => [call.workflow, call.repo]), [['e2e.yml', 'jobadabra/jobadabra']]);
+  const none = [];
+  await assert.rejects(runTimers({cron: OWN_CRON, scheduledTime: at(23, 47).getTime()}, {TIMERS: 'on', TIMERS_GITHUB_TOKEN: 't'}, {dispatch: async () => { none.push(1); }, report: async () => {}}), /TIMERS_REPO is not set/);
+  assert.deepEqual(none, [], 'no start goes to a guessed repo');
 });
 
 test('a refused start fails the trigger (after every job had its try), is reported to the watchdog issue, but a refused PR-verdict sweep is not', async () => {
