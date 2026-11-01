@@ -7,6 +7,7 @@ import {videoIngest, videoView} from '../../admin/lab-video.js';
 import * as sentryAlert from '../../admin/sentry-alert.js';
 import * as synthetic from '../../shared/synthetic.js';
 import {recordStarts, startIntelCollectors} from '../../shared/intel-start.js';
+import {OWN_CRON as TIMERS_OWN_CRON, runTimers} from '../../shared/timers.js';
 import {replaysIngest} from '../../admin/applying-replays.js';
 import {fidelityIngest} from '../../admin/applying-fidelity.js';
 import {verifyIngest} from '../../admin/applying-verify.js';
@@ -305,11 +306,14 @@ export default {
   queue: (batch, env) => mailUnsub.consume(batch, env),   // Email Sending bounce/complaint events (Queues subscription, api/mail-unsub.js)
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
+    // Why (1 Nov 2026, owner: "Timers to site Worker, delete bot"): the old bot Worker's on-time starts (shared/timers.js, dormant until TIMERS=on). The 47 cron is its own trigger and is awaited, so a refused start fails the cron in Cloudflare's history; it never falls through to the daily jobs.
+    if (event.cron === TIMERS_OWN_CRON) return runTimers(event, env, {dispatch}).then(() => {});
     if (event.cron === SENTRY_CRON) {   // every 5 minutes: only the Sentry alerts (admin/sentry-alert.js); the daily jobs below run once a day
       ctx.waitUntil(hostedTick(env).then(done => { if (done.enqueued || Object.keys(done.paused).length) console.log(`hosted tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`hosted tick: ${error.message}`)));   // hosted Always on: due schedules to the Queue (api/hosted-tick.js; nothing while HOSTED_ALWAYS_ON is off)
       ctx.waitUntil(readyTick(env).then(done => { if (done.started || done.finished) console.log(`ready tick: ${JSON.stringify(done)}`); }).catch(error => console.error(`ready tick: ${error.message}`)));   // Ready to send: due nights to the Queue, over-time nights finished (api/ready-tick.js; nothing while READY_TO_SEND is off)
       ctx.waitUntil(readySweep(env).catch(error => console.error(`ready sweep: ${error.message}`)));   // Ready to send: a batch older than a day loses its data (api/ready.js)
       ctx.waitUntil(sentryAlert.check(env).catch(error => console.error(`sentry alert: ${error.message}`)));
+      ctx.waitUntil(runTimers(event, env, {dispatch}).catch(error => console.error(`timers: ${error.message}`)));   // the bot Worker's starts that fall on this tick (shared/timers.js; nothing while TIMERS is off)
       ctx.waitUntil(synthetic.tick(env, new Date(event.scheduledTime || Date.now())).then(done => { if (done.ran) console.log(`synthetic round: ${JSON.stringify(done)}`); }).catch(error => console.error(`synthetic round: ${error.message}`)));   // every 15 min (shared/synthetic.js; report only)
       // Why (31 Oct 2026, owner "Start it from the Worker"; the integrations collector joined 1 Nov 2026): GitHub's hourly schedules ran every ~4.5 h or not at all; this trigger fires on time, one tick an hour per collector (INTEL_COLLECTORS, shared/intel-start.js). All 5 account cron triggers are used.
       ctx.waitUntil(startIntelCollectors(env, new Date(event.scheduledTime || Date.now()), dispatch).then(async results => { await recordStarts(env.STATS, results, new Date(event.scheduledTime || Date.now())); for (const {workflow, error} of results) { if (error) console.error(`${workflow.replace('.yml', '')} start failed: ${error}; GitHub's own schedule is the backup`); else console.log(`scheduled ${workflow} cron=*/5`); } }));
