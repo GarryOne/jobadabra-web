@@ -53,6 +53,18 @@ async function prChecks(env) {
   return [{label: 'PR checks with no real catch', value: `${idle} of ${checks.length}`, sub: `scorecard ${row.month}`, status: idle === 0 ? 'good' : idle * 2 > checks.length ? 'bad' : 'warn'}];
 }
 
+// Agent coding: the areas with 3 or more fix PRs in the last 7 days (the going-in-circles rule).
+async function agentCoding(env, now) {
+  const since = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+  let rows = [];
+  try { rows = (await env.STATS.prepare("SELECT card FROM agent_coding_days WHERE kind = 'ci' AND day > ?").bind(since).all()).results || []; } catch { rows = []; }
+  if (!rows.length) return [{label: 'Agent coding', value: 'No data', sub: 'the first daily upload fills it', status: 'none', placeholder: true}];
+  const areas = {};
+  for (const row of rows) for (const [area, n] of Object.entries(json(row.card).fixPrs || {})) areas[area] = (areas[area] || 0) + n;
+  const circles = Object.values(areas).filter(n => n >= 3).length;
+  return [{label: 'Areas going in circles', value: String(circles), sub: 'areas with 3+ fix PRs in 7 days', status: circles ? 'bad' : 'good'}];
+}
+
 // Build log: the PRs and goals of the newest day with a digest.
 async function buildLog(env) {
   const row = await first(env, 'SELECT day, groups, numbers FROM digest_days ORDER BY day DESC LIMIT 1');
@@ -82,4 +94,4 @@ async function integration(env, now) {
   return [{label: 'Integration green, 7 days', value: runs.length ? `${num(greens)} of ${num(runs.length)}` : 'No runs', sub: 'main runs of the three layers that ended green', status: !runs.length ? 'none' : greens === runs.length ? 'good' : greens / runs.length >= 0.9 ? 'warn' : 'bad'}];
 }
 
-export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/e2e': e2e, '/admin/operations/integrations': integration, '/admin/operations/schedules': schedules, '/admin/operations/self-healing': selfHealing, '/admin/operations/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
+export const OPERATIONS = {'/admin/operations/build-log': buildLog, '/admin/operations/pr-checks': prChecks, '/admin/operations/agent-coding': agentCoding, '/admin/operations/e2e': e2e, '/admin/operations/integrations': integration, '/admin/operations/schedules': schedules, '/admin/operations/self-healing': selfHealing, '/admin/operations/sentry': sentry, '/admin/intelligence/ai-cost': aiCost};
