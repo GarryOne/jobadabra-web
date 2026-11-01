@@ -17,6 +17,7 @@ function d1() {
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args), all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {prepare: sql => statement(sql), batch: async statements => { for (const item of statements) await item.run(); }};
 }
+const seen = html => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '');   // what the owner reads
 const tick = (minute, hour = 12) => new Date(Date.UTC(2026, 10, 1, hour, minute));
 const PAGES = {'e2e-intel.yml': {path: '/admin/operations/e2e', html: e2ePage}, 'integration-intel.yml': {path: '/admin/operations/integrations', html: integrationPage}};
 
@@ -29,7 +30,7 @@ test('a refused start draws "collector not starting: <reason>" on that collector
     assert.deepEqual([problem.reason, problem.at], ['E2E_INTEL_GITHUB_TOKEN is not set', tick(minute).toISOString()]);
     for (const [other, {html}] of Object.entries(PAGES)) {
       const drawn = html(null, {problem: await readStartProblem(db, other)});
-      assert.equal(/collector not starting: E2E_INTEL_GITHUB_TOKEN is not set/.test(drawn), other === workflow, `${workflow} failed, page of ${other}`);
+      assert.equal(/collector not starting: E2E_INTEL_GITHUB_TOKEN is not set/.test(seen(drawn)), other === workflow, `${workflow} failed, page of ${other}`);
     }
     await recordStarts(db, [{workflow}], tick(minute, 13));
     assert.equal(await readStartProblem(db, workflow), null, 'a good start clears the line');
@@ -55,9 +56,9 @@ test('the owner\'s case end to end: the Worker tick with no token -> the page of
     const show = async path => (await (await worker.fetch(new Request(`https://www.example.test${path}`, {headers: {Cookie: 'jp_stats=k3y'}}), env, {waitUntil() {}})).text());
     for (const {workflow, minute} of INTEL_COLLECTORS) {
       await run(minute, env);
-      assert.match(await show(PAGES[workflow].path), /collector not starting: E2E_INTEL_GITHUB_TOKEN is not set/, `${workflow}: no token`);
+      assert.match(seen(await show(PAGES[workflow].path)), /collector not starting: E2E_INTEL_GITHUB_TOKEN is not set/, `${workflow}: no token`);
       await run(minute, {...env, E2E_INTEL_GITHUB_TOKEN: 'own-token'});
-      assert.doesNotMatch(await show(PAGES[workflow].path), /collector not starting/, `${workflow}: the token is set, the next tick clears the line`);
+      assert.doesNotMatch(seen(await show(PAGES[workflow].path)), /collector not starting/, `${workflow}: the token is set, the next tick clears the line`);
     }
     await run(35, env);
     assert.equal(await readStartProblem(STATS, 'e2e-intel.yml'), null, 'an off-tick writes nothing');
