@@ -87,3 +87,8 @@ test('every *-intel.yml workflow with an hourly cron that publishes to the site 
     assert.ok(INTEL_COLLECTORS.some(item => item.workflow === file), `${file} is an hourly collector: add it to INTEL_COLLECTORS (shared/intel-start.js)`);
   }
 });
+
+test('www sets E2E_INTEL_REPO to the repo that holds the collectors, so the start does not lean on the old path\'s redirect', () => {
+  const toml = readFileSync(new URL('../../workers/www/wrangler.toml', import.meta.url), 'utf8');
+  assert.match(toml, /^E2E_INTEL_REPO = "jobadabra\/jobadabra-web"$/m);
+});
