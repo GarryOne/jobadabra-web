@@ -107,6 +107,8 @@ export class CodexBroker extends Container {
       else if (engine === 'claude-api' || engine === 'free-ai') reply = (!body.search && apiPrecheck(body)) || await apiStep(engine === 'claude-api' ? 'claude' : 'free-ai', ctx);
       // `claude` (the subscription engine) is built in PR 4/7: its step passes.
       if (!reply) continue;
+      // Why (1 Nov 2026, Gitar on #289): an engine that sits BEFORE Codex and answers badly (refused, truncated, invalid JSON) must not end the chain while Codex has not run; after Codex a refusal stays the last-resort answer it always was. A 400 (empty prompt) is nobody's answer to retry.
+      if (!reply.ok && reply.status !== 400 && chain.indexOf(engine) < chain.indexOf('codex')) continue;
       if (reply.ok) await countAnswer(this.ctx.storage, new Date(Date.now()).toISOString().slice(0, 10), engine);
       return reply;
     }

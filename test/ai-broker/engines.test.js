@@ -106,3 +106,19 @@ test('an unknown ENGINE keeps today\'s behaviour and /health says why', async t 
   const health = await (await broker.health()).json();
   assert.equal(health.engine, 'codex'); assert.match(health.warning, /unknown ENGINE "banana"/);
 });
+
+test('ENGINE=free-ai: a bad Free AI answer (invalid JSON for a schema, a cut-off reply) does not end the chain, Codex answers; after Codex the refusal stays final (Gitar on #289)', async t => {
+  const schema = {type: 'object'};
+  for (const bad of [() => ({response: 'not json', usage: {prompt_tokens: 100, completion_tokens: 20}}), () => ({choices: [{finish_reason: 'length', message: {content: 'cut'}}], usage: {prompt_tokens: 100, completion_tokens: 20}})]) {
+    const {broker, calls} = world(t, 'free-ai', {free: bad});
+    const response = await broker.call('pr', {...body, schema});
+    assert.equal(response.status, 200); assert.equal(await answered(response), 'codex');
+    assert.equal(calls.free, 1);   // it was asked and its answer was refused, then Codex answered
+  }
+  const last = world(t, 'codex');
+  await last.storage.put('limits', {usedPercent: 100, resetsAt: day / 1000 + 3600});
+  last.broker.limits = null;
+  t.mock.method(globalThis, 'fetch', async () => Response.json({type: 'message', content: [{type: 'text', text: 'not json'}], stop_reason: 'end_turn', usage: {input_tokens: 100, output_tokens: 20}}));
+  const refused = await last.broker.call('pr', {...body, schema});
+  assert.equal(refused.status, 503); assert.equal((await refused.json()).why, 'fallback:invalid-json');   // Claude after Codex: the same last-resort 503 as before the flag
+});
