@@ -2,7 +2,7 @@ name: Release · AI broker
 # Deploys the AI broker Worker and its container image (workers/ai-broker) when they change on main. The broker holds the owner's one ChatGPT/Codex login and runs every CI, scheduled and
 # benchmark AI call (spec docs/superpowers/specs/2026-10-28-ci-on-codex-subscription-design.md in the public repo). Same secrets as Release · Ready to send runner. The image holds no secret; the login lives in the Durable Object.
 # Why (28 Oct 2026, owner): CI on Free AI billed ~$4/day of neurons unseen; the owner bought a Codex plan and wants CI on it.
-# Why (1 Nov 2026, owner: rename to ai-broker): by hand only until the Durable Object transfer from jobadabra-codex-broker has run (workers/ai-broker/transfer/README.md); a push trigger would deploy the new Worker name
+# Why (1 Nov 2026, owner: rename to ai-broker): by hand only until the Durable Object transfer from jobadabra-codex-broker has run (done 1 Nov 2026); a push trigger would deploy the new Worker name
 # with an EMPTY namespace and lose the Codex login. The transfer has run (1 Nov 2026) and its folder is gone (7/7, 2 Nov 2026); the push trigger comes back in its own PR once this workflow has deployed the broker once (CI path unproven: the broker so far was deployed from the owner's Mac).
 on:
   workflow_dispatch:
@@ -33,9 +33,9 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != ''
         with:
           node-version: '22'
-      - name: Refuse unless the transfer has run
+      - name: Refuse unless the broker holds a login
         if: env.CLOUDFLARE_API_TOKEN != ''
-        run: curl -fsS --max-time 30 https://jobadabra-ai-broker.jobpilotto.workers.dev/health | grep -q '"state":"ready"' || { echo "::error::The AI broker is not ready with a login: run the namespace transfer first (workers/ai-broker/transfer/README.md)."; exit 1; }
+        run: curl -fsS --max-time 30 https://jobadabra-ai-broker.jobpilotto.workers.dev/health | grep -q '"state":"ready"' || { echo "::error::The AI broker is not ready with a login: a deploy would not restore it: upload the Codex login first (BROKER_ADMIN_TOKEN, see the header of workers/ai-broker/wrangler.jsonc)."; exit 1; }
       - name: The broker's own tests first
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: node --test test/ai-broker/*.test.js
