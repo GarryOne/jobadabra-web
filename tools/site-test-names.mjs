@@ -20,7 +20,7 @@ export function misnamed(folders, files) {
 function mapPairs(dir) {
   return readFileSync(path.join(dir, 'tools/layout-map.txt'), 'utf8').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).map(line => line.split(/\s+/));
 }
-function tracked(dir, folder) {
+export function tracked(dir, folder) {
   const pairs = mapPairs(dir);
   const raw = (pairs.find(([, joined]) => joined === folder) || [folder])[0];
   const nested = pairs.map(([from]) => from).filter(from => from !== raw && from.startsWith(`${raw}/`));
