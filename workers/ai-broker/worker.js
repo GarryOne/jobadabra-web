@@ -129,7 +129,10 @@ export class CodexBroker extends Container {
       if (reply.ok && skipped.length) return json(200, {...(await reply.json()), fellBack: skipped});
       return reply;
     }
-    if (body.only === true) return json(503, {why: `only-${chain[0]}: ${skipped.find(entry => entry.engine === chain[0])?.why ?? (configured(chain[0], env) ? 'unavailable' : 'not-configured')}`, engine: chain[0], tried: skipped});   // strict call: nobody else answers, and the reason is named
+    if (body.only === true) {
+      if (chain[0] === 'free-ai' || chain[0] === 'claude-api') return apiFinish(env, note);   // Why (Gitar on #296): their own reasons stay: fallback:search-unsupported, fallback:unavailable, the 429 day cap
+      return json(503, {why: `only-${chain[0]}: ${body.search ? 'search-unsupported' : (skipped.find(entry => entry.engine === chain[0])?.why ?? (configured(chain[0], env) ? 'unavailable' : 'not-configured'))}`, engine: chain[0], tried: skipped});   // strict call: nobody else answers, and the reason is named
+    }
     return apiFinish(env, note);
   }
 

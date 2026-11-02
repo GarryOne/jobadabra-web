@@ -293,8 +293,17 @@ test('only: true pins a call to one engine for each of codex, claude and free-ai
   assert.ok(!free.dispatched.length);
   const dry = world(t, 'codex', {...withToken, free: () => { throw new Error('model down'); }});
   const none = await dry.broker.call('pr', {...body, engine: 'free-ai', only: true});
-  assert.equal(none.status, 503); assert.equal((await none.json()).why, 'only-free-ai: unavailable');
+  assert.equal(none.status, 503); assert.equal((await none.json()).why, 'fallback:unavailable');
   assert.ok(!dry.dispatched.length);
+  // the API engines keep their own specific refusals (Gitar on #296): search is not theirs, a used-up day is the budget answer
+  const search = await free.broker.call('pr', {...body, engine: 'free-ai', only: true, search: true});
+  assert.equal(search.status, 503); assert.equal((await search.json()).why, 'fallback:search-unsupported');
+  const capped = world(t, 'codex', {...withToken, extra: {FALLBACK_FREE_AI_DAY_USD: '0'}});
+  const spent = await capped.broker.call('pr', {...body, engine: 'free-ai', only: true});
+  assert.equal(spent.status, 429); assert.match((await spent.json()).why, /^budget:fallback-day/);
+  assert.ok(!capped.dispatched.length && capped.calls.free === 0);
+  const claudeSearch = await ok.broker.call('pr', {...body, engine: 'claude', only: true, search: true});
+  assert.equal(claudeSearch.status, 503); assert.equal((await claudeSearch.json()).why, 'only-claude: search-unsupported');
   // without only the same calls still fall back (unchanged)
   const open = world(t, 'codex', {...withToken, claude: claudeFails('claude-failed:1 boom')});
   assert.equal(await answered(await open.broker.call('pr', {...body, engine: 'claude'})), 'codex');   // the next engine in the chain, as before
