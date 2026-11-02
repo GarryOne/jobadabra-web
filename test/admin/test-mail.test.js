@@ -17,7 +17,7 @@ const ask = (e, query, key = 'api-key') => view(new Request(`https://x/admin/tes
 
 test('which addresses are test inboxes', () => {
   for (const ok of ['test-account-adnovum@jobpilotto.top', 'Test-Account-X@jobpilotto.top']) assert.ok(isTestAddress(ok), ok);
-  for (const no of ['office@jobpilotto.top', 'hello@jobpilotto.top', 'test-account-@jobpilotto.top', 'test-account-x@evil.com', 'test-account-x@jobpilotto.top.evil.com', '']) assert.ok(!isTestAddress(no), no);
+  for (const no of ['office@jobpilotto.top', 'hello@jobpilotto.top', 'test-account-@jobpilotto.top', 'test-account-x@evil.com', 'test-account-x@jobadabra.top.evil.com', '']) assert.ok(!isTestAddress(no), no);
 });
 
 test('a test-account mail is stored with its link and code; any other address is rejected and never stored', async () => {

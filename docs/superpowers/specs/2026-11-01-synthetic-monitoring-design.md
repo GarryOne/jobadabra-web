@@ -38,7 +38,7 @@ A broken service (index pack empty, update feed 502, Free AI key check refused, 
 
 **Risk, decided by the first real round (acceptance 5):** a Worker fetching its own public URL can be refused by Cloudflare (error 1042, same-zone Worker-to-Worker). If the first round is red on `unreachable` for every probe, the fix is a self service binding in `wrangler.toml` and the fetcher through it; the heartbeat below keeps the outside view either way.
 
-**Outside heartbeat: dropped (owner, 1 Nov 2026: "SRE Job Pilotto Worker is an old telegram bot which should be decommissioned" → timers to the site Worker, delete the bot).** It was to live in the bot Worker, which is going away. The outside check that stays is the hourly `schedule-watchdog.yml` on GitHub's own cron (jobadabra #2895): it already catches the site Worker's timers stopping, and it now also reads `/api/synthetic/last` and files a line in its issue when the newest probe round is older than 45 min.
+**Outside heartbeat: dropped (owner, 1 Nov 2026: "SRE Jobadabra Worker is an old telegram bot which should be decommissioned" → timers to the site Worker, delete the bot).** It was to live in the bot Worker, which is going away. The outside check that stays is the hourly `schedule-watchdog.yml` on GitHub's own cron (jobadabra #2895): it already catches the site Worker's timers stopping, and it now also reads `/api/synthetic/last` and files a line in its issue when the newest probe round is older than 45 min.
 
 **Reason text** is short and fixed-form (`HTTP 502`, `no employers in the list`, `timeout 10s`); never a response body.
 

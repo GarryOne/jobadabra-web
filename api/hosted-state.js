@@ -89,5 +89,5 @@ export async function own(request, env) {
   const config = env.HOSTED_STATE ? await read(env, account.id, 'config.json') : null;
   const b64 = array => { let s = ''; for (const b of array) s += String.fromCharCode(b); return btoa(s); };
   return new Response(JSON.stringify({ok: true, inbox: results.map(r => ({job: r.job, at: r.at, ...JSON.parse(r.payload)})),
-    config: config ? JSON.parse(new TextDecoder().decode(config)) : null, stateTgzBase64: bytes ? b64(bytes) : null}, null, 1), {headers: {'content-type': 'application/json', 'content-disposition': 'attachment; filename="job-pilotto-hosted-data.json"'}});
+    config: config ? JSON.parse(new TextDecoder().decode(config)) : null, stateTgzBase64: bytes ? b64(bytes) : null}, null, 1), {headers: {'content-type': 'application/json', 'content-disposition': 'attachment; filename="jobadabra-hosted-data.json"'}});
 }

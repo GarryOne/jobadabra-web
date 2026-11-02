@@ -113,7 +113,7 @@ jobs:
           folder="$RUNNER_TEMP/draw-out/draw"
           presses=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['presses'])" "$folder/draw.json")
           field=(); [ -f "$folder/field.json" ] && field=(--change-field "$folder/field.json")
-          export RANDOM_DRAWS_ANTHROPIC_KEY="$(cat "$RUNNER_TEMP/free.key")" ANTHROPIC_BASE_URL=http://127.0.0.1:8787/api/ai JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http://127.0.0.1:8787/api/ai
+          export RANDOM_DRAWS_ANTHROPIC_KEY="$(cat "$RUNNER_TEMP/free.key")" ANTHROPIC_BASE_URL=http://127.0.0.1:8787/api/ai JOBADABRA_E2E=1 JOBADABRA_E2E_AI_BASE_URL=http://127.0.0.1:8787/api/ai
           status=0   # a crashed search still reports what Free AI spent, then fails the step
           node tools/persona-search/run.mjs draw "$RUNNER_TEMP/draw-out" --presses "$presses" --note "$folder/note.txt" "${field[@]}" --engine api --fresh 2>&1 | tee "$RUNNER_TEMP/draw.log" || status=$?
           curl -sf http://127.0.0.1:8787/__report > "$folder/free-ai.json"

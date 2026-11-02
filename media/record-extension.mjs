@@ -19,9 +19,9 @@ export const VIEW = {width: 1440, height: 900};   // 16:10, captured at 2x
 // The panel at rest: while a fill step shows it sits centred over the dimmed page (review.js place()), then it goes back to its corner. A look measured
 // mid-move framed the empty centre and lost the panel (hero, 24 Oct 2026), so this waits (up to 8 s) for the corner, then for the box to stop moving.
 const panelBox = async page => {
-  await page.waitForFunction(() => { const host = document.getElementById('jobpilotto-review-host'); return host && !host.style.transform; }, null, {timeout: 8000}).catch(() => {});
+  await page.waitForFunction(() => { const host = document.getElementById('jobadabra-review-host'); return host && !host.style.transform; }, null, {timeout: 8000}).catch(() => {});
   const measure = () => page.evaluate(() => {
-    const host = document.getElementById('jobpilotto-review-host');
+    const host = document.getElementById('jobadabra-review-host');
     const card = host?.shadowRoot?.querySelector('.card:not([hidden]), .jp') || host;
     const r = card?.getBoundingClientRect();
     return r && r.width ? {x: r.x, y: r.y, width: r.width, height: r.height} : null;
@@ -54,16 +54,16 @@ export async function recordExtensionVideo({persona, piece, dir}) {
     for (const item of piece.steps) {
       stepMarks(item, log);   // picture in picture (pip.mjs): where two recordings meet, and who leads
       if (item.fill) {   // what the app's Apply does: the tab, marked for the extension, which then reads and fills the form by itself
-        await page.evaluate(() => { location.hash = 'jobpilotto-fill'; });
+        await page.evaluate(() => { location.hash = 'jobadabra-fill'; });
         // picture in picture: the other recording's card starts ticking when the first field is filled, not while the panel still reads the page
         const firstField = () => page.waitForFunction(() => [...document.querySelectorAll('input, select, textarea')].some(e => (e.type === 'checkbox' ? e.checked : e.type === 'file' ? e.files.length : e.value)), null, {timeout: 60000, polling: 50});
         if (item.sync) firstField().then(() => log.add({type: 'sync'})).catch(() => {});
-        await page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('button'), null, {timeout: 20000});
+        await page.waitForFunction(() => document.getElementById('jobadabra-review-host')?.shadowRoot?.querySelector('button'), null, {timeout: 20000});
         log.add({type: 'mark'});
         // picture in picture (pip.mjs fillSeconds): the fill ends at the panel's own done state ('.ready', extension/review.js); the next steps
         // wait for it, so the main picture shows the whole fill and the other recording's card is paced on it
         if (item.sync) {
-          await page.waitForFunction(() => document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.ready'), null, {timeout: 60000, polling: 50});
+          await page.waitForFunction(() => document.getElementById('jobadabra-review-host')?.shadowRoot?.querySelector('.ready'), null, {timeout: 60000, polling: 50});
           log.add({type: 'filled'});
         }
         continue;

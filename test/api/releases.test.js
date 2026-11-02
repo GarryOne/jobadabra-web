@@ -5,7 +5,7 @@ import worker from '../../workers/www/index.js';
 import {releases} from '../../api/releases.js';
 
 const RELEASE = {tag_name: 'desktop-v0.6.19', name: '0.6.19', body: 'Notes', html_url: 'https://github.com/x', prerelease: false, draft: false, author: {login: 'x'},
-  assets: [{name: 'Job-Pilotto-0.6.19-x64.exe', browser_download_url: 'https://dl/exe', size: 9, uploader: {}}]};
+  assets: [{name: 'Jobadabra-0.6.19-x64.exe', browser_download_url: 'https://dl/exe', size: 9, uploader: {}}]};
 const memoryCache = () => { const kept = new Map(); return {match: async r => kept.get(r.url)?.clone(), put: async (r, a) => { kept.set(r.url, a); }}; };
 
 test('the latest release is read once with the site token and served from the cache after that', async () => {
@@ -18,7 +18,7 @@ test('the latest release is read once with the site token and served from the ca
     assert.equal(answer.status, 200);
     const body = await answer.json();
     assert.equal(body.tag_name, 'desktop-v0.6.19');
-    assert.deepEqual(body.assets, [{name: 'Job-Pilotto-0.6.19-x64.exe', browser_download_url: 'https://dl/exe', size: 9}], 'only what the updater reads');
+    assert.deepEqual(body.assets, [{name: 'Jobadabra-0.6.19-x64.exe', browser_download_url: 'https://dl/exe', size: 9}], 'only what the updater reads');
     assert.equal(body.author, undefined);
   }
   assert.equal(calls.length, 1, 'one GitHub call for every install in the cache window, whatever the query');

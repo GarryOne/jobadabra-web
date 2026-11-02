@@ -70,7 +70,7 @@ test('takeOf reuses a kept take unless HERO_FRESH, records through the take queu
   assert.match(source, /fs\.writeFileSync\(path\.join\(dir, KEY_FILE\), key\)/);
   assert.match(source, /const \[main, narrow\] = await Promise\.all\(\[takeOf\(/);
   assert.match(source, /const finishes = await settled\(options\.pieces[^\n]*makeVideo\(/, 'every piece records at once (the queue bounds it), renders after');
-  assert.match(fs.readFileSync(path.join(media, 'record-app.mjs'), 'utf8'), /JOB_PILOTTO_PORT: String\(await freePort\(\)\)/, 'each app on its own port, never the live 47111');
+  assert.match(fs.readFileSync(path.join(media, 'record-app.mjs'), 'utf8'), /JOBADABRA_PORT: String\(await freePort\(\)\)/, 'each app on its own port, never the live 47111');
 });
 
 test('apps start one at a time, a failed start is tried again, and a stray library error still ends as media: FAILED', () => {

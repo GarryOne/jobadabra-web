@@ -100,7 +100,7 @@ test('a test send mails only the test inbox, through the real sender, and says s
 test('a test send refuses any other address, an unknown template, a stranger and a foreign origin', async () => {
   const {env, sent} = await live();
   assert.equal((await view(post({template: 'welcome', to: 'real.person@example.com'}), env)).status, 400);
-  assert.equal((await view(post({template: 'welcome', to: 'test-account-x@jobpilotto.top.evil.com'}), env)).status, 400);
+  assert.equal((await view(post({template: 'welcome', to: 'test-account-x@jobadabra.top.evil.com'}), env)).status, 400);
   assert.equal((await view(post({template: 'nope'}), env)).status, 400);
   assert.equal((await view(post({template: 'welcome'}, {key: 'wrong'}), env)).status, 404);
   assert.equal((await view(post({template: 'welcome'}, {key: ''}), env)).status, 404);

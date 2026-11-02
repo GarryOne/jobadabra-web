@@ -1,4 +1,4 @@
-// /admin/form-filling/lab's recorded cases section, "Page cases" (owner, 12 Oct 2026, via job-pilotto-cc: the old title "every fixed site, replayed" overclaimed): CI on main's
+// /admin/form-filling/lab's recorded cases section, "Page cases" (owner, 12 Oct 2026, via jobadabra-cc: the old title "every fixed site, replayed" overclaimed): CI on main's
 // replays of every recorded case (admin/applying-replays.js), each case one mechanism on a small page with a stubbed AI answer, with its origin (captured from a real page or hand-cut),
 // search, filters, sorting and pages. A case never says a site works: a fix is "Confirmed offline" on the Fixed tab, from the row's recording.
 // admin/applying.js puts CASES_SCRIPT inside its page, where it uses that page's el, heads, dots, ago, pick, sortRows, caseMatches and runsScore. Guard: test/admin/applying-replays.test.js, test/admin/applying-fixed.test.js.

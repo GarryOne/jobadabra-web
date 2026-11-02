@@ -3,8 +3,8 @@
 Owner, 20 Oct 2026: "I want me doing nothing and everything being done automatically, with AI." Sketch approved the same day
 (https://claude.ai/artifact/3JNoLY2QHGiuH5vkuJkjNf): effects in code + Claude as director, auto re-run when the screens change.
 Persona: "Nurse in Lyon" (owner, 20 Oct 2026); another search profile is one option (`--persona <folder>`).
-Moved from the public repo to this one on 20 Oct 2026 (owner: "We want to keep everything job-pilotto/Jobadabra product related (marketting..) privately").
-The public repo keeps only the app's hook `JOB_PILOTTO_DEMO_DIR` (desktop/lib/demo.js, its test desktop/test/demo-dir.test.js).
+Moved from the public repo to this one on 20 Oct 2026 (owner: "We want to keep everything jobadabra/Jobadabra product related (marketting..) privately").
+The public repo keeps only the app's hook `JOBADABRA_DEMO_DIR` (desktop/lib/demo.js, its test desktop/test/demo-dir.test.js).
 
 ## How it works
 - `tools/site-run.sh bash -c 'node media/media.mjs'` (media/media.mjs, laid over public main): records the app (demo mode, dark, hidden window, temp copy of the persona folder) and the real

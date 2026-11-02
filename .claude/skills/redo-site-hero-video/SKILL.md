@@ -79,7 +79,7 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 | Caption + tag chip | always: what happens and where | every step |
 
 ## Scene vocabulary (`media/scenes.mjs`)
-- A piece: `env` (extra app env for that recording, e.g. `JOB_PILOTTO_DEMO_STRATEGY_DELAY` so the demo "Claude reads your CV" step lasts), `camera: 'steady'` (opens framed, clicks never move it), `phone: PHONE` (the 720×540 copy), `budget` (bytes), `speed`, `moment`,
+- A piece: `env` (extra app env for that recording, e.g. `JOBADABRA_DEMO_STRATEGY_DELAY` so the demo "Claude reads your CV" step lasts), `camera: 'steady'` (opens framed, clicks never move it), `phone: PHONE` (the 720×540 copy), `budget` (bytes), `speed`, `moment`,
   `motion: 'reduce'` (extension: no aurora/shimmer sweep), `settings` (app wizard state), `caption`.
 - **Every look names its `beat`**: the one thing the viewer reads there, ≥ 12 characters, unique (test: media-options). A phase is **the user's real
   sequence, one beat per step**, at least three beats (Apply excepted). Write the beats first (the storyboard), then the steps.

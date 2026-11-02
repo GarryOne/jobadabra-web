@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import {check, kindOf, spiking, message} from '../../admin/sentry-alert.js';
 
 const NOW = Date.parse('2026-10-16T12:00:00Z'), old = '2026-10-01T00:00:00Z';
-const issue = (id, extra = {}) => ({id: String(id), shortId: `JOB-PILOTTO-APP-${id}`, title: `Error ${id}`, level: 'error', count: '5', userCount: 2, culprit: 'src/x.py in run',
+const issue = (id, extra = {}) => ({id: String(id), shortId: `JOBADABRA-APP-${id}`, title: `Error ${id}`, level: 'error', count: '5', userCount: 2, culprit: 'src/x.py in run',
   firstSeen: old, lastSeen: '2026-10-16T11:59:00Z', permalink: `https://job-pilotto.sentry.io/issues/${id}/`, substatus: 'ongoing', metadata: {type: 'Error'}, ...extra});
 const flat = n => ({'24h': Array.from({length: 24}, (_, i) => [i, n])});
 
@@ -78,6 +78,6 @@ test('switched off or not set up: no call at all', async () => {
 });
 
 test('text from Sentry cannot break the message markup; the fixer\'s pull request is linked', () => {
-  const html = message(issue(9, {title: '<b>x</b> & y'}), 'new', {version: '', base: 'https://b', fix: {pulls: [{head: {ref: 'sentry-fix/job-pilotto-app-9'}, state: 'open', merged_at: null, html_url: 'https://github.com/x/pull/9'}], verdicts: []}});
+  const html = message(issue(9, {title: '<b>x</b> & y'}), 'new', {version: '', base: 'https://b', fix: {pulls: [{head: {ref: 'sentry-fix/jobadabra-app-9'}, state: 'open', merged_at: null, html_url: 'https://github.com/x/pull/9'}], verdicts: []}});
   assert.ok(html.includes('&lt;b&gt;x&lt;/b&gt; &amp; y') && html.includes('https://github.com/x/pull/9'));
 });

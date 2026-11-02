@@ -24,7 +24,7 @@ Nothing here may be needed by a public file, test or workflow. Never copy a priv
 - **A job that calls the AI must never fail silently** (owner, 24 Oct 2026: the key's workspace hit its monthly limit; the changelog stayed green for a day, the digest failed 7 of 8 runs unseen): catch `AiRefused` (`admin/ai-refusal.js`, thrown by `ask`), name the cause, `reportRefusal` (Telegram once per outage), fail the run red, and keep a fallback that needs no AI where the output matters (`admin/changelog-plain.js`). New AI call = same handling + a test on fake 400-limit / 429 answers.
 
 ## Safety (same as the public repo)
-- Secrets only in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Worker secrets. Never in code, docs, logs or PR text. The owner sets this repo's secrets; never print or copy a value.
+- Secrets only in the macOS Keychain (`jobadabra.*`), GitHub secrets and Worker secrets. Never in code, docs, logs or PR text. The owner sets this repo's secrets; never print or copy a value.
 - No AI spend without the owner's yes. Keep `/admin` behind its keys; never open a route without the guard its siblings have.
 - Never edit another session's worktree. One issue per session.
 - Cost: this repo is PUBLIC (checked with `gh repo view`, 1 Nov 2026), so its Actions minutes are free; the owner keeps all repos public in this phase to use GitHub's public tier (owner, 1 Nov 2026, via mac-07: "For now we want to keep all public, in this phase of product, to benefit from Github public tier"). Making any repo private again brings back a minutes budget (about 4,000 a month on the old private plan): say so before it. Still say what a new schedule or matrix costs in runs.

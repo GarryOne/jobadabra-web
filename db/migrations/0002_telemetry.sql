@@ -1,4 +1,4 @@
--- Technical reports from Job Pilotto apps (site/src/telemetry.js; the app scrubs them first: desktop/lib/telemetry.js).
+-- Technical reports from Jobadabra apps (site/src/telemetry.js; the app scrubs them first: desktop/lib/telemetry.js).
 -- No personal data: a random install id, version, OS, and the event's technical fields. Kept 90 days.
 -- Applied by the site's deploy (.github/workflows/site.yml: wrangler d1 migrations apply).
 CREATE TABLE telemetry (

@@ -11,7 +11,7 @@ set -euo pipefail
 trap 'echo "media: FAILED at line $LINENO (see the lines above)" >&2' ERR   # a silent stop is never success
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cache="$HOME/.cache/jobadabra-media"; mkdir -p "$cache"
-run="${MEDIA_RUN_DIR:-$HOME/job-pilotto-site-media-run}"
+run="${MEDIA_RUN_DIR:-$HOME/jobadabra-site-media-run}"
 background=no; check=no; args=()
 while [ $# -gt 0 ]; do case "$1" in
   --background) background=yes;; --check) check=yes;;
@@ -59,7 +59,7 @@ done
 # 5. record, render, check (one heavy run at a time on this Mac)
 node "$here/media/prune.mjs" "$cache"   # the cache keeps the newest few of each kind (media/prune.mjs)
 out="$cache/set-$(date +%Y%m%d-%H%M%S)"; start=$SECONDS
-lock="${MEDIA_HEAVY_LOCK:-$HOME/job-pilotto/tools/heavy-lock.sh}"
+lock="${MEDIA_HEAVY_LOCK:-$HOME/jobadabra/tools/heavy-lock.sh}"
 record=(node ../media/media.mjs --out "$out" ${args[@]+"${args[@]}"})
 echo "media: recording ${args[*]:-all pieces} into $out"
 if [ -f "$lock" ]; then (cd "$tree/desktop" && bash "$lock" product-media "${record[@]}"); else (cd "$tree/desktop" && "${record[@]}"); fi

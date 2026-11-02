@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI: lays the public job-pilotto repo's tree over the workspace, then this repo's files over that, so a moved workflow runs exactly as it did in the public repo.
+# CI: lays the public jobadabra repo's tree over the workspace, then this repo's files over that, so a moved workflow runs exactly as it did in the public repo.
 # This repo is checked out at .private/ (actions/checkout with path: .private). Usage: .private/tools/tree.sh [--full] [--ref <branch-or-sha>]
 # Sets PUBLIC_SHA (the public commit under test) for later steps. The public repo is public: no token needed.
 set -euo pipefail
@@ -28,4 +28,4 @@ rsync -a --exclude '.git' --exclude '.private/' --exclude 'README.md' --exclude 
 (cd "." && git ls-files -o --exclude-standard -z | xargs -0 -n 500 git add -N --)
 sha="$(git rev-parse HEAD)"
 echo "PUBLIC_SHA=$sha" >> "${GITHUB_ENV:-/dev/null}"
-echo "tree: job-pilotto@${sha:0:9} ($ref) + $(git -C .private rev-parse --short HEAD) of jobadabra-web"
+echo "tree: jobadabra@${sha:0:9} ($ref) + $(git -C .private rev-parse --short HEAD) of jobadabra-web"

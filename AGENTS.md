@@ -1,6 +1,6 @@
 # jobadabra-web: instructions for any agent (Claude, Codex, or other)
 
-This is the private repo of the Job Pilotto website, `/admin` and the CI that feeds them. The rules are in **[CLAUDE.md](CLAUDE.md)** (written for Claude Code, valid for any agent) and **[README.md](README.md)**.
+This is the private repo of the Jobadabra website, `/admin` and the CI that feeds them. The rules are in **[CLAUDE.md](CLAUDE.md)** (written for Claude Code, valid for any agent) and **[README.md](README.md)**.
 
 In one breath:
 - **Private reads public, public never reads private.** Work inside the joined tree: `tools/site-run.sh <cmd>`.

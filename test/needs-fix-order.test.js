@@ -78,5 +78,5 @@ test('the command prints rank, shape, platform, reached, filled/left and claimed
   assert.match(lines[4], /^4\s+Aaa small site\s+Custom\s+posting\s+—\s+—$/);
   assert.match(lines[5], /^5\s+Ddd big form\s+Greenhouse\s+form\s+5\/12\s+—$/);
   assert.equal(lines.length, 6);
-  assert.doesNotMatch(lines.join('\n'), /job-pilotto-\d|token|key/i);
+  assert.doesNotMatch(lines.join('\n'), /jobadabra-\d|token|key/i);
 });

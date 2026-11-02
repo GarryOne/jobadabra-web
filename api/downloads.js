@@ -8,9 +8,8 @@ import {net} from './attribution.js';
 import {device} from '../shared/device.js';
 
 const RELEASE = 'https://github.com/GarryOne/jobadabra/releases/latest/download/';
-// The fixed fallback keeps the old alias: every stable release has it (it is uploaded beside Jobadabra-mac-arm64.dmg for a few releases), and the
-// first Jobadabra-named release is not latest yet when this ships. The normal path (versioned, below) already prefers the Jobadabra-* file.
-export const FILES = {mac: 'Job-Pilotto-mac-arm64.dmg', 'windows-exe': 'Job-Pilotto-windows-x64.exe'};
+// The fixed fallback: the alias every stable release uploads beside its versioned file (the latest stable, desktop-v0.8.60, has both).
+export const FILES = {mac: 'Jobadabra-mac-arm64.dmg', 'windows-exe': 'Jobadabra-windows-x64.exe'};
 // Store listings (owner, 26 Oct 2026: "Store first, .exe small"): a Microsoft Store install never shows SmartScreen or Edge's Keep/Delete, and the
 // Store keeps that copy updated; the .exe stays one small link (windows-exe). Guarded by test/api/store-downloads.test.js.
 export const STORES = {windows: 'https://apps.microsoft.com/detail/9NW1JJ7Z90MP',
@@ -57,11 +56,11 @@ export async function hit(request, env, now = new Date()) {
 }
 
 // GET /download/mac?from=hero&page=/&src=linkedin.com: count it (in the background), then send the visitor to the file.
-// The latest stable release's own file (Jobadabra-0.8.28-arm64.dmg; Job-Pilotto-… on a release made before the rename), so each download is named after its
+// The latest stable release's own file (Jobadabra-0.8.28-arm64.dmg), so each download is named after its
 // version instead of Chrome's "Jobadabra-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
 // cache); if GitHub doesn't answer, the fixed name above still works.
-const VERSIONED = {mac: [/^Jobadabra-\d[\w.-]*-arm64\.dmg$/, /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/],
-  'windows-exe': [/^Jobadabra-\d[\w.-]*-x64\.exe$/, /^Job-Pilotto-\d[\w.-]*-x64\.exe$/]};
+const VERSIONED = {mac: [/^Jobadabra-\d[\w.-]*-arm64\.dmg$/],
+  'windows-exe': [/^Jobadabra-\d[\w.-]*-x64\.exe$/]};
 export async function versioned(platform, env, fetcher = globalThis.fetch, cache = globalThis.caches?.default) {
   const api = `https://api.github.com/repos/${env.GITHUB_REPO || 'GarryOne/jobadabra'}/releases/latest`;
   try {

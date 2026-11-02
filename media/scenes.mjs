@@ -47,7 +47,7 @@ const typeNote = text => `(() => { const box = document.getElementById('q-more')
 const scrollTo = (title, behavior = 'instant') => `[...document.querySelectorAll('.job-row')].find(row => row.textContent.includes(${JSON.stringify(title)}))?.scrollIntoView({block: 'center', behavior: '${behavior}'})`;
 // Find (round 3, owner 24 Oct 2026: "From a wizard, fresh setup, we should come to jobs and see a big button/card saying 'Find jobs' ... highlight clicking on
 // it, then show the card doing the job of finding jobs"): a fresh demo (no search yet: lastSearchAt "") opens Jobs on the big Find jobs card; pressing it plays
-// the demo's scripted search (desktop/lib/demo-search.js, shortened by JOB_PILOTTO_DEMO_SEARCH_SECONDS), then the list fills. "When we click on a job, we're
+// the demo's scripted search (desktop/lib/demo-search.js, shortened by JOBADABRA_DEMO_SEARCH_SECONDS), then the list fills. "When we click on a job, we're
 // moving too fast to the job drawer": the drawer's first look is the clip's one camera move, from her row to the panel, not a cut.
 const SEARCH_SECONDS = 7;
 // Once the search's list is in (it loads a moment after the search ends): "In conversation" folded so the list sits under the card, her row to the middle.
@@ -103,7 +103,7 @@ const HER_FORM = ['First name', 'Last name', 'Email', 'Resume/CV', 'Are you lega
 export const VIDEOS = {
   'hero-onboarding': {kind: 'video', moves: 3, source: 'app', slide: 1, stageInto: 'fade', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 1.8e6, desktop: DESKTOP, phone: PHONE,
     settings: {setupDone: false, wizardStep: 'ai'}, quiet: true,   // the first-run wizard from its first step (round 3, owner: "starts from step 3/5"); a still page: frames only when it changes
-    env: {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '4500'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV" (owner, 25 Oct 2026: "it moves to the next screen too fast")
+    env: {JOBADABRA_DEMO_STRATEGY_DELAY: '4500'},   // the demo's pretend AI run (no AI called) lasts long enough to read "read your CV" (owner, 25 Oct 2026: "it moves to the next screen too fast")
     shows: 'The setup: Free AI picked, the CV, a line on the job wanted, the AI reading the CV, the strategy it proposes, confirmed',
     caption: 'Add your CV. Shape your search.', alt: 'The Jobadabra setup: a CV added, a note on the job wanted, the AI reading the CV, then the proposed strategy with roles, level, work mode and an estimated salary, confirmed',
     steps: [{hold: 3.6, look: [HEAD('ai'), '.step[data-step=ai] .step-facts'], zoom: 1.9, phoneLook: [HEAD('ai'), '.step[data-step=ai] .step-facts'], phoneLookWidth: 620, phoneZoom: 2.8, tag: 'Set up 1/5', say: 'Connect an AI: Free AI needs no key', beat: 'Step 1: connect an AI, Free to start'},
@@ -117,7 +117,7 @@ export const VIDEOS = {
       {tap: '#draft-save', zoom: TAP_ZOOM, phoneZoom: 3, say: 'Strategy confirmed'}, {hold: 0.8}]},
   hero: {kind: 'video', moves: 3, quiet: true, source: 'app', slide: 2,   // quiet: the drawer's nine tabs are still pages (run 11: 262 frames in 52 s read as a stalled capture)
   stageInto: 'slide', speed: 1.5, camera: 'steady', width: 1600, height: 1000, budget: 3.0e6, desktop: DESKTOP, phone: PHONE,   // 3.0: the drawer's nine tabs (run 2 hit CRF 34 at 1.9)
-    settings: {lastSearchAt: ''}, env: {JOB_PILOTTO_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
+    settings: {lastSearchAt: ''}, env: {JOBADABRA_DEMO_SEARCH_SECONDS: String(SEARCH_SECONDS)},
     shows: 'Fresh from setup: Find jobs pressed, the search running, the list it filled, and the job opened with why it fits',
     caption: 'Jobs that fit, and why', alt: 'Jobadabra: the Find jobs card pressed, a search for nurse jobs in Lyon finding and scoring jobs, then one opened on its Match tab with why it fits',
     steps: [
