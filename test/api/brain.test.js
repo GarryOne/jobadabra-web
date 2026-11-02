@@ -54,3 +54,10 @@ test('with BRAIN_REPO and BRAIN_GITHUB_TOKEN, the tap starts the workflow in the
     BRAIN_REPO: 'GarryOne/jobadabra-lab', BRAIN_GITHUB_TOKEN: 'ops'}, async (e) => seen.push([e.GITHUB_REPO, e.GITHUB_TOKEN]), f.fetcher);
   assert.deepEqual(seen, [['GarryOne/jobadabra-lab', 'ops']]);
 });
+
+// Why (2 Nov 2026, rs 6b-4): the public repo's product-brain.yml is deleted (jobadabra#2962), so a tap with no BRAIN_REPO would dispatch into a repo that has no such workflow.
+test('www names the lab as the brain repo in wrangler.toml', async () => {
+  const {readFileSync} = await import('node:fs');
+  const toml = readFileSync(new URL('../../workers/www/wrangler.toml', import.meta.url), 'utf8');
+  assert.match(toml, /^BRAIN_REPO = "jobadabra\/jobadabra-lab"$/m);
+});
