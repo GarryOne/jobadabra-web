@@ -23,7 +23,7 @@ if [ "$ref" = main ] && [ ! -f desktop/e2e/lib/applying-status.mjs ] && git fetc
 fi
 "$(dirname "${BASH_SOURCE[0]}")/compat-app-core.sh" .   # the public repo is mid-move: see that file
 echo '.private/' >> .git/info/exclude
-rsync -a --exclude '.git' --exclude '.private/' --exclude 'README.md' --exclude 'CLAUDE.md' --exclude 'AGENTS.md' --exclude '.claude/' --exclude '.gitignore' --exclude '.public-*' .private/ ./
+.private/tools/lay-private.sh .private .   # the folder map: .private/tools/layout-map.txt
 # tests that list files with `git ls-files` must see this repo's files too
 (cd "." && git ls-files -o --exclude-standard -z | xargs -0 -n 500 git add -N --)
 sha="$(git rev-parse HEAD)"

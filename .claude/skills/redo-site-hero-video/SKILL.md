@@ -5,7 +5,7 @@ description: Redo or improve the website's hero video (the landing page's four-s
 
 # Redo the site's hero video
 
-The hero (`web/public/index.html` `#hero-stage`) is **four short clips played as one continuous tour** on one fixed stage (owner, 24 Oct 2026):
+The hero (`website/public/index.html` `#hero-stage`) is **four short clips played as one continuous tour** on one fixed stage (owner, 24 Oct 2026):
 silent autoplay Set up → Find → Apply → Track, captions as HTML above the stage, clickable step labels with a progress line, a discreet pause,
 a tighter 4:3 copy for phones, and a **transition at every screen change** (round 6, owner: "make a nice transition effect, not just an instant screen/image replacement"; never a blank frame, never two screens stuck on top of each other). One made-up person (nurse persona) and **one job**
 (Institut Cardio Rhône, Registered Nurse, Cardiac Care Unit) from setup to interview. Approved sketch: https://claude.ai/artifact/MD1RKmELpnh7rzkprJkKfg; round 2 storyboard (every beat): https://claude.ai/artifact/SLjpGZdm31SvGeBvuTiBNg
@@ -17,7 +17,7 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
 1. **Change** what the owner asked (the map below says where), then `tools/site-run.sh node --test "desktop/test/media-*.test.js"`.
 2. **Record**: `tools/hero.sh [pieces]` from your site worktree, in the background (`2>&1 | tee <log>` + Monitor `^(hero|media|hero-preview):|FAILED`).
    Pieces: `hero-onboarding` (Set up), `hero` (Find), `hero-fill` (Apply), `hero-track` (Track); none = all four, ~6 min. Records your local edits
-   (it syncs `media/ web/ tools/` into `.overlay`), writes the set to `~/.cache/jobadabra-media/hero-<time>/`, one contact-sheet frame **per beat**
+   (it syncs `media/ website/ tools/` into `.overlay`), writes the set to `~/.cache/jobadabra-media/hero-<time>/`, one contact-sheet frame **per beat**
    (`sheets/<piece>.png`, `sheets/<piece>-720.png`; the log prints `hero: <piece> beat <n> <t> s: <words>`) and `preview.png`, and opens the preview.
    **Never edit `tools/hero.sh` while it runs** (bash reads it as it goes; the tail breaks): make the sheets/preview by hand then.
    **Record only what changed** (owner, 24 Oct 2026: "you should have rerecord just one 1/4 clips"; a words-only change re-recorded all four,
@@ -29,7 +29,7 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
 3. **Read the sheets, then the preview** (checklist below). Fix and re-record only the pieces that are wrong.
 4. **Owner's yes on VIDEO** (owner, 24 Oct 2026: "the before/after should be on video clips, not screenshots ... the before we can take from the
    website/master branch"): `node media/compare.mjs <set dir> <scratch>/compare` makes, per clip, `<piece>-compare.mp4` (left: main's published clip,
-   `git show origin/main:web/public/media/<piece>.mp4`; right: this set; labelled, the shorter held) and a GIF of it, phone copies too. Open the
+   `git show origin/main:website/public/media/<piece>.mp4`; right: this set; labelled, the shorter held) and a GIF of it, phone copies too. Open the
    changed pieces' MP4s for him (file names start with your session's short name), plus `preview.png` as the overview of every beat; ask
    AskUserQuestion (ship / change what) with a recommendation. Never ship clips he hasn't watched.
 5. **Place**: `tools/hero.sh --place <set dir>`, then CI's two test steps: `tools/site-run.sh bash tools/check.sh --area site` and
@@ -55,9 +55,9 @@ After that, the daily `tools/media.sh` refresh re-records the hero pieces from o
 | Transitions (fade, slide, tiles, card): kinds, cards' time, part joins | `media/transitions.mjs` (scenes: a look's `into`/`card`, a part's `into`, a clip's `stageInto`); drawn by `media/render.cjs`, on the site by `hero-stage.js` `comeIn` |
 | Picture in picture (two recordings of one moment, swapped on each `lead`, synced on `sync`) | `media/pip.mjs`; scenes: a piece's `pip: '<part>'`; `recordPip` in `media/media.mjs`; layers drawn by `media/render.cjs` |
 | App / extension recorders, look boxes | `media/record-app.mjs`, `media/record-extension.mjs`; a hold's entry and timing (pure) `media/hold.mjs` |
-| Stage markup, captions (`data-cap`, `data-sub`, `data-later`), phone posters | `web/public/index.html` `#hero-stage` |
-| Playback (order, cut on first frame, pause, steps) | `web/public/hero-stage.js` |
-| Look (frame, amber glow, 4:3 on phones, steps line) | `web/public/home.css` `.hero-stage` |
+| Stage markup, captions (`data-cap`, `data-sub`, `data-later`), phone posters | `website/public/index.html` `#hero-stage` |
+| Playback (order, cut on first frame, pause, steps) | `website/public/hero-stage.js` |
+| Look (frame, amber glow, 4:3 on phones, steps line) | `website/public/home.css` `.hero-stage` |
 | The side-by-side | `tools/hero-preview.mjs` |
 Tests: `desktop/test/media-{camera,persona,options,manifest}.test.js`, `test/web/landing.test.js`, `test/web/hero-redo.test.js`.
 

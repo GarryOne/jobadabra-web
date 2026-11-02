@@ -14,13 +14,13 @@ The website, `/admin`, and the CI jobs that feed them. Moved out of the public `
 ## Layout (top level, by audience; 21 Oct 2026)
 | Folder | What |
 |---|---|
-| `web/` `admin/` `api/` `shared/` | the public pages, /admin, what the apps call, what both use (see `web/README.md`) |
+| `website/` `admin/` `api/` `shared/` | the public pages, /admin, what the apps call, what both use (see `website/README.md`) |
 | `workers/` | `www` (the ONE Worker serving web + admin + api), `hosted-runner`, `ready-runner`, `bot` (the deploy shell of the Telegram bot Worker; its code is the public repo's `app-core/`) |
 | `hosted/` | the two container images' own files: `Dockerfile` (Always on) and `ready-fill/` (Dockerfile, `main.mjs`, `image-check.mjs`); the code they run is the public repo's (`src/`, `desktop/ready-fill/`) |
 | `db/migrations/` | D1 migrations |
 | `test/` | mirrors the folders above; `test/boundary.test.js` guards the import directions. Run: `node --test "test/**/*.test.js"` |
 | `media/` | the product-media recorder (videos and stills for the site); run it with `tools/media.sh` (by hand, never CI) |
-| `preview/` | the next website, reviewed before it goes live |
+| `website/next/` | the next website, reviewed before it goes live |
 | `jobs/` | scheduled jobs that feed /admin (digest, ops overview, changelog, e2e intel, hosted e2e, Lab uploads) |
 | `tools/` | the dev kit (overlay, tree, site-run, site-guards, staging) |
 | `tests/`, `desktop/test/` | tests that run inside the public tree's own harness (python / desktop) |
@@ -36,3 +36,5 @@ The website, `/admin`, and the CI jobs that feed them. Moved out of the public `
 Lab: `RANDOM_DRAWS_ANTHROPIC_KEY`, `LAB_HEAL_ANTHROPIC_KEY`, `CI_APP_ID`, `CI_APP_PRIVATE_KEY`, `NET_RECORD_KEY`, `NET_RECORDS_READ_TOKEN`, `NET_RECORDS_WRITE_TOKEN`.
 
 Never deploy Worker `www` from here and from public `site.yml` at the same time.
+
+**The tidy top level and the joined tree** (owner, 2 Nov 2026): the repo root shows few, grouped folders; `tools/layout-map.txt` says where each lands in the joined tree (this repo laid over the public one), so `website/` runs as `web/` and `website/next/` as `preview/` with no import or workflow step changed. `tools/lay-private.sh` is the one place that applies the map (overlay.sh, tree.sh, hero.sh); a test is `test/tools/lay-private.test.js`.
