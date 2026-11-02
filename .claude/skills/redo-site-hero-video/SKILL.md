@@ -17,7 +17,7 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
 1. **Change** what the owner asked (the map below says where), then `tools/site-run.sh node --test "desktop/test/media-*.test.js"`.
 2. **Record**: `tools/hero.sh [pieces]` from your site worktree, in the background (`2>&1 | tee <log>` + Monitor `^(hero|media|hero-preview):|FAILED`).
    Pieces: `hero-onboarding` (Set up), `hero` (Find), `hero-fill` (Apply), `hero-track` (Track); none = all four, ~6 min. Records your local edits
-   (it syncs `media/ website/ tools/` into `.overlay`), writes the set to `~/.cache/jobadabra-media/hero-<time>/`, one contact-sheet frame **per beat**
+   (it syncs `ops/media/ website/ tools/` into `.overlay`), writes the set to `~/.cache/jobadabra-media/hero-<time>/`, one contact-sheet frame **per beat**
    (`sheets/<piece>.png`, `sheets/<piece>-720.png`; the log prints `hero: <piece> beat <n> <t> s: <words>`) and `preview.png`, and opens the preview.
    **Never edit `tools/hero.sh` while it runs** (bash reads it as it goes; the tail breaks): make the sheets/preview by hand then.
    **Record only what changed** (owner, 24 Oct 2026: "you should have rerecord just one 1/4 clips"; a words-only change re-recorded all four,
@@ -28,7 +28,7 @@ a tighter 4:3 copy for phones, and a **transition at every screen change** (roun
    Encoding finds each file's quality by a binary search (encode.mjs `sharpestFit`, ~4 encodes, not up to 9): a clip over budget fails fast.
 3. **Read the sheets, then the preview** (checklist below). Fix and re-record only the pieces that are wrong.
 4. **Owner's yes on VIDEO** (owner, 24 Oct 2026: "the before/after should be on video clips, not screenshots ... the before we can take from the
-   website/master branch"): `node media/compare.mjs <set dir> <scratch>/compare` makes, per clip, `<piece>-compare.mp4` (left: main's published clip,
+   website/master branch"): `node ops/media/compare.mjs <set dir> <scratch>/compare` makes, per clip, `<piece>-compare.mp4` (left: main's published clip,
    `git show origin/main:website/public/media/<piece>.mp4`; right: this set; labelled, the shorter held) and a GIF of it, phone copies too. Open the
    changed pieces' MP4s for him (file names start with your session's short name), plus `preview.png` as the overview of every beat; ask
    AskUserQuestion (ship / change what) with a recommendation. Never ship clips he hasn't watched.
@@ -47,14 +47,14 @@ After that, the daily `tools/media.sh` refresh re-records the hero pieces from o
 ## Where each thing lives
 | What | File |
 |---|---|
-| Each phase's steps, framing, zooms, captions, budgets | `media/scenes.mjs` (the `hero*` entries; `PHONE`, `ROW`) |
-| The made-up person and her data | `media/personas/nurse-lyon/` (`draft.json`, `jobs.json`, ...) |
-| "2 weeks later" (Track): records changed for one clip | `media/personas/nurse-lyon/moments/later.json` (`applyEdits`: a key names a list, `"."` = the file is a list (runs.json), a map by id, or one record by its id; `null` drops a field, `_first`, `_drop`, `_add` creates) |
-| Beat times in the manifest (sheets, preview) | `media/camera.mjs` `beatTimes`, `media/manifest.mjs` `beats` |
-| Camera (steady, cut, phone gain) | `media/camera.mjs` |
-| Transitions (fade, slide, tiles, card): kinds, cards' time, part joins | `media/transitions.mjs` (scenes: a look's `into`/`card`, a part's `into`, a clip's `stageInto`); drawn by `media/render.cjs`, on the site by `hero-stage.js` `comeIn` |
-| Picture in picture (two recordings of one moment, swapped on each `lead`, synced on `sync`) | `media/pip.mjs`; scenes: a piece's `pip: '<part>'`; `recordPip` in `media/media.mjs`; layers drawn by `media/render.cjs` |
-| App / extension recorders, look boxes | `media/record-app.mjs`, `media/record-extension.mjs`; a hold's entry and timing (pure) `media/hold.mjs` |
+| Each phase's steps, framing, zooms, captions, budgets | `ops/media/scenes.mjs` (the `hero*` entries; `PHONE`, `ROW`) |
+| The made-up person and her data | `ops/media/personas/nurse-lyon/` (`draft.json`, `jobs.json`, ...) |
+| "2 weeks later" (Track): records changed for one clip | `ops/media/personas/nurse-lyon/moments/later.json` (`applyEdits`: a key names a list, `"."` = the file is a list (runs.json), a map by id, or one record by its id; `null` drops a field, `_first`, `_drop`, `_add` creates) |
+| Beat times in the manifest (sheets, preview) | `ops/media/camera.mjs` `beatTimes`, `ops/media/manifest.mjs` `beats` |
+| Camera (steady, cut, phone gain) | `ops/media/camera.mjs` |
+| Transitions (fade, slide, tiles, card): kinds, cards' time, part joins | `ops/media/transitions.mjs` (scenes: a look's `into`/`card`, a part's `into`, a clip's `stageInto`); drawn by `media/render.cjs`, on the site by `hero-stage.js` `comeIn` |
+| Picture in picture (two recordings of one moment, swapped on each `lead`, synced on `sync`) | `ops/media/pip.mjs`; scenes: a piece's `pip: '<part>'`; `recordPip` in `ops/media/media.mjs`; layers drawn by `media/render.cjs` |
+| App / extension recorders, look boxes | `ops/media/record-app.mjs`, `ops/media/record-extension.mjs`; a hold's entry and timing (pure) `ops/media/hold.mjs` |
 | Stage markup, captions (`data-cap`, `data-sub`, `data-later`), phone posters | `website/public/index.html` `#hero-stage` |
 | Playback (order, cut on first frame, pause, steps) | `website/public/hero-stage.js` |
 | Look (frame, amber glow, 4:3 on phones, steps line) | `website/public/home.css` `.hero-stage` |
@@ -78,7 +78,7 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 | Something drawn in the page | it happens outside the app | the Gmail notification |
 | Caption + tag chip | always: what happens and where | every step |
 
-## Scene vocabulary (`media/scenes.mjs`)
+## Scene vocabulary (`ops/media/scenes.mjs`)
 - A piece: `env` (extra app env for that recording, e.g. `JOBADABRA_DEMO_STRATEGY_DELAY` so the demo "Claude reads your CV" step lasts), `camera: 'steady'` (opens framed, clicks never move it), `phone: PHONE` (the 720×540 copy), `budget` (bytes), `speed`, `moment`,
   `motion: 'reduce'` (extension: no aurora/shimmer sweep), `settings` (app wizard state), `caption`.
 - **Every look names its `beat`**: the one thing the viewer reads there, ≥ 12 characters, unique (test: media-options). A phase is **the user's real
@@ -127,7 +127,7 @@ Pick per moment, by what the viewer must understand; never one method everywhere
 ## Every owner rule, round by round (24 Oct 2026; read all before a redo, a newer round wins)
 **How we work on the hero**
 - Medium or large change: an Artifact sketch first (mockups on real frames, decisions with a recommendation), build after the yes.
-- Every set: the before | after as VIDEO (`node media/compare.mjs`: main's published clip | the new one, desktop + phone), the still preview
+- Every set: the before | after as VIDEO (`node ops/media/compare.mjs`: main's published clip | the new one, desktop + phone), the still preview
   as the overview, and the owner's yes before shipping; then ship at once. The PR shows the same clips (GIF linked to MP4), never only stills.
 - "Whatever fixes you do now for the hero video, document them, update the skill/command/script, so next time we don't repeat the same mistakes":
   every fix lands as a tool rule + test + a trap line here; "check against yourself for other bugs" before showing anything.
@@ -195,7 +195,7 @@ Pick per moment, by what the viewer must understand; never one method everywhere
   phone look there sits on the left (round 8: the "Ready to submit" pill was hidden under Chrome). A list row's phone look keeps the company beside its button.
   Check the phone copies on the 4 contact sheets (or `ffmpeg ... tile=5x3` of each `-720.mp4`) before the preview: a cut right edge is visible there.
 - **High contrast, not washed** ("it looks washed. it doesn't have a high contrast"; chose option C of three on one frame): the recording is the app's
-  exact pixels, so the grade is ours: deeper blacks, brighter grey text, a little more colour, sharper text (`media/grade.mjs`, an SVG filter render.cjs
+  exact pixels, so the grade is ours: deeper blacks, brighter grey text, a little more colour, sharper text (`ops/media/grade.mjs`, an SVG filter render.cjs
   applies to the APP's pixels only). Captions, tags, title cards and the cursor are drawn after it: a whole-frame grade turned the brand amber yellow.
 - **A dull colour: find which layer made it before fixing anything** ("is maybe the recording/rendering ... the problem?"): compare the app's CSS token
   (`desktop/renderer/tokens.css`) with the raw frame (`.work/<piece>/frames`) and the decoded clip. The ring green was the APP's bug (the dark theme
@@ -305,19 +305,19 @@ comes back at the next redo.
   after it `gh run view <run> --log --job <id>`. A runner clip takes 8-10 min (measured 25 Oct 2026, about 2x the Mac per clip; the 4 run side by side: ~10 min, 35 runner min, ~350 counted min if the repo is private).
 - **MP4 only, no WebM** (owner, 25 Oct 2026, chose "MP4 for all"): VP9 came out bigger and blurrier than H.264 on app screens (Track: 2.63 MB at
   VP9's lowest step vs 2.25 MB H.264 near its best; then 2.82 MB, over budget, run 40154540314), and its ladder was the slowest encode. Every browser
-  plays the MP4. Guard: desktop/test/media-mp4-only.test.js. **Every budgeted copy logs `CRF n (a-b), X of Y MB`** (media/encode.mjs budgetLine);
+  plays the MP4. Guard: desktop/test/media-mp4-only.test.js. **Every budgeted copy logs `CRF n (a-b), X of Y MB`** (ops/media/encode.mjs budgetLine);
   `LOWEST QUALITY` means the next, slightly heavier take fails: raise that clip's budget in scenes.mjs or shorten the scene.
 - **A clip keeps its last hold whole** (camera.mjs toLastHold): the recorder gets a frame only when the page changes and the video ends at the last
   frame, so a still last hold was cut and the poster (90% into it) fell past the end: "ffmpeg -ss 38.98 ... poster.jpg" failed on the runner (run
   40156280319). The held frame is marked `held` so stallsOf does not count it. A slow machine shows timing bugs the Mac hides: read the runner's
   failure as a bug, not as noise.
-- **The media cache prunes itself** (owner, 25 Oct 2026: "make an auto-prune of the media recordings"; 99 kept runs filled 42 GB, 3.9 GB free): `media/prune.mjs` keeps the newest few of every kind tools/hero.sh and tools/media.sh write (hero runs: HERO_KEEP=3 with the new one; previews, media sets, their logs, package caches); a folder with a KEEP file stays. A new tool that writes to the cache adds its rule there. The newest are the last written (mtime), never the latest name: the names are local time and the clocks went back an hour on 25 Oct 2026 (run 30's set sorted before run 29's).
+- **The media cache prunes itself** (owner, 25 Oct 2026: "make an auto-prune of the media recordings"; 99 kept runs filled 42 GB, 3.9 GB free): `ops/media/prune.mjs` keeps the newest few of every kind tools/hero.sh and tools/media.sh write (hero runs: HERO_KEEP=3 with the new one; previews, media sets, their logs, package caches); a folder with a KEEP file stays. A new tool that writes to the cache adds its rule there. The newest are the last written (mtime), never the latest name: the names are local time and the clocks went back an hour on 25 Oct 2026 (run 30's set sorted before run 29's).
 - **Electron starts once, alone, before parallel renders** (run 30, words only on a freshly rebuilt .overlay: four first starts at once collided unpacking Electron, "File exists"): `media.mjs electronOnce`.
 - **Mixed row classes**: the calendar's Coming up has `.cal-row` and `.cal-row-wrap`; `#cal-upcoming > :first-child` is the first interview.
 - **The panel moves**: during a fill it sits centred, then returns to its corner; `panelBox` waits for the corner. A union of the panel and a far field is wider than the zoomed view and gets framed from its left edge: look at `'panel'` alone.
 - **Persona gaps show as app gaps**: `draft.json` needs `search.target_roles` (else "Target roles: Not set") and a numeric `usd` (step 3 crashes without it). That's old data, not a product bug.
 - `querySelector` in a `js` step can't take Playwright's `:has-text`; use `[...document.querySelectorAll(...)].find(...)`.
-- A `media/plans/<piece>.json` (the old AI director's plan) overrides a scene's framing and captions; the hero pieces have none, keep it that way.
+- A `ops/media/plans/<piece>.json` (the old AI director's plan) overrides a scene's framing and captions; the hero pieces have none, keep it that way.
 - `tools/media-refresh.sh` only refreshes files the site already has: a NEW file (e.g. a new phone poster) is placed once by hand (`--place`).
 - **Round 1 (24 Oct 2026) skipped steps and cropped through columns** because looks were picked without a written beat and checked only at the
   result moment: hence the beat rule, beat sheets and the per-beat preview. Don't go back to "one frame per phase".
@@ -326,7 +326,7 @@ comes back at the next redo.
 - **Probe screenshots**: Playwright `page.screenshot` draws the app at its 0.8 zoom = **1.6 px per CSS px** (not 2); compute crops with that factor.
 - **A row near the bottom hides under the "Application sessions" bar**: scroll it to the middle before a look (`scrollTo` in scenes.mjs).
 - **The "2 weeks later" tag lives in the caption line** (`.stage-later` before `.stage-title`), never positioned over the video (test: landing.test.js).
-- **A moment written after the last sync shows nothing**: `tools/hero.sh` syncs, but a hand probe needs `rsync -a media/ .overlay/media/` first.
+- **A moment written after the last sync shows nothing**: `tools/hero.sh` syncs, but a hand probe needs `rsync -a ops/media/ .overlay/media/` first.
 - **Recent activity stays open across pages** and covers the next page (Track's "Open review" click timed out): toggle it closed before the next `go` (test: media-options).
 - **The app recorded is public main at record time**: `tools/hero.sh` rebuilds `.overlay` when public main moved (it was built once and went stale). To record a public PR branch that redesigns a hero screen before it merges: `HERO_PUBLIC_REF=<branch> tools/hero.sh <piece>`; ship the clip only after that PR merges.
 - **Beat frames after the page moved on**: a hold's log time is stamped after its boxes are measured (slow under load); the log's `s` is the time left (`holdLeft`), so beats and posters fall inside the look. Don't log `item.hold` again.
@@ -344,7 +344,7 @@ comes back at the next redo.
   frame within 1 s is a stall (`check.mjs captureGaps`), recorded again up to twice (`media: <piece>: the capture stalled`), then the piece fails.
   Read the raw frames (`.work/<piece>/frames`, `log.json`) before naming a stall: run 3's "frozen Set up" was a look measured before its frame came.
 - **The phone copy's `phoneLook` is shown whole too**: give it the cells you mean (`[ROW .fit-cell, ROW .role]`) or its left part (`phoneLookWidth`), never a full-width row or banner.
-- **A test that imports `record-app.mjs` needs Playwright, which the site CI job lacks** (PR #47 went red): pure helpers live in `media/hold.mjs`; "Cannot find module 'playwright-core'" in a local run is this same failure, never "just my setup".
+- **A test that imports `record-app.mjs` needs Playwright, which the site CI job lacks** (PR #47 went red): pure helpers live in `ops/media/hold.mjs`; "Cannot find module 'playwright-core'" in a local run is this same failure, never "just my setup".
 - **A stray frame at a cut** (round 3, owner: "a small glitch in the first clip (showing something about Sonnet)"; four more like it in Track and Find):
   the frames between a page change and the next look being painted showed the old framing over the new page, or the new framing over the old one.
   Now: the recorder logs `ready` when the next `cut` look is in the page AND painted (two repaints), stamps every change BEFORE its action, and

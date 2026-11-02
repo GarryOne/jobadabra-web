@@ -26,6 +26,11 @@ jobs:
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          path: .private
+      # Why (layout 2/3, Gitar on #318): the job imports ../shared/schedules-model.js, a path that exists only in the joined tree, so it runs there like every other jobs/ workflow.
+      - name: Lay the public repo's tree under this one
+        run: .private/tools/tree.sh
       - uses: actions/setup-node@v5
         with:
           node-version: '22'

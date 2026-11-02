@@ -14,8 +14,8 @@ on:
       - 'shared/hosted*'
       - 'shared/free-ai.js'
       - 'shared/mail*.js'
-      - 'db/migrations/**'
-      - 'jobs/hosted-e2e/**'
+      - 'ops/db/migrations/**'
+      - 'ops/jobs/hosted-e2e/**'
       - '.github/workflows/hosted-e2e.yml'
   schedule:
     - cron: '17 3 * * *'

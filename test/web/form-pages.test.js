@@ -63,7 +63,7 @@ test('no tracked file names an old page path except the redirect list', () => {
   const root = process.env.SITE_REPO_DIR ? `${process.env.SITE_REPO_DIR}/` : existsSync(`${tree}.private/.git`) ? `${tree}.private/` : tree;
   const files = execFileSync('git', ['ls-files', '-z'], {cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}).split('\0').filter(Boolean);
   // Why (2 Nov 2026, [am]): test/fixtures hold recorded data (PR bodies from 16 Oct name /admin/…/ai-cost as it was); a recording is history, not a link, so it keeps what it recorded.
-  const skip = file => file.startsWith('db/migrations/') || file.startsWith('site/src/') || file.startsWith('docs/superpowers/') || file.startsWith('test/fixtures/') || file === 'admin/admin.js' || file === 'test/web/form-pages.test.js' || file === 'test/admin/admin-urls.test.js' || /\.(png|jpe?g|gif|webp|ico|woff2?|zip|pdf)$/.test(file);
+  const skip = file => file.startsWith('ops/db/migrations/') || file.startsWith('site/src/') || file.startsWith('docs/superpowers/') || file.startsWith('test/fixtures/') || file === 'admin/admin.js' || file === 'test/web/form-pages.test.js' || file === 'test/admin/admin-urls.test.js' || /\.(png|jpe?g|gif|webp|ico|woff2?|zip|pdf)$/.test(file);
   const names = oldPaths().filter(path => path.startsWith('/admin/')).map(path => path.slice('/admin/'.length).replace(/[.]/g, '\\.'));
   assert.ok(names.includes('lab-form-filling') && names.includes('form-filling'), 'the list is read');
   // A file name (admin/app.js) or a new address under an old group word (/admin/form-filling/lab) is not an old path.

@@ -13,7 +13,7 @@ on:
       - 'api/**'
       - 'shared/**'
       - 'workers/www/**'
-      - 'db/migrations/**'
+      - 'ops/db/migrations/**'
       - '.github/workflows/site.yml'
   workflow_dispatch:
 

@@ -28,9 +28,9 @@ test('every kind of media cache folder keeps its newest few; a KEEP folder, a pr
 test('both media tools prune the cache before they write a new folder (tools/hero.sh, tools/media.sh)', () => {
   const read = file => fs.readFileSync(new URL(`../../tools/${file}`, import.meta.url), 'utf8');
   const hero = read('hero.sh'), media = read('media.sh');
-  assert.ok(hero.indexOf('node media/prune.mjs "$cache"') > 0 && hero.indexOf('node media/prune.mjs "$cache"') < hero.indexOf('set_dir="$cache/hero-$(date'), 'hero.sh');
+  assert.ok(hero.indexOf('node ops/media/prune.mjs "$cache"') > 0 && hero.indexOf('node ops/media/prune.mjs "$cache"') < hero.indexOf('set_dir="$cache/hero-$(date'), 'hero.sh');
   assert.match(hero, /--keep "hero=\$\(\( \$\{HERO_KEEP:-3\} - 1 \)\)" --protect "\$\{words\[1\]:-\}"/);
-  assert.ok(media.indexOf('media/prune.mjs" "$cache"') > 0 && media.indexOf('media/prune.mjs" "$cache"') < media.indexOf('out="$cache/set-$(date'), 'media.sh');
+  assert.ok(media.indexOf('ops/media/prune.mjs" "$cache"') > 0 && media.indexOf('ops/media/prune.mjs" "$cache"') < media.indexOf('out="$cache/set-$(date'), 'media.sh');
 });
 
 test('the prune runs from the command line with --keep and --protect', async () => {

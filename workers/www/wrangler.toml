@@ -148,7 +148,7 @@ service = "jobadabra-ai-broker"
 binding = "STATS"
 database_name = "www-stats"
 database_id = "61f8d0f7-82c2-4afe-a6e5-508aaaf2cfa0"
-migrations_dir = "../../db/migrations"
+migrations_dir = "../../db/migrations"   # Why (2 Nov 2026, layout 2/3): the path in the JOINED tree; in this repo the folder is ops/db/migrations (tools/layout-map.txt)
 
 # Daily at 05:30 UTC: app reports (shared/telemetry.js) older than 90 days are dropped, and the top problems of the last
 # day are queued (D1 triage_queue) for the private repo's triage to pull (one issue per problem).

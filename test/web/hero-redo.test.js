@@ -39,7 +39,7 @@ test('the skill names every slide scene and every file it points to exists', () 
   const text = readFileSync(skill, 'utf8');
   for (const name of slides) assert.ok(text.includes(`\`${name}\``), `the skill names ${name}`);
   // Why (2 Nov 2026, #314): the skill names paths as they are in this repo (website/public/...); the test runs in the joined tree, where tools/layout-map.txt puts website/ at web/.
-  for (const [rel, inTree = rel] of [['tools/hero.sh'], ['tools/hero-preview.mjs'], ['media/scenes.mjs'], ['media/camera.mjs'], ['website/public/hero-stage.js', 'web/public/hero-stage.js'], ['media/personas/nurse-lyon/moments/later.json']]) {
+  for (const [rel, inTree = rel] of [['tools/hero.sh'], ['tools/hero-preview.mjs'], ['ops/media/scenes.mjs', 'media/scenes.mjs'], ['ops/media/camera.mjs', 'media/camera.mjs'], ['website/public/hero-stage.js', 'web/public/hero-stage.js'], ['ops/media/personas/nurse-lyon/moments/later.json', 'media/personas/nurse-lyon/moments/later.json']]) {
     assert.ok(text.includes(rel), `the skill points to ${rel}`);
     assert.ok(existsSync(new URL(inTree, root)), `${inTree} exists`);
   }

@@ -2,7 +2,7 @@
 // the before we can take from the website/master branch"). Before = main's published clip (git show origin/main:website/public/media/<piece>.mp4),
 // after = the new recording in a hero set; both play side by side, labelled, the shorter one held on its last frame. Writes <out>/<piece>-compare.mp4
 // (the owner's preview), a GIF of it, and one GIF per side (<piece>-before.gif, <piece>-after.gif: the PR's | What changed | Before | After | row,
-// each linked to the MP4; tools/pr-screens.py wants the two apart). Usage: node media/compare.mjs <set dir> <out dir> [pieces...]
+// each linked to the MP4; tools/pr-screens.py wants the two apart). Usage: node ops/media/compare.mjs <set dir> <out dir> [pieces...]
 // Guard: desktop/test/media-compare.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -36,7 +36,7 @@ const seconds = file => Number(execFileSync('ffprobe', ['-v', 'error', '-show_en
 const git = (...args) => execFileSync('git', args, {maxBuffer: 1 << 28});
 
 function main([setDir, outDir, ...only]) {
-  if (!setDir || !outDir) throw new Error('usage: node media/compare.mjs <set dir> <out dir> [pieces...]');
+  if (!setDir || !outDir) throw new Error('usage: node ops/media/compare.mjs <set dir> <out dir> [pieces...]');
   fs.mkdirSync(outDir, {recursive: true});
   git('fetch', '-q', 'origin', 'main');
   const onMain = git('ls-tree', '--name-only', 'origin/main', 'website/public/media/').toString().split('\n').map(file => path.basename(file));

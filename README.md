@@ -16,11 +16,11 @@ The website, `/admin`, and the CI jobs that feed them. Moved out of the public `
 |---|---|
 | `website/` `admin/` `api/` `shared/` | the public pages, /admin, what the apps call, what both use (see `website/README.md`) |
 | `workers/` | `www` (the ONE Worker serving web + admin + api), `hosted-runner`, `ready-runner`, `bot` (the deploy shell of the Telegram bot Worker; its code is the public repo's `app-core/`) |
-| `hosted/` | the two container images' own files: `Dockerfile` (Always on) and `ready-fill/` (Dockerfile, `main.mjs`, `image-check.mjs`); the code they run is the public repo's (`src/`, `desktop/ready-fill/`) |
-| `db/migrations/` | D1 migrations |
+| `ops/hosted/` | the two container images' own files: `Dockerfile` (Always on) and `ready-fill/` (Dockerfile, `main.mjs`, `image-check.mjs`); the code they run is the public repo's (`src/`, `desktop/ready-fill/`) |
+| `ops/db/migrations/` | D1 migrations |
 | `test/` | mirrors the folders above; `test/boundary.test.js` guards the import directions. Run: `node --test "test/**/*.test.js"` |
-| `media/` | the product-media recorder (videos and stills for the site); run it with `tools/media.sh` (by hand, never CI) |
-| `jobs/` | scheduled jobs that feed /admin (digest, ops overview, changelog, e2e intel, hosted e2e, Lab uploads) |
+| `ops/media/` | the product-media recorder (videos and stills for the site); run it with `tools/media.sh` (by hand, never CI) |
+| `ops/jobs/` | scheduled jobs that feed /admin (digest, ops overview, changelog, e2e intel, hosted e2e, Lab uploads) |
 | `tools/` | the dev kit (overlay, tree, site-run, site-guards, staging) |
 | `tests/`, `desktop/test/` | tests that run inside the public tree's own harness (python / desktop) |
 

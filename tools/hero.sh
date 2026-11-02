@@ -40,7 +40,7 @@ if [ -z "$have" ] || { [ -n "$want" ] && [ "$want" != "$have" ]; }; then
   echo "hero: recording the app at jobadabra/$ref ${want:0:7} (the overlay had ${have:-none}): rebuilding .overlay" >&2
   tools/overlay.sh .overlay "$ref" >&2
 fi
-rsync -a media/ .overlay/media/ && rsync -a --exclude next website/ .overlay/web/ && rsync -a tools/ .overlay/tools/
+rsync -a ops/media/ .overlay/media/ && rsync -a --exclude next website/ .overlay/web/ && rsync -a tools/ .overlay/tools/
 echo $$ > .overlay/.git/in-use; trap 'rm -f .overlay/.git/in-use' EXIT   # nothing rebuilds the overlay under this run (tools/overlay-busy.sh)
 for dir in desktop desktop/e2e; do   # packages, cached by lock file as tools/media.sh does
   [ -d ".overlay/$dir/node_modules" ] && continue
@@ -59,7 +59,7 @@ fi
 
 pieces=("$@"); [ ${#pieces[@]} -gt 0 ] || pieces=("${HERO[@]}")
 # the cache keeps the newest HERO_KEEP runs (this one included) and of every other kind its newest few (media/prune.mjs; a KEEP file or the --words set stays)
-node media/prune.mjs "$cache" --keep "hero=$(( ${HERO_KEEP:-3} - 1 ))" --protect "${words[1]:-}"
+node ops/media/prune.mjs "$cache" --keep "hero=$(( ${HERO_KEEP:-3} - 1 ))" --protect "${words[1]:-}"
 set_dir="$cache/hero-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$set_dir/sheets"
 echo "hero: ${words[1]:+words only from ${words[1]}: }recording ${pieces[*]} into $set_dir"
 lock="${MEDIA_HEAVY_LOCK:-$HOME/jobadabra/tools/heavy-lock.sh}"
