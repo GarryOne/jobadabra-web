@@ -44,8 +44,13 @@ export function tier1Rows(snapshot, now = new Date()) {
 /** The one colour scale of the page (owner, 2 Nov 2026: "green only if 100%... everything below is orange/yellow/red"): 100% green, from 98% yellow, from 90% orange, below red; no number grey. */
 export const shareTone = share => (share === null || share === undefined ? 'off' : share >= 1 ? 'good' : share >= 0.98 ? 'warn' : share >= 0.9 ? 'orange' : 'bad');
 
-/** A percentage as the page shows it: one decimal, and never "100%" for a share below 1 (99.96% reads 99.9%). */
-export const percentOf = share => (share === null || share === undefined ? '–' : share >= 1 ? '100%' : `${Math.min(99.9, Math.round(share * 1000) / 10)}%`);
+/** A percentage as the page shows it: one decimal, and never a number that reaches a colour band the share does not reach (99.96% reads 99.9%, 97.996% reads 97.9%, 89.96% reads 89.9%; Gitar on #306). */
+export const percentOf = share => {
+  if (share === null || share === undefined) return '–';
+  if (share >= 1) return '100%';
+  const cap = share < 0.9 ? 89.9 : share < 0.98 ? 97.9 : 99.9;
+  return `${Math.min(cap, Math.round(share * 1000) / 10)}%`;
+};
 
 /** One row per Tier 2 journey from the per-day tallies of its integration tests. */
 export function tier2Rows(snapshot, now = new Date()) {

@@ -114,6 +114,8 @@ test('one colour scale: green only at exactly 100%, then yellow, orange, red; 99
   assert.deepEqual([1, 0.9999, 0.98, 0.979, 0.9, 0.899, 0].map(shareTone), ['good', 'warn', 'warn', 'orange', 'orange', 'bad', 'bad']);
   assert.equal(shareTone(null), 'off');
   assert.deepEqual([1, 1999 / 2000, 0.9996, 395 / 400, null].map(percentOf), ['100%', '99.9%', '99.9%', '98.8%', '–']);
+  assert.deepEqual([0.97996, 0.8996, 0.98, 0.9, 0.5].map(percentOf), ['97.9%', '89.9%', '98%', '90%', '50%'], 'a number never sits in a colour band its share does not reach (Gitar on #306)');
+  for (const share of [0.97996, 0.8996, 0.9996, 0.98, 0.9]) assert.equal(shareTone(share), shareTone(parseFloat(percentOf(share)) / 100), `${share}: the shown number and the colour agree`);
   const html = page(snapshot, {now});
   const rings = html.match(/<div class="gtmgauge">[\s\S]*?<\/svg><\/div>/g) || [];
   assert.equal(rings.length, 2, 'two rings, one wrapper class: the same size and place');
