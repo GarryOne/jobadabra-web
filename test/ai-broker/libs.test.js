@@ -20,8 +20,8 @@ async function signer() {
   };
   return {sign, jwks: async () => ({keys: [jwk]})};
 }
-const good = {iss: 'https://token.actions.githubusercontent.com', aud: 'jobadabra-codex-broker', repository: 'GarryOne/jobadabra', event_name: 'pull_request', exp: Math.floor(Date.now() / 1000) + 600};
-const opts = jwks => ({jwks, audience: 'jobadabra-codex-broker', repository: 'GarryOne/jobadabra'});
+const good = {iss: 'https://token.actions.githubusercontent.com', aud: 'jobadabra-ai-broker', repository: 'GarryOne/jobadabra', event_name: 'pull_request', exp: Math.floor(Date.now() / 1000) + 600};
+const opts = jwks => ({jwks, audience: 'jobadabra-ai-broker', repository: 'GarryOne/jobadabra'});
 
 test('a live run of the owner\'s repo is accepted', async () => {
   const {sign, jwks} = await signer();
@@ -185,10 +185,10 @@ test('the week reading is the window that lasts a week, whichever slot it sits i
   assert.equal(weeklyWindow(undefined), null);
 });
 
-test('both audiences are accepted while the callers move (1 Nov 2026, ai-broker rename), and a third is refused', async () => {
-  const {sign, jwks} = await signer(), both = {...opts(jwks), audience: ['jobadabra-ai-broker', 'jobadabra-codex-broker']};
-  for (const aud of ['jobadabra-ai-broker', 'jobadabra-codex-broker']) assert.equal((await verifyRunToken(await sign({...good, aud}), both)).aud, aud);
-  await assert.rejects(async () => verifyRunToken(await sign({...good, aud: 'jobadabra-other'}), both), /wrong audience/);
+test('the AI broker audience is accepted, the old jobadabra-codex-broker one and any other are refused (7/7, 2 Nov 2026)', async () => {
+  const {sign, jwks} = await signer();
+  assert.equal((await verifyRunToken(await sign({...good, aud: 'jobadabra-ai-broker'}), opts(jwks))).aud, 'jobadabra-ai-broker');
+  for (const aud of ['jobadabra-codex-broker', 'jobadabra-other']) await assert.rejects(async () => verifyRunToken(await sign({...good, aud}), opts(jwks)), /wrong audience/);
 });
 
 // Why (1 Nov 2026, owner's pick via mac-07): central-scout.yml and product-brain.yml move to jobadabra-lab. Each must verify under both owners and keep the lane (so tiers and caps) it has today in jobadabra; a missing repo name makes every scout AI call skip silently with "oidc: wrong repository".

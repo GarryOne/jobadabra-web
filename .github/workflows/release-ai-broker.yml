@@ -3,7 +3,7 @@ name: Release · AI broker
 # benchmark AI call (spec docs/superpowers/specs/2026-10-28-ci-on-codex-subscription-design.md in the public repo). Same secrets as Release · Ready to send runner. The image holds no secret; the login lives in the Durable Object.
 # Why (28 Oct 2026, owner): CI on Free AI billed ~$4/day of neurons unseen; the owner bought a Codex plan and wants CI on it.
 # Why (1 Nov 2026, owner: rename to ai-broker): by hand only until the Durable Object transfer from jobadabra-codex-broker has run (workers/ai-broker/transfer/README.md); a push trigger would deploy the new Worker name
-# with an EMPTY namespace and lose the Codex login. The cleanup PR (7/7) gives the push trigger back.
+# with an EMPTY namespace and lose the Codex login. The transfer has run (1 Nov 2026) and its folder is gone (7/7, 2 Nov 2026); the push trigger comes back in its own PR once this workflow has deployed the broker once (CI path unproven: the broker so far was deployed from the owner's Mac).
 on:
   workflow_dispatch:
 permissions:
