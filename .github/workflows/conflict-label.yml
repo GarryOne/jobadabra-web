@@ -32,9 +32,11 @@ jobs:
         with:
           repository: jobadabra/jobadabra   # the script lives there (public), not in this repo
           ref: main
+          # Why (2 Nov 2026, owner: "red"): conflict-label.mjs imports ./gitar-label.mjs, so both are fetched; one missing was ERR_MODULE_NOT_FOUND on every web PR.
+          # No comment inside the block below: a YAML block scalar has none, it would become part of the pattern (Gitar on web#307).
           sparse-checkout: |
             tools/conflict-label.mjs
-            tools/gitar-label.mjs   # conflict-label.mjs imports it (addLabel); missing it was a red ERR_MODULE_NOT_FOUND on every web PR (2 Nov 2026)
+            tools/gitar-label.mjs
           sparse-checkout-cone-mode: false   # a file pattern, not a directory (cone mode would read the path as a folder; Gitar on web#258)
       - name: Label the open PRs that conflict
         env:

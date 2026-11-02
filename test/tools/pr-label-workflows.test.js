@@ -47,12 +47,13 @@ test('the conflict label runs when main or a PR moves, labels that PR alone, and
 
 // Why (2 Nov 2026, owner: "red"): #304 listed only tools/conflict-label.mjs, but that script imports ./gitar-label.mjs, so every web PR drew a red "conflict" check
 // (ERR_MODULE_NOT_FOUND). These workflows run from main only, so no PR run can catch it: the check is here, on the sparse list itself.
-const sparseList = flow => flow.split('sparse-checkout: |\n')[1].split('\n          sparse-checkout-cone-mode')[0].split('\n').map(l => l.replace(/#.*/, '').trim()).filter(Boolean);
+const sparseList = flow => flow.split('sparse-checkout: |\n')[1].split('\n          sparse-checkout-cone-mode')[0].split('\n').map(l => l.trim()).filter(Boolean);
 
 test('every relative import of a checked-out script is in that workflow\'s sparse list (all label workflows)', () => {
   for (const [name, flow] of [['gitar-label.yml', gitar], ['conflict-label.yml', conflict]]) {
     const listed = sparseList(flow);
     assert.ok(listed.length > 0, `${name} lists its scripts`);
+    for (const file of listed) assert.ok(!/[#\s]/.test(file), `${name}: sparse entry "${file}" holds a comment or a space; a YAML block scalar has no comments, so it would be part of the pattern`);
     for (const file of listed) {
       const path = new URL(`../../${file}`, import.meta.url);
       if (!existsSync(path)) continue;   // CI lays the public repo's tree under this one (joined tree); a bare checkout has no copy, the static case below still holds
