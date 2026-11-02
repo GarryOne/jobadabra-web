@@ -14,7 +14,7 @@ test('only a pull request decides, from its own changed files', () => {
   assert.match(decide, /if: github\.event_name == 'pull_request'/, 'main and the daily run never skip');
   assert.match(decide, /pulls\/.*\/files/);
   assert.match(decide, /\|\| files='ops\/media\/'/, 'a failed lookup runs the media tests');
-  for (const reached of ['ops/media/', 'desktop/test/media-', 'apt-install', 'site-guards']) assert.ok(decide.includes(reached), reached);
+  for (const reached of ['ops/media/', 'test/desktop/media-', 'apt-install', 'site-guards']) assert.ok(decide.includes(reached), reached);
 });
 
 test('ffmpeg and Electron are installed whenever the media tests run: every push and daily run, and a PR that reaches media', () => {

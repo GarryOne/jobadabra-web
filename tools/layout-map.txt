@@ -6,3 +6,5 @@ ops/jobs jobs
 ops/hosted hosted
 ops/media media
 ops/db db
+test/python tests
+test/desktop desktop/test

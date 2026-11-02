@@ -18,11 +18,11 @@ The website, `/admin`, and the CI jobs that feed them. Moved out of the public `
 | `workers/` | `www` (the ONE Worker serving web + admin + api), `hosted-runner`, `ready-runner`, `bot` (the deploy shell of the Telegram bot Worker; its code is the public repo's `app-core/`) |
 | `ops/hosted/` | the two container images' own files: `Dockerfile` (Always on) and `ready-fill/` (Dockerfile, `main.mjs`, `image-check.mjs`); the code they run is the public repo's (`src/`, `desktop/ready-fill/`) |
 | `ops/db/migrations/` | D1 migrations |
-| `test/` | mirrors the folders above; `test/boundary.test.js` guards the import directions. Run: `node --test "test/**/*.test.js"` |
+| `test/` | mirrors the folders above (and holds `python/` and `desktop/`, below); `test/boundary.test.js` guards the import directions. Run: `node --test "test/**/*.test.js"` |
 | `ops/media/` | the product-media recorder (videos and stills for the site); run it with `tools/media.sh` (by hand, never CI) |
 | `ops/jobs/` | scheduled jobs that feed /admin (digest, ops overview, changelog, e2e intel, hosted e2e, Lab uploads) |
 | `tools/` | the dev kit (overlay, tree, site-run, site-guards, staging) |
-| `tests/`, `desktop/test/` | tests that run inside the public tree's own harness (python / desktop) |
+| `test/python/`, `test/desktop/` | tests that run inside the public tree's own harness (python / desktop): the joined tree has them at `tests/` and `desktop/test/` (`tools/layout-map.txt`) |
 
 ## Contract with the public repo
 `docs/site-routes.json` (public) lists every route the app calls. Two tests keep it true: `test/site-routes.test.js` (here) and `desktop/test/site-routes.test.js` (public).
