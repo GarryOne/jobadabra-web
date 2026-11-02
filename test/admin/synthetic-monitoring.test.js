@@ -65,7 +65,7 @@ test('unreadable tables or a missing snapshot say "no run" for those rows, never
 
 test('the tab is in the Testing menu, the route is owner-only, and the Overview card links to it', async () => {
   const entry = PAGES.find(item => item.path === '/admin/testing/synthetic-monitoring');
-  assert.ok(entry && entry.group === 'Testing' && entry.name === 'Synthetic Monitoring');
+  assert.ok(entry && entry.group === 'Testing' && entry.name === 'Synthetics');
   const response = await worker.fetch(new Request('https://www.jobadabra.top/admin/testing/synthetic-monitoring'), {});
   assert.equal(response.status, 404, 'a visitor who is not the owner gets the usual 404');
   assert.equal(METHODS.find(method => method.id === 'synthetic').href, '/admin/testing/synthetic-monitoring');
