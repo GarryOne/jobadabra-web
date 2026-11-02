@@ -1,15 +1,16 @@
 name: Release · Watch the public repo
 # A deploy here bundles or builds from files of the public repo (the Worker imports ../../extension/recipe-schema.js, the Ready to send image builds hosted/ready-fill and extension/).
 # The public repo cannot start a workflow here, so this one looks every hour: when those files changed since the last record (.public-site, .public-ready), it starts the deploy.
-# Why (2 Nov 2026, go): the records live on the unprotected branch public-watch-state, not on main. Main carries the org ruleset (pull requests only), which refuses a direct push, and the old
-# push, which ended in a swallowed error, would have hidden that refusal: the records would stop and every run would redeploy. Only the readers of the records are this workflow and tools/public-watch.sh.
+# Why (2 Nov 2026, go; owner: "let's use tags not branches for storing things. Otherwise, they keep popping up like that"): the records live under the tag public-watch-state, not on main and not on a
+# branch. Main carries the org ruleset (pull requests only), which refuses a direct push, and the old push, which ended in a swallowed error, would have hidden that refusal. A pushed branch also made
+# GitHub offer "Compare & pull request" on the repo page every 6 h. tools/state-tag.sh moves the tag with a compare-and-swap. The readers of the records are this workflow and tools/public-watch.sh.
 on:
   schedule:
     - cron: '7 */6 * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write   # pushes the record files to the branch public-watch-state (never to main)
+  contents: write   # moves the tag public-watch-state (never main, never a branch)
   actions: write    # starts the two deploys
 
 concurrency:
@@ -26,10 +27,10 @@ jobs:
           path: .private
       - name: Lay the public repo's tree under this one
         run: .private/tools/tree.sh
-      - name: Fetch the records (branch public-watch-state, not main)
+      - name: Fetch the records (tag public-watch-state)
         uses: actions/checkout@v5
         with:
-          ref: public-watch-state
+          ref: refs/tags/public-watch-state
           path: .state
       - name: Did the files a deploy bundles change
         id: change
@@ -49,7 +50,4 @@ jobs:
         run: |
           [ "${{ steps.change.outputs.site }}" = changed ] && gh workflow run site.yml
           [ "${{ steps.change.outputs.ready }}" = changed ] && gh workflow run release-ready-runner.yml
-          cd "$GITHUB_WORKSPACE/.state"
-          git config user.name "site-watch"; git config user.email "site-watch@users.noreply.github.com"
-          git add .public-site .public-ready
-          git diff --cached --quiet || { git commit -q -m "Record the public files the last deploy was started for"; git push -q origin HEAD:public-watch-state; }
+          tools/state-tag.sh write public-watch-state "$GITHUB_WORKSPACE/.state" "Record the public files the last deploy was started for" .public-site .public-ready
