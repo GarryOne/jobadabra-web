@@ -1,4 +1,4 @@
-// Headline numbers of the Growth and Intelligence pages (admin/headlines.js; drawn by admin/section-overview.js on /admin/growth/overview and /admin/intelligence/overview).
+// Headline numbers of the Growth pages, Insights and Product Brain included (admin/headlines.js; drawn by admin/section-overview.js on /admin/growth/overview). Why (owner, 2 Nov 2026, "Intelligence is very thin"): the Intelligence group was spread out and its pages moved here.
 // The weekly series come from the same gatherer as the /admin Overview (admin/overview.js report(): one way to count each number); Signups and Monetization read their own pages' collectors.
 // Most of these numbers are activity, so their status is "none"; a count of a bad thing (problem reports) turns amber when it rose against last week.
 import {report} from './overview.js';
@@ -48,5 +48,4 @@ async function monetizationTiles(env, now) {
       : {label: 'Profit, 30 days', value: 'No data', sub: 'no sale yet', status: 'none'}];
 }
 
-export const GROWTH = {'/admin/growth/website': fromCards('/admin/growth/website'), '/admin/growth/app': fromCards('/admin/growth/app'), '/admin/growth/email': signupsTiles, '/admin/growth/promo-codes': promoTiles, '/admin/growth/monetization': monetizationTiles, '/admin/growth/feedback': fromCards('/admin/growth/feedback')};
-export const INTELLIGENCE = {'/admin/intelligence/insights': fromCards('/admin/intelligence/insights'), '/admin/intelligence/brain': fromCards('/admin/intelligence/brain')};
+export const GROWTH = {'/admin/growth/website': fromCards('/admin/growth/website'), '/admin/growth/app': fromCards('/admin/growth/app'), '/admin/growth/email': signupsTiles, '/admin/growth/promo-codes': promoTiles, '/admin/growth/monetization': monetizationTiles, '/admin/growth/feedback': fromCards('/admin/growth/feedback'), '/admin/growth/insights': fromCards('/admin/growth/insights'), '/admin/growth/brain': fromCards('/admin/growth/brain')};

@@ -1,7 +1,7 @@
 // The product brain's log (table brain_messages, migrations/0030): every message the "Job Pilotto Brain" bot sends and every tap.
 //   POST /api/brain/log (the scripts' key, `Authorization: Bearer`): tools/product_brain.py post|plan|status|backfill write here
 //   record(db, ...): api/brain.js records each button tap
-//   /admin/intelligence/brain: the owner's page, latest first, filtered by a decision's status now (its newest row's)
+//   /admin/growth/brain: the owner's page, latest first, filtered by a decision's status now (its newest row's)
 // Notion ("🧭 Product Brain · Decisions") keeps its rows; this is the copy the page reads.
 import {isOwner, remember} from './auth.js';
 import {esc} from './html.js';
@@ -84,7 +84,7 @@ export function page(rows, filter = '') {
   for (const d of all) counts[d.now || 'Unknown'] = (counts[d.now || 'Unknown'] || 0) + 1;
   const shown = filter ? all.filter(d => d.now === filter) : all;
   const filters = [['', `All · ${all.length}`], ...STATUSES.filter(s => counts[s]).map(s => [s, `${s} · ${counts[s]}`])].map(([value, label]) =>
-    `<a class="filter${value === filter ? ' on' : ''}" href="/admin/intelligence/brain${value ? `?status=${encodeURIComponent(value)}` : ''}">${esc(label)}</a>`).join('');
+    `<a class="filter${value === filter ? ' on' : ''}" href="/admin/growth/brain${value ? `?status=${encodeURIComponent(value)}` : ''}">${esc(label)}</a>`).join('');
   const cards = shown.map(d => {
     const rec = d.recommendation, lens = /^Lens: (.+)$/m.exec(rec?.body || '')?.[1];
     const body = (rec?.body || '').replace(/^Lens: .+\n?/m, '');

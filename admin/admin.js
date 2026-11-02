@@ -8,7 +8,7 @@ import {findButton, PALETTE_SCRIPT, PALETTE_STYLE} from './palette.js';
 
 // Every page lives at /admin/{group}/{page} (owner, 27 Oct 2026: "normalize all the page urls"): the group's slug, then the menu name's; /admin itself is the home.
 // slug (when set) = the page's part when its menu name would spell it differently (E-mail → email). old = the page's earlier addresses, redirected (test/admin/admin-urls.test.js fails a page off the pattern, or an old address that no longer answers).
-export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Intelligence', '🧠'], ['Testing', '🧪'], ['Agent Coding', '🤖', 'agents'], ['Schedules', '⏰']];
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Form filling', '📝'], ['Job search', '🔎'], ['Testing', '🧪'], ['Agent Coding', '🤖', 'agents'], ['Schedules', '⏰']];
 // A group's URL part: its name's, unless the entry says otherwise (owner, 1 Nov 2026: Agents became "Agent Coding" but its addresses stay /admin/agents/…, so no link breaks).
 export const groupSlug = ([name, , slug]) => slug || slugOf(name);
 export const slugOf = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -16,13 +16,16 @@ export const slugOf = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').rep
 // name = the short label in the menu row; title (when set) = the page's full name, shown on the Overview cards.
 export const PAGES = [
   {path: '/admin', group: 'Overview', question: 'Is Jobadabra healthy today, at a glance?', name: 'Overview', icon: '🧭'},
-  {path: '/admin/growth/overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', old: ['/admin/growth-overview'], name: 'Overview', icon: '🧭', overview: true},
+  {path: '/admin/growth/overview', group: 'Growth', question: 'How is growth doing: visitors, installs, signups, money and feedback at a glance?', old: ['/admin/growth-overview', '/admin/intelligence', '/admin/intelligence/overview', '/admin/intelligence-overview'], name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/growth/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: ['/admin/website', '/stats'], name: 'Website', icon: '🌐'},
   {path: '/admin/growth/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: ['/admin/app', '/telemetry'], name: 'App', icon: '🖥️'},
   {path: '/admin/growth/email', group: 'Growth', question: 'Who signed up with an e-mail, who can still get our mail, what did it do, and what is waiting to go out?', old: ['/admin/email', '/admin/signups'], slug: 'email', name: 'E-mail', icon: '✉️'},
   {path: '/admin/growth/promo-codes', group: 'Growth', question: 'Which promo codes exist, who used them, and when do they end?', old: ['/admin/promo-codes'], name: 'Promo codes', icon: '🎟️'},
   {path: '/admin/growth/monetization', group: 'Growth', question: 'Do free users turn into Pro buyers, and does the money cover the AI?', old: ['/admin/monetization'], name: 'Monetization', icon: '💰'},
   {path: '/admin/growth/feedback', group: 'Growth', question: 'What are users telling us?', old: ['/admin/feedback', '/feedback'], name: 'Feedback', icon: '💬'},
+  {path: '/admin/growth/insights', group: 'Growth', question: 'Does the app make good decisions for users?', old: ['/admin/intelligence/insights', '/admin/insights', '/intel'], name: 'Insights', icon: '🧠'},
+  {path: '/admin/growth/brain', group: 'Growth', question: 'What did the product brain recommend, and what did we decide?', old: ['/admin/intelligence/brain', '/admin/brain'], slug: 'brain', name: 'Product Brain', icon: '🧠'},
+  {path: '/admin/growth/ai-cost', group: 'Growth', question: 'What does the AI cost us, and for which jobs?', old: ['/admin/intelligence/ai-cost', '/admin/ai-cost', '/ai-cost'], name: 'AI cost', icon: '💸'},
   {path: '/admin/form-filling/overview', group: 'Form filling', question: 'How is form filling doing: real users, our recorded sites, the benchmark and the learning loop?', old: ['/admin/form-overview'], name: 'Overview', icon: '🧭', overview: true},
   {path: '/admin/form-filling/real-users', group: 'Form filling', question: 'How well do real users\' forms get filled, and what still trips the filler?', title: 'Real Form Filling', old: ['/admin/real-form-filling', '/smart-form-filling'], name: 'Real users', icon: '📝'},
   {path: '/admin/form-filling/lab', group: 'Form filling', question: 'Is applying reliable on our recorded sites: do the sites we fixed stay fixed, and did a real site change?', title: 'Lab Form Filling', old: ['/admin/lab-form-filling', '/admin/applying'], name: 'Lab', icon: '🛡️'},
@@ -33,9 +36,6 @@ export const PAGES = [
   {path: '/admin/job-search/scouting', group: 'Job search', question: 'Is our central employer list growing, and where is it weak?', old: ['/admin/scouting'], name: 'Scouting', icon: '🛰️'},
   {path: '/admin/job-search/installs', group: 'Job search', question: 'How much do real installs grow and improve our employer list and job search?', old: ['/admin/installs'], name: 'Installs', icon: '🧲'},
   {path: '/admin/job-search/benchmark', group: 'Job search', question: 'How does our job search compare with other tools on the same random searches across Europe?', title: 'Benchmark Job Search', old: ['/admin/benchmark-job-search'], name: 'Benchmark', icon: '🏁'},
-  {path: '/admin/intelligence/overview', group: 'Intelligence', question: 'Is the product making good decisions: insights, the employer list and the brain at a glance?', old: ['/admin/intelligence-overview'], name: 'Overview', icon: '🧭', overview: true},
-  {path: '/admin/intelligence/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: ['/admin/insights', '/intel'], name: 'Insights', icon: '🧠'},
-  {path: '/admin/intelligence/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', old: ['/admin/brain'], slug: 'brain', name: 'Product Brain', icon: '🧠'},
   {path: '/admin/agents/overview', group: 'Agent Coding', question: 'How is engineering doing: build, self-healing, errors and AI cost at a glance, and where the time goes?', old: ['/admin/operations/overview', '/admin/operations'], name: 'Overview', icon: '⏱️', overview: true},
   {path: '/admin/agents/agent-coding', group: 'Agent Coding', question: 'How does our agent code, ship and verify, and where does it go in circles?', old: ['/admin/operations/agent-coding'], name: 'Agent coding', icon: '🧭'},
   {path: '/admin/agents/build-log', group: 'Agent Coding', question: 'What did we build each day, in plain words?', old: ['/admin/operations/build-log'], name: 'Build log', icon: '🗓️'},
@@ -49,7 +49,6 @@ export const PAGES = [
   {path: '/admin/testing/self-healing', group: 'Testing', question: 'Do the automatic loops find and fix problems on their own?', old: ['/admin/self-healing', '/self-heal', '/admin/operations/self-healing'], name: 'Self-healing', icon: '🔁'},
   {path: '/admin/testing/sentry', group: 'Testing', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', old: ['/admin/sentry', '/admin/operations/sentry'], name: 'Sentry', icon: '🐞'},
   {path: '/admin/testing/scheduled', group: 'Testing', question: 'Are the scheduled jobs that test and heal our code running on time and green?', name: 'Scheduled', icon: '⏰'},
-  {path: '/admin/intelligence/ai-cost', group: 'Intelligence', question: 'What does the AI cost us, and for which jobs?', old: ['/admin/ai-cost', '/ai-cost'], name: 'AI cost', icon: '💸'},
   {path: '/admin/schedules/all-jobs', group: 'Schedules', question: 'Are all our scheduled jobs running on time and green, in every area?', old: ['/admin/agents/schedules', '/admin/operations/schedules'], name: 'All jobs', icon: '⏰'},
   {path: '/admin/agents/access', group: 'Agent Coding', question: 'Who can open these admin pages?', old: ['/admin/access', '/admin/operations/access'], name: 'Access', icon: '🔐', superadmin: true},
 ];

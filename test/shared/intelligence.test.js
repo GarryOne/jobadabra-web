@@ -149,11 +149,11 @@ test('why fields stay empty: fixed reason words per board are summed, the rest i
   assert.match(html, /No answer in the profile/);
 });
 
-test('the owner page is not shadowed by the public one: /intel (now /admin/intelligence/insights) has no static asset', async () => {
+test('the owner page is not shadowed by the public one: /intel (now /admin/growth/insights) has no static asset', async () => {
   const fs = await import('node:fs');
   const assets = fs.readdirSync(new URL('../../web/public/', import.meta.url));
   assert.ok(assets.includes('intelligence.html'));  // public, served before the Worker
   assert.ok(!assets.some(name => name === 'intel' || name.startsWith('intel.')));
   const index = fs.readFileSync(new URL('../../workers/www/index.js', import.meta.url), 'utf8');
-  assert.match(index, /'\/admin\/intelligence\/insights': intelligenceView/);   // the owner page, under /admin since 6 Oct 2026
+  assert.match(index, /'\/admin\/growth\/insights': intelligenceView/);   // the owner page, under /admin since 6 Oct 2026
 });

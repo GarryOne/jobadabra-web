@@ -65,3 +65,12 @@ test('the e2e run report and its files answer under the E2E page and at their ol
   for (const path of ['/admin/operations/e2e/run/5/report', '/admin/e2e/run/5/report']) assert.notEqual((await get(e, path, owner)).status, 302, path);
   for (const path of ['/admin/operations/e2e/report/1/bad/index.html', '/admin/e2e/report/1/bad/index.html']) assert.equal(await (await get(e, path)).text(), 'Not found', path);
 });
+
+// Intelligence was spread out (owner, 2 Nov 2026, "Intelligence is very thin"): Insights, Product Brain and AI cost went to Growth, its Overview folded into Growth's.
+test('every Intelligence address, old and new, is one hop from a live Growth address', () => {
+  const expect = {'/admin/intelligence/insights': '/admin/growth/insights', '/admin/intelligence/brain': '/admin/growth/brain', '/admin/intelligence/ai-cost': '/admin/growth/ai-cost',
+    '/admin/insights': '/admin/growth/insights', '/intel': '/admin/growth/insights', '/admin/brain': '/admin/growth/brain', '/admin/ai-cost': '/admin/growth/ai-cost', '/ai-cost': '/admin/growth/ai-cost',
+    '/admin/intelligence/overview': '/admin/growth/overview', '/admin/intelligence-overview': '/admin/growth/overview', '/admin/intelligence': '/admin/growth/overview'};
+  for (const [old, now] of Object.entries(expect)) assert.equal(movedTo(old), now, old);
+  for (const old of Object.keys(expect)) assert.ok(old === '/admin/intelligence' || oldPaths().includes(old), `${old} is listed as an old address`);
+});

@@ -1,4 +1,4 @@
-// The owner's /admin/intelligence/insights page: what the installs teach about the job search, from shared/intelligence.js. Same key or cookie as /admin.
+// The owner's /admin/growth/insights page: what the installs teach about the job search, from shared/intelligence.js. Same key or cookie as /admin.
 // Guarded by test/shared/intelligence.test.js.
 import {filterLinks, trendChip} from './admin.js';
 import {viewer} from '../shared/auth.js';

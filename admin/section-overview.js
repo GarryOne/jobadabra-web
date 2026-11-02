@@ -36,7 +36,7 @@ export async function sectionTiles(env, group, now = new Date()) {
 }
 export const tilesHtml = tiles => `<style>${SECTION_STYLE}</style><div class="tiles">${tiles.map(draw).join('')}</div>`;
 
-// The Overview page of a section that has no page of its own (Form filling, Growth, Intelligence): its tiles under the menu's title and question (admin/admin.js adds the menu).
+// The Overview page of a section that has no page of its own (Form filling, Growth): its tiles under the menu's title and question (admin/admin.js adds the menu).
 export const overviewPage = (tiles, {title, icon}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · Admin</title>
 <link rel="icon" href="/favicon-32.png"></head><body><main><header><h1>${icon} ${esc(title)}</h1><span class="muted">each tile is one page's headline number: open the page for the detail</span></header>${tilesHtml(tiles)}</main></body></html>`;
 export const overviewView = (path, title) => async (request, env, now = new Date()) => {
