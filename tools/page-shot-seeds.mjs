@@ -160,6 +160,13 @@ export const seeds = {
     const days = Array.from({length: 14}, (_, back) => [{day: day(back), kind: 'beta', runs: 1, greens: 1, reds: 0, wallMin: 28 + (back % 4) * 3}, {day: day(back), kind: 'nightly', runs: 5, greens: 4, reds: 1, wallMin: 5 * (22 + (back % 3) * 4)},
       {day: day(back), kind: 'after-merge', runs: 3, greens: 3, reds: 0, wallMin: 3 * 12}]).flat();
     await put('e2e_snapshot', {...snapshot, quality, suiteNights, days});
+    for (let back = 0; back < 14; back++) {   // the self-healing snapshots behind Report only's finders and planted bugs (2 Nov 2026): one row a day, back 13..0; day 5 and 11 have none (grey cells)
+      if (back === 5 || back === 11) continue;
+      const at = new Date(now.getTime() - back * 86400000).toISOString(), found = (n, m) => ({fixed: n, queued: m});
+      await env.STATS.prepare('INSERT INTO selfheal_snapshots (day, at, body) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET at = excluded.at, body = excluded.body').bind(day(back), at, JSON.stringify({schema: 1, at, totals: {filed: 40, real: 12}, byDetector: [],
+        periods: {last7: {totals: {}, byDetector: [{detector: 'AI screenshot review', ...found(3 - (back % 3), 1)}, {detector: 'Interaction probe', ...found(0, back % 4 === 0 ? 1 : 0)}, {detector: 'Layout and DOM checks', ...found(back < 4 ? 3 : 1, back % 5 === 0 ? 2 : 0)}]}},
+        quality: {mutation: {rate: back === 6 ? 92 : 100, note: back === 6 ? '11 of 12 planted code bugs caught' : '12 of 12 planted code bugs caught'}}, recall: {planted: 13, caught: back < 3 ? 11 : 13, missed: back < 3 ? ['page-overflow', 'a11y-contrast'] : []}})).run();
+    }
     for (let back = 0; back < 14; back++) await env.STATS.prepare('INSERT INTO agent_coding_days (kind, day, card, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(kind, day) DO UPDATE SET card = excluded.card').bind('ci', day(back), JSON.stringify({prs: {merged: 6, ci: 2}, reds: {}, fixPrs: back < 3 ? {panel: 1, site: 1} : back < 6 ? {panel: 1} : {site: back % 2}, wall: [12], queue: [2], cancelledMin: 0}), now.toISOString()).run();
   },
   email: async ({env}) => {   // made-up mail for /admin/growth/email (26 Oct 2026): 14 days of sends and refusals under made-up address hashes, a bounce, an unconfirmed stop, two held items

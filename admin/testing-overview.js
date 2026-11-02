@@ -8,7 +8,7 @@ import {BAND_STYLE, verdictBand} from './verdict-band.js';
 import {load, resolve} from './testing-overview-data.js';
 import {daysTo} from './testing-overview-history.js';
 import {healthMap, MAP_STYLE, summaryBar} from './testing-overview-map.js';
-import {NIGHTLY_STYLE, trendsHtml} from './nightly-summary-html.js';
+import {NIGHTLY_STYLE, reportLine} from './nightly-summary-html.js';
 
 const HOUR = 3600000, DAY = 86400000;
 /** "5 min ago" / "3 h ago" / "2 days ago" for a run's time; a date without a time counts whole days. */
@@ -34,14 +34,15 @@ const lineHtml = (line, now, scheduled) => `<li><div class="what">${esc(line.lab
 const bugsHtml = bugs => (bugs.why ? `<div class="bugs"><span class="muted">Bugs caught</span> <b>—</b> <span class="muted small">${esc(bugs.why)}</span></div>`
   : `<div class="bugs"><span class="muted">Bugs caught</span> <b>${esc(bugs.text)}</b>${bugs.window ? ` <span class="muted small">· ${esc(bugs.window)}</span>` : ''}${bugs.detail ? ` <span class="muted small">· ${esc(bugs.detail)}</span>` : ''}</div>`);
 
+// Why (2 Nov 2026, owner: "this thing looks very ugly, crowded"): the nightly charts left the proof cards for Testing → Report only; a card keeps one line with the numbers and a link.
 // Why (1 Nov 2026, owner: "these widgets are hard to read. Let's have them one per row, rather than 3, being so crowded"): one card per row, laid out sideways: who it is on the left,
 // how it runs (lines + charts) in the middle, what it caught and where to look on the right.
-function cardHtml(card, now, scheduled) {
+function cardHtml(card, now, scheduled, reportOnly) {
   if (card.kind === 'planned') return `<article class="mcard planned" id="m-${esc(card.id)}"><div class="mc-head"><h3>${card.icon} ${esc(card.title)} ${chip('◷ planned', 'off')}</h3><p class="muted">${esc(card.proves)}</p></div></article>`;
   const head = card.state === 'link' ? (card.pending ? chip('◷ being built', 'off') : '') : chip(...CARD_CHIP[card.state]);
   const lines = card.lines.filter(line => card.state !== 'link' || line.last.state !== 'none').map(line => lineHtml(line, now, scheduled)).join('');
   return `<article class="mcard" id="m-${esc(card.id)}"><div class="mc-head"><h3>${card.icon} ${esc(card.title)} ${head}</h3><p class="muted">${esc(card.proves)}</p></div>
-<div class="mc-body"><ul class="lines">${lines}</ul>${trendsHtml(card.trends)}</div>
+<div class="mc-body"><ul class="lines">${lines}</ul>${reportLine(card.trends, reportOnly)}</div>
 <div class="mc-side">${card.state === 'link' ? '' : bugsHtml(card.bugs)}${card.href ? `<a class="open" href="${esc(card.href)}">Open the page →</a>` : ''}</div></article>`;
 }
 
@@ -72,7 +73,7 @@ ${summaryBar(counts)}
 ${healthMap(model, daysTo(now))}
 <h2 class="details">Each method in detail</h2>
 ${model.rings.map(ring => `<div class="ring">${ring.icon} ${esc(ring.title)} <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· ${esc(ring.note)}</span></div>
-<div class="grid">${ring.cards.map(card => cardHtml(card, now, model.scheduled)).join('')}</div>`).join('\n')}
+<div class="grid">${ring.cards.map(card => cardHtml(card, now, model.scheduled, model.reportOnly)).join('')}</div>`).join('\n')}
 </main></body></html>`;
 }
 

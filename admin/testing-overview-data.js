@@ -15,6 +15,7 @@ import {historyOf, MAP_DAYS} from './testing-overview-history.js';
 import {readCard as readProbes, readDays as readProbeDays} from '../shared/synthetic.js';
 
 const DAY = 86400000, DEFAULT_REPO = 'GarryOne/jobadabra';
+const REPORT_PAGE = '/admin/testing/report-only';   // the Report only tab (owner, 2 Nov 2026): the proof cards keep a one-line link to it, not the nightly charts
 const SCHEDULED_PAGE = '/admin/testing/scheduled';   // the Testing → Scheduled tab (session ac): each cadence links to it once it is in the menu
 const DONE = {success: 'green', failure: 'red', timed_out: 'red'};
 
@@ -132,5 +133,5 @@ export function resolve(data, {pages = []} = {}) {
   });
   const rings = RINGS.map(ring => ({...ring, cards: [...live.filter(card => card.ring === ring.id), ...PLANNED.filter(card => card.ring === ring.id).map(card => ({...card, kind: 'planned'}))]}));
   const counted = live.filter(card => card.state !== 'link'), count = state => counted.filter(card => card.state === state).length;   // a link-only card (GTM readiness) has its own page and no verdict here
-  return {rings, scheduled: pages.includes(SCHEDULED_PAGE) ? SCHEDULED_PAGE : '', red: counted.filter(card => card.state === 'red').map(card => card.title), redCards: counted.filter(card => card.state === 'red').map(card => ({id: card.id, icon: card.icon, title: card.title})), counts: {green: count('green'), red: count('red'), none: count('none'), live: counted.length, planned: PLANNED.length}};
+  return {rings, scheduled: pages.includes(SCHEDULED_PAGE) ? SCHEDULED_PAGE : '', reportOnly: pages.includes(REPORT_PAGE) ? REPORT_PAGE : '', red: counted.filter(card => card.state === 'red').map(card => card.title), redCards: counted.filter(card => card.state === 'red').map(card => ({id: card.id, icon: card.icon, title: card.title})), counts: {green: count('green'), red: count('red'), none: count('none'), live: counted.length, planned: PLANNED.length}};
 }

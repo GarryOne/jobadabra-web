@@ -16,8 +16,8 @@ const json = value => { try { return typeof value === 'string' ? JSON.parse(valu
 
 /** The last `NIGHTS` UTC days ending today, oldest first. */
 export const lastDays = (now = new Date(), n = NIGHTS) => Array.from({length: n}, (_, i) => dayOf(now.getTime() - (n - 1 - i) * DAY));
-const empty = (id, title, files, why, bar = null) => ({id, title, value: '–', sub: why, status: 'none', bar, series: [], files});
-const newestWithValue = series => [...series].reverse().find(point => point.value != null || point.ok != null) || null;
+export const empty = (id, title, files, why, bar = null) => ({id, title, value: '–', sub: why, status: 'none', bar, series: [], files});
+export const newestWithValue = series => [...series].reverse().find(point => point.value != null || point.ok != null) || null;
 
 // ---- Quality AI: the same rate and bars the e2e page draws (rateOf), one point per night ----
 function qualityAi(snapshot, days) {
