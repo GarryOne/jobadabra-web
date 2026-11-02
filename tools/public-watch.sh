@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints "changed" when the public files a deploy bundles or builds from differ from the last deploy's record (.public-<name>), else "same".
-# Usage: tools/public-watch.sh <tree> <name> <path>...   (the tree is the overlay; the watch workflow commits the record to the branch public-watch-state)
+# Usage: tools/public-watch.sh <tree> <name> <path>...   (the tree is the overlay; the watch workflow keeps the record under the tag public-watch-state, tools/state-tag.sh)
 # The record lives in $PUBLIC_WATCH_STATE (the workflow's checkout of that branch); unset, it is this repo's root (tools/media.sh keeps .public-media there, changed only through a PR).
 set -euo pipefail
 tree="$1"; name="$2"; shift 2
