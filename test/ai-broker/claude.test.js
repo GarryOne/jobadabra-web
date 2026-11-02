@@ -16,6 +16,14 @@ test('the arguments are the measured lean ones: no tools, settings, slash comman
   assert.deepEqual(claudeArgs({model: 'm', schema: {type: 'object'}}).slice(-2), ['--json-schema', '{"type":"object"}']);
 });
 
+test('a search call gets exactly one tool, WebSearch, allowed up front; every other argument is the lean one (measured live 2 Nov 2026: 22.5 s, answer with its sources)', () => {
+  const lean = claudeArgs({model: 'claude-haiku-5-5'}), search = claudeArgs({model: 'claude-haiku-5-5', search: true});
+  const expected = [...lean]; expected.splice(expected.indexOf('--tools'), 2, '--tools', 'WebSearch', '--allowedTools', 'WebSearch');
+  assert.deepEqual(search, expected, 'only the tool arguments differ from the lean call');
+  assert.ok(!search.includes('--bare') && !search.includes('Bash') && !search.includes('WebFetch'), 'no shell, no page fetching');
+  assert.deepEqual(claudeArgs({model: 'm', search: false}), claudeArgs({model: 'm'}));
+});
+
 test('the prompt and images are one stream-json line; an image the CLI cannot take is refused before the call', () => {
   const sent = JSON.parse(claudeInput({prompt: 'What colour?', images: [{name: 'a.PNG', base64: 'QUJD'}, {name: 'b.jpeg', base64: 'REVG'}]}));
   assert.equal(sent.type, 'user');
