@@ -76,3 +76,44 @@ test('nothing new to record leaves the tag alone; a missing tag fails loudly', (
   assert.equal(git(w.root, '--git-dir', join(w.root, 'remote.git'), 'rev-parse', 'refs/tags/state'), before);
   assert.notEqual(tool(repo, 'read', 'no-such-tag', join(repo, 'picks2')).status, 0, 'a lost tag is an error, not a silent empty start');
 });
+
+// Gitar on #319: when the other writer already recorded the same content, the retry's cherry-pick is empty; that is "done", not a conflict.
+test('a round the other writer already recorded identically counts as done', () => {
+  const w = world();
+  const a = w.clone('a'), b = w.clone('b');
+  for (const repo of [a, b]) assert.equal(tool(repo, 'read', 'state', join(repo, 'picks')).status, 0);
+  for (const repo of [a, b]) writeFileSync(join(repo, 'picks/same.json'), '{"sha":"abc"}\n');
+  assert.equal(tool(a, 'write', 'state', join(a, 'picks'), 'A', 'same.json').status, 0);
+  const second = tool(b, 'write', 'state', join(b, 'picks'), 'B', 'same.json');
+  assert.equal(second.status, 0, second.stderr);
+  assert.match(second.stderr + second.stdout, /already holds this round/);
+  assert.deepEqual(w.tagFiles(), ['same.json', 'start.txt']);
+});
+
+// Gitar on benchmarks#17: the tag is seeded from the old branch before the workflows switch; anything the old branch gets in between must not be dropped silently.
+test('an old branch with state the tag lacks fails read and write loudly; once the tag has caught up it is ignored', () => {
+  const w = world();
+  const remote = join(w.root, 'remote.git');
+  const remoteGit = (...args) => git(w.root, '--git-dir', remote, ...args);
+  const tagHead = remoteGit('rev-parse', 'refs/tags/state');
+  remoteGit('update-ref', 'refs/heads/state', tagHead);   // the old branch, level with the tag: fine
+  const a = w.clone('a');
+  assert.equal(tool(a, 'read', 'state', join(a, 'picks')).status, 0);
+  // an old workflow pushes to the branch after the seed
+  git(a, 'fetch', '-q', 'origin', 'refs/tags/state'); git(a, 'checkout', '-q', '--detach', 'FETCH_HEAD');
+  writeFileSync(join(a, 'late.json'), '{}\n');
+  git(a, 'add', 'late.json'); git(a, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'late');
+  git(a, 'push', '-q', 'origin', 'HEAD:refs/heads/state');
+  const branchHead = remoteGit('rev-parse', 'refs/heads/state');
+  const b = w.clone('b');
+  const read = tool(b, 'read', 'state', join(b, 'picks'));
+  assert.notEqual(read.status, 0);
+  assert.match(read.stderr, /old branch state .* has state the tag lacks/);
+  git(b, 'fetch', '-q', 'origin', 'refs/tags/state'); git(b, 'checkout', '-q', '--detach', 'FETCH_HEAD');
+  writeFileSync(join(b, 'x.json'), '{}\n');
+  const write = tool(b, 'write', 'state', b, 'X', 'x.json');
+  assert.notEqual(write.status, 0, 'write refuses too');
+  assert.equal(remoteGit('rev-parse', 'refs/tags/state'), tagHead, 'the tag was not moved');
+  remoteGit('update-ref', 'refs/tags/state', branchHead);   // the documented move: the tag catches up
+  assert.equal(tool(b, 'read', 'state', join(b, 'picks2')).status, 0, 'a branch the tag has caught up with is ignored');
+});
