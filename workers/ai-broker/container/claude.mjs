@@ -12,9 +12,13 @@ const MEDIA = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'i
 // Why (2 Nov 2026, the first digest call that the Claude engine took after Codex ran out): the real daily-digest prompt (145 PRs, 70k characters, 27k input tokens) takes Claude 85-117 s on this account, 72-105 s of it thinking, 20-29k output tokens. The same call measured with `--effort low` (85 s) and `MAX_THINKING_TOKENS=0` (no change: still 105 s of thinking) did not get shorter, so the CLI's thinking cannot be turned down from outside. The Codex kill at 100 s killed it at 103 s ("claude-failed:null ... thinking_duration_ms 95200"). Callers wait 180 s (desktop/e2e/lib/broker-client.mjs), so a Claude call gets 150 s.
 export const CLAUDE_TIMEOUT_MS = 150000;
 
-/** The CLI arguments of one call: no tools, no settings, no slash commands, no MCP, no saved session; the model is a full id (claude-haiku-5-5, ...). */
-export function claudeArgs({model, schema}) {
-  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--no-session-persistence',
+/**
+ * The CLI arguments of one call: no tools, no settings, no slash commands, no MCP, no saved session; the model is a full id (claude-haiku-5-5, ...).
+ * Why (2 Nov 2026, owner: "Web search on Claude"): a call with `search` gets exactly one tool, WebSearch, allowed up front (nothing to ask in -p mode); no shell, no page fetching, no file access.
+ * Measured live with the real CLI on the subscription token: 22.5 s, a cited answer, WebSearch the only tool used.
+ */
+export function claudeArgs({model, schema, search = false}) {
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', ...(search ? ['WebSearch', '--allowedTools', 'WebSearch'] : ['']), '--no-session-persistence',
     '--setting-sources', '', '--disable-slash-commands', '--strict-mcp-config', '--system-prompt', SYSTEM_PROMPT, '--model', String(model)];
   if (schema) args.push('--json-schema', JSON.stringify(schema));
   return args;

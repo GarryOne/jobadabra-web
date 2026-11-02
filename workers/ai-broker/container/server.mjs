@@ -96,13 +96,13 @@ async function call({prompt, schema, images = [], model, search, effort}) {
 // Why (1 Nov 2026): an explicit environment, no tools, no settings, an empty working folder and a kill timer, the same shape as the Codex call; images travel as base64 blocks so the CLI needs no file tool.
 let claudeHome = null;   // created on the first Claude call
 const claudeHomeDir = () => (claudeHome ||= fs.mkdtempSync(path.join(os.tmpdir(), 'claude-home-')));
-async function callClaude({prompt, schema, images = [], model}) {
+async function callClaude({prompt, schema, images = [], model, search = false}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-call-'));
   try {
     const input = claudeInput({prompt, images}), started = Date.now();
     const env = {PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_CONFIG_DIR: claudeHomeDir(), CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', ...trustEnv(), ...(fs.existsSync(CF_CA) ? {NODE_EXTRA_CA_CERTS: CF_CA} : {})};
     const {code, out, err, timedOut} = await new Promise(resolve => {
-      const child = spawn('claude', claudeArgs({model, schema}), {cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], env});
+      const child = spawn('claude', claudeArgs({model, schema, search: search === true}), {cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], env});
       let out = '', err = '';
       child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { err += d; });
       let timedOut = false;

@@ -131,7 +131,7 @@ export class CodexBroker extends Container {
     }
     if (body.only === true) {
       if (chain[0] === 'free-ai' || chain[0] === 'claude-api') return apiFinish(env, note);   // Why (Gitar on #296): their own reasons stay: fallback:search-unsupported, fallback:unavailable, the 429 day cap
-      return json(503, {why: `only-${chain[0]}: ${body.search ? 'search-unsupported' : (skipped.find(entry => entry.engine === chain[0])?.why ?? (configured(chain[0], env) ? 'unavailable' : 'not-configured'))}`, engine: chain[0], tried: skipped});   // strict call: nobody else answers, and the reason is named
+      return json(503, {why: `only-${chain[0]}: ${skipped.find(entry => entry.engine === chain[0])?.why ?? (configured(chain[0], env) ? 'unavailable' : 'not-configured')}`, engine: chain[0], tried: skipped});   // strict call: nobody else answers, and the reason is named
     }
     return apiFinish(env, note);
   }
@@ -175,14 +175,14 @@ export class CodexBroker extends Container {
   // Why (1 Nov 2026): only measured signals say "ran out" (the CLI's own rate_limit_event or a limit message); an unknown failure is a plain failure and the chain moves on. An invalid token is shown in /health and sent to Telegram once a day.
   async claudeStep(lane, body, skip) {
     const env = this.brokerEnv, storage = this.ctx.storage;
-    if (!env.CLAUDE_CODE_OAUTH_TOKEN || body.search) return null;   // search is Codex's; no token = not configured
+    if (!env.CLAUDE_CODE_OAUTH_TOKEN) return null;   // no token = not configured (search is Claude's too since 2 Nov 2026: the WebSearch tool)
     const now = Date.now(), state = (await storage.get('claude:state')) || {};
     if ((state.invalidUntil || 0) > now) { skip('claude', 'token-invalid', false); return null; }
     if ((state.limitUntil || 0) > now) { skip('claude', 'ran-out', false); return null; }
     const model = CLAUDE_MODELS[body.tier ?? 'mid'];
     const priority = lane === 'drift' ? 'scheduled' : lane, releaseClaude = await this.claudeGate.acquire(priority), release = await this.gate.acquire(priority);
     try {
-      const reply = await this.containerFetch('http://c/claude', {method: 'POST', body: JSON.stringify({prompt: body.prompt, schema: body.schema, images: body.images, model})});
+      const reply = await this.containerFetch('http://c/claude', {method: 'POST', body: JSON.stringify({prompt: body.prompt, schema: body.schema, images: body.images, model, ...(body.search === true ? {search: true} : {})})});
       let answer;
       let raw = '';
       try { raw = await reply.text(); answer = JSON.parse(raw); } catch { await this.claudeFailed(skip, 'platform: ' + raw); return null; }   // the platform's own error text, not our server's JSON

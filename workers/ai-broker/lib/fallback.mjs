@@ -114,7 +114,7 @@ export const apiPrecheck = body => typeof body.prompt !== 'string' || !body.prom
  * null when the next engine should try (not configured, cap reached, transport or HTTP failure, as before the chain existed). All transports can be faked offline.
  */
 export async function apiStep(engine, {storage, env, body, lane, weekUsedPercent, fetcher = fetch, note, started = Date.now()}) {
-  if (body.search) { note.search = true; return null; }   // Why (1 Nov 2026): only Codex can search; the chain ends with fallback:search-unsupported when it was the only one left
+  if (body.search) { note.search = true; return null; }   // Why (1 Nov 2026, widened 2 Nov): only Codex and the Claude subscription (WebSearch tool) can search, never this engine; the chain ends with fallback:search-unsupported when neither could take it
   const day = dayOf();
   const why = reason => note.claudeRefusal ? `${reason} (claude ${note.claudeRefusal})` : reason;
   const refused = async response => {

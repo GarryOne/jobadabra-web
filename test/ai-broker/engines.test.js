@@ -197,9 +197,19 @@ test('the subscription used up: it waits for the reset time the CLI reported, th
   assert.equal(health.chain[0].failedToday, 2); assert.equal(health.chain[0].ranOutToday, 0); assert.equal(health.chain[0].state, 'ready');
 });
 
-test('search is Codex\'s, a token-shaped Claude reply never reaches the caller, and six parallel Claude calls run at most three at a time', async t => {
-  const {broker, calls} = world(t, 'claude', withToken);
-  assert.equal(await answered(await broker.call('pr', {...body, search: true})), 'codex'); assert.equal(calls.claudeCli, 0);
+test('search: Codex first while it has allowance; when it is used up Claude searches (owner, 2 Nov 2026: every Search check read 0 jobs); a token-shaped Claude reply never reaches the caller, and six parallel Claude calls run at most three at a time', async t => {
+  const first = world(t, 'codex', withToken);
+  assert.equal(await answered(await first.broker.call('pr', {...body, search: true})), 'codex'); assert.equal(first.calls.claudeCli, 0);
+  const out = world(t, 'codex', withToken);
+  await out.storage.put('limits', {usedPercent: 100, resetsAt: day / 1000 + 3600});
+  out.broker.limits = null;
+  const searched = await (await out.broker.call('pr', {...body, search: true})).json();
+  assert.equal(searched.engine, 'claude'); assert.deepEqual(searched.fellBack, [{engine: 'codex', why: 'ran-out'}]);
+  assert.equal(out.calls.claudeBodies.at(-1).search, true, 'the container is told to search'); assert.equal(out.calls.free, 0, 'Free AI never takes a search');
+  assert.equal(searched.reply, 'claude ok');
+  const plain = world(t, 'claude', withToken);
+  await plain.broker.call('pr', body);
+  assert.ok(!plain.calls.claudeBodies.at(-1).search, 'a call without search does not enable the tool');
   const leaky = world(t, 'claude', {...withToken, claude: () => new Response(JSON.stringify({reply: 'sk-' + 'a'.repeat(30), tokens: {input: 1, output: 1}, ms: 1}))});
   assert.equal(await answered(await leaky.broker.call('pr', body)), 'codex');   // the guard refuses it and Codex, not yet run, answers
   const slow = world(t, 'claude', {...withToken, claude: async () => { await new Promise(resolve => setTimeout(resolve, 10)); return claudeOk(); }});
@@ -303,7 +313,8 @@ test('only: true pins a call to one engine for each of codex, claude and free-ai
   assert.equal(spent.status, 429); assert.match((await spent.json()).why, /^budget:fallback-day/);
   assert.ok(!capped.dispatched.length && capped.calls.free === 0);
   const claudeSearch = await ok.broker.call('pr', {...body, engine: 'claude', only: true, search: true});
-  assert.equal(claudeSearch.status, 503); assert.equal((await claudeSearch.json()).why, 'only-claude: search-unsupported');
+  assert.equal(claudeSearch.status, 200); assert.equal((await claudeSearch.json()).engine, 'claude');   // 2 Nov 2026: Claude searches now
+  assert.equal(ok.calls.claudeBodies.at(-1).search, true);
   // without only the same calls still fall back (unchanged)
   const open = world(t, 'codex', {...withToken, claude: claudeFails('claude-failed:1 boom')});
   assert.equal(await answered(await open.broker.call('pr', {...body, engine: 'claude'})), 'codex');   // the next engine in the chain, as before
