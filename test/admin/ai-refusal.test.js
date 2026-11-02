@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {ask} from '../../admin/build-digest.js';
-import {AiRefused, describe, isRefusal, kindOf, reportRefusal, shouldTell, staysDown, tellOwner} from '../../admin/ai-refusal.js';
+import {AiRefused, aiLine, describe, isRefusal, kindOf, reportRefusal, shouldTell, staysDown, tellOwner} from '../../admin/ai-refusal.js';
 
 // The Codex broker's answers as askBroker (desktop/e2e/lib/broker-client.mjs) reports them: 'capped' = its allowance or login said no, 'no-token', 'unreachable', or an HTTP status.
 const answer = (status, detail) => ({broker: async () => ({ok: false, status, detail})});
@@ -21,8 +21,9 @@ test('ask throws AiRefused with the kind: capped (the Codex allowance), no run t
 
 test('the description says "AI skipped", names the cause and the broker\'s words, and never a token', async () => {
   const caught = await ask({system: 's', user: 'u'}, answer('capped', `${BUDGET} eyJhbGciOi`)).catch(error => error);
-  assert.match(describe(caught), /^AI skipped \(limit\): the Codex plan's allowance or login is not available\. broker: budget:week 100% of 100% \(scheduled\)/);
+  assert.match(describe(caught), /^AI skipped \(limit\): no AI engine has an allowance left, or its login is not available\. broker: budget:week 100% of 100% \(scheduled\)/);
   assert.doesNotMatch(describe(caught), /Anthropic/);
+  for (const kind of ['limit', 'auth', 'rate', 'overloaded', 'other']) assert.doesNotMatch(describe(new AiRefused(kind === 'limit' ? 'capped' : kind === 'auth' ? 401 : kind === 'rate' ? 429 : kind === 'overloaded' ? 502 : 422, 'x')), /Codex/, `${kind}: the broker also runs Claude and Free AI, so its refusals never say Codex`);
   assert.ok(staysDown(caught) && !staysDown(new AiRefused(422, 'reply-refused')) && !staysDown(new Error('x')));
 });
 
@@ -53,4 +54,14 @@ test('reportRefusal logs the named error and tells once: the run before red mean
   assert.match(told[0], /Changelog publish: AI skipped \(limit\).*\nPlain entries went out\./);
   await reportRefusal(error, {job: 'Changelog publish', workflow: 'w.yml', zurichHour: 14, env, fetch, run: runs('failure')});
   assert.equal(told.length, 1, 'already red before: no second message');
+});
+
+test('ask passes on which engine answered, and aiLine prints it on one line (owner, 1 Nov 2026: CI should know which model answers)', async () => {
+  const reply = extra => ({broker: async () => ({ok: true, message: {content: [{type: 'text', text: 'hi'}], stop_reason: 'end_turn', usage: {}}, model: 'claude-haiku-5-5', ...extra})});
+  const fell = await ask({system: 's', user: 'u'}, reply({engine: 'claude', fellBack: [{engine: 'codex', why: 'ran-out'}]}));
+  assert.deepEqual([fell.engine, fell.model, fell.fellBack], ['claude', 'claude-haiku-5-5', [{engine: 'codex', why: 'ran-out'}]]);
+  assert.equal(aiLine(fell), 'AI: claude / claude-haiku-5-5 (codex ran-out)');
+  assert.equal(aiLine(await ask({system: 's', user: 'u'}, reply({engine: 'codex', model: 'gpt-6-luna'}))), 'AI: codex / gpt-6-luna');
+  assert.equal(aiLine(await ask({system: 's', user: 'u'}, reply({}))), 'AI: claude-haiku-5-5', 'a client that does not send the engine yet (public repo 6/7) still shows the model');
+  assert.equal(aiLine({}), '', 'nothing known, nothing printed');
 });

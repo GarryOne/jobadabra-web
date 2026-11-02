@@ -15,7 +15,8 @@ const good = {
   'https://www.jobpilotto.workers.dev/api/ai/caps': {ok: true, lane: 'free', capped: null},
   'https://www.jobpilotto.workers.dev/api/releases/latest': {tag_name: 'desktop-v0.8.60', assets: [{name: 'Jobadabra-0.8.60-arm64.dmg'}, {name: 'Jobadabra-windows-x64.exe'}]},
 };
-const BROKER = {fallback: {day: '2026-11-01', claude: 1, claudeCap: 10, freeAi: 0, freeAiCap: 10}};
+const CHAIN = [{name: 'codex', configured: true, answeredToday: 0, ranOutToday: 40}, {name: 'claude', configured: true, state: 'ready', answeredToday: 12}, {name: 'free-ai', configured: true, answeredToday: 1}];   // today's real shape: Codex ran out, Claude answers
+const BROKER = {fallback: {day: '2026-11-01', claude: 1, claudeCap: 10, freeAi: 0, freeAiCap: 10}, chain: CHAIN};
 const answer = body => (typeof body === 'string' ? new Response(body) : Response.json(body));
 
 function world(overrides = {}) {
@@ -35,7 +36,7 @@ function world(overrides = {}) {
     if (body === 'timeout') throw Object.assign(new Error('t'), {name: 'TimeoutError'});
     return body === undefined ? new Response('missing', {status: 404}) : answer(body);
   };
-  const env = {STATS, STATS_SALT: 'salt', SENTRY_TELEGRAM_TOKEN: 'bot', SENTRY_TELEGRAM_CHAT: '42', CODEX_BROKER: {fetch: async () => Response.json(BROKER)}};
+  const env = {STATS, STATS_SALT: 'salt', SENTRY_TELEGRAM_TOKEN: 'bot', SENTRY_TELEGRAM_CHAT: '42', AI_BROKER: {fetch: async () => Response.json(BROKER)}};
   return {db, env, fetcher, telegram, seen, answers};
 }
 const at = n => `2026-11-01T12:${String(n).padStart(2, '0')}:00Z`;
@@ -65,9 +66,9 @@ test('every probe, class loop: HTTP 200 with the wrong content is down, and so a
       assert.equal(row.reason, expect, probe.id);
     }
   }
-  const down = world(); down.env.CODEX_BROKER = {fetch: async () => Response.json({fallback: {}})};
+  const down = world(); down.env.AI_BROKER = {fetch: async () => Response.json({fallback: {}, chain: CHAIN})};
   assert.equal(byProbe(await runRound(down.env, {fetcher: down.fetcher})).broker.reason, 'no day meters');
-  const none = world(); delete none.env.CODEX_BROKER;
+  const none = world(); delete none.env.AI_BROKER;
   assert.ok(!(await runRound(none.env, {fetcher: none.fetcher})).some(row => row.probe === 'broker'), 'a broker that is not bound here is skipped, not red');
 });
 
@@ -188,4 +189,17 @@ test('the per-probe map: only the probe that had 2 reds in a row has the red day
   assert.deepEqual(Object.keys(by).sort(), PROBES.map(probe => probe.id).sort());
   assert.deepEqual([by.site.at(-1).state, by.index.at(-1).state, by.broker.at(-1).state], ['red', 'green', 'green']);
   assert.deepEqual((await readDays(w.env, 14, new Date('2026-11-01T13:00:00Z'))).at(-1), {day: '2026-11-01', state: 'red'}, 'the Overview row is the union');
+});
+
+test('the AI broker probe names the engines (Why, owner 1 Nov 2026: Claude, Codex or Free AI by one flag): green while one can answer, red when Claude\'s token is rejected or none can', async () => {
+  assert.equal(PROBES.find(probe => probe.id === 'broker').label, 'AI broker');
+  const withChain = chain => { const w = world(); w.env.AI_BROKER = {fetch: async () => Response.json({...BROKER, chain})}; return w; };
+  const reason = async chain => { const w = withChain(chain); return byProbe(await runRound(w.env, {fetcher: w.fetcher})).broker; };
+  assert.deepEqual([(await reason(CHAIN)).ok, (await reason(CHAIN)).reason], [1, ''], 'Codex out, Claude ready: up');
+  const rejected = await reason(CHAIN.map(item => item.name === 'claude' ? {...item, state: 'token-invalid'} : item));
+  assert.deepEqual([rejected.ok, rejected.reason], [0, 'Claude token rejected']);
+  const none = await reason(CHAIN.map(item => ({...item, configured: false})));
+  assert.deepEqual([none.ok, none.reason], [0, 'no AI engine can answer']);
+  const noChain = await reason(undefined);
+  assert.deepEqual([noChain.ok, noChain.reason], [1, ''], 'an older broker build without a chain is not red');
 });

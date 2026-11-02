@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {countOf, daysToRun, makeDigest, plan, zurichDay, zurichHour} from '../admin/build-digest.js';
 import {post} from '../admin/build-digest-telegram.js';
-import {isRefusal, reportRefusal} from '../admin/ai-refusal.js';
+import {aiLine, isRefusal, reportRefusal} from '../admin/ai-refusal.js';
 import {askBroker} from '../desktop/e2e/lib/broker-client.mjs';   // the public tree's client of workers/ai-broker
 import {pathToFileURL} from 'node:url';
 
@@ -36,6 +36,7 @@ async function runDay({day, late, publishKey, now}) {
   const digest = await makeDigest({day, prs, open, broker: askBroker});
   const usd = 0, {calls} = digest, {count, min, max} = countOf(digest.numbers);   // the Codex plan has no dollars; `calls` is what the job costs
   console.log(`${day}: ${decision.final ? 'FINAL' : 'draft'}, ${count} PRs${count ? ` (#${min}-#${max})` : ''}, ${digest.groups.length} groups, ${calls} broker ${calls === 1 ? 'call' : 'calls'}`);
+  if (aiLine(digest.answered)) console.log(aiLine(digest.answered));   // Why (owner, 1 Nov 2026): CI should know which model answers; the 23:33 timeout was only visible in the broker's health
   const rewrite = process.argv.includes('--rewrite');   // a closed day written again in the new form: stored over the old one, no Telegram post
   const result = {day, final: decision.final, ...(rewrite ? {rewrite: true} : {}), markdown: digest.markdown, groups: digest.groups, open: digest.open, numbers: digest.numbers, usd, calls};
   if (publishKey) {

@@ -28,7 +28,7 @@ A broken service (index pack empty, update feed 502, Free AI key check refused, 
 | `license` | `GET /api/pro/status` with the probe's `ai` key | 200, `ok: true` and `plan` free or pro |
 | `free-ai` | `GET /api/ai/v1/models` and `GET /api/ai/caps` with the probe's `ai` key | models has a `data` list; caps `ok: true` and a `lane` (no AI call, so no AI cost) |
 | `updates` | `GET /api/releases/latest` | 200, a `tag_name` with a version, and a `.dmg` and an `.exe` asset |
-| `broker` | the `CODEX_BROKER` service binding `/health` (as `admin/jobcost.js readFallback`) | 200 and the day meters present (a day and a numeric cap); skipped where the binding is absent |
+| `broker` | the `AI_BROKER` service binding `/health` (as `admin/jobcost.js readFallback`) | 200 and the day meters present (a day and a numeric cap); skipped where the binding is absent |
 
 **No new secret, no user data.** The probe identity is one fixed install id `synthetic-probe`; its tokens are computed in the Worker with `tokenFor` (`shared/guard.js`, a deterministic HMAC of the secret it already holds), so nothing is minted, no mint counter moves and no row is created per round. No request carries a profile, CV, key or cookie. A signed licence key needs the owner's private key, so the `license` probe asks the plan route with the probe install and says so on the card: it proves the licence route and its Pro-status logic answer, not signature checking.
 

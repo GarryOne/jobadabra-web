@@ -97,13 +97,14 @@ export function render({day, groups, open, numbers}) {
 
 // Ask the model on the Codex plan (owner, 31 Oct 2026: "Why Anthropic is reached? We should use fully the Codex"). `broker` is askBroker of desktop/e2e/lib/broker-client.mjs (the public tree's; a test passes a fake):
 // it takes a Messages-shaped request, runs it on the Codex broker with this run's GitHub OIDC token (Haiku -> tier small) and answers {ok, message: {content, stop_reason, usage}} or {ok: false, status, detail}.
-// -> {text, usage, stopReason}; a refusal throws AiRefused (status 'capped' = the broker's budget or login said no, 'no-token', 'unreachable', or the broker's HTTP status), so jobs skip the AI loudly and use their fallback.
+// -> {text, usage, stopReason, engine?, model?, fellBack?} (which engine answered, when the client reports it: aiLine prints it); a refusal throws AiRefused (status 'capped' = the broker's budget or login said no, 'no-token', 'unreachable', or the broker's HTTP status), so jobs skip the AI loudly and use their fallback.
 export async function ask({system, user}, {broker, model = MODEL, maxTokens = MAX_TOKENS}) {
   if (!broker) throw new AiRefused('no-token', 'no broker client given to the job');
   const result = await broker({model, max_tokens: maxTokens, system, messages: [{role: 'user', content: user}]});
   if (!result.ok) throw new AiRefused(result.status, String(result.detail || 'no reason given').replace(/\s+/g, ' ').trim().slice(0, 300));
   const message = result.message || {};
-  return {text: (message.content || []).map(part => part.text || '').join(''), usage: message.usage || {}, stopReason: message.stop_reason || ''};
+  return {text: (message.content || []).map(part => part.text || '').join(''), usage: message.usage || {}, stopReason: message.stop_reason || '',
+    ...(result.engine ? {engine: result.engine} : {}), ...(result.model ? {model: result.model} : {}), ...(result.fellBack?.length ? {fellBack: result.fellBack} : {})};
 }
 
 // The whole step: summaries + open PRs -> {markdown, groups, numbers, usage} (one retry on a bad answer), or throws.
@@ -112,14 +113,15 @@ export async function makeDigest({day, prs, open = [], broker, model}) {
   if (!numbers.length) return {markdown: render({day, groups: [], open: '', numbers}), groups: [], open: '', numbers, usage: {}, calls: 0};
   const prompt = buildPrompt(summaries, open);
   const usage = {input_tokens: 0, output_tokens: 0};
-  let failure = '', maxTokens = MAX_TOKENS, calls = 0;
+  let failure = '', maxTokens = MAX_TOKENS, calls = 0, answered = {};
   for (let attempt = 0; attempt < 2; attempt++) {
     calls += 1;   // counted before the call: a refused call still used the allowance
-    const {text, usage: used, stopReason} = await ask(prompt, {broker, model, maxTokens});
+    const {text, usage: used, stopReason, ...who} = await ask(prompt, {broker, model, maxTokens});
+    answered = who;   // the last call's engine, model and fallbacks (empty when the client reports none)
     usage.input_tokens += used.input_tokens || 0; usage.output_tokens += used.output_tokens || 0;
     if (stopReason === 'max_tokens') { failure = `cut off at the ${maxTokens}-token limit after ${used.output_tokens || '?'} tokens, ${numbers.length} PRs`; maxTokens = MORE_TOKENS; continue; }
     const checked = validate(text, numbers);
-    if (!checked.error) return {markdown: render({day, groups: checked.groups, open: checked.open, numbers}), groups: checked.groups, open: checked.open, numbers, usage, calls};
+    if (!checked.error) return {markdown: render({day, groups: checked.groups, open: checked.open, numbers}), groups: checked.groups, open: checked.open, numbers, usage, calls, answered};
     failure = checked.error;
   }
   throw new Error(`the model's answer was unusable twice (${failure})`);

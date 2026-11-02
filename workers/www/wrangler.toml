@@ -139,10 +139,10 @@ queue = "ready-runs"
 binding = "READY_RUNNER"
 service = "www-ready-runner"
 
-# Read-only broker health for the guarded AI cost page; no provider credentials cross this binding.
+# Read-only broker health for the guarded AI cost page and the synthetic probe (which engine answers); no provider credentials cross this binding. Renamed from CODEX_BROKER on 2 Nov 2026 (ai-broker 5/7).
 [[services]]
-binding = "CODEX_BROKER"
-service = "jobadabra-codex-broker"
+binding = "AI_BROKER"
+service = "jobadabra-ai-broker"
 
 [[d1_databases]]
 binding = "STATS"
