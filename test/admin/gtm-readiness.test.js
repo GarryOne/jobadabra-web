@@ -40,18 +40,73 @@ test('stable = the last 10 runs green and no red in 3 days; a red on one OS is a
 test('a suite that died before any step (seen 0, cut) is one red run; seen 0 without a failure or cut is no run', () => {
   const died = cleanSnapshot({journeys: [{id: 'J5', name: 'Apply', tier: 1}], tier1: [[7, '2026-11-01', 'beta', 'mac', 'J5', 0, 0, 1], [6, '2026-11-01', 'beta', 'mac', 'J5', 0, 0, 0]]}, now);
   const [row] = tier1Rows(died, now);
-  assert.deepEqual([row.runs, row.share, row.strip.length, row.lastBad.runId], [1, 0, 1, 7]);
+  assert.deepEqual([row.runs, row.share, row.days.reduce((n, item) => n + item.runs, 0), row.lastBad.runId], [1, 0, 1, 7]);
 });
 
-test('the last 20 runs are oldest to newest; the kept row is last and is not in the gauge', () => {
+test('the kept row is last and is not in the gauge', () => {
   const list = tier1Rows(snapshot, now);
   assert.equal(list.at(-1).id, 'K');
-  assert.deepEqual(list.find(row => row.id === 'J0').strip.map(run => run.runId).slice(-3), [997, 998, 999]);
-  assert.equal(list.find(row => row.id === 'J0').strip.length, 20);
   const say = verdict(list);
   assert.deepEqual([say.stable, say.total], [2, 4], 'J0 and J2 stable; J1 and J3 (few runs) not; K and J4 (no runs) left out');
   assert.equal(say.text, '2 of 4 Tier 1 journeys stable', 'a short line: the names are chips, never a sentence (owner, 1 Nov 2026: "here again too much text")');
   assert.deepEqual(say.chips, [{label: 'J1', tone: 'bad', title: 'J1 Set up <the> app: red 31 Oct'}, {label: 'J3', tone: 'warn', title: 'J3 Few runs: only 4 runs'}]);
+});
+
+// Why (2 Nov 2026, owner: "last 20 runs shows all green, but earlier on the row shows not stable or different percentages... is a bit contradictory"): the row mixed three windows (state: last 10 runs + 3 quiet
+// days; Mac/Windows %: 14 days; strip: the last 20 runs). One window now: the 14 days. Every cell of a row is counted from the same runs, so the strip, the percentages, the last red and the state can never disagree.
+const contradiction = (() => {
+  const list = [[900, '2026-10-30', 'beta', 'mac', 'J1', 2, 1, 0]];   // a red 2 days ago
+  for (let n = 0; n < 20; n++) list.push([901 + n, n < 10 ? '2026-10-31' : '2026-11-01', 'after-merge', 'mac', 'J1', 2, 0, 0]);   // then 20 greens (a journey that runs on every merge fills 20 runs in a day)
+  return cleanSnapshot({journeys: [{id: 'J1', name: 'Find jobs', tier: 1}], tier1: list}, now);
+})();
+
+test('one window per row: the days, the percentages, the last red and the state are all counted from the same 14 days (a red 2 days ago + 20 greens after it)', () => {
+  const [row] = tier1Rows(contradiction, now);
+  assert.equal(row.days.length, 14);
+  assert.deepEqual(row.days.map(item => item.day).slice(-3), ['2026-10-30', '2026-10-31', '2026-11-01']);
+  assert.deepEqual(row.days.slice(-3).map(item => [item.runs, item.red]), [[1, 1], [10, 0], [10, 0]], 'the red is a cell of its own day: it cannot fall off a 20-run strip');
+  assert.deepEqual([row.days.reduce((n, item) => n + item.runs, 0), row.days.reduce((n, item) => n + item.red, 0)], [row.runs, 1], 'the cells add up to the runs the percentages count');
+  assert.deepEqual([row.runs, row.share, row.lastBad.runId, row.state], [21, 20 / 21, 900, 'unstable']);
+  assert.equal(row.why, 'red 30 Oct · inside the 3 quiet days', 'the state says which rule it is');
+  const every = tier1Rows(snapshot, now);
+  for (const item of every.filter(one => one.runs)) assert.equal(item.days.reduce((n, day) => n + day.runs, 0), item.runs, item.id);
+  assert.match(every.find(item => item.id === 'J2').why, /^last 10 runs green, no red in 3 days$/, 'J2: its red 6 days back is outside the quiet days and the last 10 runs');
+  assert.match(every.find(item => item.id === 'J3').why, /4 runs, needs 10/);
+  assert.match(every.find(item => item.id === 'J1').why, /^red 31 Oct · inside the 3 quiet days/);
+});
+
+test('a red older than the 14 days is no red of this row: not the last red, not the state', () => {
+  const list = [[10, '2026-10-05', 'beta', 'mac', 'J1', 2, 1, 0]];
+  for (let n = 0; n < 12; n++) list.push([20 + n, '2026-10-30', 'beta', 'mac', 'J1', 2, 0, 0]);
+  const [row] = tier1Rows(cleanSnapshot({journeys: [{id: 'J1', name: 'Find jobs', tier: 1}], tier1: list}, now), now);
+  assert.deepEqual([row.lastBad, row.state, row.share], [null, 'stable', 1]);
+});
+
+test('the page draws one cell per day of the same 14 days: green, red, amber for a mixed day, grey for no run; the state chip carries its reason', () => {
+  const html = page(contradiction, {now});
+  const strip = html.match(/<span class="strip"[^>]*>([\s\S]*?)<\/span>/)[1];
+  assert.equal((strip.match(/<(a|i) /g) || []).length, 14, '14 cells, one a day');
+  assert.match(strip, /class="r" href="https:\/\/github.com\/GarryOne\/jobadabra\/actions\/runs\/900" title="30 Oct · 1 run · 1 red"/, 'the red day links to its red run');
+  assert.match(strip, /title="31 Oct · 10 runs · all green"/);
+  assert.match(strip, /<i class="e" title="[^"]*no run"/);
+  assert.match(html, /Last 14 days/);
+  assert.match(html, /Not stable<\/span><div class="muted small">red 30 Oct · inside the 3 quiet days<\/div>/);
+  const mixed = cleanSnapshot({journeys: [{id: 'J1', name: 'Find jobs', tier: 1}], tier1: [[1, '2026-11-01', 'beta', 'mac', 'J1', 2, 1, 0], [2, '2026-11-01', 'beta', 'mac', 'J1', 2, 0, 0]]}, now);
+  assert.match(page(mixed, {now}), /class="m" href="[^"]*runs\/1" title="1 Nov · 2 runs · 1 red"/, 'a day with a red and a green run is amber and links to the red');
+});
+
+// Owner, 2 Nov 2026: "another gauge/circle that will tell us percentage. If we have 20 journeys x 20 runs... that would be 400; if only 5 failures, then 395 out of 400. A raw number is too basic."
+test('the second gauge: every Tier 1 run of the 14 days counts once, a red run is a failure, the kept steps are not counted', () => {
+  const say = verdict(tier1Rows(snapshot, now));
+  assert.deepEqual([say.runs, say.green, say.share], [94, 92, 92 / 94], 'J0 30 + J1 30 (1 red) + J2 30 (1 red) + J3 4; K and J4 are left out');
+  assert.equal(say.percent, '97.9%');
+  assert.deepEqual([verdict([]).runs, verdict([]).share, verdict([]).percent], [0, null, '–'], 'no run is no percentage, never 100%');
+  const html = page(snapshot, {now});
+  assert.match(html, /97\.9%<\/text>/, 'the circle shows the percentage');
+  assert.match(html, /92 of 94 runs green/, 'with the count behind it, in the owner\'s words: 395 of 400');
+  assert.match(html, /aria-label="92 of 94 Tier 1 runs green"/);
+  const odd = cleanSnapshot({journeys: [{id: 'J1', name: 'A', tier: 1}], tier1: Array.from({length: 400}, (_, i) => [2000 + i, '2026-11-01', 'after-merge', 'mac', 'J1', 2, i < 5 ? 1 : 0, 0])}, now);
+  assert.equal(verdict(tier1Rows(odd, now)).percent, '98.8%', '395 of 400 (98.75%) reads 98.8%');
 });
 
 test('the trend compares two 14-day windows, and needs 5 runs in each', () => {
