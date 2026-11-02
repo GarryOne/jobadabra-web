@@ -3,7 +3,8 @@
 // last run and its bug count are found in stored data (admin/testing-overview-data.js), the page that has the detail. Cadence comes from the workflow's own cron when the
 // schedules snapshot has one; `when` is the trigger in words for the ones that are not crons (checked against the public workflows by test/admin/testing-overview.test.js).
 //
-// A line = one way the method runs:  {label, wf?: workflow file, when?: trigger words, last?: where the last run is read}
+// A line = one way the method runs:  {label, wf?: workflow file, when?: trigger words, last?: where the last run is read, byHand?: true}
+//   byHand: the workflow has no trigger but workflow_dispatch (debugging only): shown as "by hand", its last run is information and never paints the card red (owner, 1 Nov 2026)
 //   last (omitted = the workflow's newest finished run): {e2e: [run kinds]} | {suite: name} (its newest night in the e2e snapshot) | {integration: true} | {synthetic: true} (the Worker's probe rounds, shared/synthetic.js) | {none: why}
 // bugs = how "bugs caught" is read: {checks: [workflow files]} (PR-check scorecard, 30 days) | {detector: name} (self-healing, 7 days) | {caught: true} (e2e reds that caught a bug)
 //   | {mutation: true} | {recall: true} | {sentry: true} | {none: why}
@@ -57,7 +58,7 @@ export const METHODS = [
   {id: 'synthetic', ring: 'real', icon: '📡', title: 'Synthetic monitoring', proves: 'Probes the live site and services every 15 min.', href: '/admin/testing/synthetic-monitoring',
     lines: [{label: 'Probe round', when: 'every 15 min', last: {synthetic: true}}], bugs: {none: 'a probe finds outages, not bugs'}},
   {id: 'pool', ring: 'real', icon: '🏭', title: 'Real-site pool', proves: 'Recorded apply sites, replayed offline.', href: '/admin/form-filling/lab',
-    lines: [{label: 'Offline replays', wf: 'site-replays.yml', when: 'with the nightly run'}, {label: 'Recording', wf: 'record-sites.yml'}], bugs: {none: 'the Lab page counts them per site'}},
+    lines: [{label: 'Offline replays', wf: 'site-replays.yml', byHand: true}, {label: 'Recording', wf: 'record-sites.yml'}], bugs: {none: 'the Lab page counts them per site'}},
   {id: 'quality-ai', ring: 'real', icon: '🎯', title: 'Quality AI and prompt cases', proves: 'Are the answers of the AI right and steady?', href: '/admin/testing/e2e',
     lines: [{label: 'Quality night', when: 'nights', last: {suite: 'quality'}}, {label: 'Prompt cases', wf: 'prompt-cases-night.yml', when: 'with the nightly run'}], bugs: {none: 'it measures answer quality, not bugs'}},
 ];
