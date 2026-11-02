@@ -6,14 +6,18 @@ const DAY = 86400000;
 export const STABLE_RUNS = 10;   // stable = green in the last 10 runs of the journey (all OSes pooled by run) AND no red in the last QUIET_DAYS days; the owner may change both
 export const QUIET_DAYS = 3;   // Why (1 Nov 2026 measurement): a journey that runs on every merge fills its last 10 runs in a day, so 10 greens alone forgot a red from yesterday
 export const WINDOW_DAYS = 14;
-export const STRIP = 20;
 const dayOf = date => date.toISOString().slice(0, 10);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayWords = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
 const bad = row => row.failed > 0 || row.cut > 0;
 const rowOf = ([runId, day, kind, os, journey, seen, failed, cut]) => ({runId, day, kind, os, journey, seen, failed, cut});
 
-/** @returns {{id, name, kind, runs, state, os, strip, lastBad, trend}} one row per Tier 1 journey (kept steps "K" last). */
+/**
+ * One row per Tier 1 journey (kept steps "K" last).
+ * Design (2 Nov 2026, owner: "last 20 runs shows all green, but earlier on the row shows not stable or different percentages... a bit contradictory"): ONE window per row, the last WINDOW_DAYS days.
+ * `runs`, `share`, `os`, `days` (one cell per day), `lastBad` and `state` are all counted from the same runs of that window, so no cell can disagree with another; `why` names the rule behind the state.
+ * @returns {{id, name, runs, reds, share, state, why, os, days: {day, runs, red, redRunId}[], lastBad, trend}}
+ */
 export function tier1Rows(snapshot, now = new Date()) {
   const from = dayOf(new Date(now.getTime() - (WINDOW_DAYS - 1) * DAY)), prevFrom = dayOf(new Date(now.getTime() - (2 * WINDOW_DAYS - 1) * DAY));
   const rows = [];
@@ -24,14 +28,29 @@ export function tier1Rows(snapshot, now = new Date()) {
     const runs = [...byRun.values()].sort((a, b) => b.runId - a.runId), current = runs.filter(run => run.day >= from), previous = runs.filter(run => run.day >= prevFrom && run.day < from);
     const share = list => (list.length ? list.filter(run => !run.bad).length / list.length : null);
     const os = Object.fromEntries(['mac', 'windows'].map(name => { const list = own.filter(row => row.os === name && row.day >= from); return [name, list.length ? {runs: list.length, green: list.filter(row => !bad(row)).length / list.length} : null]; }));
-    const last = runs.slice(0, STABLE_RUNS), lastBad = runs.find(run => run.bad) || null, quietFrom = dayOf(new Date(now.getTime() - (QUIET_DAYS - 1) * DAY));
-    const state = !current.length ? 'none' : last.length < STABLE_RUNS ? 'few' : last.every(run => !run.bad) && !(lastBad && lastBad.day >= quietFrom) ? 'stable' : 'unstable';
+    const last = current.slice(0, STABLE_RUNS), lastBad = current.find(run => run.bad) || null, quietFrom = dayOf(new Date(now.getTime() - (QUIET_DAYS - 1) * DAY));
+    const quiet = !(lastBad && lastBad.day >= quietFrom), state = !current.length ? 'none' : last.length < STABLE_RUNS ? 'few' : last.every(run => !run.bad) && quiet ? 'stable' : 'unstable';
+    const why = state === 'none' ? '' : state === 'few' ? `${current.length} ${current.length === 1 ? 'run' : 'runs'}, needs ${STABLE_RUNS}` : state === 'stable' ? `last ${STABLE_RUNS} runs green, no red in ${QUIET_DAYS} days`
+      : `red ${dayWords(lastBad.day)} · ${quiet ? `in the last ${STABLE_RUNS} runs` : `inside the ${QUIET_DAYS} quiet days`}`;
     const now14 = share(current), before14 = share(previous);
     const trend = now14 === null || before14 === null || current.length < 5 || previous.length < 5 ? null : Math.abs(now14 - before14) < 0.02 ? 'flat' : now14 > before14 ? 'up' : 'down';
-    rows.push({id: journey.id, name: journey.name, runs: current.length, share: now14, state, os, strip: runs.slice(0, STRIP).reverse(), lastBad, trend});
+    const days = Array.from({length: WINDOW_DAYS}, (_, i) => { const day = dayOf(new Date(now.getTime() - (WINDOW_DAYS - 1 - i) * DAY)), mine = current.filter(run => run.day === day), red = mine.filter(run => run.bad);
+      return {day, runs: mine.length, red: red.length, redRunId: red[0]?.runId ?? null}; });
+    rows.push({id: journey.id, name: journey.name, runs: current.length, reds: current.filter(run => run.bad).length, share: now14, state, why, os, days, lastBad, trend});
   }
   return rows.sort((a, b) => (a.id === 'K') - (b.id === 'K') || Number(a.id.slice(1)) - Number(b.id.slice(1)));
 }
+
+/** The one colour scale of the page (owner, 2 Nov 2026: "green only if 100%... everything below is orange/yellow/red"): 100% green, from 98% yellow, from 90% orange, below red; no number grey. */
+export const shareTone = share => (share === null || share === undefined ? 'off' : share >= 1 ? 'good' : share >= 0.98 ? 'warn' : share >= 0.9 ? 'orange' : 'bad');
+
+/** A percentage as the page shows it: one decimal, and never a number that reaches a colour band the share does not reach (99.96% reads 99.9%, 97.996% reads 97.9%, 89.96% reads 89.9%; Gitar on #306). */
+export const percentOf = share => {
+  if (share === null || share === undefined) return '–';
+  if (share >= 1) return '100%';
+  const cap = share < 0.9 ? 89.9 : share < 0.98 ? 97.9 : 99.9;
+  return `${Math.min(cap, Math.round(share * 1000) / 10)}%`;
+};
 
 /** One row per Tier 2 journey from the per-day tallies of its integration tests. */
 export function tier2Rows(snapshot, now = new Date()) {
@@ -50,5 +69,7 @@ export function verdict(rows) {
   // Why (1 Nov 2026, owner: "here again too much text"): the verdict is a short line; the journeys that are not stable are chips (id only, name and date on hover), never a sentence.
   const chips = [...unstable.map(row => ({label: row.id, tone: 'bad', title: `${row.id} ${short(row)}: red ${dayWords(row.lastBad.day)}`})),
     ...journeys.filter(row => row.state === 'few').map(row => ({label: row.id, tone: 'warn', title: `${row.id} ${short(row)}: only ${row.runs} ${row.runs === 1 ? 'run' : 'runs'}`}))];
-  return {stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable`, chips};
+  // Owner, 2 Nov 2026: "20 journeys x 20 runs = 400; 5 failures: 395 out of 400" - the percentage of all Tier 1 runs of the window (every journey's runs counted once; the kept steps are not a journey) that were green.
+  const counted = rows.filter(row => row.id !== 'K'), runs = counted.reduce((sum, row) => sum + row.runs, 0), green = runs - counted.reduce((sum, row) => sum + (row.reds || 0), 0), share = runs ? green / runs : null;
+  return {runs, green, share, percent: percentOf(share), stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable`, chips};
 }

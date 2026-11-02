@@ -407,13 +407,14 @@ export const seeds = {
   'gtm-readiness': async ({env}) => {   // fixture-only journeys (not live measurements): one stable, one red yesterday, one with few runs, one lately flaky; Tier 2 all green
     const at = new Date(), dayAt = back => new Date(at.getTime() - back * 86400000).toISOString().slice(0, 10);
     const journeys = [{id: 'J0', name: 'The app starts and draws every screen (smoke)', tier: 1}, {id: 'J1', name: 'Set up the app: key, CV, strategy, first search', tier: 1}, {id: 'J5', name: 'Apply: the extension fills the form, you submit', tier: 1},
-      {id: 'J12', name: 'Updates: only approved builds are offered', tier: 1}, {id: 'K', name: 'Kept safety and data steps', tier: 1}, {id: 'J8', name: 'Tailor a CV for a job', tier: 2}, {id: 'J9', name: 'Track an application through its stages', tier: 2}];
+      {id: 'J12', name: 'Updates: only approved builds are offered', tier: 1}, {id: 'J6', name: 'Find jobs: a merge-run journey, red 2 days ago, 20 greens since', tier: 1}, {id: 'K', name: 'Kept safety and data steps', tier: 1}, {id: 'J8', name: 'Tailor a CV for a job', tier: 2}, {id: 'J9', name: 'Track an application through its stages', tier: 2}];
     const tier1 = [];
     for (let i = 0; i < 40; i++) for (const os of ['mac', 'windows']) {
       const day = dayAt(Math.floor(i / 3)), kind = ['after-merge', 'beta', 'nightly'][i % 3], runId = 9000 + i;
       tier1.push([runId, day, kind, os, 'J0', 1, 0, 0], [runId, day, kind, os, 'J1', 8, i === 7 ? 1 : 0, 0], [runId, day, kind, os, 'J5', 3, 0, i === 2 && os === 'windows' ? 1 : 0], [runId, day, kind, os, 'K', 9, 0, i === 14 ? 1 : 0]);
       if (i < 6) tier1.push([runId, day, kind, os, 'J12', 3, 0, 0]);
     }
+    for (let i = 0; i < 21; i++) for (const os of ['mac', 'windows']) tier1.push([9500 + i, dayAt(i === 0 ? 2 : i <= 10 ? 1 : 0), 'after-merge', os, 'J6', 4, i === 0 && os === 'mac' ? 1 : 0, 0]);   // J6 (2 Nov 2026): the row that read as a contradiction: one red run 2 days ago, then 20 green runs in a day and a half
     const tier2 = [0, 1, 2, 3].flatMap(back => [{day: dayAt(back), journey: 'J8', tests: 4, runs: 30, red: back === 2 ? 1 : 0}, {day: dayAt(back), journey: 'J9', tests: 2, runs: 12, red: 0}]);
     const snapshot = {schema: 1, at: at.toISOString(), journeys, tier1, tier2, read: {e2e: [], integration: []}};
     await env.STATS.prepare('INSERT INTO gtm_snapshot (id, at, body) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET at = excluded.at, body = excluded.body').bind(snapshot.at, JSON.stringify(snapshot)).run();
