@@ -1,6 +1,7 @@
 // The old bot Worker's timers on the site Worker's triggers (owner, 1 Nov 2026: "Timers to site Worker, delete bot"). The rules stay in the public repo's app-core/src/scheduler.js (CRONS, jobsFor, NIGHT_SLOTS)
 // and watchdog.js (fires, LABEL): this module only decides WHICH of those crons a www trigger stands for. Dormant until env.TIMERS === 'on'. Guard for the rest of the wiring: the last test.
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import worker from '../../workers/www/index.js';
 import {queued} from '../../api/triage.js';
@@ -120,4 +121,13 @@ test('the 47 trigger starts the e2e run and nothing else: it never falls through
     globalThis.fetch = async () => new Response(null, {status: 403});
     await assert.rejects(worker.scheduled({cron: OWN_CRON, scheduledTime: at(23, 47).getTime()}, env, {waitUntil: () => {}}), /e2e\.yml: GitHub dispatch failed: 403/);
   } finally { globalThis.fetch = realFetch; }
+});
+
+test('www\'s wrangler.toml carries the timers: the 47 trigger, TIMERS on, and the public repo as TIMERS_REPO (the account allows 5 cron triggers)', () => {
+  const toml = readFileSync(new URL('../../workers/www/wrangler.toml', import.meta.url), 'utf8');
+  const crons = JSON.parse(toml.match(/^crons = (\[[^\]]*\])/m)[1]);
+  assert.ok(crons.includes(OWN_CRON) && crons.includes(TICK), 'the */5 tick and the 47 trigger are both listed');
+  assert.ok(crons.length <= 3, `www uses ${crons.length} of the account's 5 cron triggers; the other Workers need the rest`);
+  assert.match(toml, /^TIMERS = "on"$/m);
+  assert.match(toml, /^TIMERS_REPO = "[\w.-]+\/[\w.-]+"$/m);
 });
