@@ -229,8 +229,8 @@ export default {
   },
 };
 
-// Why (1 Nov 2026, owner: rename to ai-broker): run tokens carry the audience the caller asked for; both names are accepted until the public client has moved (a list, comma-separated), then the old one is removed.
-const audiences = env => String(env.AUDIENCE || 'jobadabra-ai-broker,jobadabra-codex-broker').split(',').map(name => name.trim()).filter(Boolean);
+// Why (2 Nov 2026, owner: "After the lab scout proves it"; 7/7): run tokens carry the audience the caller asked for. The old name `jobadabra-codex-broker` was accepted beside this one while the callers moved; the public client (#2947) and jobadabra-lab's scout (run 41376186747, 40 of 40 AI calls answered) use the new one, so the old is gone. A list (comma-separated) stays possible.
+const audiences = env => String(env.AUDIENCE || 'jobadabra-ai-broker').split(',').map(name => name.trim()).filter(Boolean);
 
 // Why (1 Nov 2026, go-org-move): the repos are moving to the GitHub org `jobadabra` (created 21:34 UTC, owned by the owner), where the OIDC `repository` claim becomes `jobadabra/<repo>`; both owners are accepted until 7 days after the last repo has moved, then the two GarryOne names go.
 // Why (1 Nov 2026, owner's pick via mac-07): central-scout.yml and product-brain.yml move to jobadabra-lab; without its name every scout AI call gets "oidc: wrong repository" and skips silently. Lanes read the workflow file, not the repo, so the two keep today's lane, tiers and caps.
