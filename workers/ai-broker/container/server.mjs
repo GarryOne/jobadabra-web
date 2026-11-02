@@ -7,7 +7,7 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {weeklyWindow} from './weekly.mjs';
 import {buildArgs} from '../lib/args.mjs';
-import {claudeArgs, claudeInput, readClaude} from './claude.mjs';
+import {CLAUDE_TIMEOUT_MS, claudeArgs, claudeInput, readClaude} from './claude.mjs';
 
 const HOME = process.env.CODEX_HOME, AUTH = path.join(HOME, 'auth.json');
 const CALL_TIMEOUT_MS = 100000;   // under the callers' own wait, so a hung codex comes back with its last output instead of a dropped request (28 Oct 2026)
@@ -101,16 +101,17 @@ async function callClaude({prompt, schema, images = [], model}) {
   try {
     const input = claudeInput({prompt, images}), started = Date.now();
     const env = {PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_CONFIG_DIR: claudeHomeDir(), CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN || '', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', ...trustEnv(), ...(fs.existsSync(CF_CA) ? {NODE_EXTRA_CA_CERTS: CF_CA} : {})};
-    const {code, out, err} = await new Promise(resolve => {
+    const {code, out, err, timedOut} = await new Promise(resolve => {
       const child = spawn('claude', claudeArgs({model, schema}), {cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], env});
       let out = '', err = '';
       child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { err += d; });
-      const timer = setTimeout(() => child.kill('SIGKILL'), CALL_TIMEOUT_MS);
-      child.on('close', code => { clearTimeout(timer); resolve({code, out, err}); });
+      let timedOut = false;
+      const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, CLAUDE_TIMEOUT_MS);
+      child.on('close', code => { clearTimeout(timer); resolve({code, out, err, timedOut}); });
       child.on('error', e => { clearTimeout(timer); resolve({code: -1, out, err: `spawn: ${e.message}`}); });   // Why (1 Nov 2026): an unhandled spawn 'error' would take the whole container server down (Codex calls too); now it is a plain failure with its text
       child.stdin.on('error', () => {}); child.stdin.end(input);
     });
-    const result = readClaude(out, err, code);
+    const result = readClaude(out, err, code, timedOut);
     if (result.error) { const failure = new Error(result.error); failure.detail = {resetsAt: result.resetsAt ?? null, limits: result.limits ?? null}; throw failure; }
     return {reply: result.reply, tokens: result.tokens, ms: Date.now() - started, limits: result.limits};
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }

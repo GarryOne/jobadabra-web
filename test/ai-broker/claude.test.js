@@ -2,7 +2,8 @@
 // The result and rate-limit lines are taken from a real call of CLI 2.1.316 on the owner's subscription (1 Nov 2026), trimmed to the fields the code reads.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {claudeArgs, claudeInput, readClaude, SYSTEM_PROMPT} from '../../workers/ai-broker/container/claude.mjs';
+import {readFileSync} from 'node:fs';
+import {CLAUDE_TIMEOUT_MS, claudeArgs, claudeInput, readClaude, SYSTEM_PROMPT} from '../../workers/ai-broker/container/claude.mjs';
 
 const line = o => `${JSON.stringify(o)}\n`;
 const allowed = {type: 'rate_limit_event', rate_limit_info: {status: 'allowed', resetsAt: 1793588400, rateLimitType: 'five_hour', unifiedWindows: {five_hour: {utilization: 0.2, resetsAt: 1793588400, status: 'allowed'}, seven_day: {utilization: 0.05, resetsAt: 1794088800, status: 'allowed'}}}};
@@ -45,4 +46,17 @@ test('"ran out" is read from the stream\'s own window status first, then from th
   assert.match(readClaude(line(allowed) + line({type: 'result', is_error: true, result: 'Overloaded, try again'}), '', 1).error, /^claude-failed:1 Overloaded/);
   assert.match(readClaude('garbage', 'segfault', 139).error, /^claude-failed:139 segfault/);
   assert.match(readClaude(line(allowed) + line({...ok, result: '  '})).error, /^claude-failed/);   // an empty answer is a failure
+});
+
+// 2 Nov 2026: the real daily-digest prompt (145 PRs) made Claude think for 95 s and the 100 s kill ended it with the tail of its stream as the "reason".
+test('a call killed by our own timer says "timeout", not the tail of its stream; the same stream without the kill stays a plain failure', () => {
+  const stream = [{type: 'assistant', message: {content: [{type: 'thinking', thinking_duration_ms: 95200}]}}, {type: 'rate_limit_event', rate_limit_info: {status: 'allowed', unifiedWindows: {}}}].map(line => JSON.stringify(line)).join('\n');
+  assert.equal(readClaude(stream, '', null, true).error, 'claude-failed:timeout after 150 s');
+  assert.match(readClaude(stream, '', null, false).error, /^claude-failed:null .*thinking_duration_ms/);
+});
+
+test('a Claude call may take longer than the slowest measured digest call (117 s) and than Codex\'s 100 s, but must end before the callers stop waiting', () => {
+  const callersWait = Number(/AbortSignal\.timeout\((\d+)\)/.exec(readFileSync(new URL('../../desktop/e2e/lib/broker-client.mjs', import.meta.url), 'utf8'))?.[1]);
+  assert.ok(callersWait >= 150000, 'the public client waits at least 150 s');
+  assert.ok(CLAUDE_TIMEOUT_MS > 117000 && CLAUDE_TIMEOUT_MS < callersWait, `${CLAUDE_TIMEOUT_MS} must sit between 117 s and the callers' ${callersWait} ms`);
 });
