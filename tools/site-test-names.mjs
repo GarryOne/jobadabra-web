@@ -15,9 +15,17 @@ export function misnamed(folders, files) {
   });
 }
 
-function tracked(dir, folder) {
-  const out = execFileSync('git', ['ls-files', '--', folder], {cwd: dir, encoding: 'utf8'});
-  return out.split('\n').filter(Boolean).map(line => line.slice(folder.length + 1));
+// Why (layout 3/3, 2 Nov 2026): public's folders are JOINED-tree paths (tests, desktop/test); this repo keeps them elsewhere (tools/layout-map.txt: test/python, test/desktop).
+// A raw folder that holds a mapped one (test) leaves that one out: its files belong to the other joined folder.
+function mapPairs(dir) {
+  return readFileSync(path.join(dir, 'tools/layout-map.txt'), 'utf8').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).map(line => line.split(/\s+/));
+}
+export function tracked(dir, folder) {
+  const pairs = mapPairs(dir);
+  const raw = (pairs.find(([, joined]) => joined === folder) || [folder])[0];
+  const nested = pairs.map(([from]) => from).filter(from => from !== raw && from.startsWith(`${raw}/`));
+  const out = execFileSync('git', ['ls-files', '--', raw], {cwd: dir, encoding: 'utf8'});
+  return out.split('\n').filter(Boolean).filter(line => !nested.some(from => line.startsWith(`${from}/`))).map(line => line.slice(raw.length + 1));
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
