@@ -1,36 +1,43 @@
 # Puts one coloured "Gitar: …" label on a PR from Gitar's verdict comment, so the PR list shows changes requested / approved with suggestions / approved (owner, 28 Oct 2026).
-# Runs main's copy (pull_request_target, issue_comment; Gitar's verdict arrives as a comment, so no pull_request_review trigger) and NEVER checks out or runs the PR's code; its only writes are labels. Cost per event: a few seconds on ubuntu.
-# Gray labels: "reviewing" while Gitar has no verdict for the head, "working on PR comments" while a session handles feedback (set by tools/ship-watch.sh; a push or approval clears it).
-# A push removes a stale green/yellow at once (the verdict is older than the head commit); Gitar's re-review edits its comment, which sets the label again. Parser and cases: tools/gitar-label.mjs, tests/test_site_gitar_label.py.
+# Why (2 Nov 2026, owner: "same workflow on all repos"): this is jobadabra's workflow, not a variant. The script is NOT copied here: the checkout reads tools/gitar-label.mjs from the public
+# jobadabra/jobadabra main (a label writer; it NEVER checks out or runs this PR's code), so one parser serves every repo. Triggers and rules as there: a push (pull_request_target: "reviewing" until
+# Gitar judges the head), Gitar submitting or dismissing a review, and Gitar posting a NEW comment (an edit starts nothing: 151 runs an hour used up the REST budget, jobadabra #2516).
+# Why (2 Nov 2026, web #299): no concurrency group. A run cancelled by a newer Gitar comment is drawn as a failed check (red ✗) in the PR list; jobadabra removed it for the same reason (#2400).
+# Runs that need a live sync re-read the verdict, head and labels after every write until nothing changes (converge in the script). Parser and cases: jobadabra/jobadabra tools/gitar-label.mjs, tests/test_gitar_label.py.
 name: CI · Gitar label
-run-name: Gitar label on #${{ github.event.pull_request.number || github.event.issue.number }}
+# Quoted, since an unquoted ' #' starts a YAML comment, which cut the number off every run's name (jobadabra, 30 Oct 2026).
+run-name: "Gitar label on #${{ github.event.pull_request.number || github.event.issue.number }}"
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
   issue_comment:
-    types: [created, edited]
+    types: [created]
 
 permissions:
   contents: read
   checks: read   # the head's first check suite gives its push time (tools/gitar-label.mjs)
   pull-requests: write
-  issues: write
+  issues: write   # creating a missing label (tools/gitar-label.mjs addLabel)
 
 jobs:
   label:
-    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.comment.user.login == 'gitar-bot[bot]')
-    # Job level, so a run that the `if` skips never cancels a real one (Gitar on web#216)
-    concurrency:
-      group: gitar-label-${{ github.event.pull_request.number || github.event.issue.number }}
-      cancel-in-progress: true
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'pull_request_review' && github.event.review.user.login == 'gitar-bot[bot]') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.user.login == 'gitar-bot[bot]')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.repository.default_branch }}   # main's copy of the script, whatever event started this (Gitar on web#216)
-          sparse-checkout: tools/gitar-label.mjs
+          repository: jobadabra/jobadabra   # the script lives there (public), not in this repo
+          ref: main
+          sparse-checkout: |
+            tools/gitar-label.mjs
+          sparse-checkout-cone-mode: false   # a file pattern, not a directory (cone mode would read the path as a folder; Gitar on web#258)
       - name: Set the label from Gitar's verdict
         env:
           GH_TOKEN: ${{ github.token }}
