@@ -12,7 +12,7 @@ import {test} from 'node:test';
 
 const site = fileURLToPath(new URL('../', import.meta.url));
 const ALLOWED = {admin: ['admin', 'shared'], api: ['api', 'shared'], shared: ['shared'], workers: ['admin', 'api', 'shared', 'workers']};
-const OURS = new Set(['web', 'admin', 'api', 'shared', 'workers', 'db', 'jobs', 'media', 'preview']);   // this repo's folders; anything else is the public tree
+const OURS = new Set(['web', 'admin', 'api', 'shared', 'workers', 'db', 'jobs', 'media']);   // this repo's folders; anything else is the public tree
 
 function files(folder) {
   const walk = dir => readdirSync(dir, {withFileTypes: true}).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith('.js') ? [join(dir, e.name)] : []);
