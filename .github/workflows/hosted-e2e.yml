@@ -2,9 +2,12 @@ name: CI · Hosted Always on e2e
 # Zero-setup Always on end to end (spec docs/superpowers/specs/2026-10-16-hosted-always-on.md step 7; owner, 17 Oct 2026): a fresh install with no Notion, keys or GitHub turns Always on on,
 # the cron tick queues a run, the real hosted image runs in Docker against fixture feeds, AI goes through the Worker's /api/ai to a fake model, the debit and the digest e-mail are checked,
 # the app pulls the matches into its own store, Turn off deletes everything, a used-up trial pauses with the functional notice. Everything Cloudflare is an in-process fake: $0, no secrets.
-# A PR here that touches the site's hosted code starts it (GitHub's `paths:`); also every night, against the newest public main (the hosted image and engine are public). Not a required check (a `paths:` skip never reports).
+# A merge to main that touches the site's hosted code starts it (GitHub's `paths:`); also every night, against the newest public main (the hosted image and engine are public). Not a required check (a `paths:` skip never reports).
+# Why (2 Nov 2026, owner: "No e2e on PRs", 1 Nov 2026; asked "why we need this e2e on this PR?" on #312): this runs the real hosted image in Docker (~6 min), so it is an e2e, not an integration test:
+# PRs run unit + integration only; e2e runs after each merge on main (a red merge is reverted) and every night. It stood on every PR touching shared/free-ai.js, and the one red it gave on #312 was not that PR's
+# (public #2926 had renamed the engine's JOB_PILOTTO_FIXTURE_DIR to JOBADABRA_FIXTURE_DIR; the old base still passed the old name, so the engine left fixture mode and crawled the real employer sites).
 on:
-  pull_request:
+  push:
     branches: [main]
     paths:
       - 'api/hosted*'
@@ -22,8 +25,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: hosted-e2e-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: hosted-e2e-${{ github.run_id }}   # one group per run: every merge to main is run, none is replaced by a newer one
+  cancel-in-progress: false
 
 jobs:
   hosted-e2e:
