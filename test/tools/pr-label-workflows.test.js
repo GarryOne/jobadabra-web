@@ -2,13 +2,13 @@
 // The scripts live in the public jobadabra/jobadabra (tools/gitar-label.mjs, tools/conflict-label.mjs, with their cases in that repo's tests); this repo only checks out main's copy and writes labels.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {existsSync, readFileSync} from 'node:fs';
+import {readFileSync} from 'node:fs';
 
 const read = name => readFileSync(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8');
 const gitar = read('gitar-label.yml');
 const conflict = read('conflict-label.yml');
 
-test('both workflows read the script from jobadabra/jobadabra main, as a file pattern, and this repo keeps no copy', () => {
+test('both workflows read the script from jobadabra/jobadabra main, as a file pattern, never the PR\'s code', () => {
   for (const flow of [gitar, conflict]) {
     assert.ok(flow.includes('repository: jobadabra/jobadabra\n') || flow.includes('repository: jobadabra/jobadabra   #'), 'the script comes from the public engine repo');
     assert.ok(/\n {10}ref: main\n/.test(flow), "main's copy, never the PR's");
@@ -17,8 +17,8 @@ test('both workflows read the script from jobadabra/jobadabra main, as a file pa
     assert.ok(flow.includes('pull-requests: write') && flow.includes('issues: write') && !flow.includes('contents: write'), 'its only writes are labels');
   }
   assert.ok(gitar.includes('tools/gitar-label.mjs') && conflict.includes('tools/conflict-label.mjs'));
-  assert.equal(existsSync(new URL('../../tools/gitar-label.mjs', import.meta.url)), false, 'one parser for every repo: no stale copy here');
-  assert.equal(existsSync(new URL('../../tools/conflict-label.mjs', import.meta.url)), false);
+  // Why (2 Nov 2026, #304 red on CI): no "this repo has no tools/*-label.mjs" assertion: CI lays the public repo's tree under this one, so that file exists there. The checkout's
+  // `repository: jobadabra/jobadabra` above is what proves no local copy is used.
 });
 
 // Web #299: the Gitar label run was cancelled by a newer Gitar comment and the PR list drew a failed check. jobadabra removed the group for the same reason (#2400).
