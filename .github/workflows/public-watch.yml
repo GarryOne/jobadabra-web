@@ -1,13 +1,15 @@
 name: Release · Watch the public repo
 # A deploy here bundles or builds from files of the public repo (the Worker imports ../../extension/recipe-schema.js, the Ready to send image builds hosted/ready-fill and extension/).
 # The public repo cannot start a workflow here, so this one looks every hour: when those files changed since the last record (.public-site, .public-ready), it starts the deploy.
+# Why (2 Nov 2026, go): the records live on the unprotected branch public-watch-state, not on main. Main carries the org ruleset (pull requests only), which refuses a direct push, and the old
+# push, which ended in a swallowed error, would have hidden that refusal: the records would stop and every run would redeploy. Only the readers of the records are this workflow and tools/public-watch.sh.
 on:
   schedule:
     - cron: '7 */6 * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write   # the record files
+  contents: write   # pushes the record files to the branch public-watch-state (never to main)
   actions: write    # starts the two deploys
 
 concurrency:
@@ -24,9 +26,16 @@ jobs:
           path: .private
       - name: Lay the public repo's tree under this one
         run: .private/tools/tree.sh
+      - name: Fetch the records (branch public-watch-state, not main)
+        uses: actions/checkout@v5
+        with:
+          ref: public-watch-state
+          path: .state
       - name: Did the files a deploy bundles change
         id: change
         working-directory: .private
+        env:
+          PUBLIC_WATCH_STATE: ${{ github.workspace }}/.state
         run: |
           site=$(tools/public-watch.sh "$GITHUB_WORKSPACE" site app-core/src worker/src extension desktop/lib desktop/e2e/lib config)
           ready=$(tools/public-watch.sh "$GITHUB_WORKSPACE" ready hosted/ready-fill desktop/ready-fill extension app-core/src worker/src desktop/lib/form-address.js)
@@ -40,6 +49,7 @@ jobs:
         run: |
           [ "${{ steps.change.outputs.site }}" = changed ] && gh workflow run site.yml
           [ "${{ steps.change.outputs.ready }}" = changed ] && gh workflow run release-ready-runner.yml
+          cd "$GITHUB_WORKSPACE/.state"
           git config user.name "site-watch"; git config user.email "site-watch@users.noreply.github.com"
-          git add .public-site .public-ready 2>/dev/null || true
-          git commit -q -m "Record the public files the last deploy was started for" && git push -q || true
+          git add .public-site .public-ready
+          git diff --cached --quiet || { git commit -q -m "Record the public files the last deploy was started for"; git push -q origin HEAD:public-watch-state; }
