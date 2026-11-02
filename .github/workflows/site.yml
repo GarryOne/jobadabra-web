@@ -1,6 +1,6 @@
 name: Release · Website
 
-# Deploys the website (workers/www, web/, admin/, api/, shared/) to Cloudflare when it changes on main, and when the public files it bundles change (public-watch.yml dispatches this).
+# Deploys the website (workers/www, website/, admin/, api/, shared/) to Cloudflare when it changes on main, and when the public files it bundles change (public-watch.yml dispatches this).
 # Runs in the tree of the public repo with this one laid over it (tools/tree.sh): the Worker imports the public validators (../../extension/...).
 # Live at https://www.jobpilotto.top (Workers static assets, free).
 # Secrets: CLOUDFLARE_API_TOKEN (template "Edit Cloudflare Workers"), CLOUDFLARE_ACCOUNT_ID.
@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'web/**'
+      - 'website/**'
       - 'admin/**'
       - 'api/**'
       - 'shared/**'

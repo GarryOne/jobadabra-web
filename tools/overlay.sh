@@ -5,7 +5,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # this repo's files over the tree; tests that list files with `git ls-files` must see them too
 lay() {
-  rsync -a --exclude '.git' --exclude '.overlay/' --exclude 'node_modules/' --exclude '.gitignore' --exclude 'README.md' --exclude 'CLAUDE.md' --exclude 'AGENTS.md' --exclude '.claude/' --exclude '.public-*' "$here"/ "$1"/
+  "$here/tools/lay-private.sh" "$here" "$1"   # the folder map: tools/layout-map.txt
   (cd "$1" && git ls-files -o --exclude-standard -z | xargs -0 -n 500 git add -N --)
 }
 if [ "${1:-}" = --sync ]; then lay "${2:?usage: tools/overlay.sh --sync <out-dir>}"; exit 0; fi

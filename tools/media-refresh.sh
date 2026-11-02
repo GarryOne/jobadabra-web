@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# The last step of tools/media.sh (the one local command that makes the site's media): copies a fresh media set over the files web/public/media already holds
+# The last step of tools/media.sh (the one local command that makes the site's media): copies a fresh media set over the files website/public/media already holds
 # (the site picks which pieces it shows; a new piece is listed, never added), records the public screens it was made from (.public-media), commits
 # on the branch media-refresh and opens or updates its PR for the owner. Guarded by tests/test_site_media_refresh.py.
 # Usage, from this repo's root: tools/media-refresh.sh <media set> <public tree> <public sha> [--no-push]
 set -euo pipefail
 set_dir="$1"; tree="$2"; sha="$3"; push=yes
 [ "${4:-}" = --no-push ] && push=no
-dest=web/public/media
+dest=website/public/media
 [ -f "$set_dir/manifest.json" ] || { echo "media-refresh: $set_dir has no manifest.json: not a media set"; exit 1; }
 # The refresh PR is ONE commit on the newest origin/main, whatever commit the recording ran from: a refresh merged meanwhile (same files) would
 # otherwise leave the new PR CONFLICTING (site#33, 21 Oct 2026). The files are copied after this, so the set always wins.

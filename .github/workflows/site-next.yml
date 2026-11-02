@@ -1,13 +1,13 @@
 name: Release · Website preview (next)
 
-# Deploys the website preview (preview/public) to Cloudflare when it changes on main.
+# Deploys the website preview (website/next/public) to Cloudflare when it changes on main.
 # At https://next.jobpilotto.workers.dev: a separate Worker, nothing shared with the live site.
 # Secrets: CLOUDFLARE_API_TOKEN (template "Edit Cloudflare Workers"), CLOUDFLARE_ACCOUNT_ID.
 on:
   push:
     branches: [main]
     paths:
-      - 'preview/**'
+      - 'website/next/**'
       - '.github/workflows/site-next.yml'
   workflow_dispatch:
 

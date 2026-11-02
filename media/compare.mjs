@@ -1,5 +1,5 @@
 // Before | after of the hero as VIDEO, one clip per piece (media; owner, 24 Oct 2026: "the before/after should be on video clips, not screenshots ...
-// the before we can take from the website/master branch"). Before = main's published clip (git show origin/main:web/public/media/<piece>.mp4),
+// the before we can take from the website/master branch"). Before = main's published clip (git show origin/main:website/public/media/<piece>.mp4),
 // after = the new recording in a hero set; both play side by side, labelled, the shorter one held on its last frame. Writes <out>/<piece>-compare.mp4
 // (the owner's preview), a GIF of it, and one GIF per side (<piece>-before.gif, <piece>-after.gif: the PR's | What changed | Before | After | row,
 // each linked to the MP4; tools/pr-screens.py wants the two apart). Usage: node media/compare.mjs <set dir> <out dir> [pieces...]
@@ -39,12 +39,12 @@ function main([setDir, outDir, ...only]) {
   if (!setDir || !outDir) throw new Error('usage: node media/compare.mjs <set dir> <out dir> [pieces...]');
   fs.mkdirSync(outDir, {recursive: true});
   git('fetch', '-q', 'origin', 'main');
-  const onMain = git('ls-tree', '--name-only', 'origin/main', 'web/public/media/').toString().split('\n').map(file => path.basename(file));
+  const onMain = git('ls-tree', '--name-only', 'origin/main', 'website/public/media/').toString().split('\n').map(file => path.basename(file));
   const pieces = only.length ? only : comparable(fs.readdirSync(setDir), onMain);
   if (!pieces.length) throw new Error(`media: no hero clip in ${setDir} that main also publishes`);
   for (const piece of pieces) {
     const files = outputsOf(piece, outDir), before = files.main_mp4, after = path.join(setDir, `${piece}.mp4`), out = files.compare_mp4;
-    fs.writeFileSync(before, git('show', `origin/main:web/public/media/${piece}.mp4`));
+    fs.writeFileSync(before, git('show', `origin/main:website/public/media/${piece}.mp4`));
     const filter = compareFilter([seconds(before), seconds(after)], {height: /-720$/.test(piece) ? COMPARE.phoneHeight : COMPARE.height});
     ff(['-i', before, '-i', after, '-filter_complex', filter, '-map', '[v]', '-c:v', 'libx264', '-crf', '23', '-preset', 'medium', '-movflags', '+faststart', out]);
     const gif = (from, to, width) => ff(['-i', from, '-filter_complex', `fps=${COMPARE.gifFps},scale=${width}:-2:flags=lanczos,split[x][y];[x]palettegen=max_colors=128[p];[y][p]paletteuse=dither=bayer`, to]);

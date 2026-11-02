@@ -2,8 +2,8 @@
 // at a desktop and a phone width, inside the real page, same scale. Round 2 (owner, 24 Oct 2026: steps missing, wrong crops, nobody saw it before
 // shipping): every phase shows EVERY beat of the new clip (its manifest's beats, captioned with what the viewer should read) under three moments of
 // today's clip, not only the result. Demo media only; a fresh browser profile (no cookies).
-//   node tools/hero-preview.mjs --out <png> [--media <media set dir>] [--before <url>] [--web web/public] [--tree .overlay]
-//   --media   a set from media/media.mjs (its files win over web/public/media), to review clips before placing them
+//   node tools/hero-preview.mjs --out <png> [--media <media set dir>] [--before <url>] [--web website/public] [--tree .overlay]
+//   --media   a set from media/media.mjs (its files win over website/public/media), to review clips before placing them
 //   --before  the page to compare against (default https://www.jobadabra.top; "none" leaves the left column out)
 //   --only    desktop | phone: one width (a PR's Before/After image per width)
 // Prints the PNG path and each frame's caption. Used by the redo-site-hero-video skill (.claude/skills).
@@ -15,7 +15,7 @@ import {createRequire} from 'node:module';
 const args = Object.fromEntries(process.argv.slice(2).join(' ').split(/\s*--/).filter(Boolean).map(part => { const [k, ...v] = part.split(' '); return [k, v.join(' ')]; }));
 const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const out = path.resolve(args.out || 'hero-preview.png');
-const web = path.resolve(repo, args.web || 'web/public');
+const web = path.resolve(repo, args.web || 'website/public');
 const media = args.media ? path.resolve(args.media) : null;
 const before = args.before === 'none' ? null : (args.before || 'https://www.jobadabra.top');
 const tree = path.resolve(repo, args.tree || '.overlay');

@@ -4,7 +4,7 @@ One Worker (`www`, `workers/www/wrangler.toml`) serves the pages, `/admin` and t
 
 | Folder | What | May import |
 |---|---|---|
-| `web/` | the public pages: `web/public/` (static, no build step; Workers static assets) | nothing |
+| `website/` | the public pages: `website/public/` (static, no build step; Workers static assets) | nothing |
 | `admin/` | the owner's `/admin` pages and the CI uploads that feed them (`PUT /ops/data`, `/applying/*`, …) | `shared/` |
 | `api/` | the routes installed apps and the extension call (`/api/*`, `/report/*`, `/install`, `/download/*`); their URLs never change | `shared/` |
 | `shared/` | used by both: auth, guard, mail, free AI, the data behind the pages | `shared/` only |
@@ -17,7 +17,7 @@ A page and its data are two files: the data in `shared/`, the page in `admin/` (
 `workers/www/index.js` also serves `POST /api/waitlist`, which keeps Pro early-access sign-ups in Cloudflare KV.
 
 - Deploy by hand: `cd workers/www && npx wrangler@4 deploy`
-- Automatic: `.github/workflows/site.yml` deploys on every push to `main` that changes `web/`, `admin/`, `api/`, `shared/`, `workers/www/` or `db/migrations/`.
+- Automatic: `.github/workflows/site.yml` deploys on every push to `main` that changes `website/`, `admin/`, `api/`, `shared/`, `workers/www/` or `db/migrations/`.
 
 ## Reading the owner pages from a script (/admin/*)
 

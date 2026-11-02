@@ -111,7 +111,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           tools/hero.sh --place set
-          git add web/public/media
+          git add website/public/media
           git diff --cached --quiet && { echo "No clip changed"; exit 0; }
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -m "Place the hero clips rendered on the Mac runners" -m "$RUN_URL"
           git push origin "HEAD:$BRANCH"

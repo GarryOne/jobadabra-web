@@ -3,8 +3,8 @@
 # video ... the feedback mechanism permanently available"). Skill: .claude/skills/redo-site-hero-video. Guard: test/web/hero-redo.test.js.
 #   tools/hero.sh [pieces...]          record (default: all four), contact sheets, the in-hero side-by-side (today's live hero | this one), opened
 #   tools/hero.sh --words <set dir> [pieces...]  words only (captions, tags, cards): redraw that set's kept recordings, no new recording
-#   tools/hero.sh --place <set dir>    copy a set's hero files into web/public/media (after the owner's yes), with their sizes
-#   tools/hero.sh --preview [set dir]  only the side-by-side (no set: the files already in web/public/media)
+#   tools/hero.sh --place <set dir>    copy a set's hero files into website/public/media (after the owner's yes), with their sizes
+#   tools/hero.sh --preview [set dir]  only the side-by-side (no set: the files already in website/public/media)
 # Pieces: hero-onboarding (Set up), hero (Find), hero-fill (Apply), hero-track (Track); their steps are media/scenes.mjs. Demo data only, no AI,
 # a hidden window: nothing of the owner's app. Sets go to ~/.cache/jobadabra-media/hero-<time>. tools/media.sh (origin/main) keeps them fresh later.
 set -euo pipefail
@@ -20,13 +20,13 @@ if [ "${1:-}" = --place ]; then
   set_dir="${2:?--place needs a set dir}"
   for piece in "${HERO[@]}"; do
     # a phone copy of another width replaces the old one (round 9: 720 -> 1080), and the captions the phone copy leaves out go beside it (.vtt)
-    if compgen -G "$set_dir/$piece-[0-9]*.mp4" >/dev/null; then git rm -q --ignore-unmatch -- "web/public/media/$piece-[0-9]*.mp4" "web/public/media/$piece-[0-9]*-poster.jpg"; fi
-    git rm -q --ignore-unmatch -- "web/public/media/$piece.webm"   # MP4 only since 25 Oct 2026 (media/encode.mjs encodeVideo)
+    if compgen -G "$set_dir/$piece-[0-9]*.mp4" >/dev/null; then git rm -q --ignore-unmatch -- "website/public/media/$piece-[0-9]*.mp4" "website/public/media/$piece-[0-9]*-poster.jpg"; fi
+    git rm -q --ignore-unmatch -- "website/public/media/$piece.webm"   # MP4 only since 25 Oct 2026 (media/encode.mjs encodeVideo)
     for file in "$set_dir/$piece".{mp4,vtt} "$set_dir/$piece"-poster.jpg "$set_dir/$piece"-[0-9]*.mp4 "$set_dir/$piece"-[0-9]*-poster.jpg; do
-      [ -f "$file" ] && cp "$file" web/public/media/
+      [ -f "$file" ] && cp "$file" website/public/media/
     done
   done
-  ls -l web/public/media/hero* | awk '{printf "hero: %-32s %5.0f KB\n", $9, $5/1024}'
+  ls -l website/public/media/hero* | awk '{printf "hero: %-32s %5.0f KB\n", $9, $5/1024}'
   echo "hero: placed. Next: the site tests (tools/site-run.sh node --test \"test/**/*.test.js\"), then ship."
   exit 0
 fi
@@ -40,7 +40,7 @@ if [ -z "$have" ] || { [ -n "$want" ] && [ "$want" != "$have" ]; }; then
   echo "hero: recording the app at jobadabra/$ref ${want:0:7} (the overlay had ${have:-none}): rebuilding .overlay" >&2
   tools/overlay.sh .overlay "$ref" >&2
 fi
-rsync -a media/ .overlay/media/ && rsync -a web/ .overlay/web/ && rsync -a tools/ .overlay/tools/
+rsync -a media/ .overlay/media/ && rsync -a --exclude next website/ .overlay/web/ && rsync -a tools/ .overlay/tools/
 echo $$ > .overlay/.git/in-use; trap 'rm -f .overlay/.git/in-use' EXIT   # nothing rebuilds the overlay under this run (tools/overlay-busy.sh)
 for dir in desktop desktop/e2e; do   # packages, cached by lock file as tools/media.sh does
   [ -d ".overlay/$dir/node_modules" ] && continue
@@ -84,7 +84,7 @@ for piece in "${pieces[@]}"; do
   done
 done
 
-# the in-hero side-by-side: other pieces come from web/public/media, so a partial set still shows the whole stage
+# the in-hero side-by-side: other pieces come from website/public/media, so a partial set still shows the whole stage
 node tools/hero-preview.mjs --media "$set_dir" --out "$set_dir/preview.png"
 open "$set_dir/preview.png" 2>/dev/null || true
 echo "hero: DONE $set_dir (on the owner's yes: tools/hero.sh --place $set_dir)"
