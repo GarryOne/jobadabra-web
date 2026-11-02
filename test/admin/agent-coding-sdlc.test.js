@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {cleanGate, cleanSdlc} from '../../admin/agent-coding.js';
 import {page} from '../../admin/agent-coding-page.js';
-import {checksOf, cornerOf, sdlcPage} from '../../admin/agent-coding-sdlc.js';
+import {checkId, checksCard, checksOf, cornerOf, sdlcPage} from '../../admin/agent-coding-sdlc.js';
 
 const now = new Date('2026-11-01T12:00:00Z');
 const row = (kind, day, card) => ({kind, day, card: JSON.stringify(card), updated_at: `${day}T05:00:00Z`});
@@ -49,7 +49,7 @@ test('the tab draws the grid, the path and the phases from the three uploads; ev
     row('sdlc', '2026-10-16', sdlcDay({}, {phases: {merged: 10, nospec: 1, unmerged: 0, prCommits: 20, fixAfter: 1, reverts: 0, redMain: 0}}))];
   const html = sdlcPage(rows, now);
   for (const word of ['Checks: value and cost', 'The path', 'The four phases', 'Make faster', 'Remove?', 'Cheap, quiet', 'Agent hooks', 'not measured yet', 'worse than the week before', 'CI · Tests · python', 'file size']) assert.ok(html.includes(word), word);
-  assert.match(html, /<svg class="ac-scatter"[^>]*role="img"/);
+  assert.match(html, /<svg class="ac-scatter"[^>]*role="group" aria-label="Every check by/);   // Why (2 Nov 2026): not role="img": that hides the circles' links from keyboard and screen-reader users
   assert.ok(html.includes('/admin/agents/agent-coding?tab=sdlc') && html.includes('aria-current="page"'));
   assert.ok(page(rows, now).includes('SDLC · the whole path'), 'the weekly page links to the tab');
 });
@@ -88,4 +88,34 @@ test('the gate upload keeps hook counts only for the four fixed labels; the Agen
   const html = sdlcPage(withBlocks, now);
   assert.ok(html.includes('session-cap <b>2</b>') && html.includes('background-tee <b>1</b>'));
   assert.ok(!html.includes('not measured yet: no hook'));
+});
+
+// Owner, 2 Nov 2026: "make this graph's circles clickable or with tooltips; bring it, smaller, to the overview of Agent Coding".
+const chartRows = [row('sdlc', '2026-10-30', sdlcDay({pr: {'CI · Tests · python': {runs: 40, fails: 9, secs: 8000, catches: catches({product: 3, test: 1})}, 'CI · Lint': {runs: 60, fails: 0, secs: 120, catches: catches()}}})),
+  row('gate', '2026-10-30', gateDay({'desktop (clean checkout)': {runs: 30, fails: 4, secs: 2400, cls: 'real'}}))];
+
+test('every circle is a link to its row in the table with the shared tooltip: name, layer, time per run, real catches per 100 runs and runs; no native <title>; focusable', () => {
+  const html = sdlcPage(chartRows, now), svg = html.slice(html.indexOf('<svg class="ac-scatter'), html.indexOf('</svg>'));
+  const dots = [...svg.matchAll(/<a class="ac-dot" href="(#[^"]+)" data-tip="([^"]+)" aria-label="([^"]+)">/g)];
+  assert.equal(dots.length, 3, 'one per check with enough runs');
+  assert.ok(!svg.includes('<title>'));
+  for (const [, href, tip, label] of dots) {
+    assert.ok(html.includes(`<tr id="${href.slice(1)}">`), `${href} is a row of the table`);
+    assert.equal(tip, label);
+    assert.match(tip, /· (Push gate|PR checks|Main|Beta \/ nightly) · .+ per run · [\d.]+ real catches per 100 runs · \d+ runs$/);
+  }
+  assert.ok(dots.some(([, , tip]) => tip.startsWith('CI · Tests · python · PR checks · 3.3 min per run · 10 real catches per 100 runs · 40 runs')), dots.map(d => d[2]).join(' | '));
+  assert.ok(html.includes('<div id="tip" role="tooltip" hidden></div>'), 'the page has the shared tooltip');
+  assert.equal(checkId({layer: 'pr', name: 'CI · Tests · python'}), 'check-pr-ci-tests-python');
+});
+
+test('the Overview card is the same chart, smaller, each circle going to its row on the SDLC tab, and the card links to the full chart; nothing to show means no card', () => {
+  const html = checksCard(chartRows, now), full = sdlcPage(chartRows, now);
+  assert.match(html, /<svg class="ac-scatter ac-small"/);   // Why (Gitar on #299): not `small`: the Overview's own `.small{margin-left:18px}` rule would shift the chart
+  assert.ok(!/class="([^"]* )?small[ "]/.test(html.slice(html.indexOf('<svg'), html.indexOf('</svg>'))), 'no generic small class on the chart');
+  const links = [...html.matchAll(/<a class="ac-dot" href="([^"]+)"/g)].map(m => m[1]), fullLinks = [...full.matchAll(/<a class="ac-dot" href="#([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(links, fullLinks.map(id => `/admin/agents/agent-coding?tab=sdlc#${id}`));
+  assert.ok(html.includes('href="/admin/agents/agent-coding?tab=sdlc">Open the full chart and table'));
+  assert.equal(checksCard([], now), '');
+  assert.equal(checksCard([row('sdlc', '2026-10-30', sdlcDay({pr: {'CI · Few': {runs: 5, fails: 0, secs: 10, catches: catches()}}}))], now), '', 'under 20 runs is not placed');
 });

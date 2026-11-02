@@ -10,6 +10,9 @@ import {CATEGORIES, CATEGORY_IDS} from './ops-categories.js';
 import {filterLinks} from './admin.js';
 import {BARS_CSS, barRows, legend} from './day-bars.js';
 import {groupOf, sectionTiles, tilesHtml} from './section-overview.js';
+import {checksCard, STYLE2} from './agent-coding-sdlc.js';
+import {STYLE as AC_STYLE} from './agent-coding-page.js';
+import {TIP_STYLE, TOOLTIP} from '../shared/scoutingcharts.js';
 
 const HOUR = 3600000, DAY = 24 * HOUR, KEEP_DAYS = 30, LATEST = 20;
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -118,7 +121,7 @@ export function bars(snapshot, range = '7d', now = new Date()) {
   return `${legend(CATEGORIES)}${barRows(CATEGORIES, list, summary)}`;
 }
 
-export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date(), lead = ''} = {}) {
+export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now = new Date(), lead = '', checks = ''} = {}) {
   range = rangeOf(range);
   const filters = filterLinks(Object.entries(RANGES).map(([value, {name}]) => [value, name, `?range=${value}`]), range), name = RANGES[range].name;
   const body = !snapshot ? `<section class="card"><h2>No data yet</h2><p class="muted">The workflow <code>ops-overview.yml</code> publishes the merged PRs on every push to main and hourly; the first run fills this page.</p></section>`
@@ -129,11 +132,11 @@ export function page(snapshot, {range = '7d', repo = 'GarryOne/jobadabra', now =
   `<tr><td><a href="https://github.com/${esc(repo)}/pull/${Number(pr.number)}">#${Number(pr.number)}</a> ${esc(pr.title)}</td><td class="nowrap">${swatch(pr.category)}${esc(label(pr.category))}</td><td class="num">${num(pr.lines)}</td><td class="num">${one(pr.hours)}</td></tr>`).join('')
   || '<tr><td colspan="4" class="muted">No merged PRs yet.</td></tr>'}</table></section>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Overview · Agent Coding · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
+<link rel="icon" href="/favicon-32.png"><style>${checks ? `${AC_STYLE}${STYLE2}${TIP_STYLE}` : ''}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}.tile b{display:block;font-size:30px;margin:4px 0}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}.small{font-size:12px;margin-left:18px}
 .filters{margin:8px 0 16px}tr.total td{font-weight:700}h2{margin:0}.hourly .night{grid-template-columns:112px minmax(0,1fr) 240px}.hourly .night b{white-space:nowrap}@media (max-width:640px){.hourly .night{grid-template-columns:112px minmax(0,1fr)}}${BARS_CSS}</style></head><body><main>
 <header><h1>⏱️ Overview</h1><span class="muted">${snapshot ? `as of ${esc(snapshot.at.slice(0, 16).replace('T', ' '))} UTC · merged PRs, by what they change` : ''}</span></header>
-${lead}${snapshot ? '<h2 style="margin:8px 0 12px">⏱️ Where our time goes</h2>' : ''}${body}</main></body></html>`;
+${lead}${checks}${snapshot ? '<h2 style="margin:8px 0 12px">⏱️ Where our time goes</h2>' : ''}${body}</main>${checks ? TOOLTIP : ''}</body></html>`;
 }
 
 export async function view(request, env) {
@@ -145,5 +148,8 @@ export async function view(request, env) {
   const range = rangeOf(url.searchParams.get('range'));
   // Why (1 Nov 2026, owner: "2 groups"): Testing has no Overview of its own, so its pages' headline numbers stay here, after the Agent Coding ones, each linking to its page.
   const lead = tilesHtml([...await sectionTiles(env, groupOf('/admin/agents/overview')), ...await sectionTiles(env, 'Testing')]);
-  return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined, lead}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  // Why (2 Nov 2026, owner): the Checks chart (value and cost) also sits here, small; its rows are the SDLC tab's own (agent_coding_days, the same 63 days).
+  let rows = [];
+  try { rows = env.STATS ? (await env.STATS.prepare('SELECT kind, day, card, updated_at FROM agent_coding_days WHERE day >= ? ORDER BY day').bind(new Date(Date.now() - 63 * DAY).toISOString().slice(0, 10)).all()).results || [] : []; } catch { rows = []; }
+  return new Response(page(snapshot, {range, repo: env.GITHUB_REPO || undefined, lead, checks: checksCard(rows)}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

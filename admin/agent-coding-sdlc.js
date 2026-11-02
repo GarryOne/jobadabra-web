@@ -2,6 +2,7 @@
 // slow and don't bring value / fast and brings no value"). Three cards: the path (hooks → push gate → PR checks → main → beta/nightly → bugs the owner saw), the four phases, and the Checks grid
 // (every check by cost and real catches). Pure: rows in, HTML out; report only, nothing here blocks. Data: kinds gate + ci + sdlc (admin/agent-coding.js). Test: test/admin/agent-coding-sdlc.test.js.
 import {esc} from '../shared/html.js';
+import {TIP_STYLE, TOOLTIP} from '../shared/scoutingcharts.js';
 import {HOOKS, STYLE, TABS_STYLE, tabs, weeksOf, weekWords, sum, pct, round1, bar, legend, chip, note, card} from './agent-coding-page.js';
 
 const WINDOW_WEEKS = 4;   // the grid pools the last 4 weeks: one week has too few runs for the slow checks
@@ -43,20 +44,28 @@ const hours = secs => (secs >= 3600 ? `${round1(secs / 3600)} h` : `${Math.round
 // The ten checks that spent the most time, numbered 1-10: the dots and the table's first column use the same numbers (names would collide in the crowded middle of the chart).
 const numbered = checks => new Map([...checks].filter(c => c.runs >= MIN_RUNS).sort((a, b) => b.secs - a.secs).slice(0, 10).map((c, i) => [`${c.layer}|${c.name}`, i + 1]));
 
-function scatter(checks, numbers) {
-  const W = 640, H = 320, L = 44, B = 34, T = 12, R = 12, lo = Math.log10(0.1), hi = Math.log10(1500);
+/** The id of one check's row in the table (a dot's link points at it): layer and name, lowercased, other characters as dashes. */
+export const checkId = c => `check-${c.layer}-${String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+
+/**
+ * The chart of every check (time per run x real catches per 100 runs). `small` is the same chart in a smaller viewBox for the Agent Coding Overview; `href` says where a dot goes (default: its row in the table on the same page).
+ * Why (2 Nov 2026, owner: "make this graph's circles clickable or with tooltips; bring it, smaller, to the overview"): each dot is a link with the page's shared [data-tip] tooltip (keyboard focus shows it too), not a native <title>.
+ */
+function scatter(checks, numbers, {small = false, href = c => `#${checkId(c)}`} = {}) {
+  const W = small ? 460 : 640, H = small ? 250 : 320, L = 44, B = 34, T = 12, R = 12, lo = Math.log10(0.1), hi = Math.log10(1500);
   const x = perRun => L + (Math.log10(Math.max(0.1, Math.min(1500, perRun))) - lo) / (hi - lo) * (W - L - R);
   const top = Math.max(5, ...checks.filter(c => c.runs >= MIN_RUNS).map(c => c.real / c.runs * 100)), y = per100 => T + (1 - Math.sqrt(Math.min(per100, top) / top)) * (H - T - B);   // square-root: most checks sit near zero
   const ticks = [[0.1, '0.1 s'], [1, '1 s'], [10, '10 s'], [60, '1 min'], [600, '10 min']], yTicks = [0, 1, 5, 20, 50].filter(v => v <= top);
   const dots = checks.filter(c => c.runs >= MIN_RUNS).map(c => ({c, cx: x(c.perRun), cy: y(c.real / c.runs * 100)})).sort((a, b) => b.c.secs - a.c.secs);
-  return `<svg class="ac-scatter" viewBox="0 0 ${W} ${H}" role="img" aria-label="Every check by seconds per run (left to right, log scale) and real catches per 100 runs (bottom to top, square-root scale); the ten that spent the most time are numbered like the table">
+  return `<svg class="ac-scatter${small ? ' ac-small' : ''}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Every check by seconds per run (left to right, log scale) and real catches per 100 runs (bottom to top, square-root scale); the ten that spent the most time are numbered like the table">
 <rect x="${x(SLOW_SECS)}" y="${T}" width="${W - R - x(SLOW_SECS)}" height="${y(VALUE_PER_100) - T}" fill="#f2c14e" opacity=".06"/><rect x="${x(SLOW_SECS)}" y="${y(VALUE_PER_100)}" width="${W - R - x(SLOW_SECS)}" height="${H - B - y(VALUE_PER_100)}" fill="#e5484d" opacity=".08"/>
 <line x1="${x(SLOW_SECS)}" x2="${x(SLOW_SECS)}" y1="${T}" y2="${H - B}" stroke="#3a424b" stroke-dasharray="4 4"/><line x1="${L}" x2="${W - R}" y1="${y(VALUE_PER_100)}" y2="${y(VALUE_PER_100)}" stroke="#3a424b" stroke-dasharray="4 4"/>
 ${ticks.map(([v, t]) => `<text x="${x(v)}" y="${H - 16}" fill="#8d949c" font-size="11" text-anchor="middle">${t}</text>`).join('')}${yTicks.map(v => `<text x="${L - 6}" y="${y(v) + 4}" fill="#8d949c" font-size="10" text-anchor="end">${v}</text>`).join('')}
 <text x="${L + 6}" y="${T + 12}" fill="#5ec47a" font-size="11">Keep</text><text x="${W - R - 4}" y="${T + 12}" fill="#f2c14e" font-size="11" text-anchor="end">Make faster</text><text x="${W - R - 4}" y="${H - B - 6}" fill="#e5484d" font-size="11" text-anchor="end">Remove?</text><text x="${L + 6}" y="${H - B - 6}" fill="#8d949c" font-size="11">Cheap, quiet</text>
 <text x="${(L + W - R) / 2}" y="${H - 2}" fill="#8d949c" font-size="11" text-anchor="middle">time per run →</text><text x="10" y="${(T + H - B) / 2}" fill="#8d949c" font-size="11" text-anchor="middle" transform="rotate(-90 10 ${(T + H - B) / 2})">real catches per 100 runs</text>
 ${dots.map(({c, cx, cy}) => { const n = numbers.get(`${c.layer}|${c.name}`), r = n ? 9 : Math.max(3.5, Math.min(7, 2.5 + Math.sqrt(c.secs / 900)));
-    return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${LAYER_COLORS[c.layer]}" fill-opacity="${n ? 0.95 : 0.6}" stroke="#0d1013"><title>${esc(`${c.name} (${LAYERS[c.layer]}): ${c.runs} runs, ${c.real} real catches, ${seconds(c.perRun)} per run, ${hours(c.secs)} in total`)}</title></circle>${n ? `<text x="${cx.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" fill="#0d1013" font-size="10" font-weight="700" text-anchor="middle">${n}</text>` : ''}`; }).join('')}
+    const tip = `${c.name} · ${LAYERS[c.layer]} · ${seconds(c.perRun)} per run · ${round1(c.real / c.runs * 100)} real catches per 100 runs · ${c.runs} runs`;
+    return `<a class="ac-dot" href="${esc(href(c))}" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${LAYER_COLORS[c.layer]}" fill-opacity="${n ? 0.95 : 0.6}" stroke="#0d1013"/>${n ? `<text x="${cx.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" fill="#0d1013" font-size="10" font-weight="700" text-anchor="middle">${n}</text>` : ''}</a>`; }).join('')}
 </svg>`;
 }
 
@@ -65,7 +74,7 @@ function gridCard(weeks) {
   if (!checks.length) return card('grid', 'Checks: value and cost', 'every check, last 4 weeks', '<p class="muted">No upload yet.</p>');
   const rows = checks.map(c => ({...c, corner: cornerOf(c)})).sort((a, b) => CORNERS[a.corner].order - CORNERS[b.corner].order || b.secs - a.secs);
   const count = key => rows.filter(r => r.corner === key).length;
-  const numbers = numbered(checks), table = rows.map(r => `<tr><td class="num">${numbers.get(`${r.layer}|${r.name}`) || ''}</td><td>${esc(r.name)}</td><td><span class="ac-tag" style="--c:${LAYER_COLORS[r.layer]}">${esc(LAYERS[r.layer])}</span></td><td class="num">${r.runs}</td><td class="num">${r.stops}</td><td class="num">${r.real}</td><td class="num">${r.form || '·'}</td><td class="num">${r.flaky || '·'}</td><td class="num">${seconds(r.perRun)}</td><td class="num">${hours(r.secs)}</td><td><span class="ac-tag" style="--c:${CORNERS[r.corner].color}" title="${esc(CORNERS[r.corner].note)}">${CORNERS[r.corner].icon} ${esc(CORNERS[r.corner].word)}</span></td></tr>`).join('');
+  const numbers = numbered(checks), table = rows.map(r => `<tr id="${checkId(r)}"><td class="num">${numbers.get(`${r.layer}|${r.name}`) || ''}</td><td>${esc(r.name)}</td><td><span class="ac-tag" style="--c:${LAYER_COLORS[r.layer]}">${esc(LAYERS[r.layer])}</span></td><td class="num">${r.runs}</td><td class="num">${r.stops}</td><td class="num">${r.real}</td><td class="num">${r.form || '·'}</td><td class="num">${r.flaky || '·'}</td><td class="num">${seconds(r.perRun)}</td><td class="num">${hours(r.secs)}</td><td><span class="ac-tag" style="--c:${CORNERS[r.corner].color}" title="${esc(CORNERS[r.corner].note)}">${CORNERS[r.corner].icon} ${esc(CORNERS[r.corner].word)}</span></td></tr>`).join('');
   const layers = Object.entries(LAYERS).map(([key, word]) => `<span><b style="background:${LAYER_COLORS[key]}"></b>${esc(word)}</span>`).join('');
   return card('grid', 'Checks: value and cost', 'every check, last 4 weeks pooled', `${scatter(checks, numbers)}<p class="ac-legend">${layers}<span>numbers = the ten checks that spent the most time (same numbers in the table)</span></p>
 <p class="ac-corners">${['remove', 'faster', 'quiet', 'keep'].map(key => `<span class="ac-chip" style="color:${CORNERS[key].color}">${CORNERS[key].icon} ${count(key)} ${esc(CORNERS[key].word)}</span>`).join('')}</p>
@@ -117,14 +126,28 @@ function verdict(weeks) {
   return `<section class="card ac-verdict"><h2>Where the time goes <span class="muted">· last ${WINDOW_WEEKS} weeks</span></h2><div class="ac-chips">${parts.join('')}</div></section>`;
 }
 
-const STYLE2 = `.ac-scatter{width:100%;height:auto;display:block}.ac-wide{overflow-x:auto}.ac-cell{min-width:140px}.ac-corners{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.ac-chip{white-space:normal}.ac-up{color:#ff8f84}.ac-down{color:#5ec47a}td.num,th.num{text-align:right}
+export const STYLE2 = `.ac-scatter{width:100%;height:auto;display:block}.ac-wide{overflow-x:auto}.ac-cell{min-width:140px}.ac-corners{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.ac-chip{white-space:normal}.ac-up{color:#ff8f84}.ac-down{color:#5ec47a}td.num,th.num{text-align:right}
+.ac-dot{cursor:pointer;outline:none}.ac-dot:hover circle,.ac-dot:focus circle{stroke:#fff;stroke-width:2}.ac-wide tr:target td{background:#1d2a3a}.ac-scatter.ac-small{max-width:480px}.ac-mini{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}.ac-mini>div{flex:1 1 260px;min-width:0}
 .ac-wide table{width:100%;border-collapse:collapse}.ac-wide td,.ac-wide th{padding:5px 8px;border-bottom:1px solid #1d232a;font-size:13px;text-align:left;vertical-align:top}.ac-wide td.num,.ac-wide th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}`;
 
 /** The SDLC tab: rows [{kind, day, card: JSON string, updated_at}] + a clock in, HTML out. */
 export function sdlcPage(rows, now = new Date()) {
   const weeks = weeksOf(rows, now), at = rows.map(item => item.updated_at).filter(Boolean).sort().at(-1);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>SDLC · Agent coding · Agent Coding · Admin</title>
-<link rel="icon" href="/favicon-32.png"><style>${STYLE}${TABS_STYLE}${STYLE2}</style></head><body><main>
+<link rel="icon" href="/favicon-32.png"><style>${STYLE}${TABS_STYLE}${STYLE2}${TIP_STYLE}</style></head><body><main>
 <header><h1>🧭 Agent coding</h1><span class="muted ac-top">the whole path${at ? ` · data as of ${esc(at.slice(0, 16).replace('T', ' '))} UTC` : ''} · <a href="/admin/testing/pr-checks">per-check scorecard →</a></span></header>
-${tabs('sdlc')}${verdict(weeks)}${gridCard(weeks)}${pathCard(weeks)}${phasesCard(weeks)}</main></body></html>`;
+${tabs('sdlc')}${verdict(weeks)}${gridCard(weeks)}${pathCard(weeks)}${phasesCard(weeks)}</main>${TOOLTIP}</body></html>`;
+}
+
+/**
+ * The same chart, smaller, as a card for the Agent Coding Overview (owner, 2 Nov 2026: "bring this graph, probably in a smaller size, to the overview"): each dot goes to its row on the SDLC tab, and the card links to the full chart.
+ * Rows as in `sdlcPage`; '' when no check has enough runs yet. The page that shows it needs STYLE2, TIP_STYLE and TOOLTIP.
+ */
+export function checksCard(rows, now = new Date()) {
+  const checks = checksOf(weeksOf(rows, now).slice(0, WINDOW_WEEKS));
+  if (!checks.some(c => c.runs >= MIN_RUNS)) return '';
+  const count = key => checks.filter(c => cornerOf(c) === key).length, link = '/admin/agents/agent-coding?tab=sdlc';
+  const chips = ['remove', 'faster', 'quiet', 'keep'].map(key => `<span class="ac-chip" style="color:${CORNERS[key].color}">${CORNERS[key].icon} ${count(key)} ${esc(CORNERS[key].word)}</span>`).join('');
+  return `<section class="card" id="checks"><h2>Checks: value and cost <span class="muted">· last ${WINDOW_WEEKS} weeks</span></h2><div class="ac-mini"><div>${scatter(checks, numbered(checks), {small: true, href: c => `${link}#${checkId(c)}`})}</div>
+<div><p class="ac-corners">${chips}</p><p class="muted">Each circle is one check; hover or focus it for its numbers, click it for its row in the table.</p><p><a href="${link}">Open the full chart and table →</a></p></div></div></section>`;
 }

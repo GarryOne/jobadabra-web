@@ -69,6 +69,9 @@ export const TOOLTIP = `<div id="tip" role="tooltip" hidden></div><script>
   document.addEventListener('focusout', () => { box.hidden = true; });
 })();</script>`;
 
+// The floating tooltip's look, for pages that use TOOLTIP without the rest of CHART_STYLE (the Agent Coding Overview).
+export const TIP_STYLE = `#tip{position:fixed;z-index:9;pointer-events:none;background:#f4efe3;color:#0b0d10;font-size:12px;padding:5px 8px;border-radius:6px;max-width:320px;box-shadow:0 4px 14px #0008}`;
+
 export const CHART_STYLE = `
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
 .tile{background:#14181d;border:1px solid #262c33;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -88,5 +91,5 @@ export const CHART_STYLE = `
 .multiple{background:#101418;border:1px solid #20262d;border-radius:10px;padding:8px 10px}.multiple b{font-size:18px}.multiple small{display:block;color:#8d949c}
 details.fold{margin-bottom:8px}details.fold>summary{cursor:pointer;padding:10px 14px;background:#14181d;border:1px solid #262c33;border-radius:12px;list-style:none;font-weight:600}
 details.fold>summary::before{content:'▸ ';color:#8d949c}details.fold[open]>summary::before{content:'▾ '}details.fold>.card{margin-top:6px}
-#tip{position:fixed;z-index:9;pointer-events:none;background:#f4efe3;color:#0b0d10;font-size:12px;padding:5px 8px;border-radius:6px;max-width:320px;box-shadow:0 4px 14px #0008}
+${TIP_STYLE}
 `;
