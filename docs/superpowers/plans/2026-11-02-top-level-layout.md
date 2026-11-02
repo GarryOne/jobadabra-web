@@ -8,3 +8,6 @@ Owner: "I should clearly see separated top level: admin, api, website, workers..
 - [ ] 1/3 `website/` (web, preview as `website/next`) + the map and `lay-private.sh`
 - [ ] 2/3 `ops/` (jobs, hosted, media, db): map lines and the raw-path edits (workflows' `paths:`, tools that read the raw repo)
 - [ ] 3/3 `test/` (tests, desktop/test as `test/public-tree/...`): map lines, site-guards.sh, tests.yml
+
+## Before each PR (lesson from #314, 2 Nov 2026: `test/web/hero-redo.test.js` reads the raw skill doc and the joined-tree file)
+Tests that read a RAW file (skill, README, workflow, tools) see the new name; tests that read a joined-tree path see the old one. Before pushing, `git grep -l` each moved folder's name in `test/` and `tests/`, and run every file it finds by name in the joined tree (`SITE_OVERLAY_FRESH=1 tools/site-run.sh node --test <files>`).
