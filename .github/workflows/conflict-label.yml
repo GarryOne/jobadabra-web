@@ -1,7 +1,8 @@
-# Ported from jobadabra (owner, 1 Nov 2026: "we don't have the functionality of GH labels (conflicts) for this repository. let's add").
+# Added after the owner's ask (1 Nov 2026: "we don't have the functionality of GH labels (conflicts) for this repository. let's add").
 # Puts an orange "Merge conflict" label on each open PR that GitHub says conflicts with its base, and takes it off once it merges cleanly (owner, 30 Oct 2026).
-# Runs on a push to main (any open PR may now conflict) and on a PR push (it may be fixed); checks out main's copy of the script and NEVER runs a PR's code;
-# its only writes are labels. Script and cases: tools/conflict-label.mjs, test/tools/conflict-label.test.js.
+# Runs on a push to main (any open PR may now conflict) and on a PR push (it may be fixed); NEVER runs a PR's code; its only writes are labels.
+# Why (2 Nov 2026, owner: "same workflow on all repos"): the script is NOT copied here: the checkout reads tools/conflict-label.mjs from the public jobadabra/jobadabra main, one parser for every repo.
+# Script and cases: jobadabra/jobadabra tools/conflict-label.mjs, tests/test_conflict_label.py. This repo's guard: test/tools/pr-label-workflows.test.js.
 # A label, not a gate (owner, 1 Nov 2026): no required check waits for it and nothing blocks a merge. The job is named `conflict`, not `label`, so it never reads as the Gitar label check ("CI · Gitar label").
 name: CI · Conflict label
 
@@ -29,7 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.repository.default_branch }}   # main's copy of the script, whatever started this
+          repository: jobadabra/jobadabra   # the script lives there (public), not in this repo
+          ref: main
           sparse-checkout: |
             tools/conflict-label.mjs
           sparse-checkout-cone-mode: false   # a file pattern, not a directory (cone mode would read the path as a folder; Gitar on web#258)
