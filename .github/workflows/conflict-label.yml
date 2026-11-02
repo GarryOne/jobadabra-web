@@ -34,6 +34,7 @@ jobs:
           ref: main
           sparse-checkout: |
             tools/conflict-label.mjs
+            tools/gitar-label.mjs   # conflict-label.mjs imports it (addLabel); missing it was a red ERR_MODULE_NOT_FOUND on every web PR (2 Nov 2026)
           sparse-checkout-cone-mode: false   # a file pattern, not a directory (cone mode would read the path as a folder; Gitar on web#258)
       - name: Label the open PRs that conflict
         env:

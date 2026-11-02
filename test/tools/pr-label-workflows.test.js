@@ -2,7 +2,7 @@
 // The scripts live in the public jobadabra/jobadabra (tools/gitar-label.mjs, tools/conflict-label.mjs, with their cases in that repo's tests); this repo only checks out main's copy and writes labels.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 
 const read = name => readFileSync(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8');
 const gitar = read('gitar-label.yml');
@@ -43,4 +43,23 @@ test('the conflict label runs when main or a PR moves, labels that PR alone, and
   assert.ok(conflict.includes('PR: ${{ github.event.pull_request.number }}'), "a PR's run labels that PR alone");
   assert.ok(conflict.includes("group: conflict-label-${{ github.event_name == 'push' && 'main' || github.run_id }}"), 'main pushes share a group; a PR push is its own group, never cancelled');
   assert.ok(/\n  conflict:\n/.test(conflict) && !/\n  conflict:\n(?:.*\n)*?\s+needs:/.test(conflict), 'a label job waits for nothing and nothing waits for it');
+});
+
+// Why (2 Nov 2026, owner: "red"): #304 listed only tools/conflict-label.mjs, but that script imports ./gitar-label.mjs, so every web PR drew a red "conflict" check
+// (ERR_MODULE_NOT_FOUND). These workflows run from main only, so no PR run can catch it: the check is here, on the sparse list itself.
+const sparseList = flow => flow.split('sparse-checkout: |\n')[1].split('\n          sparse-checkout-cone-mode')[0].split('\n').map(l => l.replace(/#.*/, '').trim()).filter(Boolean);
+
+test('every relative import of a checked-out script is in that workflow\'s sparse list (all label workflows)', () => {
+  for (const [name, flow] of [['gitar-label.yml', gitar], ['conflict-label.yml', conflict]]) {
+    const listed = sparseList(flow);
+    assert.ok(listed.length > 0, `${name} lists its scripts`);
+    for (const file of listed) {
+      const path = new URL(`../../${file}`, import.meta.url);
+      if (!existsSync(path)) continue;   // CI lays the public repo's tree under this one (joined tree); a bare checkout has no copy, the static case below still holds
+      for (const [, target] of readFileSync(path, 'utf8').matchAll(/from\s+'\.\/([^']+)'/g)) {
+        assert.ok(listed.includes(`tools/${target}`), `${name}: ${file} imports ./${target}, which the sparse checkout does not fetch`);
+      }
+    }
+  }
+  assert.ok(sparseList(conflict).includes('tools/gitar-label.mjs'), 'conflict-label.mjs imports ./gitar-label.mjs (addLabel)');
 });
