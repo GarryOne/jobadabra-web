@@ -41,6 +41,12 @@ export function tier1Rows(snapshot, now = new Date()) {
   return rows.sort((a, b) => (a.id === 'K') - (b.id === 'K') || Number(a.id.slice(1)) - Number(b.id.slice(1)));
 }
 
+/** The one colour scale of the page (owner, 2 Nov 2026: "green only if 100%... everything below is orange/yellow/red"): 100% green, from 98% yellow, from 90% orange, below red; no number grey. */
+export const shareTone = share => (share === null || share === undefined ? 'off' : share >= 1 ? 'good' : share >= 0.98 ? 'warn' : share >= 0.9 ? 'orange' : 'bad');
+
+/** A percentage as the page shows it: one decimal, and never "100%" for a share below 1 (99.96% reads 99.9%). */
+export const percentOf = share => (share === null || share === undefined ? '–' : share >= 1 ? '100%' : `${Math.min(99.9, Math.round(share * 1000) / 10)}%`);
+
 /** One row per Tier 2 journey from the per-day tallies of its integration tests. */
 export function tier2Rows(snapshot, now = new Date()) {
   const from = dayOf(new Date(now.getTime() - (WINDOW_DAYS - 1) * DAY));
@@ -60,5 +66,5 @@ export function verdict(rows) {
     ...journeys.filter(row => row.state === 'few').map(row => ({label: row.id, tone: 'warn', title: `${row.id} ${short(row)}: only ${row.runs} ${row.runs === 1 ? 'run' : 'runs'}`}))];
   // Owner, 2 Nov 2026: "20 journeys x 20 runs = 400; 5 failures: 395 out of 400" - the percentage of all Tier 1 runs of the window (every journey's runs counted once; the kept steps are not a journey) that were green.
   const counted = rows.filter(row => row.id !== 'K'), runs = counted.reduce((sum, row) => sum + row.runs, 0), green = runs - counted.reduce((sum, row) => sum + (row.reds || 0), 0), share = runs ? green / runs : null;
-  return {runs, green, share, percent: share === null ? '–' : `${Math.round(share * 1000) / 10}%`, stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable`, chips};
+  return {runs, green, share, percent: percentOf(share), stable: stable.length, total: journeys.length, text: `${stable.length} of ${journeys.length} Tier 1 journeys stable`, chips};
 }

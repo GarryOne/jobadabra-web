@@ -6,7 +6,7 @@ import worker from '../../workers/www/index.js';
 import {PAGES} from '../../admin/admin.js';
 import {cleanSnapshot, ingest, MAX_T1} from '../../admin/gtm-intel.js';
 import {page} from '../../admin/gtm-readiness.js';
-import {tier1Rows, tier2Rows, verdict} from '../../admin/gtm-readiness-data.js';
+import {percentOf, shareTone, tier1Rows, tier2Rows, verdict} from '../../admin/gtm-readiness-data.js';
 
 const now = new Date('2026-11-01T12:00:00Z');
 const journeys = [{id: 'J0', name: 'The app starts: every screen draws', tier: 1}, {id: 'J1', name: 'Set up <the> app', tier: 1}, {id: 'J2', name: 'Find jobs', tier: 1}, {id: 'J3', name: 'Few runs', tier: 1}, {id: 'J4', name: 'No runs', tier: 1},
@@ -107,6 +107,26 @@ test('the second gauge: every Tier 1 run of the 14 days counts once, a red run i
   assert.match(html, /aria-label="92 of 94 Tier 1 runs green"/);
   const odd = cleanSnapshot({journeys: [{id: 'J1', name: 'A', tier: 1}], tier1: Array.from({length: 400}, (_, i) => [2000 + i, '2026-11-01', 'after-merge', 'mac', 'J1', 2, i < 5 ? 1 : 0, 0])}, now);
   assert.equal(verdict(tier1Rows(odd, now)).percent, '98.8%', '395 of 400 (98.75%) reads 98.8%');
+});
+
+// Owner, 2 Nov 2026: "same size, same alignment/positioning... and green is only if 100%... everything below is orange/yellow/red".
+test('one colour scale: green only at exactly 100%, then yellow, orange, red; 99.96% never reads as 100%', () => {
+  assert.deepEqual([1, 0.9999, 0.98, 0.979, 0.9, 0.899, 0].map(shareTone), ['good', 'warn', 'warn', 'orange', 'orange', 'bad', 'bad']);
+  assert.equal(shareTone(null), 'off');
+  assert.deepEqual([1, 1999 / 2000, 0.9996, 395 / 400, null].map(percentOf), ['100%', '99.9%', '99.9%', '98.8%', '–']);
+  const html = page(snapshot, {now});
+  const rings = html.match(/<div class="gtmgauge">[\s\S]*?<\/svg><\/div>/g) || [];
+  assert.equal(rings.length, 2, 'two rings, one wrapper class: the same size and place');
+  assert.match(rings[0], /stroke="#e5484d"/, '2 of 4 journeys stable is 50%: red');
+  assert.match(rings[1], /stroke="#f08a3c"/, '97.9% is orange: not green, not yet yellow');
+  assert.doesNotMatch(html, /class="muted small">92 of 94/, 'no caption under one ring only: the count is in the note beside them');
+  assert.match(html, /92 of 94 runs green in the last 14 days/);
+  const perfect = cleanSnapshot({journeys: [{id: 'J1', name: 'A', tier: 1}], tier1: Array.from({length: 12}, (_, i) => [3000 + i, '2026-11-01', 'after-merge', 'mac', 'J1', 2, 0, 0])}, now);
+  const all = page(perfect, {now});
+  assert.match(all, /100%<\/text>/);
+  assert.equal((all.match(/stroke="#3fb68b"/g) || []).length, 2, 'both rings green: 1/1 stable and 100% of runs');
+  assert.match(html, /<span class="chip warn">96\.7%<\/span>/, 'a 96.7% chip is amber, never green');
+  assert.match(html, /<span class="chip good">100%<\/span>/);
 });
 
 test('the trend compares two 14-day windows, and needs 5 runs in each', () => {
