@@ -5,7 +5,6 @@
 
 const RELEASE = 'https://github.com/GarryOne/jobadabra/releases/latest/download/';
 const ZIP = RELEASE + 'Jobadabra-mac-arm64.zip';
-const OLD_ZIP = RELEASE + 'Job-Pilotto-mac-arm64.zip';   // the alias of a stable release made before the rename; kept as the fallback
 
 // Where the person came from (the link they followed carried ?src=reddit-devops): a short slug, or nothing.
 export function cleanSource(value) {
@@ -28,7 +27,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 echo "Downloading Jobadabra…"
-curl -fL --progress-bar -o "$tmp/app.zip" "${ZIP}" || curl -fL --progress-bar -o "$tmp/app.zip" "${OLD_ZIP}"
+curl -fL --progress-bar -o "$tmp/app.zip" "${ZIP}"
 ditto -x -k "$tmp/app.zip" "$tmp/unpacked"
 
 if pgrep -f "/Job Pilotto.app/Contents/MacOS/" >/dev/null; then
@@ -46,7 +45,7 @@ key="\${1:-}"
 if [ -n "$key" ]; then
   case "$key" in
     JP1.*)
-      dir="$HOME/Library/Application Support/Job Pilotto"
+      dir="$HOME/Library/Application Support/Jobadabra"
       mkdir -p "$dir" && (umask 077 && printf '%s' "$key" > "$dir/pending-license.txt")
       echo 'Founder key saved: the app unlocks itself.' ;;
     *) echo "That isn't a Jobadabra key (it starts with JP1.); installing without it." ;;
@@ -56,7 +55,7 @@ fi
 # id so /telemetry can tell which channel brings people who finish setup (desktop/lib/install-source.js).
 channel='${channel}'
 if [ -n "$channel" ]; then
-  dir="$HOME/Library/Application Support/Job Pilotto"
+  dir="$HOME/Library/Application Support/Jobadabra"
   mkdir -p "$dir" && printf '%s' "$channel" > "$dir/install-source.txt"
 fi
 echo "Installed $(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo '') in Applications. Opening it…"

@@ -9,8 +9,8 @@ The order below is the only one that carried the key. Do not shorten it.
 ## Preconditions (all of them)
 - A time a8 named, never 21:00–05:30 UTC; the owner present. Downtime is about 3 minutes between step 2 and step 4.
 - Old broker answers `ready`: `curl -s https://jobadabra-codex-broker.jobpilotto.workers.dev/health` (note `state`, `own`, `limits`, `fallback`).
-- Wrangler 4 and the Cloudflare token from the Keychain (`job-pilotto.cloudflare.api_token`, `.account_id`) in this shell only; Docker running (the image is built locally).
-- Values for the new Worker's secrets, from the Keychain: `BROKER_ADMIN_TOKEN` (`job-pilotto.codex-broker.admin_token`), `ANTHROPIC_API_KEY`, `BRAIN_BOT_TOKEN`, `BRAIN_CHAT_ID`. Secrets do not move with the namespace.
+- Wrangler 4 and the Cloudflare token from the Keychain (`jobadabra.cloudflare.api_token`, `.account_id`) in this shell only; Docker running (the image is built locally).
+- Values for the new Worker's secrets, from the Keychain: `BROKER_ADMIN_TOKEN` (`jobadabra.codex-broker.admin_token`), `ANTHROPIC_API_KEY`, `BRAIN_BOT_TOKEN`, `BRAIN_CHAT_ID`. Secrets do not move with the namespace.
 
 ## Steps (from `workers/ai-broker/`)
 1. `npx wrangler@4 deploy -c transfer/expect.jsonc` → ends with **"Could not deploy container configuration as durable object was not found in the account namespace list"**. Expected: the pending transfer is recorded. Then set the four secrets: `npx wrangler@4 secret put <NAME> --name jobadabra-ai-broker`.

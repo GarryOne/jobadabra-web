@@ -40,7 +40,7 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Connect with Notion (Notion public connection "Jobadabra"). The secret: npx wrangler@4 secret put NOTION_CLIENT_SECRET
 # The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
 # One-click setup: the connection's settings (notion.so/profile/integrations → Jobadabra → Basic information →
-# Notion URL for optional template) hold https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c,
+# Notion URL for optional template) hold https://adaptable-bit-846.notion.site/Jobadabra-3e862be8fd868143b431df70d505ed7c,
 # so Notion's consent page offers "Use a template provided by the developer" and the token carries duplicated_template_id.
 [vars]
 # Staged rollout of learned recipes, wording and page meanings (api/canary-reach.js). OFF for now (owner, 9 Oct 2026): with few installs a
@@ -98,17 +98,17 @@ STRONG_ON = "off"   # "on" once the Workers Paid plan is on: kits/CVs/insights t
 LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports that recur are queued for the private triage (secrets REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
 # Connect with LinkedIn (LinkedIn app "Jobadabra Sign-in", id 264977227; product: Sign In with LinkedIn using OpenID Connect). Public id; the secret is a
-# Worker secret: security find-generic-password -a job-pilotto -s job-pilotto.linkedin.client_secret -w | npx wrangler@4 secret put LINKEDIN_CLIENT_SECRET
+# Worker secret: security find-generic-password -a jobadabra -s jobadabra.linkedin.client_secret -w | npx wrangler@4 secret put LINKEDIN_CLIENT_SECRET
 # Redirect URLs registered in the LinkedIn app: https://www.jobpilotto.top/api/linkedin/callback and the workers.dev one.
 LINKEDIN_CLIENT_ID = "77cda0c4oymws4"
 
 # INDEX_GATE: removed on 2 Oct 2026, so the token is enforced. During the rollout, INDEX_GATE = "soft" let installs without an index token keep
 # downloading (counted as index-open on /telemetry); set it back to "soft" only to re-open the list temporarily.
 # The central employer index (api/employers.js): GET /api/index for every app, PUT from the private central scout
-# (GarryOne/jobadabra-lab) with the Worker secret INDEX_PUBLISH_KEY (Keychain job-pilotto.site.index_publish_key). Stored in WAITLIST as "index:employers".
+# (GarryOne/jobadabra-lab) with the Worker secret INDEX_PUBLISH_KEY (Keychain jobadabra.site.index_publish_key). Stored in WAITLIST as "index:employers".
 
 # Website stats (api/downloads.js): page views, Download clicks, the private /stats page. Tables: db/migrations/ (apply: npx wrangler@4 d1 migrations apply www-stats --remote).
-# Secrets: STATS_KEY (opens /stats; Keychain job-pilotto.site.stats_key) and STATS_SALT (hashes visitors).
+# Secrets: STATS_KEY (opens /stats; Keychain jobadabra.site.stats_key) and STATS_SALT (hashes visitors).
 # "Report this form" (docs/superpowers/specs/2026-10-15-report-this-form.md §4): the private bucket for encrypted reports (created 15 Oct 2026, 30-day expiry rule `expire-30d`).
 [[r2_buckets]]
 binding = "REPORTS"

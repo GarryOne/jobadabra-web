@@ -87,7 +87,7 @@ test('the draws run on Free AI only: the relay answers the role and the search, 
   assert.match(step('Draw the candidate'), /parked/);
   assert.ok(!/secrets\.RANDOM_DRAWS_ANTHROPIC_KEY/.test(yml), 'no Anthropic spend: the draws never read the Anthropic key');
   for (const name of ['Draw the candidate', 'Search as that candidate', 'Send the counts to /admin']) assert.match(step(name), /steps\.free\.outputs\.on == 'true'/, name);
-  assert.match(step('Search as that candidate'), /JOB_PILOTTO_E2E=1 JOB_PILOTTO_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
+  assert.match(step('Search as that candidate'), /JOBADABRA_E2E=1 JOBADABRA_E2E_AI_BASE_URL=http:\/\/127\.0\.0\.1:8787\/api\/ai/);
   assert.match(step('Search as that candidate'), /\|\| status=\$\?[\s\S]*__report[\s\S]*draw\.free_ai=[\s\S]*exit "\$status"/);
 });
 

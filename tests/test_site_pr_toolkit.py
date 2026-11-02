@@ -29,7 +29,7 @@ class PrToolkit(unittest.TestCase):
         hooks = json.loads(found[0].read_text(encoding='utf-8'))['hooks']
         for event in ('Stop', 'UserPromptSubmit'):
             commands = [h['command'] for group in hooks[event] for h in group['hooks']]
-            self.assertTrue(any('job-pilotto/tools/pr-red-check.sh' in c for c in commands), f'{event} must run the public pr-red-check.sh')
+            self.assertTrue(any('jobadabra/tools/pr-red-check.sh' in c for c in commands), f'{event} must run the public pr-red-check.sh')
 
 
 if __name__ == '__main__':

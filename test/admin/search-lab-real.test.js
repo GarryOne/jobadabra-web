@@ -51,7 +51,7 @@ test('the tab is in the page, empty it says nothing arrived yet, and it holds no
   assert.match(html, /No real search reported yet/);
   const full = page([lab('a')], [], 'real', [report('install-aaaa')]);
   assert.match(full, /Hospitality/);
-  assert.ok(!/Acme|https?:\/\/(?!www\.jobpilotto)/.test(full.replace(/<style>[\s\S]*?<\/style>/, '')));
+  assert.ok(!/Acme|https?:\/\/(?!www\.jobadabra)/.test(full.replace(/<style>[\s\S]*?<\/style>/, '')));
 });
 
 test('failed and stopped searches are kept apart from finished ones and never count as a time', async () => {

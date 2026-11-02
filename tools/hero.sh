@@ -37,7 +37,7 @@ ref="${HERO_PUBLIC_REF:-main}"
 want="$(git ls-remote "${PUBLIC_REPO_URL:-https://github.com/GarryOne/jobadabra.git}" "refs/heads/$ref" 2>/dev/null | cut -c1-40 || true)"
 have="$(git -C .overlay rev-parse HEAD 2>/dev/null || true)"
 if [ -z "$have" ] || { [ -n "$want" ] && [ "$want" != "$have" ]; }; then
-  echo "hero: recording the app at job-pilotto/$ref ${want:0:7} (the overlay had ${have:-none}): rebuilding .overlay" >&2
+  echo "hero: recording the app at jobadabra/$ref ${want:0:7} (the overlay had ${have:-none}): rebuilding .overlay" >&2
   tools/overlay.sh .overlay "$ref" >&2
 fi
 rsync -a media/ .overlay/media/ && rsync -a web/ .overlay/web/ && rsync -a tools/ .overlay/tools/
@@ -62,7 +62,7 @@ pieces=("$@"); [ ${#pieces[@]} -gt 0 ] || pieces=("${HERO[@]}")
 node media/prune.mjs "$cache" --keep "hero=$(( ${HERO_KEEP:-3} - 1 ))" --protect "${words[1]:-}"
 set_dir="$cache/hero-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$set_dir/sheets"
 echo "hero: ${words[1]:+words only from ${words[1]}: }recording ${pieces[*]} into $set_dir"
-lock="${MEDIA_HEAVY_LOCK:-$HOME/job-pilotto/tools/heavy-lock.sh}"
+lock="${MEDIA_HEAVY_LOCK:-$HOME/jobadabra/tools/heavy-lock.sh}"
 record=(node ../media/media.mjs "${pieces[@]}" --out "$set_dir" --keep ${words[@]+"${words[@]}"})
 if [ -f "$lock" ]; then (cd .overlay/desktop && bash "$lock" product-media "${record[@]}"); else (cd .overlay/desktop && "${record[@]}"); fi
 

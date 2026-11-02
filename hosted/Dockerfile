@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt -r requirements-render.txt &&
 COPY src ./src
 COPY config ./config
 COPY templates ./templates
-ENV JOB_PILOTTO_NO_DOTENV=1 PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV JOBADABRA_NO_DOTENV=1 PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8080
 # The run token arrives in the POST body, per run; nothing secret is baked in.
 CMD ["python", "-m", "src", "hosted", "--serve"]

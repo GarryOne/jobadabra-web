@@ -73,7 +73,7 @@ async function buildLog(env) {
   return [{label: `PRs built ${row.day === dayOf(new Date()) ? 'today' : row.day}`, value: num(prs), sub: `${goals} goal${goals === 1 ? '' : 's'}`, status: 'none'}];
 }
 
-// E2E (job-pilotto-5d's page, table e2e_snapshot id 1 {days:[{day,runs,reds}], fails:[{cause,n}]}): reds in the last 7 days of the runs, and the top cause.
+// E2E (jobadabra-5d's page, table e2e_snapshot id 1 {days:[{day,runs,reds}], fails:[{cause,n}]}): reds in the last 7 days of the runs, and the top cause.
 async function e2e(env, now) {
   const row = await first(env, 'SELECT body FROM e2e_snapshot WHERE id = 1');
   if (!row) return [{label: 'E2E reds, 7 days', value: 'No data', sub: 'the E2E snapshot has not arrived yet', status: 'none', placeholder: true}];

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the full tree this repo is tested and deployed in: the public job-pilotto repo (main) with this repo's files laid over it at the same paths.
+# Builds the full tree this repo is tested and deployed in: the public jobadabra repo (main) with this repo's files laid over it at the same paths.
 # Usage: tools/overlay.sh <out-dir> [public-ref]; tools/overlay.sh --sync <out-dir> lays this repo's current files over a built tree again (site-run.sh). The site imports the public repo's validators (../../extension/...), so it only runs inside that tree.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,4 +17,4 @@ rm -rf "$out"
 git clone --quiet --depth 1 --branch "$ref" "${PUBLIC_REPO_URL:-https://github.com/GarryOne/jobadabra.git}" "$out"
 "$here/tools/compat-app-core.sh" "$out"   # the public repo is mid-move: see that file
 lay "$out"
-echo "overlay: $(git -C "$out" rev-parse --short HEAD) of job-pilotto/$ref + $(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo local) of jobadabra-web -> $out"
+echo "overlay: $(git -C "$out" rev-parse --short HEAD) of jobadabra/$ref + $(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo local) of jobadabra-web -> $out"

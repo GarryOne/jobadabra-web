@@ -105,7 +105,7 @@ test('the page and the command give the same groups on the same data', async () 
   assert.match(lines[1], /^Run first\s+2\s+1 of 2\s+never run/);
   assert.match(lines[2], /^unread\s+2\s+1 of 2\s+\d{4}-\d\d-\d\d/);
   assert.equal(lines.length, 5);
-  assert.doesNotMatch(lines.join('\n'), /job-pilotto-\d|token|key/i);
+  assert.doesNotMatch(lines.join('\n'), /jobadabra-\d|token|key/i);
 });
 
 test('there is one grouping: the page embeds the function\'s own source, has a By cause tab, and no grouping of its own', () => {
@@ -122,7 +122,7 @@ test('the fixer brief holds every row of the cause, the newest capture folder an
   const listing = {'2026-10-10': ['ccc-unread', 'ddd-unread-too'], '2026-10-11': ['ccc-unread-v2', 'other-row']};
   const brief = buildBrief(groups, 'unread', listing, {oneLine: 'start with the first row'});
   assert.equal(brief.ok, true);
-  assert.match(brief.text, /(jobadabra|job-pilotto)-fix-unread/);   // Why (2 Nov 2026, public #2926 renamed the session prefix, web CI went red on every PR): the name is the public tool's to choose; the site checks the cause's slug, not a prefix in flight
+  assert.match(brief.text, /(jobadabra|jobadabra)-fix-unread/);   // Why (2 Nov 2026, public #2926 renamed the session prefix, web CI went red on every PR): the name is the public tool's to choose; the site checks the cause's slug, not a prefix in flight
   assert.match(brief.text, /start with the first row/);
   for (const row of unread.rows) {
     assert.ok(brief.text.includes(`"${row.name}"`), 'row ' + row.name);

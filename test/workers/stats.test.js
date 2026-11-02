@@ -28,7 +28,7 @@ test('a Download click is counted and redirected to the GitHub release file', as
   const e = env();
   const response = await worker.fetch(request('/download/mac?from=hero&page=/&src=linkedin.com'), e, {});
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get('Location'), 'https://github.com/GarryOne/jobadabra/releases/latest/download/Job-Pilotto-mac-arm64.dmg');
+  assert.equal(response.headers.get('Location'), 'https://github.com/GarryOne/jobadabra/releases/latest/download/Jobadabra-mac-arm64.dmg');
   const [row] = e.STATS.db.prepare('SELECT * FROM downloads').all();
   assert.equal(row.platform, 'mac');
   assert.equal(row.button, 'hero');
@@ -101,21 +101,12 @@ test('device and source are read without keeping anything identifying', () => {
 });
 
 test('the Download button serves the latest stable release under its own name, else the fixed name', async () => {
-  const release = {assets: [{name: 'Job-Pilotto-mac-arm64.dmg', browser_download_url: 'https://x/fixed.dmg'},
-    {name: 'Job-Pilotto-0.5.60-arm64.dmg', browser_download_url: 'https://x/Job-Pilotto-0.5.60-arm64.dmg'},
-    {name: 'Job-Pilotto-0.5.60-x64.exe', browser_download_url: 'https://x/Job-Pilotto-0.5.60-x64.exe'}]};
+  const release = {assets: [{name: 'Jobadabra-mac-arm64.dmg', browser_download_url: 'https://x/fixed.dmg'},
+    {name: 'Jobadabra-0.5.60-arm64.dmg', browser_download_url: 'https://x/Jobadabra-0.5.60-arm64.dmg'},
+    {name: 'Jobadabra-0.5.60-x64.exe', browser_download_url: 'https://x/Jobadabra-0.5.60-x64.exe'}]};
   const ok = async () => new Response(JSON.stringify(release), {status: 200});
-  assert.equal(await versioned('mac', {}, ok, null), 'https://x/Job-Pilotto-0.5.60-arm64.dmg');
-  assert.equal(await versioned('windows-exe', {}, ok, null), 'https://x/Job-Pilotto-0.5.60-x64.exe');
+  assert.equal(await versioned('mac', {}, ok, null), 'https://x/Jobadabra-0.5.60-arm64.dmg');
+  assert.equal(await versioned('windows-exe', {}, ok, null), 'https://x/Jobadabra-0.5.60-x64.exe');
   assert.equal(await versioned('mac', {}, async () => new Response('', {status: 403}), null), null);  // GitHub busy: the fixed name
 });
 
-test('the Download button prefers the Jobadabra-* file and still serves a release that has only the old names', async () => {
-  const both = {assets: [{name: 'Job-Pilotto-0.8.28-arm64.dmg', browser_download_url: 'https://x/old.dmg'}, {name: 'Jobadabra-0.8.28-arm64.dmg', browser_download_url: 'https://x/new.dmg'},
-    {name: 'Job-Pilotto-0.8.28-x64.exe', browser_download_url: 'https://x/old.exe'}, {name: 'Jobadabra-0.8.28-x64.exe', browser_download_url: 'https://x/new.exe'}]};
-  const answer = async () => new Response(JSON.stringify(both), {status: 200});
-  assert.equal(await versioned('mac', {}, answer, null), 'https://x/new.dmg');
-  assert.equal(await versioned('windows-exe', {}, answer, null), 'https://x/new.exe');
-  const old = {assets: [{name: 'Job-Pilotto-0.8.27-arm64.dmg', browser_download_url: 'https://x/old.dmg'}]};
-  assert.equal(await versioned('mac', {}, async () => new Response(JSON.stringify(old), {status: 200}), null), 'https://x/old.dmg');
-});

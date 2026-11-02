@@ -74,7 +74,7 @@ test('a fix for a site the pool does not list still shows, as landed; the guard 
 test('claims: a snapshot of names and since, "as of" the upload; the Needs a fix row carries "In progress"', async () => {
   const db = d1();
   await smoke(db, '2026-10-11T07:00:00Z', {reached: 'posting'});
-  await ingest(db, {kind: 'claims', day: '2026-10-11', rows: [{name: 'Hornbach SuccessFactors', since: '2026-10-11T06:00:00.000Z', session: 'job-pilotto-81'}]}, at('2026-10-11T08:00:00Z'));
+  await ingest(db, {kind: 'claims', day: '2026-10-11', rows: [{name: 'Hornbach SuccessFactors', since: '2026-10-11T06:00:00.000Z', session: 'jobadabra-81'}]}, at('2026-10-11T08:00:00Z'));
   let d = await data(db, at('2026-10-11T09:00:00Z'));
   assert.deepEqual(d.fixed.inProgress, [{site: 'Hornbach SuccessFactors', since: '2026-10-11T06:00:00.000Z'}]);   // names and since only: no session
   assert.equal(d.fixed.claimsAt, '2026-10-11T08:00:00.000Z');

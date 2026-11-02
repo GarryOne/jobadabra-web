@@ -14,7 +14,7 @@ def main(out):
     with tempfile.TemporaryDirectory(prefix='jp-hosted-seed-') as folder:
         data = Path(folder) / 'data'
         data.mkdir()
-        os.environ.update({'JOB_PILOTTO_STORE': 'sqlite', 'JOB_PILOTTO_DATA_DIR': str(data), 'JOB_PILOTTO_CONFIG_DIR': str(Path(folder) / 'config'), 'JOB_PILOTTO_NO_DOTENV': '1'})
+        os.environ.update({'JOBADABRA_STORE': 'sqlite', 'JOBADABRA_DATA_DIR': str(data), 'JOBADABRA_CONFIG_DIR': str(Path(folder) / 'config'), 'JOBADABRA_NO_DOTENV': '1'})
         from src import store_access
         stores = store_access.open_run()
         for name, slug in EMPLOYERS:

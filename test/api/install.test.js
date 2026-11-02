@@ -8,7 +8,6 @@ test('the installer is valid bash that installs to Applications from the stable 
   execFileSync('bash', ['-n'], {input: text});  // syntax only, runs nothing
   assert.match(text, /curl -fsSL https:\/\/www\.jobpilotto\.top\/install \| bash/);
   assert.match(text, /releases\/latest\/download\/Jobadabra-mac-arm64\.zip/);
-  assert.match(text, /releases\/latest\/download\/Job-Pilotto-mac-arm64\.zip/, 'the old alias is the fallback while a stable release without the new name is latest');
   assert.match(text, /^# Jobadabra for Mac/m);
   assert.match(text, /APP="\/Applications\/Job Pilotto\.app"/);
   assert.match(text, /uname -m\)" = arm64/);

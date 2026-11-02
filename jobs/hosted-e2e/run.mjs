@@ -35,7 +35,7 @@ async function tripwire() {
 
 // Where the engine runs. Both answer like the container's POST /run: {ok}.
 function engineEnv(trip) {
-  return {JOB_PILOTTO_FIXTURE_DIR: '/fixtures/feeds', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_NOTION_BASE_URL: trip.url, JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: trip.url};
+  return {JOBADABRA_FIXTURE_DIR: '/fixtures/feeds', JOBADABRA_E2E: '1', JOBADABRA_E2E_NOTION_BASE_URL: trip.url, JOBADABRA_E2E_TELEGRAM_BASE_URL: trip.url};
 }
 async function containerRunner(trip) {
   const image = 'jp-hosted-e2e';
@@ -56,7 +56,7 @@ function pythonRunner(trip) {
     const {token, site} = await request.json();
     const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-hosted-e2e-feeds-'));
     const code = await new Promise(resolve => spawn(PYTHON, ['-m', 'src', 'hosted', '--site', site, '--token', token], {cwd: ROOT, stdio: 'inherit',
-      env: {...process.env, ...engineEnv(trip), JOB_PILOTTO_FIXTURE_DIR: FEEDS, JOB_PILOTTO_NO_DOTENV: '1', TMPDIR: folder}}).on('exit', resolve));
+      env: {...process.env, ...engineEnv(trip), JOBADABRA_FIXTURE_DIR: FEEDS, JOBADABRA_NO_DOTENV: '1', TMPDIR: folder}}).on('exit', resolve));
     fs.rmSync(folder, {recursive: true, force: true});
     return new Response('{}', {status: code === 0 ? 200 : 500});
   }, stop: () => {}};
@@ -71,13 +71,13 @@ function app(cloud, install) {
   const secrets = new Map(), settings = {};
   const storage = {secret: name => secrets.get(name) || '', setSecret: (name, value) => secrets.set(name, value), settings: () => settings, saveSettings: patch => Object.assign(settings, patch), path: name => path.join(home, name)};
   const fetcher = (url, init) => fetch(String(url).replace('https://www.jobpilotto.top', cloud.site), init);
-  const engine = args => new Promise(resolve => { let stdout = ''; const child = spawn(PYTHON, ['-m', ...args], {cwd: ROOT, env: {...process.env, JOB_PILOTTO_STORE: 'sqlite', JOB_PILOTTO_DATA_DIR: path.join(home, 'data'), JOB_PILOTTO_CONFIG_DIR: path.join(home, 'config'), JOB_PILOTTO_NO_DOTENV: '1'}});
+  const engine = args => new Promise(resolve => { let stdout = ''; const child = spawn(PYTHON, ['-m', ...args], {cwd: ROOT, env: {...process.env, JOBADABRA_STORE: 'sqlite', JOBADABRA_DATA_DIR: path.join(home, 'data'), JOBADABRA_CONFIG_DIR: path.join(home, 'config'), JOBADABRA_NO_DOTENV: '1'}});
     child.stdout.on('data', chunk => { stdout += chunk; process.stdout.write(chunk); });
     child.on('exit', code => resolve({code, stdout})); });
   const matches = () => JSON.parse(spawnSync(PYTHON, ['-c', 'import json; from src import store_access; print(json.dumps(store_access.open_run().matches.list(), default=str))'], {cwd: ROOT, encoding: 'utf8',
-    env: {...process.env, JOB_PILOTTO_STORE: 'sqlite', JOB_PILOTTO_DATA_DIR: path.join(home, 'data'), JOB_PILOTTO_CONFIG_DIR: path.join(home, 'config'), JOB_PILOTTO_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
+    env: {...process.env, JOBADABRA_STORE: 'sqlite', JOBADABRA_DATA_DIR: path.join(home, 'data'), JOBADABRA_CONFIG_DIR: path.join(home, 'config'), JOBADABRA_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
   const runs = () => JSON.parse(spawnSync(PYTHON, ['-c', 'import json; from src import store_access; print(json.dumps(store_access.open_run().cron_runs.list(), default=str))'], {cwd: ROOT, encoding: 'utf8',
-    env: {...process.env, JOB_PILOTTO_STORE: 'sqlite', JOB_PILOTTO_DATA_DIR: path.join(home, 'data'), JOB_PILOTTO_CONFIG_DIR: path.join(home, 'config'), JOB_PILOTTO_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
+    env: {...process.env, JOBADABRA_STORE: 'sqlite', JOBADABRA_DATA_DIR: path.join(home, 'data'), JOBADABRA_CONFIG_DIR: path.join(home, 'config'), JOBADABRA_NO_DOTENV: '1'}}).stdout.trim().split('\n').pop());
   return (async () => {
     secrets.set(TRIAL_KEY, `JPF1.${install}.${await tokenFor(install, {STATS_SALT: cloud.env.STATS_SALT}, 'ai')}`);
     return {storage, options: {fetcher}, engine, matches, runs, home};

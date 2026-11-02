@@ -18,7 +18,7 @@ const desktop = path.resolve(path.dirname(new URL(import.meta.url).pathname), '.
 const {_electron: electron} = createRequire(path.join(desktop, 'e2e', 'package.json'))('playwright-core');
 export const WINDOW = {width: 1440, height: 900};   // 16:10, the site's hero shape; the app's own zoom lays it out wider, Retina capture is 2x
 
-// The app on a temp copy of the persona (persona-copy.mjs); demo mode reads its data from there too (JOB_PILOTTO_DEMO_DIR, lib/demo.js).
+// The app on a temp copy of the persona (persona-copy.mjs); demo mode reads its data from there too (JOBADABRA_DEMO_DIR, lib/demo.js).
 // Apps start one at a time and a failed start is tried once more (run 22: two takes started at once, one app "failed to launch!" and Playwright
 // threw it outside any await, killing the run); the recordings themselves still overlap (media.mjs recordQueue).
 let starting = Promise.resolve();
@@ -45,10 +45,10 @@ export async function launchApp({persona = {folder: path.join(desktop, 'demo')},
     // round 9 (owner, 24 Oct 2026: "low resolution"): frames 2.5x the window (3600 px, screencast.mjs's cap) instead of the Retina 2x, so a zoomed
     // look still has a pixel for each of the 1080-wide phone copy's
     args: ['--force-device-scale-factor=2.5', desktop],
-    env: {...process.env, ...env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_CONFIG_DIR: data, JOB_PILOTTO_DATA_DIR: data, JOB_PILOTTO_DEMO_DIR: data,
-      JOB_PILOTTO_THEME: 'dark', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: '1', JOB_PILOTTO_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich',
+    env: {...process.env, ...env, JOBADABRA_DEMO: '1', JOBADABRA_USER_DATA: data, JOBADABRA_CONFIG_DIR: data, JOBADABRA_DATA_DIR: data, JOBADABRA_DEMO_DIR: data,
+      JOBADABRA_THEME: 'dark', JOBADABRA_E2E: '1', JOBADABRA_E2E_HIDDEN: '1', JOBADABRA_NO_DOTENV: '1', TZ: persona.tz || 'Europe/Zurich',
       // its own port, never 47111 (round 9): the owner's live app and its extension talk on that one, and two takes recorded at once would share it
-      JOB_PILOTTO_PORT: String(await freePort())},
+      JOBADABRA_PORT: String(await freePort())},
     timeout: 240000,   // a busy Mac (load 60+, 21 Oct 2026) took over 90 s to start the window
   });
   const page = await app.firstWindow();
