@@ -6,6 +6,5 @@ Disallow: /telemetry
 Disallow: /feedback
 Disallow: /friends
 Disallow: /install
-Disallow: /old/
 
 Sitemap: https://www.jobadabra.top/sitemap.xml

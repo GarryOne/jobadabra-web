@@ -2,4 +2,3 @@
 # Format: <path in this repo> <path in the joined tree>. A line moves a folder out of the repo's tidy top level without touching a single import or workflow step that runs in the joined tree.
 # Why (owner, 2 Nov 2026: "I should clearly see separated top level: admin, api, website, workers... but not 20 other folders"): the repo root is for people, the joined tree is for the code.
 website web
-website/next preview

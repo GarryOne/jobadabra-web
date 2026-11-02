@@ -51,7 +51,7 @@ test('the download page leads with both stores and keeps the .exe as a small lin
   assert.match(page, /href="\/download\/chrome\?from=download"[^>]*>Add to Chrome</);
 });
 
-// The class: no current page (web/public, not the archived /old/ pages) still tells Windows users to click past a warning.
+// The class: no current page (web/public) still tells Windows users to click past a warning.
 test('no page tells Windows visitors to click "More info → Run anyway" or calls Windows unsigned', () => {
   const dir = new URL('../../web/public/', import.meta.url);
   const pages = readdirSync(dir).filter(name => name.endsWith('.html'));
