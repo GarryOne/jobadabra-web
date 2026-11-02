@@ -30,4 +30,4 @@ jobs:
         with:
           node-version: '22'
       - name: Read the workflows and publish the snapshot
-        run: node jobs/schedules-snapshot.mjs
+        run: node ops/jobs/schedules-snapshot.mjs
