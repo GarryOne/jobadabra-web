@@ -82,9 +82,11 @@ export class CodexBroker extends Container {
     if (Object.hasOwn(body, 'search') && typeof body.search !== 'boolean') return json(400, {why: 'search must be a boolean'});
     if (Object.hasOwn(body, 'effort') && !validEffort(body.effort)) return json(400, {why: `effort must be ${EFFORTS.slice(0, -1).join(', ')} or ${EFFORTS.at(-1)}`});
     if (Object.hasOwn(body, 'engine') && !CHOICES.includes(body.engine)) return json(400, {why: `engine must be ${CHOICES.slice(0, -1).join(', ')} or ${CHOICES.at(-1)}`});
+    if (Object.hasOwn(body, 'only') && typeof body.only !== 'boolean') return json(400, {why: 'only must be a boolean'});
+    if (body.only && !Object.hasOwn(body, 'engine')) return json(400, {why: 'only needs an engine: only this engine answers, or the call is refused'});
     const model = modelOf(body.tier);
     if (!model) return json(400, {why: `unknown tier "${String(body.tier).slice(0, 20)}" (small, mid or large)`});
-    const env = this.brokerEnv, {chain} = chainOf(env, body.engine, body.engine === undefined ? await demotedNow(this.ctx.storage, env) : []);   // an engine doing worse is moved back (lib/adapt.mjs) unless this call names its own   // body.engine = this one call's own first choice (e.g. one workflow trying claude); admission and caps stay the same
+    const env = this.brokerEnv, {chain} = chainOf(env, body.engine, body.engine === undefined ? await demotedNow(this.ctx.storage, env) : [], body.only === true);   // an engine doing worse is moved back (lib/adapt.mjs) unless this call names its own   // body.engine = this one call's own first choice (e.g. one workflow trying claude); admission and caps stay the same
     // Why (1 Nov 2026): with Codex first a refused login never counts toward the daily cap (as before the chain); with another engine first Codex's step checks it when reached.
     if (chain[0] === 'codex') { const refusal = await this.loginRefusal(); if (refusal) return refusal; }
     this.limits ||= (await this.ctx.storage.get('limits')) || null;   // kept in storage: an eviction must not switch the whole-week brake off (Gitar #221)
@@ -127,6 +129,10 @@ export class CodexBroker extends Container {
       if (reply.ok && skipped.length) return json(200, {...(await reply.json()), fellBack: skipped});
       return reply;
     }
+    if (body.only === true) {
+      if (chain[0] === 'free-ai' || chain[0] === 'claude-api') return apiFinish(env, note);   // Why (Gitar on #296): their own reasons stay: fallback:search-unsupported, fallback:unavailable, the 429 day cap
+      return json(503, {why: `only-${chain[0]}: ${body.search ? 'search-unsupported' : (skipped.find(entry => entry.engine === chain[0])?.why ?? (configured(chain[0], env) ? 'unavailable' : 'not-configured'))}`, engine: chain[0], tried: skipped});   // strict call: nobody else answers, and the reason is named
+    }
     return apiFinish(env, note);
   }
 
@@ -136,7 +142,7 @@ export class CodexBroker extends Container {
     if (verdict.ranOut) return hasLater ? null : json(429, {why: verdict.why});
     const release = await this.gate.acquire(lane === 'drift' ? 'scheduled' : lane);   // nightly drift shares scheduled queue priority
     try {
-      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, engine: undefined, model})});
+      const reply = await this.containerFetch('http://c/call', {method: 'POST', body: JSON.stringify({...body, engine: undefined, only: undefined, model})});
       const text = await reply.text();
       let answer;
       try { answer = JSON.parse(text); } catch { return json(502, {why: `container: ${text.slice(0, 300)}`}); }   // the platform's own error text (not our server's JSON): say it, never crash (a 1101 hid it, 28 Oct 2026)
