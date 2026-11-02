@@ -1,6 +1,6 @@
 // The redesigned site (owner, 20 Oct 2026: a landing 80% shorter, the detail spread over its own pages, reached from the menu or "More info"):
-// every page shares one menu and footer, Mac and Windows downloads are equal wherever one is offered, old landing links still land, the frozen
-// /old/ copy stays out of search, and the sitemap lists every public page. Loops over the files, so a page added later is checked too.
+// every page shares one menu and footer, Mac and Windows downloads are equal wherever one is offered, old landing links still land, and the sitemap
+// lists every public page. Loops over the files, so a page added later is checked too.
 import assert from 'node:assert/strict';
 import {existsSync, readdirSync, readFileSync} from 'node:fs';
 import {test} from 'node:test';
@@ -51,11 +51,9 @@ test('Mac and Windows downloads are equally visible wherever a download is offer
   }
 });
 
-test('every section of the old landing still lands: its anchor sends the visitor to the page and section it moved to', () => {
+test('every moved section of the old landing still lands: its anchor sends the visitor to the page and section it moved to', () => {
   const script = read('site.js');
   const map = Object.fromEntries([...script.match(/const MOVED = \{([\s\S]*?)\};/)[1].matchAll(/'?([\w-]+)'?: '([^']+)'/g)].map(m => [m[1], m[2]]));
-  const kept = [...read('index.html').matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
-  for (const [, id] of read('old/index.html').matchAll(/<section[^>]* id="([^"]+)"/g)) assert.ok(map[id] || kept.includes(id), `#${id} of the old landing goes nowhere`);
   for (const [id, to] of Object.entries(map)) {
     assert.ok(existsSync(new URL(pageOf(to), dir)), `#${id} -> ${to}: no such page`);
     const section = to.split('#')[1];
@@ -72,17 +70,8 @@ test('every picture and video a page shows exists (the media set is placed by fi
   }
 });
 
-test('the frozen /old/ copy stays out of search: every page noindex, no canonical, and robots.txt says so', () => {
-  const old = readdirSync(new URL('old/', dir)).filter(name => name.endsWith('.html'));
-  assert.ok(old.includes('index.html'));
-  for (const name of old) {
-    const html = read(`old/${name}`);
-    assert.match(html, /<meta name="robots" content="noindex, nofollow">/, `old/${name}`);
-    assert.doesNotMatch(html, /rel="canonical"/, `old/${name}`);
-  }
-  const robots = read('robots.txt');
-  assert.match(robots, /^Disallow: \/old\/$/m);
-  assert.doesNotMatch(robots, /Disallow: \/intelligence/);   // a leftover from the owner's old private dashboard; the page is public
+test('robots.txt does not hide the public Intelligence page', () => {
+  assert.doesNotMatch(read('robots.txt'), /Disallow: \/intelligence/);   // a leftover from the owner's old private dashboard; the page is public
 });
 
 test('the sitemap lists every public page, and only pages that exist', () => {

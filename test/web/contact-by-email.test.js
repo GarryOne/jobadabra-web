@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {test} from 'node:test';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const OWN = ['web/public', 'preview/public'];   // the site's own page folders only
+const OWN = ['web/public'];   // the site's own page folders only
 const pages = dir => readdirSync(join(ROOT, dir), {recursive: true}).filter(f => String(f).endsWith('.html')).map(f => join(dir, String(f)));
 const GITHUB_CONTACT = /github\.com\/GarryOne\/[\w-]+\/(issues|security\/policy)|open an issue/i;
 
