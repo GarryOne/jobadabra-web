@@ -12,3 +12,5 @@ Owner: "I should clearly see separated top level: admin, api, website, workers..
 
 ## Before each PR (lesson from #314, 2 Nov 2026: `test/web/hero-redo.test.js` reads the raw skill doc and the joined-tree file)
 Tests that read a RAW file (skill, README, workflow, tools) see the new name; tests that read a joined-tree path see the old one. Before pushing, `git grep -l` each moved folder's name in `test/` and `tests/`, and run every file it finds by name in the joined tree (`SITE_OVERLAY_FRESH=1 tools/site-run.sh node --test <files>`).
+
+**Raw mode (lesson from #318, 2 Nov 2026: `tests/test_site_no_anthropic.py` read `ROOT / 'jobs'` on CI's raw checkout, green in the joined tree).** A test that reads this repo's own files (`.private`, `SITE_REPO_DIR`, `ls-files`) sees the NEW names in CI. Find them by the folder NAME, not `name/` (`git grep -lE "\.private|SITE_REPO_DIR|ls-files" -- tests test desktop/test`, then each file's `'jobs'`, `/ 'media'`, `path.join(..., 'db')`), and run each Python one twice: from the worktree (`python3 -m unittest tests.<name>`, raw, as CI) and through `tools/site-run.sh` (joined tree).

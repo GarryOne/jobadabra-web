@@ -42,8 +42,10 @@ def uses(paths):
     return found
 
 
+# Why (layout 2/3, #318, 2 Nov 2026): in this repo's own files the jobs sit at ops/jobs (CI reads .private); in the joined tree (tools/site-run.sh) tools/layout-map.txt puts them at jobs/.
+JOBS_DIR = ROOT / 'ops' / 'jobs' if (ROOT / 'ops' / 'jobs').is_dir() else ROOT / 'jobs'
 WORKFLOWS = sorted((ROOT / '.github' / 'workflows').glob('*.y*ml'))
-JOBS = sorted((ROOT / 'jobs').glob('*.mjs'))
+JOBS = sorted(JOBS_DIR.glob('*.mjs'))
 
 
 class NoAnthropic(unittest.TestCase):
@@ -69,7 +71,7 @@ class NoAnthropic(unittest.TestCase):
             self.assertRegex(text, r'(?m)^  id-token: write\b', f'{name}: the broker takes the run\'s OIDC token')
             self.assertNotRegex(text, r'ai-cost-report\.mjs --job (changelog-publish|daily-digest) --file', f'{name}: its cost row is tagged --provider openai (the Codex plan), never counted as Anthropic on /ai-cost')
         for name in ('changelog-publish.mjs', 'daily-digest.mjs'):
-            self.assertIn('askBroker', (ROOT / 'jobs' / name).read_text(encoding='utf-8'), name)
+            self.assertIn('askBroker', (JOBS_DIR / name).read_text(encoding='utf-8'), name)
 
 
 if __name__ == '__main__':
