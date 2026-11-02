@@ -57,7 +57,7 @@ function scatter(checks, numbers, {small = false, href = c => `#${checkId(c)}`} 
   const top = Math.max(5, ...checks.filter(c => c.runs >= MIN_RUNS).map(c => c.real / c.runs * 100)), y = per100 => T + (1 - Math.sqrt(Math.min(per100, top) / top)) * (H - T - B);   // square-root: most checks sit near zero
   const ticks = [[0.1, '0.1 s'], [1, '1 s'], [10, '10 s'], [60, '1 min'], [600, '10 min']], yTicks = [0, 1, 5, 20, 50].filter(v => v <= top);
   const dots = checks.filter(c => c.runs >= MIN_RUNS).map(c => ({c, cx: x(c.perRun), cy: y(c.real / c.runs * 100)})).sort((a, b) => b.c.secs - a.c.secs);
-  return `<svg class="ac-scatter${small ? ' small' : ''}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Every check by seconds per run (left to right, log scale) and real catches per 100 runs (bottom to top, square-root scale); the ten that spent the most time are numbered like the table">
+  return `<svg class="ac-scatter${small ? ' ac-small' : ''}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Every check by seconds per run (left to right, log scale) and real catches per 100 runs (bottom to top, square-root scale); the ten that spent the most time are numbered like the table">
 <rect x="${x(SLOW_SECS)}" y="${T}" width="${W - R - x(SLOW_SECS)}" height="${y(VALUE_PER_100) - T}" fill="#f2c14e" opacity=".06"/><rect x="${x(SLOW_SECS)}" y="${y(VALUE_PER_100)}" width="${W - R - x(SLOW_SECS)}" height="${H - B - y(VALUE_PER_100)}" fill="#e5484d" opacity=".08"/>
 <line x1="${x(SLOW_SECS)}" x2="${x(SLOW_SECS)}" y1="${T}" y2="${H - B}" stroke="#3a424b" stroke-dasharray="4 4"/><line x1="${L}" x2="${W - R}" y1="${y(VALUE_PER_100)}" y2="${y(VALUE_PER_100)}" stroke="#3a424b" stroke-dasharray="4 4"/>
 ${ticks.map(([v, t]) => `<text x="${x(v)}" y="${H - 16}" fill="#8d949c" font-size="11" text-anchor="middle">${t}</text>`).join('')}${yTicks.map(v => `<text x="${L - 6}" y="${y(v) + 4}" fill="#8d949c" font-size="10" text-anchor="end">${v}</text>`).join('')}
@@ -127,7 +127,7 @@ function verdict(weeks) {
 }
 
 export const STYLE2 = `.ac-scatter{width:100%;height:auto;display:block}.ac-wide{overflow-x:auto}.ac-cell{min-width:140px}.ac-corners{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.ac-chip{white-space:normal}.ac-up{color:#ff8f84}.ac-down{color:#5ec47a}td.num,th.num{text-align:right}
-.ac-dot{cursor:pointer;outline:none}.ac-dot:hover circle,.ac-dot:focus circle{stroke:#fff;stroke-width:2}.ac-wide tr:target td{background:#1d2a3a}.ac-scatter.small{max-width:480px}.ac-mini{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}.ac-mini>div{flex:1 1 260px;min-width:0}
+.ac-dot{cursor:pointer;outline:none}.ac-dot:hover circle,.ac-dot:focus circle{stroke:#fff;stroke-width:2}.ac-wide tr:target td{background:#1d2a3a}.ac-scatter.ac-small{max-width:480px}.ac-mini{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}.ac-mini>div{flex:1 1 260px;min-width:0}
 .ac-wide table{width:100%;border-collapse:collapse}.ac-wide td,.ac-wide th{padding:5px 8px;border-bottom:1px solid #1d232a;font-size:13px;text-align:left;vertical-align:top}.ac-wide td.num,.ac-wide th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}`;
 
 /** The SDLC tab: rows [{kind, day, card: JSON string, updated_at}] + a clock in, HTML out. */

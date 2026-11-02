@@ -111,7 +111,8 @@ test('every circle is a link to its row in the table with the shared tooltip: na
 
 test('the Overview card is the same chart, smaller, each circle going to its row on the SDLC tab, and the card links to the full chart; nothing to show means no card', () => {
   const html = checksCard(chartRows, now), full = sdlcPage(chartRows, now);
-  assert.match(html, /<svg class="ac-scatter small"/);
+  assert.match(html, /<svg class="ac-scatter ac-small"/);   // Why (Gitar on #299): not `small`: the Overview's own `.small{margin-left:18px}` rule would shift the chart
+  assert.ok(!/class="([^"]* )?small[ "]/.test(html.slice(html.indexOf('<svg'), html.indexOf('</svg>'))), 'no generic small class on the chart');
   const links = [...html.matchAll(/<a class="ac-dot" href="([^"]+)"/g)].map(m => m[1]), fullLinks = [...full.matchAll(/<a class="ac-dot" href="#([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(links, fullLinks.map(id => `/admin/agents/agent-coding?tab=sdlc#${id}`));
   assert.ok(html.includes('href="/admin/agents/agent-coding?tab=sdlc">Open the full chart and table'));
