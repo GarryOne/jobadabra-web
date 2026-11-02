@@ -33,7 +33,7 @@ function ring({share, big, small, shade, label}) {
   const circ = 2 * Math.PI * 52;
   return `<svg class="gauge" viewBox="0 0 130 130" role="img" aria-label="${esc(label)}"><circle cx="65" cy="65" r="52" fill="none" stroke="var(--line,#262c33)" stroke-width="14"/>
 <circle cx="65" cy="65" r="52" fill="none" stroke="${shade}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(circ * share).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 65 65)"/>
-<text x="65" y="64" text-anchor="middle" font-size="${big.length > 5 ? 24 : 30}" font-weight="700" fill="currentColor">${esc(big)}</text><text x="65" y="84" text-anchor="middle" font-size="12" fill="currentColor" opacity=".7">${esc(small)}</text></svg>`;
+<text x="65" y="64" text-anchor="middle" font-size="${big.length > 5 ? 20 : 25}" font-weight="700" fill="currentColor">${esc(big)}</text><text x="65" y="84" text-anchor="middle" font-size="11" fill="currentColor" opacity=".7">${esc(small)}</text></svg>`;
 }
 function gauge(done, total) {
   const share = total ? done / total : 0;
