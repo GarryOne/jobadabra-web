@@ -43,6 +43,12 @@ export function trendHtml(job, {compact = false} = {}) {
   return `<div class="nt"><div class="nhead"><span class="ntitle">${esc(job.title)}</span> <b>${esc(job.value)}</b> ${badge}</div>${bars}<div class="muted small">${esc(job.sub)}${bar ? ` · ${bar}` : ''}</div></div>`;
 }
 
+/** The jobs with a number as one short text ("Beta wall clock 29.9 min · Real Notion green"); a job with no data is left out. */
+export const reportWords = jobs => (jobs || []).filter(job => job.value !== '–').map(job => `${job.title} ${job.value}`).join(' · ');
+
+/** The one line a proof card keeps for its report-only numbers (owner, 2 Nov 2026): the numbers in words, linking to the Report only page at `href` ('' = that page is not in the menu: no line). */
+export const reportLine = (jobs, href) => (jobs && jobs.length && href ? `<div class="rline"><a href="${esc(href)}">📊 Report only</a><span class="muted small">${esc(reportWords(jobs) || 'no night stored yet')}</span></div>` : '');
+
 /** A card's or a row's jobs (an empty list draws nothing). */
 export const trendsHtml = (jobs, options) => (jobs && jobs.length ? `<div class="nts">${jobs.map(job => trendHtml(job, options)).join('')}</div>` : '');
 
@@ -52,4 +58,5 @@ export const NIGHTLY_STYLE = `.nchip{display:inline-block;border:1px solid #2a2f
 .nt .ntitle{color:#8d949c;white-space:nowrap}.nt.compact{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;min-width:230px}.nt.compact .nbars{flex:0 0 100%}
 .nbars{position:relative;display:flex;align-items:flex-end;gap:3px;height:28px;min-width:120px;max-width:260px}.nbars i{flex:1 1 0;min-width:5px;border-radius:2px;background:#3a424c}
 .nbars i.ok{background:#3fb68b}.nbars i.no{background:#e5484d}.nbars i.num{background:#6f8fb3}.nbars i.gap{background:transparent;border:1px solid #3a424c}.nbars.dots{height:12px;align-items:center}.nbars.dots i{height:100%;border-radius:50%;flex:0 0 9px}
-.nbars.none{border-bottom:1px dashed #3a424c;height:12px}.nbars s{position:absolute;left:0;right:0;border-top:1px dashed #f5b54a;pointer-events:none}`;
+.nbars.none{border-bottom:1px dashed #3a424c;height:12px}.rline{display:flex;gap:4px 10px;flex-wrap:wrap;align-items:baseline;font-size:13px}.rline a{text-decoration:none}
+.nbars s{position:absolute;left:0;right:0;border-top:1px dashed #f5b54a;pointer-events:none}`;
