@@ -2,7 +2,7 @@
 // that has no entry here fails test/admin/section-overview.test.js. Loaders live in headlines-<section>.js (one concern each).
 import {OPERATIONS} from './headlines-ops.js';
 import {FORM_FILLING} from './headlines-form.js';
-import {GROWTH, INTELLIGENCE} from './headlines-growth.js';
+import {GROWTH} from './headlines-growth.js';
 import {JOB_SEARCH} from './headlines-search.js';
 
-export const HEADLINES = {...OPERATIONS, ...FORM_FILLING, ...GROWTH, ...JOB_SEARCH, ...INTELLIGENCE};
+export const HEADLINES = {...OPERATIONS, ...FORM_FILLING, ...GROWTH, ...JOB_SEARCH};

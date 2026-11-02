@@ -3,7 +3,7 @@
 // here starts the next step of that workflow on GITHUB_REPO. Product infrastructure, separate from users' job bots.
 // Secrets: BRAIN_BOT_TOKEN, BRAIN_WEBHOOK_SECRET (Telegram's secret_token header), BRAIN_CHAT_ID (the owner only),
 // BRAIN_GITHUB_TOKEN + var BRAIN_REPO: the private repo the brain's workflow lives in (else GITHUB_TOKEN/GITHUB_REPO).
-// Each tap is logged in D1 brain_messages (shared/brainlog.js) for /admin/intelligence/brain.
+// Each tap is logged in D1 brain_messages (shared/brainlog.js) for /admin/growth/brain.
 import {record} from '../shared/brainlog.js';
 
 // code -> [workflow step, the button's label after the tap, the answer, the decision's status it leads to]

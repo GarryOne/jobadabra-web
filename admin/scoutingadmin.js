@@ -70,7 +70,7 @@ export function page(data, url = new URL('https://www.jobadabra.top/admin/job-se
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start}.grid2>.card{margin-bottom:0}.grid2{margin-bottom:12px}
 h2.more{margin:22px 0 8px;color:#8d949c;font-weight:600}${CHART_STYLE}
 </style></head><body><main>
-<header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/intelligence/insights">Insights →</a>${data.family ? ` · what ${esc(FAMILIES[data.family])} installs shared` : ''}</small></div></header>
+<header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/growth/insights">Insights →</a>${data.family ? ` · what ${esc(FAMILIES[data.family])} installs shared` : ''}</small></div></header>
 ${familyLinks(url, data.family || '')}
 <div class="verdict">${esc(verdict)}</div>
 ${tiles(data, cells, past)}

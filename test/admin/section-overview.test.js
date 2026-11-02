@@ -52,7 +52,7 @@ test('Agents and Testing loaders read the rows their pages keep', async () => {
   const [heal, fixer] = await HEADLINES['/admin/testing/self-healing'](e, now);
   assert.deepEqual([heal.value, heal.status, heal.sub.includes('dead-button'), fixer.value], ['40%', 'warn', true, '21']);
   assert.deepEqual((await HEADLINES['/admin/agents/build-log'](e, now))[0].sub, '2 goals');
-  assert.equal((await HEADLINES['/admin/intelligence/ai-cost'](e, now))[0].value, '$8.15');
+  assert.equal((await HEADLINES['/admin/growth/ai-cost'](e, now))[0].value, '$8.15');
 });
 
 test('the E2E tile counts reds and runs of the last 7 days and names the top cause', async () => {
@@ -101,8 +101,8 @@ test('the Form filling Overview is the first tab, draws a tile per page, and is 
   for (const page of headlinePages('Form filling')) assert.ok(html.includes(`href="${page.path}"`), `${page.path} has a tile`);
 });
 
-test('Growth and Intelligence: each Overview is the first tab, owner-only, with a tile per page; the series come from the /admin Overview gatherer', async () => {
-  for (const group of ['Growth', 'Intelligence']) {
+test('Growth: the Overview is the first tab, owner-only, with a tile per page; the series come from the /admin Overview gatherer', async () => {
+  for (const group of ['Growth']) {
     const first = PAGES.find(page => page.group === group);
     assert.equal(first.overview, true, `${group}: the Overview is the first page`);
     assert.equal((await call(env(), first.path)).status, 404);
