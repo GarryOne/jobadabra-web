@@ -21,7 +21,7 @@ export const OWN_WHAT = {
   license: 'The licence check answers',
   'free-ai': 'Free AI models and caps are readable',
   updates: 'The update feed offers both installers',
-  broker: 'The Free AI broker answers',
+  broker: 'The AI broker answers',
 };
 export const OWN_DETAIL = {
   site: 'The public website answers with the Jobadabra page',
@@ -29,7 +29,7 @@ export const OWN_DETAIL = {
   license: 'A fixed test install gets a plan answer back (the licence check)',
   'free-ai': 'The same test install can list Free AI models and read its caps',
   updates: 'The update feed offers the newest release with the Mac and Windows installers',
-  broker: 'The Free AI broker answers and has its day meters',
+  broker: 'The AI broker answers, has its day meters, and an engine to run on',
 };
 /** The scheduled workflows that look at something live (not fixed or recorded inputs); each row reads the Scheduled tab's snapshot. */
 export const WORKFLOWS = [

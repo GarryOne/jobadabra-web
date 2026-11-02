@@ -139,3 +139,11 @@ test('ask sends the Messages request the broker client turns into a Haiku-tier c
   assert.deepEqual(await ask({system: 'sys', user: 'usr'}, {broker: fake.broker}), {text: 'hello', usage: {input_tokens: 9000, output_tokens: 1200}, stopReason: 'end_turn'});
   assert.deepEqual([fake.calls[0].model, fake.calls[0].system, fake.calls[0].messages], ['claude-haiku-5-5', 'sys', [{role: 'user', content: 'usr'}]]);
 });
+
+test('makeDigest reports which engine wrote the digest (the last call\'s), so the job can print it', async () => {
+  const good = fakeFetch([fakeAnswer(prs.map(pr => pr.number))]);
+  const reporting = async body => ({...(await good.broker(body)), engine: 'claude', model: 'claude-haiku-5-5', fellBack: [{engine: 'codex', why: 'ran-out'}]});
+  const done = await makeDigest({day: '2026-10-16', prs, open: [], broker: reporting});
+  assert.deepEqual(done.answered, {engine: 'claude', model: 'claude-haiku-5-5', fellBack: [{engine: 'codex', why: 'ran-out'}]});
+  assert.deepEqual((await makeDigest({day: '2026-10-16', prs, open: [], broker: good.broker})).answered, {}, 'a client that reports nothing gives an empty record, never undefined');
+});

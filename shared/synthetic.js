@@ -3,6 +3,7 @@
 // first green tells "back". REPORT ONLY: nothing here blocks a merge, a beta or a request. Guard: test/shared/synthetic.test.js.
 // No secret beyond what the Worker holds, no user data: the probe is one fixed install whose tokens are computed here (tokenFor), so nothing is minted and no counter moves.
 import {tokenFor} from './guard.js';
+import {chainOf, fetchHealth, problem} from './ai-broker.js';
 
 export const ROUND_MINUTES = [5, 20, 35, 50];   // UTC minutes of the Worker's every-5-minutes tick; not :15 / :40, where the CI collectors start (shared/intel-start.js)
 export const REDS_TO_TELL = 2, STALE_MIN = 45, TIMEOUT_MS = 10000, KEEP_DAYS = 30;
@@ -51,12 +52,14 @@ export const PROBES = [
     if (!/^(desktop-)?v?\d+\.\d+\.\d+/.test(String(release.tag_name))) red('no version tag');
     if (!names.some(name => /\.dmg$/.test(name)) || !names.some(name => /\.exe$/.test(name))) red('Mac or Windows installer missing');
   }},
-  {id: 'broker', label: 'Free AI broker', run: async ({env}) => {
-    if (!env.CODEX_BROKER) return 'skip';
-    const response = await env.CODEX_BROKER.fetch(new Request('https://broker/health', {signal: AbortSignal.timeout(TIMEOUT_MS)})).catch(() => red('unreachable'));
+  {id: 'broker', label: 'AI broker', run: async ({env}) => {
+    if (!env.AI_BROKER) return 'skip';
+    const response = await fetchHealth(env, TIMEOUT_MS).catch(() => red('unreachable'));
     if (!response.ok) red(`HTTP ${response.status}`);
-    const fallback = (await jsonOf(response, 'broker health')).fallback;
+    const health = await jsonOf(response, 'broker health'), fallback = health.fallback;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fallback?.day)) || !Number.isFinite(fallback.claudeCap)) red('no day meters');
+    const wrong = problem(chainOf(health));
+    if (wrong) red(wrong);
   }},
 ];
 

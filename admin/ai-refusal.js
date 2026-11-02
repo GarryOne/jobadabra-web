@@ -1,5 +1,5 @@
 // What a job does when the AI refuses (owner, 24 Oct 2026: the Anthropic workspace hit its monthly limit; the changelog job stayed green and "retried at the next run" for a day, the daily digest failed 7 of 8 runs unseen).
-// One place for every job that asks the Codex broker from here (since 31 Oct 2026 no scheduled job calls the Anthropic API: owner, "We should use fully the Codex"): name the refusal (limit / auth / rate / overloaded),
+// One place for every job that asks the AI broker from here (since 31 Oct 2026 no scheduled job calls the Anthropic API: owner, "We should use fully the Codex"): name the refusal (limit / auth / rate / overloaded),
 // say "AI skipped", tell the owner on Telegram (once per outage, not every hour), never print a token.
 // Guard: test/admin/ai-refusal.test.js. The Telegram bot is the CI alerts one when this repo has it, else the Build Log bot (the secrets this repo holds).
 export class AiRefused extends Error {
@@ -17,7 +17,17 @@ export function kindOf(status, reason = '') {
   if (/usage limit|spend(ing)? limit|credit balance|billing|quota|budget/i.test(reason)) return 'limit';
   return 'other';
 }
-const WORDS = {limit: "the Codex plan's allowance or login is not available", auth: 'the Codex broker did not accept this run (no run token, or a repository it does not know)', rate: 'the Codex broker is rate-limiting', overloaded: 'the Codex broker is unreachable or its Codex call failed', other: 'the Codex broker refused the request'};
+// Why (2 Nov 2026): the broker runs Codex, Claude or Free AI, so a refusal never names one of them; the broker's own words follow in `reason`.
+const WORDS = {limit: 'no AI engine has an allowance left, or its login is not available', auth: 'the AI broker did not accept this run (no run token, or a repository it does not know)', rate: 'the AI broker is rate-limiting', overloaded: 'the AI broker is unreachable or its call failed', other: 'the AI broker refused the request'};
+
+/** One log line for the engine that answered, e.g. "AI: claude / claude-haiku-5-5 (codex ran-out)"; '' when the answer says nothing. A client that sends no engine yet shows the model alone. */
+export function aiLine(answer) {
+  const {engine, model, fellBack = []} = answer || {};
+  const who = [engine, model].filter(Boolean).join(' / ');
+  if (!who) return '';
+  const fell = fellBack.map(item => `${item.engine} ${item.why}`).join(', ');
+  return `AI: ${who}${fell ? ` (${fell})` : ''}`;
+}
 
 export const isRefusal = error => error instanceof AiRefused;
 // "AI skipped (limit): <the broker's own words>": for the log line, the red run and the Telegram message.

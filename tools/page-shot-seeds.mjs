@@ -256,8 +256,10 @@ export const seeds = {
   },
   'ai-cost-fallback': async ({env}) => {   // fictional CI spend; no broker, Telegram or AI is contacted
     await seeds['ai-cost-pro']({env});
-    env.CODEX_BROKER = {fetch: async () => Response.json({fallback: {day: new Date().toISOString().slice(0, 10),
-      claude: 4.25, freeAi: 0.12, claudeCap: 5, freeAiCap: 2, held: {claude: 0, freeAi: 0}}})};
+    env.AI_BROKER = {fetch: async () => Response.json({fallback: {day: new Date().toISOString().slice(0, 10),
+      claude: 4.25, freeAi: 0.12, claudeCap: 5, freeAiCap: 2, held: {claude: 0, freeAi: 0}},
+      chain: [{name: 'codex', configured: true, answeredToday: 0, ranOutToday: 436, failedToday: 0, avgMs: null}, {name: 'claude', configured: true, state: 'ready', answeredToday: 350, ranOutToday: 0, failedToday: 3, avgMs: 18394},
+        {name: 'claude-api', configured: false, answeredToday: 0, ranOutToday: 0, failedToday: 0, avgMs: null}, {name: 'free-ai', configured: true, answeredToday: 3, ranOutToday: 0, failedToday: 0, avgMs: 4951}]})};
   },
   'ai-cost-pro': async ({env}) => {   // fictional charged calls only; no provider request or real account
     const at = new Date().toISOString();
